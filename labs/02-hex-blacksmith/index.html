@@ -5,12 +5,14 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>Hexdelve — Lab 02: Blacksmith Rig &amp; Walk Cycle</title>
 	<link rel="stylesheet" href="style.css" />
+	<link rel="stylesheet" href="../shared/ui.css" />
 </head>
 <body>
 	<canvas id="scene"></canvas>
 
-	<div id="panel">
-		<h1>Lab 02 — Blacksmith rig</h1>
+	<div id="panel" class="collapsed">
+		<h1><button id="panelToggle" type="button" aria-expanded="false" aria-controls="panelBody">Lab 02 — Blacksmith rig</button></h1>
+		<div id="panelBody">
 		<p class="sub">A humanoid skeleton (<span id="boneCount">…</span> bones) drives a character
 			built from <span id="hexCount">…</span> hexagonal prisms.<br />
 			With both views on, the character turns to glass so the rig shows through.</p>
@@ -26,10 +28,13 @@
 			<label><input id="roam" type="checkbox" checked /> Roam</label>
 			<label><input id="spin" type="checkbox" /> Spin</label>
 		</div>
-		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel — zoom &nbsp;·&nbsp; right-drag — pan</p>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel or pinch — zoom &nbsp;·&nbsp;
+			right-drag or two-finger drag — pan</p>
+		</div>
 	</div>
 
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="../shared/ui.js"></script>
 	<script src="../shared/hex.js"></script>
 	<script src="../shared/anim.js"></script>
 	<script src="../shared/skeleton.js"></script>

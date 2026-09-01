@@ -1,0 +1,116 @@
+/*
+ * labs/shared/ui.css — the chrome every lab shares.
+ *
+ * Loaded after the lab's own style.css, so it can turn the notes panel into a
+ * disclosure and reflow it for a phone without each lab restating any of it.
+ * Everything here is either the disclosure or a touch-screen fix; the look of
+ * the panel itself still belongs to the lab.
+ */
+
+/* Dragging to orbit must never start a text selection, and a tap must not
+   flash a highlight box over half the page. */
+body {
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-tap-highlight-color: transparent;
+}
+
+/* The canvas handles its own gestures, so the browser must not claim them for
+   scrolling, pinch-zooming or double-tap-to-zoom. The same goes for anything
+   else dragged with a finger — lab 03's timeline is scrubbed, not scrolled. */
+#scene,
+.tl-scroll {
+	touch-action: none;
+}
+
+/* The panel is a disclosure: its title bar is the button that opens it. */
+#panel h1 {
+	margin-bottom: 0;
+}
+
+#panel h1 button {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 0;
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	background: none;
+	border: 0;
+	cursor: pointer;
+}
+
+#panel h1 button::after {
+	content: "";
+	margin-left: auto;
+	width: 7px;
+	height: 7px;
+	border-right: 2px solid #6b7a70;
+	border-bottom: 2px solid #6b7a70;
+	transform: translateY(-2px) rotate(45deg);
+	transition: transform 0.15s ease;
+}
+
+#panel.collapsed h1 button::after {
+	transform: translateY(1px) rotate(-135deg);
+}
+
+#panel.collapsed #panelBody {
+	display: none;
+}
+
+#panelBody {
+	margin-top: 4px;
+}
+
+/*
+ * Phones. The panel spans the width rather than floating in a corner, and the
+ * targets grow to something a thumb can hit.
+ */
+@media (max-width: 560px), (max-height: 460px) {
+	#panel {
+		top: 8px;
+		left: 8px;
+		right: 8px;
+		width: auto;
+		max-width: none;
+		max-height: calc(100% - 16px);
+		padding: 11px 13px;
+	}
+
+	#panel h1 {
+		font-size: 14px;
+	}
+
+	#panel h1 button::after {
+		width: 9px;
+		height: 9px;
+	}
+
+	.row {
+		gap: 8px 12px;
+	}
+
+	.row.checks {
+		gap: 10px 16px;
+	}
+
+	.row.checks label {
+		padding: 4px 0;
+	}
+
+	#panel input[type="checkbox"] {
+		width: 17px;
+		height: 17px;
+	}
+
+	#panel input[type="range"] {
+		height: 22px;
+	}
+
+	#panel button:not(#panelToggle) {
+		min-height: 32px;
+	}
+}

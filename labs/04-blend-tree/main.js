@@ -26,6 +26,7 @@
 
 'use strict';
 
+const { attachPanel, attachView, startZoom } = Hexdelve.ui;
 const { HexField, groundMaterial, makeRandom, tintColor, SQRT3 } = Hexdelve.hex;
 const { SKELETON, BONES, TIPS, HIPS_Y } = Hexdelve.skeleton;
 const { buildRig, buildSkeletonView, applyPose } = Hexdelve.rigview;
@@ -350,49 +351,19 @@ applyVisibility();
 
 /* -------------------------------------------------------------- controls -- */
 
-const drag = { active: false, pan: false, x: 0, y: 0 };
+// Orbit, pan and zoom, from a mouse or from fingers — see ../shared/ui.js.
+// The panel opens and closes from ../shared/ui.js, which also reads ?panel=.
+attachPanel();
 
-canvas.addEventListener('pointerdown', (e) => {
-	drag.active = true;
-	drag.pan = e.button === 2 || e.shiftKey;
-	drag.x = e.clientX;
-	drag.y = e.clientY;
-	canvas.classList.add('dragging');
-	canvas.setPointerCapture(e.pointerId);
-});
-
-canvas.addEventListener('pointermove', (e) => {
-	if (!drag.active) return;
-	const dx = e.clientX - drag.x;
-	const dy = e.clientY - drag.y;
-	drag.x = e.clientX;
-	drag.y = e.clientY;
-	if (drag.pan) {
+attachView(canvas, view, {
+	applyCamera: applyCamera,
+	viewHeight: VIEW,
+	pitch: ISO_PITCH,
+	zoom: [0.6, 4],
+	onPan: function () {
 		ui.follow.checked = false;
-		const scale = (2 * VIEW) / (window.innerHeight * view.zoom);
-		const fwd = new THREE.Vector3(-Math.cos(view.azimuth), 0, -Math.sin(view.azimuth));
-		const right = new THREE.Vector3(-Math.sin(view.azimuth), 0, Math.cos(view.azimuth));
-		view.target.addScaledVector(right, -dx * scale);
-		view.target.addScaledVector(fwd, (dy * scale) / Math.sin(ISO_PITCH));
-	} else {
-		view.azimuth += dx * 0.007;
-	}
-	applyCamera();
-});
-
-canvas.addEventListener('pointerup', () => {
-	drag.active = false;
-	canvas.classList.remove('dragging');
-});
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-canvas.addEventListener(
-	'wheel',
-	(e) => {
-		e.preventDefault();
-		view.zoomGoal = Math.max(0.6, Math.min(4, view.zoomGoal * Math.exp(-e.deltaY * 0.0012)));
 	},
-	{ passive: false },
-);
+});
 
 /* ------------------------------------------------------------------ actor -- */
 
@@ -546,6 +517,10 @@ function frame(now) {
 /* ----------------------------------------------------------------- start -- */
 
 {
+	// A portrait phone sees a much narrower slice of the world than a desktop
+	// window does; open zoomed out to match.
+	view.zoom = view.zoomGoal = startZoom(view.zoom);
+
 	const qs = new URLSearchParams(location.search);
 	if (qs.has('speed')) {
 		ui.speed.value = qs.get('speed');

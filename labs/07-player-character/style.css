@@ -13,11 +13,6 @@ body {
 
 body {
 	background: radial-gradient(ellipse 120% 90% at 50% 20%, #dfeae0 0%, #c4d6c8 55%, #a9c0b0 100%);
-	/* Dragging to orbit must never start a text selection, and a tap must not
-	   flash a highlight box over half the page. */
-	-webkit-user-select: none;
-	user-select: none;
-	-webkit-tap-highlight-color: transparent;
 }
 
 #scene {
@@ -27,9 +22,6 @@ body {
 	height: 100%;
 	display: block;
 	cursor: pointer;
-	/* The canvas handles its own gestures, so the browser must not claim them
-	   for scrolling, pinch-zooming or double-tap-to-zoom. */
-	touch-action: none;
 }
 
 #scene.dragging {
@@ -53,50 +45,10 @@ body {
 	user-select: none;
 }
 
-/*
- * The panel is a disclosure: on a phone it would otherwise cover the scene it
- * is describing, so it starts as its own title bar and opens when asked.
- */
 #panel h1 {
 	font-size: 15px;
 	font-weight: 650;
-}
-
-#panel h1 button {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	width: 100%;
-	padding: 0;
-	font: inherit;
-	color: inherit;
-	text-align: left;
-	background: none;
-	border: 0;
-	cursor: pointer;
-}
-
-#panel h1 button::after {
-	content: "";
-	margin-left: auto;
-	width: 7px;
-	height: 7px;
-	border-right: 2px solid #6b7a70;
-	border-bottom: 2px solid #6b7a70;
-	transform: translateY(-2px) rotate(45deg);
-	transition: transform 0.15s ease;
-}
-
-#panel.collapsed h1 button::after {
-	transform: translateY(1px) rotate(-135deg);
-}
-
-#panel.collapsed #panelBody {
-	display: none;
-}
-
-#panelBody {
-	margin-top: 4px;
+	margin-bottom: 4px;
 }
 
 #panel .sub {
@@ -171,39 +123,3 @@ body {
 	margin-top: 6px;
 }
 
-/*
- * Phones. The panel spans the width rather than floating in a corner, targets
- * grow to something a thumb can hit, and the scene keeps the rest of the glass.
- */
-@media (max-width: 560px), (max-height: 460px) {
-	#panel {
-		top: 8px;
-		left: 8px;
-		right: 8px;
-		width: auto;
-		max-height: calc(100% - 16px);
-		padding: 11px 13px;
-	}
-
-	#panel h1 {
-		font-size: 14px;
-	}
-
-	#panel h1 button::after {
-		width: 9px;
-		height: 9px;
-	}
-
-	.row.checks {
-		gap: 10px 16px;
-	}
-
-	.row.checks label {
-		padding: 4px 0;
-	}
-
-	#panel input[type="checkbox"] {
-		width: 17px;
-		height: 17px;
-	}
-}

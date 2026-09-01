@@ -5,12 +5,14 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>Hexdelve — Lab 04: Idle → Walk → Run Blend Tree</title>
 	<link rel="stylesheet" href="style.css" />
+	<link rel="stylesheet" href="../shared/ui.css" />
 </head>
 <body>
 	<canvas id="scene"></canvas>
 
-	<div id="panel">
-		<h1>Lab 04 — Blend tree</h1>
+	<div id="panel" class="collapsed">
+		<h1><button id="panelToggle" type="button" aria-expanded="false" aria-controls="panelBody">Lab 04 — Blend tree</button></h1>
+		<div id="panelBody">
 		<p class="sub">One number drives the legs. Set a speed and the tree picks the
 			clips, weights them, and lines their footfalls up.</p>
 
@@ -46,10 +48,13 @@
 		<p class="hint"><b>Contact slide</b> is how fast the more-planted foot is
 			travelling — it never reaches zero, because nothing here pins a foot to
 			the ground. That is what IK would fix.</p>
-		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel — zoom &nbsp;·&nbsp; right-drag — pan</p>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel or pinch — zoom &nbsp;·&nbsp;
+			right-drag or two-finger drag — pan</p>
+		</div>
 	</div>
 
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="../shared/ui.js"></script>
 	<script src="../shared/hex.js"></script>
 	<script src="../shared/anim.js"></script>
 	<script src="../shared/skeleton.js"></script>
