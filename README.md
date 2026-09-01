@@ -8,6 +8,9 @@ room for experiments.
 The game world is a flat plane of hexagon tiles, viewed with an isometric
 camera from above.
 
+**Live: <https://kristoferborgware.github.io/hexdelve/>** — every lab, published
+from `main` on each push.
+
 ## Labs
 
 Each lab is a self-contained page under `labs/`. **Open `index.html` directly —
@@ -67,6 +70,9 @@ attaches itself to a `Hexdelve` namespace. That is deliberate: `<script type="mo
 cannot be used from a `file://` URL, because every `file:` URL is treated as its
 own opaque origin and each `import` is refused as cross-origin. Plain scripts
 mean a lab can be opened by double-clicking it, with no build step and no server.
+
+They are also all online at <https://kristoferborgware.github.io/hexdelve/>, so
+there is nothing to clone if you only want to look.
 
 Serving the folder works too, if you prefer it:
 
