@@ -1,0 +1,91 @@
+# Publish the labs to GitHub Pages on every push to main.
+#
+# There is nothing to compile — the labs are plain HTML/CSS/JS and Three.js
+# comes from a CDN — so "build" here means two things worth doing:
+#
+#   1. syntax-check every script, which is the only automated check this
+#      project has and catches the breakage that actually happens (a stray
+#      byte from an editor, syntax newer than a target browser parses)
+#   2. regenerate the landing page from the labs, so it can never go stale
+#
+# Requires Settings -> Pages -> Source: "GitHub Actions" to be selected once.
+
+name: Deploy labs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; queue instead of cancelling so a push is not
+# silently dropped when several land together.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax-check every script
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            if ! node --check "$f" 2>&1; then
+              echo "::error file=$f::syntax error"
+              fail=1
+            fi
+          done < <(find labs assets tools -name '*.js' | sort)
+          if [ "$fail" -ne 0 ]; then exit 1; fi
+          echo "all scripts parsed"
+
+      - name: Check every lab loads its shared modules
+        run: |
+          # Each lab pulls the shared modules with plain <script> tags. A moved
+          # or renamed module would only show up as a blank page in a browser,
+          # so verify every referenced path actually exists.
+          fail=0
+          for html in labs/*/index.html; do
+            dir=$(dirname "$html")
+            grep -o 'src="[^"]*\.js"' "$html" | sed 's/src="//;s/"//' | while read -r src; do
+              case "$src" in
+                http*) continue ;;
+              esac
+              if [ ! -f "$dir/$src" ]; then
+                echo "::error file=$html::missing script $src"
+                exit 1
+              fi
+            done || fail=1
+          done
+          if [ "$fail" -ne 0 ]; then exit 1; fi
+          echo "all script references resolve"
+
+      - name: Generate landing page
+        run: node tools/build-index.js
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

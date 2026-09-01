@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Hexdelve — hexagon game-world labs</title>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body {
+			min-height: 100%;
+			font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+			color: #2c3a2e;
+			background: radial-gradient(ellipse 120% 90% at 50% 15%, #dfeae0 0%, #c4d6c8 55%, #a9c0b0 100%);
+			padding: 48px 24px 64px;
+		}
+		main { max-width: 760px; margin: 0 auto; }
+		h1 { font-size: 30px; font-weight: 680; letter-spacing: -0.01em; }
+		.tag { margin-top: 8px; font-size: 14px; line-height: 1.55; color: #55645a; }
+		.tag b { color: #3d5136; font-weight: 620; }
+		h2 {
+			margin: 34px 0 12px; font-size: 11px; font-weight: 650;
+			text-transform: uppercase; letter-spacing: 0.08em; color: #6b7a70;
+		}
+		.lab {
+			display: flex; gap: 14px; align-items: flex-start;
+			padding: 13px 15px; margin-bottom: 8px;
+			text-decoration: none; color: inherit;
+			background: rgba(252, 253, 250, 0.82);
+			border: 1px solid rgba(60, 80, 60, 0.14);
+			border-radius: 10px;
+			transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+		}
+		.lab:hover {
+			transform: translateY(-1px);
+			border-color: rgba(92, 122, 60, 0.5);
+			box-shadow: 0 5px 16px rgba(30, 50, 35, 0.13);
+		}
+		.num {
+			flex: 0 0 34px; height: 34px; border-radius: 8px;
+			display: grid; place-items: center;
+			background: #5c7a3c; color: #fff;
+			font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums;
+		}
+		.body { display: block; }
+		.name { display: block; font-size: 14.5px; font-weight: 620; margin-bottom: 3px; }
+		.desc { display: block; font-size: 12.5px; line-height: 1.5; color: #55645a; }
+		footer { margin-top: 34px; font-size: 12px; line-height: 1.6; color: #7a887e; }
+		footer a { color: #4a7a3c; }
+		code {
+			font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+			font-size: 11.5px; background: rgba(60, 80, 60, 0.09);
+			padding: 1px 5px; border-radius: 4px;
+		}
+	</style>
+</head>
+<body>
+	<main>
+		<h1>Hexdelve</h1>
+		<p class="tag">Hexagon experiments on a flat plane, viewed isometrically. Every
+			object in every scene is a <b>hexagonal prism</b> — the terrain, the buildings,
+			the character, the smoke. Each lab is a standalone page with no build step.</p>
+
+		<h2>Labs</h2>
+			<a class="lab" href="labs/01-log-cabin/index.html">
+				<span class="num">01</span>
+				<span class="body">
+					<span class="name">Log cabin</span>
+					<span class="desc">Every object in this scene is a hexagonal prism.</span>
+				</span>
+			</a>
+			<a class="lab" href="labs/02-hex-blacksmith/index.html">
+				<span class="num">02</span>
+				<span class="body">
+					<span class="name">Blacksmith rig</span>
+					<span class="desc">A humanoid skeleton drives a character built from hexagonal prisms.</span>
+				</span>
+			</a>
+			<a class="lab" href="labs/03-keyframes/index.html">
+				<span class="num">03</span>
+				<span class="body">
+					<span class="name">Keyframe player</span>
+					<span class="desc">Clips, sampling, blending and events are plain data and plain math — Three.js only draws the result.</span>
+				</span>
+			</a>
+			<a class="lab" href="labs/04-blend-tree/index.html">
+				<span class="num">04</span>
+				<span class="body">
+					<span class="name">Blend tree</span>
+					<span class="desc">One number drives the legs. Set a speed and the tree picks the clips, weights them, and lines their footfalls up.</span>
+				</span>
+			</a>
+			<a class="lab" href="labs/05-ik/index.html">
+				<span class="num">05</span>
+				<span class="body">
+					<span class="name">Inverse kinematics</span>
+					<span class="desc">The clips only know joint angles, so contact is wherever the angles happen to land. IK solves the other way: name the point, get the angles.</span>
+				</span>
+			</a>
+			<a class="lab" href="labs/06-click-to-move/index.html">
+				<span class="num">06</span>
+				<span class="body">
+					<span class="name">Click to move</span>
+					<span class="desc">Click a hexagon to walk there. Click again while he is going and he runs. Click the anvil and he walks to the nearest tile beside it, steps off the grid to get within reach, strikes once, and steps back onto his hexagon.</span>
+				</span>
+			</a>
+
+		<footer>
+			Open any lab and drag to orbit, wheel to zoom, right-drag to pan. Most read
+			their initial state from the query string, e.g.
+			<code>labs/04-blend-tree/index.html?speed=1.4&amp;skel=1</code>.
+			<br />Source on <a href="https://github.com/KristoferBorgware/hexdelve">GitHub</a>.
+		</footer>
+	</main>
+</body>
+</html>
