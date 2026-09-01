@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Hexdelve — Lab 04: Idle → Walk → Run Blend Tree</title>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<canvas id="scene"></canvas>
+
+	<div id="panel">
+		<h1>Lab 04 — Blend tree</h1>
+		<p class="sub">One number drives the legs. Set a speed and the tree picks the
+			clips, weights them, and lines their footfalls up.</p>
+
+		<div class="row">
+			<label for="speed">Speed</label>
+			<input id="speed" type="range" min="0" max="1.75" step="0.01" value="0" />
+			<output id="speedOut">0.00</output>
+		</div>
+		<div class="row">
+			<label for="turn">Turn</label>
+			<input id="turn" type="range" min="-1" max="1" step="0.01" value="0" />
+			<output id="turnOut">0.00</output>
+		</div>
+
+		<div class="row checks">
+			<label><input id="drive" type="checkbox" checked /> Auto-drive</label>
+			<label><input id="sync" type="checkbox" checked /> Sync phases</label>
+		</div>
+		<div class="row checks">
+			<label><input id="lean" type="checkbox" checked /> Additive lean</label>
+			<label><input id="showSkel" type="checkbox" /> Skeleton</label>
+			<label><input id="follow" type="checkbox" checked /> Follow</label>
+		</div>
+
+		<h2>The tree</h2>
+		<div id="tree"></div>
+
+		<dl id="stats"></dl>
+
+		<p class="hint">Set a speed between walk and run, then turn <b>Sync phases</b>
+			off: the two clips fall onto their own clocks, <b>phase spread</b> drifts
+			away from zero, and his legs start averaging a footfall with a lift.</p>
+		<p class="hint"><b>Contact slide</b> is how fast the more-planted foot is
+			travelling — it never reaches zero, because nothing here pins a foot to
+			the ground. That is what IK would fix.</p>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel — zoom &nbsp;·&nbsp; right-drag — pan</p>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="../shared/hex.js"></script>
+	<script src="../shared/anim.js"></script>
+	<script src="../shared/skeleton.js"></script>
+	<script src="../shared/walk.js"></script>
+	<script src="../shared/clips.js"></script>
+	<script src="../shared/blendtree.js"></script>
+	<script src="../shared/rigview.js"></script>
+	<script src="../shared/blacksmith.js"></script>
+	<script src="main.js"></script>
+</body>
+</html>

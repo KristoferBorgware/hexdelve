@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Hexdelve — Lab 05: Two-Bone IK, Feet and Hammer</title>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<canvas id="scene"></canvas>
+
+	<div id="panel">
+		<h1>Lab 05 — Inverse kinematics</h1>
+		<p class="sub">The clips only know joint angles, so contact is wherever the
+			angles happen to land. IK solves the other way: name the point, get the
+			angles.</p>
+
+		<div class="row seg">
+			<button id="modeWalk" class="on">Terrain</button>
+			<button id="modeAnvil">Anvil</button>
+		</div>
+
+		<div class="row" data-mode="walk">
+			<label for="speed">Speed</label>
+			<input id="speed" type="range" min="0.1" max="1.4" step="0.01" value="0.75" />
+			<output id="speedOut">0.75</output>
+		</div>
+		<div class="row" data-mode="anvil">
+			<label for="anvil">Anvil</label>
+			<input id="anvil" type="range" min="0.55" max="1.35" step="0.01" value="1.03" />
+			<output id="anvilOut">1.03</output>
+		</div>
+
+		<div class="row checks">
+			<label><input id="ik" type="checkbox" checked /> IK</label>
+			<label><input id="freeze" type="checkbox" /> Freeze</label>
+			<label><input id="targets" type="checkbox" /> Targets</label>
+			<label><input id="showSkel" type="checkbox" /> Skeleton</label>
+			<label><input id="follow" type="checkbox" checked /> Follow</label>
+		</div>
+
+		<dl id="stats"></dl>
+
+		<p class="hint" data-mode="walk">Every tile is a flat plateau at its own
+			height. With <b>IK</b> off the legs play the clip and the ground is
+			ignored — feet sink into the high tiles and hang over the low ones.</p>
+		<p class="hint" data-mode="anvil">Drag the anvil up and down with <b>IK</b>
+			on: the strike follows it. The clip never changes — only the target does.</p>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel — zoom &nbsp;·&nbsp; right-drag — pan</p>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="../shared/hex.js"></script>
+	<script src="../shared/anim.js"></script>
+	<script src="../shared/ik.js"></script>
+	<script src="../shared/skeleton.js"></script>
+	<script src="../shared/walk.js"></script>
+	<script src="../shared/clips.js"></script>
+	<script src="../shared/rigview.js"></script>
+	<script src="../shared/blacksmith.js"></script>
+	<script src="main.js"></script>
+</body>
+</html>

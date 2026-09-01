@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Hexdelve — Lab 06: Click to Move</title>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<canvas id="scene"></canvas>
+
+	<div id="panel">
+		<h1>Lab 06 — Click to move</h1>
+		<p class="sub"><b>Click</b> a hexagon to walk there. <b>Click again</b> while
+			he is going and he runs. <b>Click the anvil</b> and he walks to the nearest
+			tile beside it, steps off the grid to get within reach, strikes once, and
+			steps back onto his hexagon.</p>
+
+		<div class="row checks">
+			<label><input id="ik" type="checkbox" checked /> IK</label>
+			<label><input id="showPath" type="checkbox" checked /> Path</label>
+			<label><input id="showSkel" type="checkbox" /> Skeleton</label>
+			<label><input id="follow" type="checkbox" checked /> Follow</label>
+		</div>
+
+		<dl id="stats"></dl>
+
+		<p class="hint">Neighbouring tile centres are 1.73 m apart and his reach is
+			about 1 m, so standing on the grid he would swing at nothing. The stance
+			he steps out to is measured from the swing itself, not guessed.</p>
+		<p class="hint">A tile is only reachable if every step of the way rises or
+			falls by at most one terrace, so the tall mesa has no route up it and he
+			will say so rather than walking through the cliff.</p>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel — zoom &nbsp;·&nbsp; right-drag — pan</p>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="../shared/hex.js"></script>
+	<script src="../shared/cabin.js"></script>
+	<script src="../shared/hexgrid.js"></script>
+	<script src="../shared/anim.js"></script>
+	<script src="../shared/ik.js"></script>
+	<script src="../shared/skeleton.js"></script>
+	<script src="../shared/walk.js"></script>
+	<script src="../shared/clips.js"></script>
+	<script src="../shared/blendtree.js"></script>
+	<script src="../shared/rigview.js"></script>
+	<script src="../shared/blacksmith.js"></script>
+	<script src="main.js"></script>
+</body>
+</html>

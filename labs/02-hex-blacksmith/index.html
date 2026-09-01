@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Hexdelve — Lab 02: Blacksmith Rig &amp; Walk Cycle</title>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<canvas id="scene"></canvas>
+
+	<div id="panel">
+		<h1>Lab 02 — Blacksmith rig</h1>
+		<p class="sub">A humanoid skeleton (<span id="boneCount">…</span> bones) drives a character
+			built from <span id="hexCount">…</span> hexagonal prisms.<br />
+			With both views on, the character turns to glass so the rig shows through.</p>
+		<div class="row">
+			<label for="speed">Walk</label>
+			<input id="speed" type="range" min="0" max="2" step="0.05" value="1" />
+		</div>
+		<div class="row checks">
+			<label><input id="showChar" type="checkbox" checked /> Character</label>
+			<label><input id="showSkel" type="checkbox" checked /> Skeleton</label>
+		</div>
+		<div class="row checks">
+			<label><input id="roam" type="checkbox" checked /> Roam</label>
+			<label><input id="spin" type="checkbox" /> Spin</label>
+		</div>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel — zoom &nbsp;·&nbsp; right-drag — pan</p>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="../shared/hex.js"></script>
+	<script src="../shared/anim.js"></script>
+	<script src="../shared/skeleton.js"></script>
+	<script src="../shared/walk.js"></script>
+	<script src="../shared/rigview.js"></script>
+	<script src="../shared/blacksmith.js"></script>
+	<script src="main.js"></script>
+</body>
+</html>

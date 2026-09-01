@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Hexdelve — Lab 03: Keyframes &amp; the Hammer Strike</title>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<canvas id="scene"></canvas>
+
+	<div id="panel">
+		<h1>Lab 03 — Keyframe player</h1>
+		<p class="sub">Clips, sampling, blending and events are plain data and plain
+			math — Three.js only draws the result.</p>
+
+		<label class="field">
+			<span>Clip</span>
+			<select id="clip">
+				<optgroup label="Locomotion">
+					<option value="walk">Walk — baked keys</option>
+					<option value="walkProc">Walk — procedural</option>
+					<option value="run">Run — authored</option>
+				</optgroup>
+				<optgroup label="Authored">
+					<option value="hammer" selected>Hammer strike</option>
+					<option value="swing">Swing</option>
+					<option value="jump">Jump</option>
+					<option value="duck">Duck</option>
+					<option value="idle">Idle</option>
+				</optgroup>
+				<optgroup label="Layered">
+					<option value="walk+hammer">Walk + hammer (upper body)</option>
+				</optgroup>
+			</select>
+		</label>
+
+		<div class="row">
+			<label for="speed">Speed</label>
+			<input id="speed" type="range" min="0.05" max="1.6" step="0.05" value="1" />
+			<output id="speedOut">1.0×</output>
+		</div>
+
+		<div class="row checks">
+			<label><input id="play" type="checkbox" checked /> Play</label>
+			<label><input id="auto" type="checkbox" checked /> Routine</label>
+			<label><input id="stay" type="checkbox" /> In place</label>
+		</div>
+		<div class="row checks">
+			<label><input id="showChar" type="checkbox" checked /> Character</label>
+			<label><input id="showSkel" type="checkbox" /> Skeleton</label>
+			<label><input id="follow" type="checkbox" checked /> Follow</label>
+		</div>
+
+		<div id="timeline">
+			<div class="tl-head"><span id="tlName">—</span><span id="tlTime">0.00s</span></div>
+			<div class="tl-scroll" id="tlScroll">
+				<div id="tlRows"></div>
+				<div class="tl-playhead" id="tlPlayhead"></div>
+			</div>
+			<div class="tl-legend"><span class="dot rot"></span>rotation key
+				<span class="dot pos"></span>position key
+				<span class="dot ev"></span>event</div>
+		</div>
+
+		<dl id="stats"></dl>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel — zoom &nbsp;·&nbsp; drag the timeline to scrub</p>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="../shared/hex.js"></script>
+	<script src="../shared/anim.js"></script>
+	<script src="../shared/skeleton.js"></script>
+	<script src="../shared/walk.js"></script>
+	<script src="../shared/clips.js"></script>
+	<script src="../shared/rigview.js"></script>
+	<script src="../shared/blacksmith.js"></script>
+	<script src="main.js"></script>
+</body>
+</html>

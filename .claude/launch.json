@@ -1,0 +1,11 @@
+{
+	"version": "0.0.1",
+	"configurations": [
+		{
+			"name": "hexdelve-labs",
+			"runtimeExecutable": "npx",
+			"runtimeArgs": ["--yes", "http-server", "-p", "5188", "-c-1", "."],
+			"port": 5188
+		}
+	]
+}

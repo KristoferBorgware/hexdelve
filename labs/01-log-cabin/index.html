@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Hexdelve — Lab 01: Log Cabin from Hexagons</title>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<canvas id="scene"></canvas>
+
+	<div id="panel">
+		<h1>Lab 01 — Log cabin</h1>
+		<p class="sub">Every object in this scene is a hexagonal prism.<br />
+			<span id="count">…</span> of them, in different sizes and orientations.</p>
+		<div class="row">
+			<label for="sun">Sun</label>
+			<input id="sun" type="range" min="0" max="360" value="140" />
+		</div>
+		<div class="row">
+			<label for="spin">Spin</label>
+			<input id="spin" type="checkbox" />
+		</div>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel — zoom &nbsp;·&nbsp; right-drag — pan</p>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="../shared/hex.js"></script>
+	<script src="../shared/cabin.js"></script>
+	<script src="main.js"></script>
+</body>
+</html>
