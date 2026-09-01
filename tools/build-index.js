@@ -148,7 +148,7 @@ const page = `<!DOCTYPE html>
 		<h1>Hexdelve</h1>
 		<p class="tag">Hexagon experiments on a flat plane, viewed isometrically. Every
 			object in every scene is a <b>hexagonal prism</b> — the terrain, the buildings,
-			the character, the smoke. Each lab is a standalone page with no build step.</p>
+			the characters, the helmet, the smoke. Each lab is a standalone page with no build step.</p>
 
 		<h2>Labs</h2>
 ${cards}

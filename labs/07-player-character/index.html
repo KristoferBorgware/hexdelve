@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Hexdelve — Lab 07: Player character</title>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<canvas id="scene"></canvas>
+
+	<div id="panel">
+		<h1>Lab 07 — Player character</h1>
+		<p class="sub">You are the <b>wanderer</b> — a second character on the same
+			17-bone rig, carrying nothing. <b>Click</b> a hexagon to walk there,
+			<b>click again</b> to run. <b>Click the smith</b> or his anvil and you walk
+			over to watch him work. <b>Click the helmet</b> lying in the yard and he
+			fetches it and puts it on; click him again to take it off.</p>
+
+		<div class="row checks">
+			<label><input id="ik" type="checkbox" checked /> IK</label>
+			<label><input id="showPath" type="checkbox" checked /> Path</label>
+			<label><input id="showSkel" type="checkbox" /> Skeletons</label>
+			<label><input id="follow" type="checkbox" checked /> Follow</label>
+		</div>
+
+		<dl id="stats"></dl>
+
+		<p class="hint">Two characters, one system. The wanderer's pose comes from the
+			blend tree under your clicks; the blacksmith's comes from the same player
+			running his own schedule of blows. Neither knows about the other.</p>
+		<p class="hint">The helmet is a prop, not a character: no bones, one group,
+			modelled around the head bone's origin. Picking it up re-parents it onto
+			that bone and nothing else changes — every clip carries it from then on.</p>
+		<p class="hint">The smith stands where lab 06 measured: the spot is derived
+			from his own swing, so his hammer reaches the anvil face and the IK has
+			something to correct rather than something to invent.</p>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel — zoom &nbsp;·&nbsp; right-drag — pan</p>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="../shared/hex.js"></script>
+	<script src="../shared/cabin.js"></script>
+	<script src="../shared/hexgrid.js"></script>
+	<script src="../shared/anim.js"></script>
+	<script src="../shared/ik.js"></script>
+	<script src="../shared/skeleton.js"></script>
+	<script src="../shared/walk.js"></script>
+	<script src="../shared/clips.js"></script>
+	<script src="../shared/blendtree.js"></script>
+	<script src="../shared/rigview.js"></script>
+	<script src="../shared/blacksmith.js"></script>
+	<script src="../shared/wanderer.js"></script>
+	<script src="../shared/helmet.js"></script>
+	<script src="main.js"></script>
+</body>
+</html>
