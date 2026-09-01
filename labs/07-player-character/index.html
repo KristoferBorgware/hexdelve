@@ -9,8 +9,9 @@
 <body>
 	<canvas id="scene"></canvas>
 
-	<div id="panel">
-		<h1>Lab 07 — Player character</h1>
+	<div id="panel" class="collapsed">
+		<h1><button id="panelToggle" type="button" aria-expanded="false" aria-controls="panelBody">Lab 07 — Player character</button></h1>
+		<div id="panelBody">
 		<p class="sub">You are the <b>wanderer</b> — a second character on the same
 			17-bone rig, carrying nothing. <b>Click</b> a hexagon to walk there,
 			<b>click again</b> to run. <b>Click the smith</b> or his anvil and you walk
@@ -35,7 +36,9 @@
 		<p class="hint">The smith stands where lab 06 measured: the spot is derived
 			from his own swing, so his hammer reaches the anvil face and the IK has
 			something to correct rather than something to invent.</p>
-		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel — zoom &nbsp;·&nbsp; right-drag — pan</p>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel or pinch — zoom &nbsp;·&nbsp;
+			right-drag or two-finger drag — pan</p>
+		</div>
 	</div>
 
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
