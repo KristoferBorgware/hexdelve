@@ -20,6 +20,7 @@
 
 'use strict';
 
+const { attachPanel, attachView, startZoom } = Hexdelve.ui;
 const { HexField, groundMaterial, hexGeometry, makeRandom, tintColor, SQRT3, Q_AXIS_X, Q_AXIS_Z } = Hexdelve.hex;
 const { axialToWorld, worldToAxial, distance: hexDistance, neighbours, findPath, keyOf } = Hexdelve.hexgrid;
 const { SKELETON, BONES, TIPS, HIPS_Y } = Hexdelve.skeleton;
@@ -645,73 +646,43 @@ function pickCell(clientX, clientY) {
 	return null;
 }
 
-const drag = { active: false, pan: false, moved: 0, x: 0, y: 0 };
+// Orbit, pan, zoom and tap, from a mouse or from fingers — see ../shared/ui.js.
+// What is lab-specific is only what a tap means and what the pointer is over.
+// The panel opens and closes from ../shared/ui.js, which also reads ?panel=.
+attachPanel();
 
-canvas.addEventListener('pointerdown', (e) => {
-	drag.active = true;
-	drag.pan = e.button === 2 || e.shiftKey;
-	drag.moved = 0;
-	drag.x = e.clientX;
-	drag.y = e.clientY;
-	canvas.setPointerCapture(e.pointerId);
-});
-
-canvas.addEventListener('pointermove', (e) => {
-	if (!drag.active) {
-		const cell = pickCell(e.clientX, e.clientY);
-		if (cell) {
-			hover.visible = true;
-			hover.position.set(cell.x, cell.top + 0.015, cell.z);
-			hover.material.color.set(isAnvil(cell) ? 0xffb27a : 0xffffff);
-		} else {
-			hover.visible = false;
-		}
-		return;
-	}
-	const dx = e.clientX - drag.x;
-	const dy = e.clientY - drag.y;
-	drag.moved += Math.abs(dx) + Math.abs(dy);
-	drag.x = e.clientX;
-	drag.y = e.clientY;
-	if (drag.moved > 5) canvas.classList.add('dragging');
-	if (drag.pan) {
+attachView(canvas, view, {
+	applyCamera: applyCamera,
+	viewHeight: VIEW,
+	pitch: ISO_PITCH,
+	zoom: [0.6, 4],
+	onPan: function () {
 		ui.follow.checked = false;
-		const scale = (2 * VIEW) / (window.innerHeight * view.zoom);
-		const fwd = new THREE.Vector3(-Math.cos(view.azimuth), 0, -Math.sin(view.azimuth));
-		const right = new THREE.Vector3(-Math.sin(view.azimuth), 0, Math.cos(view.azimuth));
-		view.target.addScaledVector(right, -dx * scale);
-		view.target.addScaledVector(fwd, (dy * scale) / Math.sin(ISO_PITCH));
-	} else {
-		view.azimuth += dx * 0.007;
-	}
-	applyCamera();
-});
-
-canvas.addEventListener('pointerup', (e) => {
-	const wasDrag = drag.moved > 5;
-	drag.active = false;
-	canvas.classList.remove('dragging');
-	if (wasDrag || drag.pan) return;
-
-	const cell = pickCell(e.clientX, e.clientY);
-	if (!cell) return;
-	// A second click while he is already on his way is the "and hurry up"
-	// signal — no double-click timer, so the first click never has to wait.
-	const now = performance.now() / 1000;
-	const quick = now - control.lastClickAt < 0.45;
-	control.lastClickAt = now;
-	goTo(cell, quick || control.state === 'moving');
-});
-
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-canvas.addEventListener(
-	'wheel',
-	(e) => {
-		e.preventDefault();
-		view.zoomGoal = Math.max(0.6, Math.min(4, view.zoomGoal * Math.exp(-e.deltaY * 0.0012)));
 	},
-	{ passive: false },
-);
+	onTap: function (x, y) {
+		const cell = pickCell(x, y);
+		if (!cell) return;
+		// A second click while he is already on his way is the "and hurry up"
+		// signal — no double-click timer, so the first click never has to wait.
+		const now = performance.now() / 1000;
+		const quick = now - control.lastClickAt < 0.45;
+		control.lastClickAt = now;
+		goTo(cell, quick || control.state === 'moving');
+	},
+	onHover: function (x, y) {
+		const cell = pickCell(x, y);
+		if (!cell) {
+			hover.visible = false;
+			return;
+		}
+		hover.visible = true;
+		hover.position.set(cell.x, cell.top + 0.015, cell.z);
+		hover.material.color.set(isAnvil(cell) ? 0xffb27a : 0xffffff);
+	},
+	onHoverEnd: function () {
+		hover.visible = false;
+	},
+});
 
 /* -------------------------------------------------------------------- ui -- */
 
@@ -1027,6 +998,10 @@ function frame(now) {
 
 applyVisibility();
 {
+	// A portrait phone sees a much narrower slice of the world than a desktop
+	// window does; open zoomed out to match.
+	view.zoom = view.zoomGoal = startZoom(view.zoom);
+
 	const qs = new URLSearchParams(location.search);
 	if (qs.has('ik')) ui.ik.checked = qs.get('ik') !== '0';
 	if (qs.has('skel')) ui.showSkel.checked = qs.get('skel') !== '0';

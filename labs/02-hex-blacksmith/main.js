@@ -11,6 +11,7 @@
 
 'use strict';
 
+const { attachPanel, attachView, startZoom } = Hexdelve.ui;
 const { HexField, groundMaterial, makeRandom, tintColor, SQRT3 } = Hexdelve.hex;
 const { SKELETON, BONES, TIPS } = Hexdelve.skeleton;
 const { buildRig, buildSkeletonView, applySparsePose } = Hexdelve.rigview;
@@ -204,6 +205,10 @@ ui.showChar.addEventListener('change', applyVisibility);
 ui.showSkel.addEventListener('change', applyVisibility);
 
 {
+	// A portrait phone sees a much narrower slice of the world than a desktop
+	// window does; open zoomed out to match.
+	view.zoom = view.zoomGoal = startZoom(view.zoom);
+
 	const qs = new URLSearchParams(location.search);
 	if (qs.has('speed')) ui.speed.value = qs.get('speed');
 	if (qs.has('char')) ui.showChar.checked = qs.get('char') !== '0';
@@ -218,51 +223,22 @@ applyVisibility();
 
 /* -------------------------------------------------------------- controls -- */
 
-const drag = { active: false, pan: false, x: 0, y: 0 };
+// Orbit, pan and zoom, from a mouse or from fingers — see ../shared/ui.js.
+// The panel opens and closes from ../shared/ui.js, which also reads ?panel=.
+attachPanel();
 
-canvas.addEventListener('pointerdown', (e) => {
-	drag.active = true;
-	drag.pan = e.button === 2 || e.shiftKey;
-	drag.x = e.clientX;
-	drag.y = e.clientY;
-	canvas.classList.add('dragging');
-	canvas.setPointerCapture(e.pointerId);
-});
-
-canvas.addEventListener('pointermove', (e) => {
-	if (!drag.active) return;
-	const dx = e.clientX - drag.x;
-	const dy = e.clientY - drag.y;
-	drag.x = e.clientX;
-	drag.y = e.clientY;
-	if (drag.pan) {
-		const scale = (2 * VIEW) / (window.innerHeight * view.zoom);
-		const fwd = new THREE.Vector3(-Math.cos(view.azimuth), 0, -Math.sin(view.azimuth));
-		const right = new THREE.Vector3(-Math.sin(view.azimuth), 0, Math.cos(view.azimuth));
-		view.target.addScaledVector(right, -dx * scale);
-		view.target.addScaledVector(fwd, (dy * scale) / Math.sin(ISO_PITCH));
+attachView(canvas, view, {
+	applyCamera: applyCamera,
+	viewHeight: VIEW,
+	pitch: ISO_PITCH,
+	zoom: [0.5, 4],
+	// The camera stays over the ground it is showing.
+	clampTarget: function (target) {
 		const lim = SQRT3 * GROUND_RADIUS;
-		view.target.x = Math.max(-lim, Math.min(lim, view.target.x));
-		view.target.z = Math.max(-lim, Math.min(lim, view.target.z));
-	} else {
-		view.azimuth += dx * 0.007;
-	}
-	applyCamera();
-});
-
-canvas.addEventListener('pointerup', () => {
-	drag.active = false;
-	canvas.classList.remove('dragging');
-});
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-canvas.addEventListener(
-	'wheel',
-	(e) => {
-		e.preventDefault();
-		view.zoomGoal = Math.max(0.5, Math.min(4, view.zoomGoal * Math.exp(-e.deltaY * 0.0012)));
+		target.x = Math.max(-lim, Math.min(lim, target.x));
+		target.z = Math.max(-lim, Math.min(lim, target.z));
 	},
-	{ passive: false },
-);
+});
 
 /* ------------------------------------------------------------------ loop -- */
 

@@ -33,6 +33,7 @@ const { buildRig, buildSkeletonView, applySparsePose } = Hexdelve.rigview;
 const { buildBlacksmith } = Hexdelve.blacksmith;
 const { buildWanderer } = Hexdelve.wanderer;
 const { buildHelmet, GROUND_LIFT } = Hexdelve.helmet;
+const { attachPanel, attachView, startZoom } = Hexdelve.ui;
 const { walkPose, WALK_PERIOD, WALK_CONTACTS } = Hexdelve.walk;
 const { IDLE, RUN, HAMMER, DUCK, LEAN_LEFT, LEAN_RIGHT, UPRIGHT } = Hexdelve.clips;
 const {
@@ -854,154 +855,47 @@ function pickCell(clientX, clientY) {
 }
 
 /*
- * One set of pointer handlers for mouse and touch alike. A phone has no right
- * button and no wheel, so the second finger stands in for both: two pointers
- * down means pinch to zoom and drag to pan, which is what the mouse gets from
- * the wheel and the right button.
+ * Orbit, pan, zoom and tap all come from ../shared/ui.js, which every lab uses:
+ * what is lab-specific is only what a tap means and what the pointer is over.
  */
-const drag = { active: false, pan: false, moved: 0, x: 0, y: 0, touch: false };
-const pointers = new Map();
-const pinch = { active: false, distance: 0, x: 0, y: 0 };
-
-function pinchState() {
-	const [a, b] = [...pointers.values()];
-	return {
-		distance: Math.hypot(a.x - b.x, a.y - b.y),
-		x: (a.x + b.x) / 2,
-		y: (a.y + b.y) / 2,
-	};
-}
-
-// Pan the camera target by a screen-space delta, in metres of world.
-function panView(dx, dy) {
-	ui.follow.checked = false;
-	const scale = (2 * VIEW) / (window.innerHeight * view.zoom);
-	const fwd = new THREE.Vector3(-Math.cos(view.azimuth), 0, -Math.sin(view.azimuth));
-	const right = new THREE.Vector3(-Math.sin(view.azimuth), 0, Math.cos(view.azimuth));
-	view.target.addScaledVector(right, -dx * scale);
-	view.target.addScaledVector(fwd, (dy * scale) / Math.sin(ISO_PITCH));
-}
-
-function setZoom(z) {
-	view.zoomGoal = Math.max(0.6, Math.min(4, z));
-}
-
-canvas.addEventListener('pointerdown', (e) => {
-	pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-	canvas.setPointerCapture(e.pointerId);
-
-	if (pointers.size === 2) {
-		// The second finger cancels whatever the first was doing: a pinch is
-		// never also a tap, and it must not leave a click queued behind it.
-		const p = pinchState();
-		pinch.active = true;
-		pinch.distance = p.distance;
-		pinch.x = p.x;
-		pinch.y = p.y;
-		drag.active = false;
-		drag.moved = 999;
-		canvas.classList.remove('dragging');
-		return;
-	}
-	if (pointers.size > 2) return;
-
-	drag.active = true;
-	drag.touch = e.pointerType !== 'mouse';
-	drag.pan = e.button === 2 || e.shiftKey;
-	drag.moved = 0;
-	drag.x = e.clientX;
-	drag.y = e.clientY;
-});
-
-canvas.addEventListener('pointermove', (e) => {
-	if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-	if (pinch.active && pointers.size >= 2) {
-		const p = pinchState();
-		if (pinch.distance > 0) setZoom(view.zoomGoal * (p.distance / pinch.distance));
-		view.zoom = view.zoomGoal;
-		panView(p.x - pinch.x, p.y - pinch.y);
-		pinch.distance = p.distance;
-		pinch.x = p.x;
-		pinch.y = p.y;
-		applyCamera();
-		return;
-	}
-
-	if (!drag.active) {
-		// Hover is a mouse idea; a finger only "hovers" while it is pressed.
-		if (e.pointerType !== 'mouse') return;
-		const pick = pickCell(e.clientX, e.clientY);
-		if (pick) {
-			hover.visible = true;
-			hover.position.set(pick.cell.x, pick.cell.top + 0.015, pick.cell.z);
-			hover.material.color.set(
-				pick.kind === 'anvil' ? 0xffb27a : pick.kind === 'helmet' ? 0x9fc4e0 : 0xffffff,
-			);
-		} else {
-			hover.visible = false;
-		}
-		return;
-	}
-
-	const dx = e.clientX - drag.x;
-	const dy = e.clientY - drag.y;
-	drag.moved += Math.abs(dx) + Math.abs(dy);
-	drag.x = e.clientX;
-	drag.y = e.clientY;
-	// A finger never lands as still as a mouse, so it gets more room to be a tap.
-	if (drag.moved > (drag.touch ? 12 : 5)) canvas.classList.add('dragging');
-	if (drag.pan) panView(dx, dy);
-	else view.azimuth += dx * 0.007;
-	applyCamera();
-});
-
-function endPointer(e) {
-	pointers.delete(e.pointerId);
-	if (pointers.size < 2) pinch.active = false;
-}
-
-canvas.addEventListener('pointercancel', (e) => {
-	endPointer(e);
-	drag.active = false;
-	canvas.classList.remove('dragging');
-});
-
-canvas.addEventListener('pointerup', (e) => {
-	const wasDrag = drag.moved > (drag.touch ? 12 : 5);
-	const wasActive = drag.active;
-	endPointer(e);
-	drag.active = false;
-	canvas.classList.remove('dragging');
-	if (!wasActive || wasDrag || drag.pan) return;
-
-	const pick = pickCell(e.clientX, e.clientY);
-	// A tap leaves no cursor behind, so the hover marker goes with the finger.
-	if (drag.touch) hover.visible = false;
-	if (!pick) return;
-	// A second click while he is already on his way is the "and hurry up"
-	// signal — no double-click timer, so the first click never has to wait.
-	const now = performance.now() / 1000;
-	const quick = now - control.lastClickAt < 0.45;
-	control.lastClickAt = now;
-	goTo(pick.cell, quick || control.state === 'moving', pick.kind);
-});
-
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-canvas.addEventListener(
-	'wheel',
-	(e) => {
-		e.preventDefault();
-		setZoom(view.zoomGoal * Math.exp(-e.deltaY * 0.0012));
+attachView(canvas, view, {
+	applyCamera: applyCamera,
+	viewHeight: VIEW,
+	pitch: ISO_PITCH,
+	zoom: [0.6, 4],
+	onPan: function () {
+		ui.follow.checked = false;
 	},
-	{ passive: false },
-);
+	onTap: function (x, y) {
+		const pick = pickCell(x, y);
+		if (!pick) return;
+		// A second click while he is already on his way is the "and hurry up"
+		// signal — no double-click timer, so the first click never has to wait.
+		const now = performance.now() / 1000;
+		const quick = now - control.lastClickAt < 0.45;
+		control.lastClickAt = now;
+		goTo(pick.cell, quick || control.state === 'moving', pick.kind);
+	},
+	onHover: function (x, y) {
+		const pick = pickCell(x, y);
+		if (!pick) {
+			hover.visible = false;
+			return;
+		}
+		hover.visible = true;
+		hover.position.set(pick.cell.x, pick.cell.top + 0.015, pick.cell.z);
+		hover.material.color.set(
+			pick.kind === 'anvil' ? 0xffb27a : pick.kind === 'helmet' ? 0x9fc4e0 : 0xffffff,
+		);
+	},
+	onHoverEnd: function () {
+		hover.visible = false;
+	},
+});
 
 /* -------------------------------------------------------------------- ui -- */
 
 const ui = {
-	panel: document.getElementById('panel'),
-	panelToggle: document.getElementById('panelToggle'),
 	ik: document.getElementById('ik'),
 	showPath: document.getElementById('showPath'),
 	showSkel: document.getElementById('showSkel'),
@@ -1024,15 +918,8 @@ function applyVisibility() {
 ui.showSkel.addEventListener('change', applyVisibility);
 ui.showPath.addEventListener('change', () => showPath(control.path));
 
-// The panel starts as its own title bar: on a phone the notes would otherwise
-// cover the scene they are about. `?panel=1` opens it on load.
-function setPanelOpen(open) {
-	ui.panel.classList.toggle('collapsed', !open);
-	ui.panelToggle.setAttribute('aria-expanded', String(open));
-}
-ui.panelToggle.addEventListener('click', () => {
-	setPanelOpen(ui.panel.classList.contains('collapsed'));
-});
+// The panel opens and closes from ../shared/ui.js, which also reads ?panel=.
+attachPanel();
 
 /* --------------------------------------------------------------- the IK -- */
 
@@ -1406,17 +1293,9 @@ function frame(now) {
 
 applyVisibility();
 {
-	/*
-	 * A portrait phone sees a much narrower slice of the world than a desktop
-	 * window: the orthographic frustum is sized from the height, so the width
-	 * falls away with the aspect ratio and the default zoom would put two
-	 * hexagons on screen. Start further out, so the first thing you see is a
-	 * scene rather than a pair of tiles.
-	 */
-	const aspect = window.innerWidth / window.innerHeight;
-	if (aspect < 1.2) {
-		view.zoom = view.zoomGoal = Math.max(0.7, 1.35 * (aspect / 1.2));
-	}
+	// A portrait phone sees a much narrower slice of the world than a desktop
+	// window does; open zoomed out to match.
+	view.zoom = view.zoomGoal = startZoom(view.zoom);
 
 	const qs = new URLSearchParams(location.search);
 	if (qs.has('ik')) ui.ik.checked = qs.get('ik') !== '0';
@@ -1424,7 +1303,6 @@ applyVisibility();
 	if (qs.has('path')) ui.showPath.checked = qs.get('path') !== '0';
 	if (qs.has('zoom')) view.zoom = view.zoomGoal = +qs.get('zoom');
 	if (qs.has('follow')) ui.follow.checked = qs.get('follow') !== '0';
-	if (qs.has('panel')) setPanelOpen(qs.get('panel') !== '0');
 	applyVisibility();
 }
 

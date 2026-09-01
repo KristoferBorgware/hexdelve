@@ -59,6 +59,7 @@ node assets/audio/dungeon-crawl.js
 | `skeleton.js` — the humanoid rig as plain data | `blacksmith.js` — the smith's prisms, hung on bones |
 | `walk.js` — the procedural walk as a pose function | `wanderer.js` — the player character, same bones, no tool |
 | `clips.js` — hand-authored clips as plain data | `helmet.js` — a prop: one group, no bones |
+| | `ui.js` / `ui.css` — the panel and the camera gestures |
 
 Nothing in the left column imports or mentions Three.js. Poses are plain data
 (`{ bone: { rot, pos } }`, deltas from rest), so the same clips and the same
@@ -108,6 +109,28 @@ around the *head bone's origin*. Worn, its transform is the identity; on the
 ground it is the same group lifted by `GROUND_LIFT`. Picking it up is therefore
 a re-parent and nothing else — no second model, no offsets to keep in step, and
 every clip carries it for free.
+
+## Every lab works on a phone
+
+The labs share a camera model — `view = { azimuth, target, zoom, zoomGoal }` —
+and each used to carry its own copy of the pointer handling that drives it.
+That was survivable while the only input was a mouse. Touch is what made it
+untenable: a phone has no right button, no wheel and no hover, so the same
+three gestures have to be built out of one finger and two, and doing that seven
+times over is how six of them drift apart.
+
+So `ui.js` owns the shell. One finger orbits, or taps; a second finger is the
+phone's right button and wheel at once — pinch to zoom, drag to pan — and it
+cancels whatever the first finger was doing, so a pinch is never also a tap.
+Each lab passes in only what is its own: the zoom limits, whether the camera is
+fenced in, what a tap means, what the pointer is over.
+
+`ui.css` carries the other half. The notes panel is a disclosure, collapsed on
+load (`?panel=1` opens it), because on a phone it would otherwise cover the
+scene it describes; the canvas takes `touch-action: none`, since it handles its
+own gestures; and dragging to orbit no longer starts a text selection. The
+orthographic frustum is sized from the viewport height, so in portrait the
+opening zoom follows the aspect ratio down rather than framing two hexagons.
 
 ## Known limits
 
