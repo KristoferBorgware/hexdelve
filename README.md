@@ -22,8 +22,10 @@ no server needed.**
 | 05 | [Inverse kinematics](labs/05-ik/index.html) | Analytic **two-bone IK** as a corrective pass. Feet plant on terraced hex tiles with a pelvis drop and a per-foot contact weight; the hammer strike targets the anvil *face*, so dragging the anvil up and down re-solves the blow to hit it — 0 cm error wherever the arm can reach, and an honest "out of reach" where it cannot. |
 | 06 | [Click to move](labs/06-click-to-move/index.html) | The capstone. **Click** a hexagon and he walks there via A* over the terraces, **click again** and he runs, **click the anvil** and he walks to the tile beside it, *steps off the grid* into a stance measured from the swing itself, strikes once, and steps back. A smithy stands behind the anvil — log walls, shingled gable, lit forge and smoking chimney — with the log house from lab 01 further back. Both footprints are solid, so paths route around them. Navigation, the blend tree and IK are three separate systems that meet only through the pose. |
 
-Labs 02–06 share one rig, one character and one animation system, and labs 01
-and 06 share one cabin; see `labs/shared/` below.
+| 07 | [Player character](labs/07-player-character/index.html) | The same world, with the roles swapped. You drive the **wanderer** — a second character on the same rig, carrying nothing — while the blacksmith stands at his anvil and works on his own schedule, hammer aimed by IK, whether or not you are watching. A **helmet** lies in the yard: click it and he fetches it, stoops and puts it on. Picking it up is one re-parent onto the head bone, so every clip carries it from then on. |
+
+Labs 02–07 share one rig and one animation system, labs 01 and 06–07 share one
+cabin, and labs 06–07 share a world; see `labs/shared/` below.
 
 ## Layout
 
@@ -51,9 +53,9 @@ node assets/audio/dungeon-crawl.js
 | `blendtree.js` — blend nodes, phase sync, speed calibration | `rigview.js` — builds bone objects, draws the skeleton, applies a pose |
 | `ik.js` — analytic two-bone IK, tool chains, foot levelling | |
 | `hexgrid.js` — axial coordinates, hex distance, A* | `cabin.js` — the log cabin construction |
-| `skeleton.js` — the humanoid rig as plain data | `blacksmith.js` — the character's prisms, hung on bones |
-| `walk.js` — the procedural walk as a pose function | |
-| `clips.js` — hand-authored clips as plain data | |
+| `skeleton.js` — the humanoid rig as plain data | `blacksmith.js` — the smith's prisms, hung on bones |
+| `walk.js` — the procedural walk as a pose function | `wanderer.js` — the player character, same bones, no tool |
+| `clips.js` — hand-authored clips as plain data | `helmet.js` — a prop: one group, no bones |
 
 Nothing in the left column imports or mentions Three.js. Poses are plain data
 (`{ bone: { rot, pos } }`, deltas from rest), so the same clips and the same
@@ -87,6 +89,19 @@ interaction its own free-space stance, derived by playing the strike to its
 impact key and asking where the hammer head ends up — so the spot he steps to
 is a property of the animation, not a tuned constant, and re-timing the swing
 moves it automatically.
+
+## One rig, two characters, and a prop
+
+`blacksmith.js` and `wanderer.js` are the same exercise twice: forty-odd hex
+prisms parented to the seventeen bones of `skeleton.js`. Nothing about a clip,
+the blend tree or the IK knows which of them it is driving — lab 07 runs both
+at once through one `makeActor`, one pose buffer each, and the same solver.
+
+`helmet.js` is the other case: a prop has no bones, so it is one group modelled
+around the *head bone's origin*. Worn, its transform is the identity; on the
+ground it is the same group lifted by `GROUND_LIFT`. Picking it up is therefore
+a re-parent and nothing else — no second model, no offsets to keep in step, and
+every clip carries it for free.
 
 ## Known limits
 
