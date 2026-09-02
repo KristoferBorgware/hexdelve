@@ -289,6 +289,31 @@ function denseToSparse(boneNames, dense, out = {}) {
 	return out;
 }
 
+// ... and back, for a pose that was produced as a function rather than sampled
+// from a clip (walk.js, stride.js): the blender and the masks work in the flat
+// buffers, so a pose function's output has to be poured into one to be layered
+// under a clip. Bones the function did not touch are left at rest.
+function sparseToDense(boneNames, sparse, out) {
+	out.rot.fill(0);
+	out.pos.fill(0);
+	for (let i = 0; i < boneNames.length; i++) {
+		const entry = sparse[boneNames[i]];
+		if (!entry) continue;
+		const o = i * 3;
+		if (entry.rot) {
+			out.rot[o] = entry.rot[0];
+			out.rot[o + 1] = entry.rot[1];
+			out.rot[o + 2] = entry.rot[2];
+		}
+		if (entry.pos) {
+			out.pos[o] = entry.pos[0];
+			out.pos[o + 1] = entry.pos[1];
+			out.pos[o + 2] = entry.pos[2];
+		}
+	}
+	return out;
+}
+
 function makeMask(boneNames, weights, fallback = 0) {
 	const mask = new Float32Array(boneNames.length);
 	for (let i = 0; i < boneNames.length; i++) {
@@ -779,6 +804,7 @@ return {
 	lerpPose,
 	lerpPoseMasked,
 	denseToSparse,
+	sparseToDense,
 	makeMask,
 	bindClip,
 	sampleBound: sampleInto,

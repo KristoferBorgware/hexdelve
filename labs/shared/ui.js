@@ -89,6 +89,10 @@ function startZoom(zoom, threshold) {
  *   onTap         (clientX, clientY, pointerType) for labs that pick
  *   onHover       (clientX, clientY) — mouse only; a finger cannot hover
  *   onHoverEnd    called when the mouse leaves, or a tap ends
+ *   touchDrag     'lab' hands single-finger drags to the lab instead of orbiting
+ *                 with them — for a lab that steers with a finger (lab 09 puts
+ *                 a thumbstick there). The gesture is still watched, so a press
+ *                 and release is still a tap, and two fingers still pinch.
  */
 function attachView(canvas, view, options) {
 	const o = options || {};
@@ -97,7 +101,7 @@ function attachView(canvas, view, options) {
 	const pitch = o.pitch;
 	const zoomRange = o.zoom || [0.6, 4];
 
-	const drag = { active: false, pan: false, moved: 0, x: 0, y: 0, slop: TAP_SLOP.mouse };
+	const drag = { active: false, pan: false, inert: false, moved: 0, x: 0, y: 0, slop: TAP_SLOP.mouse };
 	const pointers = new Map();
 	const pinch = { active: false, distance: 0, x: 0, y: 0 };
 	const fwd = new THREE.Vector3();
@@ -152,6 +156,9 @@ function attachView(canvas, view, options) {
 		drag.active = true;
 		drag.slop = e.pointerType === 'mouse' ? TAP_SLOP.mouse : TAP_SLOP.touch;
 		drag.pan = e.button === 2 || e.shiftKey;
+		// A finger the lab has claimed: watched, so it can still be a tap, but it
+		// moves nothing here.
+		drag.inert = o.touchDrag === 'lab' && e.pointerType !== 'mouse';
 		drag.moved = 0;
 		drag.x = e.clientX;
 		drag.y = e.clientY;
@@ -183,6 +190,7 @@ function attachView(canvas, view, options) {
 		drag.moved += Math.abs(dx) + Math.abs(dy);
 		drag.x = e.clientX;
 		drag.y = e.clientY;
+		if (drag.inert) return;
 		if (drag.moved > drag.slop) canvas.classList.add('dragging');
 		if (drag.pan) panView(dx, dy);
 		else view.azimuth += dx * 0.007;
