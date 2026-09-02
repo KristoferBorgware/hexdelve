@@ -526,11 +526,17 @@ const GUARD = poseClip('guard', 0.1, 'hold', [
 			armL: [-0.28, -1.05, 0.3],
 			forearmL: [-1.25, -0.3, 0],
 			handL: [0, 0, 0],
-			// Sword arm: upper arm back, elbow folded hard, so the blade rides
-			// UP beside his head rather than out in front like a spear.
-			armR: [0.15, 0, -0.3],
-			forearmR: [-2.5, 0, 0],
-			handR: [0, -0.3, 0],
+			/*
+			 * Sword arm. The blade rides up beside his head, and it gets there
+			 * the way an arm does: the shoulder carries the hand up, the elbow
+			 * stays at a hundred-odd degrees, and the WRIST sets the angle of the
+			 * blade. Folding the elbow to its stop instead — which is what this
+			 * pose used to do at 143°, hand touching shoulder — is why nobody
+			 * held a sword like it.
+			 */
+			armR: [0.25, 0, -0.42],
+			forearmR: [-2.0, 0, 0],
+			handR: [-1.0, -0.35, 0],
 			hipL: [-0.05, -0.1, 0.07],
 			hipR: [-0.02, -0.1, -0.07],
 			shinL: [0.08, 0, 0],
@@ -577,9 +583,9 @@ const SLASH = poseClip(
 				head: [0.02, 0.2, 0],
 				armL: [-0.28, -1.05, 0.3],
 				forearmL: [-1.25, -0.3, 0],
-				armR: [0.15, 0, -0.3],
-				forearmR: [-2.5, 0, 0],
-				handR: [0, -0.3, 0],
+				armR: [0.25, 0, -0.42],
+				forearmR: [-2.0, 0, 0],
+				handR: [-1.0, -0.35, 0],
 				hipL: [-0.05, -0.1, 0.07],
 				hipR: [-0.02, -0.1, -0.07],
 				shinL: [0.08, 0, 0],
@@ -609,7 +615,9 @@ const SLASH = poseClip(
 				forearmL: [-1.4, -0.3, 0],
 				armR: [-0.45, 0, 0.95],
 				forearmR: [-1.75, 0, 0],
-				handR: [0, 0.7, 0],
+				// Cocked: the wrist is loaded here and unloads through contact,
+				// which is where the last of the tip speed comes from.
+				handR: [-0.8, 0.7, 0],
 				hipL: [0.02, 0.24, 0.07],
 				hipR: [-0.1, 0.24, -0.07],
 				shinL: [0.06, 0, 0],
@@ -645,7 +653,7 @@ const SLASH = poseClip(
 				forearmL: [-0.15, 0, 0],
 				armR: [-0.6, 0, -0.85],
 				forearmR: [-0.28, 0, 0],
-				handR: [0, 0.2, 0],
+				handR: [-0.25, 0.2, 0],
 				hipL: [-0.14, -0.26, 0.07],
 				hipR: [0.05, -0.26, -0.07],
 				shinL: [0.14, 0, 0],
@@ -668,7 +676,7 @@ const SLASH = poseClip(
 				forearmL: [-0.35, 0, 0],
 				armR: [-0.35, 0, -1.3],
 				forearmR: [-0.55, 0, 0],
-				handR: [0, -0.05, 0],
+				handR: [0.1, -0.05, 0],
 				hipL: [-0.16, -0.34, 0.07],
 				hipR: [0.06, -0.34, -0.07],
 			},
@@ -684,9 +692,9 @@ const SLASH = poseClip(
 				head: [0.02, 0.2, 0],
 				armL: [-0.28, -1.05, 0.3],
 				forearmL: [-1.25, -0.3, 0],
-				armR: [0.15, 0, -0.3],
-				forearmR: [-2.5, 0, 0],
-				handR: [0, -0.3, 0],
+				armR: [0.25, 0, -0.42],
+				forearmR: [-2.0, 0, 0],
+				handR: [-1.0, -0.35, 0],
 				hipL: [-0.05, -0.1, 0.07],
 				hipR: [-0.02, -0.1, -0.07],
 				shinL: [0.08, 0, 0],

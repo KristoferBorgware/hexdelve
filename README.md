@@ -161,6 +161,16 @@ than the fist, and the shield arm is thrown back and straight — both the
 counterweight and the only reason the shoulders can come round that fast.
 Between the wind-up and contact the chest travels about ninety degrees.
 
+The arm holding it is worth a note, because the first version of this got it
+wrong in a way that is easy to get wrong. The blade is modelled down the line of
+the hand, so to raise it you can either fold the elbow until the hand is at the
+shoulder, or carry the hand up with the shoulder and set the blade's angle at
+the *wrist*. The rig has a wrist — `armR → forearmR → handR`, the hand bone is
+it — and the first pass used none of it: 143° of elbow flexion, which is the
+human limit, and zero wrist pitch in every key. It now sits at 115° of elbow and
+57° of wrist, both well inside range, and the wrist is cocked at the wind-up and
+unloads through contact, which is where the last of the tip speed comes from.
+
 `GUARD` is the other half: armed, he stands and walks on guard, and that pose is
 laid over the locomotion through the `UPPER_BODY` mask in `skeleton.js` — so the
 stance belongs to his arms and the gait still belongs to his hips. Unmasked it
