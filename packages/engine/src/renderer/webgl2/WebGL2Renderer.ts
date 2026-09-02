@@ -20,12 +20,25 @@ import {
 	type RendererInfo,
 	type RendererOptions,
 } from '../types.js';
-import { FRAGMENT_SHADER, VERTEX_SHADER } from './shaders.js';
+import {
+	DEPTH_FRAGMENT_SHADER,
+	DEPTH_VERTEX_SHADER,
+	FRAGMENT_SHADER,
+	VERTEX_SHADER,
+} from './shaders.js';
 
 interface Uniforms {
 	viewProjection: WebGLUniformLocation;
+	lightViewProjection: WebGLUniformLocation;
 	light: WebGLUniformLocation;
 	ambient: WebGLUniformLocation;
+	shadow: WebGLUniformLocation;
+	shadowMap: WebGLUniformLocation;
+}
+
+/** The shadow pass needs one matrix and nothing else. */
+interface DepthUniforms {
+	lightViewProjection: WebGLUniformLocation;
 }
 
 export class WebGL2Renderer implements Renderer {
@@ -39,6 +52,11 @@ export class WebGL2Renderer implements Renderer {
 
 	private readonly program: WebGLProgram;
 	private readonly uniforms: Uniforms;
+	private readonly depthProgram: WebGLProgram | null;
+	private readonly depthUniforms: DepthUniforms | null;
+	private readonly shadowFramebuffer: WebGLFramebuffer | null;
+	private readonly shadowTexture: WebGLTexture | null;
+	private readonly shadowMapSize: number;
 	private readonly vao: WebGLVertexArrayObject;
 	private readonly vertexBuffer: WebGLBuffer;
 	private readonly indexBuffer: WebGLBuffer;
@@ -74,9 +92,54 @@ export class WebGL2Renderer implements Renderer {
 		this.program = linkProgram(gl, VERTEX_SHADER, FRAGMENT_SHADER);
 		this.uniforms = {
 			viewProjection: mustGetUniform(gl, this.program, 'uViewProjection'),
+			lightViewProjection: mustGetUniform(gl, this.program, 'uLightViewProjection'),
 			light: mustGetUniform(gl, this.program, 'uLight'),
 			ambient: mustGetUniform(gl, this.program, 'uAmbient'),
+			shadow: mustGetUniform(gl, this.program, 'uShadow'),
+			shadowMap: mustGetUniform(gl, this.program, 'uShadowMap'),
 		};
+
+		this.shadowMapSize = options.shadowMapSize ?? 2048;
+		if (this.shadowMapSize > 0) {
+			this.depthProgram = linkProgram(gl, DEPTH_VERTEX_SHADER, DEPTH_FRAGMENT_SHADER);
+			this.depthUniforms = {
+				lightViewProjection: mustGetUniform(gl, this.depthProgram, 'uLightViewProjection'),
+			};
+
+			this.shadowTexture = mustCreate(gl.createTexture(), 'shadow texture');
+			gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
+			gl.texImage2D(
+				gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT32F,
+				this.shadowMapSize, this.shadowMapSize, 0,
+				gl.DEPTH_COMPONENT, gl.FLOAT, null,
+			);
+			// LINEAR on a comparison sampler is not a blur of depths — it is a
+			// blur of the *results* of the depth test, which is exactly the 2x2
+			// percentage-closer filter wanted here and free in hardware.
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+
+			this.shadowFramebuffer = mustCreate(gl.createFramebuffer(), 'shadow framebuffer');
+			gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFramebuffer);
+			gl.framebufferTexture2D(
+				gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, this.shadowTexture, 0,
+			);
+			// Depth only: without this the driver expects a colour buffer that
+			// is not there and the framebuffer is incomplete.
+			gl.drawBuffers([gl.NONE]);
+			gl.readBuffer(gl.NONE);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+			gl.bindTexture(gl.TEXTURE_2D, null);
+		} else {
+			this.depthProgram = null;
+			this.depthUniforms = null;
+			this.shadowTexture = null;
+			this.shadowFramebuffer = null;
+		}
 
 		const geometry = hexPrismGeometry();
 		this.indexCount = geometry.indexCount;
@@ -173,14 +236,18 @@ export class WebGL2Renderer implements Renderer {
 	render(frame: Frame): void {
 		if (!this.alive) return;
 		const gl = this.gl;
-		const [r, g, b, a] = this.clearColor;
+		const { opaque, blended, overlay } = this.ranges;
 
+		const shadow = this.shadowFramebuffer && frame.shadow ? frame.shadow : null;
+		if (shadow && opaque > 0) this.renderShadowMap(shadow.viewProjection, opaque);
+
+		const [r, g, b, a] = this.clearColor;
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 		gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 		gl.clearColor(r, g, b, a);
 		gl.clearDepth(1);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-		const { opaque, blended, overlay } = this.ranges;
 		if (opaque + blended + overlay === 0) return;
 
 		gl.useProgram(this.program);
@@ -190,6 +257,16 @@ export class WebGL2Renderer implements Renderer {
 		gl.uniform4f(this.uniforms.light, d[0]!, d[1]!, d[2]!, frame.light.intensity);
 		const ambient = frame.light.ambient;
 		gl.uniform3f(this.uniforms.ambient, ambient[0]!, ambient[1]!, ambient[2]!);
+
+		if (shadow) {
+			gl.uniformMatrix4fv(this.uniforms.lightViewProjection, false, shadow.viewProjection as Mat4);
+			gl.uniform3f(this.uniforms.shadow, 1, shadow.bias ?? 0.0025, 1 / this.shadowMapSize);
+			gl.activeTexture(gl.TEXTURE0);
+			gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
+			gl.uniform1i(this.uniforms.shadowMap, 0);
+		} else {
+			gl.uniform3f(this.uniforms.shadow, 0, 0, 0);
+		}
 
 		gl.bindVertexArray(this.vao);
 
@@ -203,8 +280,7 @@ export class WebGL2Renderer implements Renderer {
 		if (blended > 0 || overlay > 0) {
 			gl.enable(gl.BLEND);
 			gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-			// Transparent surfaces are drawn back-to-front by the caller where it
-			// matters and never write depth, so one cannot hide another.
+			// Transparent surfaces never write depth, so one cannot hide another.
 			gl.depthMask(false);
 			this.drawRange(opaque, blended);
 
@@ -217,6 +293,42 @@ export class WebGL2Renderer implements Renderer {
 		}
 
 		gl.bindVertexArray(null);
+	}
+
+	/**
+	 * The scene from the sun, depth only.
+	 *
+	 * Only the opaque range casts. Smoke that shadowed the yard would be a lie
+	 * about what smoke does, and the ground arrows are a readout — a readout
+	 * that cast a shadow would be a very strange object indeed.
+	 *
+	 * Front faces are culled rather than back ones for the duration. What gets
+	 * written is then the far side of each prism, which is further from the
+	 * light than the surface being tested, and most of the depth bias a flat
+	 * face would otherwise need stops being necessary.
+	 */
+	private renderShadowMap(lightViewProjection: Mat4, opaque: number): void {
+		const gl = this.gl;
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFramebuffer);
+		gl.viewport(0, 0, this.shadowMapSize, this.shadowMapSize);
+		gl.clearDepth(1);
+		gl.clear(gl.DEPTH_BUFFER_BIT);
+
+		gl.useProgram(this.depthProgram);
+		gl.uniformMatrix4fv(this.depthUniforms!.lightViewProjection, false, lightViewProjection);
+
+		gl.disable(gl.BLEND);
+		gl.enable(gl.DEPTH_TEST);
+		gl.depthMask(true);
+		gl.cullFace(gl.FRONT);
+
+		gl.bindVertexArray(this.vao);
+		this.drawRange(0, opaque);
+		gl.bindVertexArray(null);
+
+		gl.cullFace(gl.BACK);
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 	}
 
 	/**
@@ -250,6 +362,9 @@ export class WebGL2Renderer implements Renderer {
 		gl.deleteBuffer(this.indexBuffer);
 		gl.deleteBuffer(this.instanceBuffer);
 		gl.deleteProgram(this.program);
+		if (this.depthProgram) gl.deleteProgram(this.depthProgram);
+		if (this.shadowTexture) gl.deleteTexture(this.shadowTexture);
+		if (this.shadowFramebuffer) gl.deleteFramebuffer(this.shadowFramebuffer);
 	}
 }
 

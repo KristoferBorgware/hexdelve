@@ -21,10 +21,17 @@ import {
 	type RendererInfo,
 	type RendererOptions,
 } from '../types.js';
-import { HEX_SHADER } from './shaders.js';
+import { DEPTH_SHADER, HEX_SHADER } from './shaders.js';
 
 const DEPTH_FORMAT: GPUTextureFormat = 'depth24plus';
-const UNIFORM_BYTES = 64 + 16 + 16;
+// viewProjection, lightViewProjection, light, ambient, shadow params.
+const UNIFORM_BYTES = 64 + 64 + 16 + 16 + 16;
+const SHADOW_UNIFORM_BYTES = 64;
+/**
+ * A shadow map wants a plain, filterable depth format. depth24plus cannot be
+ * sampled with comparison on every adapter, and depth32float can.
+ */
+const SHADOW_FORMAT: GPUTextureFormat = 'depth32float';
 
 export class WebGPURenderer implements Renderer {
 	readonly backend = 'webgpu' as const;
@@ -42,6 +49,13 @@ export class WebGPURenderer implements Renderer {
 	private readonly pipeline: GPURenderPipeline;
 	private readonly blendedPipeline: GPURenderPipeline;
 	private readonly overlayPipeline: GPURenderPipeline;
+	private readonly shadowPipeline: GPURenderPipeline | null;
+	private readonly shadowBindGroup: GPUBindGroup | null;
+	private readonly shadowUniformBuffer: GPUBuffer | null;
+	private readonly shadowTexture: GPUTexture | null;
+	private readonly shadowView: GPUTextureView | null;
+	private readonly shadowMapSize: number;
+	private readonly shadowUniformData = new Float32Array(SHADOW_UNIFORM_BYTES / 4);
 	private readonly bindGroup: GPUBindGroup;
 	private readonly uniformBuffer: GPUBuffer;
 	private readonly uniformData = new Float32Array(UNIFORM_BYTES / 4);
@@ -140,6 +154,48 @@ export class WebGPURenderer implements Renderer {
 
 		const module = device.createShaderModule({ label: 'hexdelve:hex', code: HEX_SHADER });
 
+		this.shadowMapSize = Math.min(
+			options.shadowMapSize ?? 2048,
+			device.limits.maxTextureDimension2D,
+		);
+
+		/*
+		 * The shadow map exists even when shadows are off for a frame, because
+		 * the bind group layout names it and a layout cannot have a hole in it.
+		 * A 1x1 texture would do for that, but the size is fixed at
+		 * construction anyway and this keeps one code path.
+		 */
+		if (this.shadowMapSize > 0) {
+			this.shadowTexture = device.createTexture({
+				label: 'hexdelve:shadow',
+				size: { width: this.shadowMapSize, height: this.shadowMapSize },
+				format: SHADOW_FORMAT,
+				usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+			});
+			this.shadowView = this.shadowTexture.createView();
+			this.shadowUniformBuffer = device.createBuffer({
+				label: 'hexdelve:shadow-globals',
+				size: SHADOW_UNIFORM_BYTES,
+				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+			});
+		} else {
+			this.shadowTexture = null;
+			this.shadowView = null;
+			this.shadowUniformBuffer = null;
+		}
+
+		// Comparison filtering: the sampler does the depth test and blends the
+		// results of four of them, which is a 2x2 percentage-closer filter for
+		// the price of one tap.
+		const shadowSampler = device.createSampler({
+			label: 'hexdelve:shadow-sampler',
+			compare: 'less-equal',
+			magFilter: 'linear',
+			minFilter: 'linear',
+			addressModeU: 'clamp-to-edge',
+			addressModeV: 'clamp-to-edge',
+		});
+
 		const bindGroupLayout = device.createBindGroupLayout({
 			entries: [
 				{
@@ -147,12 +203,26 @@ export class WebGPURenderer implements Renderer {
 					visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
 					buffer: { type: 'uniform' },
 				},
+				{
+					binding: 1,
+					visibility: GPUShaderStage.FRAGMENT,
+					texture: { sampleType: 'depth' },
+				},
+				{
+					binding: 2,
+					visibility: GPUShaderStage.FRAGMENT,
+					sampler: { type: 'comparison' },
+				},
 			],
 		});
 
 		this.bindGroup = device.createBindGroup({
 			layout: bindGroupLayout,
-			entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }],
+			entries: [
+				{ binding: 0, resource: { buffer: this.uniformBuffer } },
+				{ binding: 1, resource: this.shadowView! },
+				{ binding: 2, resource: shadowSampler },
+			],
 		});
 
 		const describePipeline = (
@@ -227,6 +297,36 @@ export class WebGPURenderer implements Renderer {
 		this.overlayPipeline = device.createRenderPipeline(
 			describePipeline('hexdelve:hex-overlay', true, false, 'always'),
 		);
+
+		if (this.shadowMapSize > 0) {
+			const depthModule = device.createShaderModule({
+				label: 'hexdelve:shadow',
+				code: DEPTH_SHADER,
+			});
+			const shadowLayout = device.createBindGroupLayout({
+				entries: [
+					{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: { type: 'uniform' } },
+				],
+			});
+			this.shadowBindGroup = device.createBindGroup({
+				layout: shadowLayout,
+				entries: [{ binding: 0, resource: { buffer: this.shadowUniformBuffer! } }],
+			});
+
+			const colour = describePipeline('hexdelve:hex', false, true, 'less');
+			this.shadowPipeline = device.createRenderPipeline({
+				label: 'hexdelve:shadow-pipeline',
+				layout: device.createPipelineLayout({ bindGroupLayouts: [shadowLayout] }),
+				// The same vertex layout, so the same instance buffer feeds it.
+				vertex: { ...colour.vertex, module: depthModule, entryPoint: 'vertexMain' },
+				// No fragment stage at all: the pass writes depth and nothing else.
+				primitive: { topology: 'triangle-list', cullMode: 'front', frontFace: 'ccw' },
+				depthStencil: { format: SHADOW_FORMAT, depthWriteEnabled: true, depthCompare: 'less' },
+			});
+		} else {
+			this.shadowPipeline = null;
+			this.shadowBindGroup = null;
+		}
 
 		this.info = {
 			backend: 'webgpu',
@@ -303,17 +403,29 @@ export class WebGPURenderer implements Renderer {
 	render(frame: Frame): void {
 		if (!this.alive || !this.depthTexture) return;
 
+		const { opaque, blended, overlay } = this.ranges;
+		const shadow = this.shadowPipeline && frame.shadow ? frame.shadow : null;
+
 		this.uniformData.set(frame.viewProjection, 0);
+		if (shadow) this.uniformData.set(shadow.viewProjection, 16);
+		else this.uniformData.fill(0, 16, 32);
+
 		const d = frame.light.direction;
-		this.uniformData[16] = d[0]!;
-		this.uniformData[17] = d[1]!;
-		this.uniformData[18] = d[2]!;
-		this.uniformData[19] = frame.light.intensity;
+		this.uniformData[32] = d[0]!;
+		this.uniformData[33] = d[1]!;
+		this.uniformData[34] = d[2]!;
+		this.uniformData[35] = frame.light.intensity;
+
 		const ambient = frame.light.ambient;
-		this.uniformData[20] = ambient[0]!;
-		this.uniformData[21] = ambient[1]!;
-		this.uniformData[22] = ambient[2]!;
-		this.uniformData[23] = 0;
+		this.uniformData[36] = ambient[0]!;
+		this.uniformData[37] = ambient[1]!;
+		this.uniformData[38] = ambient[2]!;
+		this.uniformData[39] = 0;
+
+		this.uniformData[40] = shadow ? 1 : 0;
+		this.uniformData[41] = shadow?.bias ?? 0.0025;
+		this.uniformData[42] = 1 / this.shadowMapSize;
+		this.uniformData[43] = 0;
 		this.device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformData);
 
 		const swapchainView = this.context.getCurrentTexture().createView();
@@ -337,6 +449,42 @@ export class WebGPURenderer implements Renderer {
 				};
 
 		const encoder = this.device.createCommandEncoder({ label: 'hexdelve:frame' });
+
+		/*
+		 * The scene from the sun, depth only, before anything else.
+		 *
+		 * Only the opaque range casts. Smoke that shadowed the yard would be a
+		 * lie about what smoke does, and the ground arrows are a readout — one
+		 * that cast a shadow would be a very strange object indeed.
+		 *
+		 * Front faces are culled rather than back ones, so what is written is
+		 * the far side of each prism. That is further from the light than the
+		 * surface being tested, which removes most of the bias a flat face
+		 * would otherwise need to stop shadowing itself.
+		 */
+		if (shadow && opaque > 0 && this.instanceBuffer) {
+			this.shadowUniformData.set(shadow.viewProjection, 0);
+			this.device.queue.writeBuffer(this.shadowUniformBuffer!, 0, this.shadowUniformData);
+
+			const shadowPass = encoder.beginRenderPass({
+				label: 'hexdelve:shadow-pass',
+				colorAttachments: [],
+				depthStencilAttachment: {
+					view: this.shadowView!,
+					depthClearValue: 1,
+					depthLoadOp: 'clear',
+					depthStoreOp: 'store',
+				},
+			});
+			shadowPass.setPipeline(this.shadowPipeline!);
+			shadowPass.setBindGroup(0, this.shadowBindGroup!);
+			shadowPass.setVertexBuffer(0, this.vertexBuffer);
+			shadowPass.setVertexBuffer(1, this.instanceBuffer);
+			shadowPass.setIndexBuffer(this.indexBuffer, 'uint16');
+			shadowPass.drawIndexed(this.indexCount, opaque);
+			shadowPass.end();
+		}
+
 		const pass = encoder.beginRenderPass({
 			colorAttachments: [colorAttachment],
 			depthStencilAttachment: {
@@ -347,7 +495,6 @@ export class WebGPURenderer implements Renderer {
 			},
 		});
 
-		const { opaque, blended, overlay } = this.ranges;
 		if (opaque + blended + overlay > 0 && this.instanceBuffer) {
 			pass.setBindGroup(0, this.bindGroup);
 			pass.setVertexBuffer(0, this.vertexBuffer);
