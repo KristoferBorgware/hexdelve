@@ -3,6 +3,7 @@
 	"version": "0.1.0",
 	"description": "Hexdelve client — the game itself, mounted on a canvas",
 	"license": "MIT",
+	"private": true,
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -12,7 +13,11 @@
 			"import": "./dist/index.js"
 		}
 	},
-	"files": ["dist", "dist-lib", "src"],
+	"files": [
+		"dist",
+		"dist-lib",
+		"src"
+	],
 	"sideEffects": false,
 	"scripts": {
 		"dev": "vite",
@@ -23,8 +28,8 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
-		"@hexdelve/engine": "0.1.0",
-		"@hexdelve/shared": "0.1.0"
+		"@hexdelve/engine": "*",
+		"@hexdelve/shared": "*"
 	},
 	"devDependencies": {
 		"vite": "^8.2.2"

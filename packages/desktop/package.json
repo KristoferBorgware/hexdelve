@@ -13,7 +13,7 @@
 		"typecheck": "tsc -b"
 	},
 	"dependencies": {
-		"@hexdelve/client": "0.1.0"
+		"@hexdelve/client": "*"
 	},
 	"devDependencies": {
 		"@types/node": "^26.4.1",

@@ -3,6 +3,7 @@
 	"version": "0.1.0",
 	"description": "Dependency-free math, hex coordinates and types shared by every Hexdelve package",
 	"license": "MIT",
+	"private": true,
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -12,7 +13,10 @@
 			"import": "./dist/index.js"
 		}
 	},
-	"files": ["dist", "src"],
+	"files": [
+		"dist",
+		"src"
+	],
 	"sideEffects": false,
 	"scripts": {
 		"build": "tsc -b",

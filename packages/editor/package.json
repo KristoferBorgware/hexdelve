@@ -14,9 +14,9 @@
 	"dependencies": {
 		"@emotion/react": "^11.14.0",
 		"@emotion/styled": "^11.14.1",
-		"@hexdelve/client": "0.1.0",
-		"@hexdelve/engine": "0.1.0",
-		"@hexdelve/shared": "0.1.0",
+		"@hexdelve/client": "*",
+		"@hexdelve/engine": "*",
+		"@hexdelve/shared": "*",
 		"@mui/icons-material": "^9.4.0",
 		"@mui/material": "^9.4.0",
 		"react": "^19.2.8",

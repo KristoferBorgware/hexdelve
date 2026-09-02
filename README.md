@@ -109,6 +109,39 @@ during ordinary work.
 No desktop-only rendering path and no desktop-only game code, so what ships on
 the web ships there.
 
+### Versions
+
+Nothing here is published to npm. Every package is `"private": true`, and the
+internal dependencies are `*`:
+
+```json
+"dependencies": {
+  "@hexdelve/engine": "*",
+  "@hexdelve/shared": "*"
+}
+```
+
+`*` is satisfied by whatever version is in the workspace, so npm symlinks the
+local folder — `node_modules/@hexdelve/engine -> ../../packages/engine`, and
+`"link": true` in the lockfile — and never asks a registry for anything. The
+version fields are then free to mean whatever you want, independently, because
+nothing reads them.
+
+A real range would have to be maintained instead of meaning anything. Pin
+`"0.1.0"` and bumping one package sends npm to the registry for the old version
+of a package that was never published there, so `npm install` dies on a 404
+until all six numbers are edited together; `npm version --workspaces` does not
+help, because it bumps the version fields and leaves the sibling specs behind.
+
+`*` is only wrong for a package that gets published, where it would mean "any
+version, ever". `"private": true` is what keeps that from being possible —
+`npm publish` skips these — and it does not affect the client's distributable
+bundle, which Vite builds regardless. If one of these ever should be published,
+that is the field to flip, and a real range to add at the same time.
+
+The `workspace:*` protocol would say all this more precisely, but it is a pnpm
+and yarn feature: npm answers `EUNSUPPORTEDPROTOCOL` to both `install` and `ci`.
+
 ## WebGPU first, WebGL2 always
 
 `createRenderer` prefers WebGPU and falls back to WebGL2. "Prefers" is not a
