@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<title>Hexdelve — Lab 07: Player character</title>
+	<title>Hexdelve — Lab 08: The bat</title>
 	<link rel="stylesheet" href="style.css" />
 	<link rel="stylesheet" href="../shared/ui.css" />
 </head>
@@ -11,32 +11,31 @@
 	<canvas id="scene"></canvas>
 
 	<div id="panel" class="collapsed">
-		<h1><button id="panelToggle" type="button" aria-expanded="false" aria-controls="panelBody">Lab 07 — Player character</button></h1>
+		<h1><button id="panelToggle" type="button" aria-expanded="false" aria-controls="panelBody">Lab 08 — The bat</button></h1>
 		<div id="panelBody">
-		<p class="sub">You are the <b>wanderer</b> — a second character on the same
-			17-bone rig, carrying nothing. <b>Click</b> a hexagon to walk there,
-			<b>click again</b> to run. <b>Click the smith</b> or his anvil and you walk
-			over to watch him work. <b>Click the helmet</b> lying in the yard and he
-			fetches it and puts it on; click him again to take it off.</p>
+		<p class="sub">An enemy on a rig of its own. It sleeps on its hexagon with its
+			wings wrapped round it; come within <b>three tiles</b> and it wakes, hunts
+			you across the grid, and lunges off it to bite. <b>Click</b> to walk,
+			<b>click again</b> to run — and it is slower than a run.</p>
 
 		<div class="row checks">
 			<label><input id="ik" type="checkbox" checked /> IK</label>
-			<label><input id="showPath" type="checkbox" checked /> Path</label>
+			<label><input id="showPath" type="checkbox" checked /> Paths</label>
 			<label><input id="showSkel" type="checkbox" /> Skeletons</label>
 			<label><input id="follow" type="checkbox" checked /> Follow</label>
 		</div>
 
 		<dl id="stats"></dl>
 
-		<p class="hint">Two characters, one system. The wanderer's pose comes from the
-			blend tree under your clicks; the blacksmith's comes from the same player
-			running his own schedule of blows. Neither knows about the other.</p>
-		<p class="hint">The helmet is a prop, not a character: no bones, one group,
-			modelled around the head bone's origin. Picking it up re-parents it onto
-			that bone and nothing else changes — every clip carries it from then on.</p>
-		<p class="hint">The smith stands where lab 06 measured: the spot is derived
-			from his own swing, so his hammer reaches the anvil face and the IK has
-			something to correct rather than something to invent.</p>
+		<p class="hint">Its skeleton is not the humanoid one. Twenty bones, four to a
+			wing, and the three folds outboard of the shoulder are what let two and a
+			half metres of wing wrap up small enough to sit on one tile. Turn
+			<b>Skeletons</b> on and it draws itself from that list — the same viewer
+			that draws the man.</p>
+		<p class="hint">It is not flying free: it paths over the same hexagons you
+			walk, one A* at a time, and only leaves the grid for the same reason you
+			do — to get within reach of something. Its wings clear two terraces in a
+			step where you can only manage one.</p>
 		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel or pinch — zoom &nbsp;·&nbsp;
 			right-drag or two-finger drag — pan</p>
 		</div>
@@ -55,9 +54,10 @@
 	<script src="../shared/clips.js"></script>
 	<script src="../shared/blendtree.js"></script>
 	<script src="../shared/rigview.js"></script>
-	<script src="../shared/blacksmith.js"></script>
 	<script src="../shared/wanderer.js"></script>
-	<script src="../shared/helmet.js"></script>
+	<script src="../shared/batrig.js"></script>
+	<script src="../shared/batpose.js"></script>
+	<script src="../shared/bat.js"></script>
 	<script src="main.js"></script>
 </body>
 </html>
