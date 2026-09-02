@@ -61,10 +61,13 @@ export function Inspector({ client }: InspectorProps) {
 	/*
 	 * The camera's own numbers, polled.
 	 *
-	 * These are controlled rather than defaulted because this panel is now the
-	 * only pointing device the camera has — the mouse aims and cuts and does
-	 * not touch it. Q and E still turn it, so a slider that showed only where
-	 * it was first put would be telling a lie about the thing it controls.
+	 * These sliders are the only thing that aims the camera now: the mouse aims
+	 * him and cuts, the keys walk him, and neither touches it. They are still
+	 * controlled and still polled rather than merely defaulted, because the
+	 * client owns the camera and anything else holding a reference to it —
+	 * another embedder, a later feature, a console — can move it underneath.
+	 * A slider that showed only where the camera was first put would be lying
+	 * about the thing it controls.
 	 */
 	const [zoom, setZoom] = useState(1.35);
 	const [azimuth, setAzimuth] = useState(1.08);
@@ -259,8 +262,7 @@ export function Inspector({ client }: InspectorProps) {
 			<Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
 				<b>W</b>/<b>S</b> are his, <b>A</b>/<b>D</b> the screen's. <b>Shift</b> runs,
 				<b> click</b> or <b>space</b> cuts. The mouse aims and nothing else — the
-				camera follows him, and its angle comes from <b>Q</b>/<b>E</b> or the
-				slider above.
+				camera follows him, and the sliders above are the only thing that turns it.
 			</Typography>
 		</Box>
 	);
