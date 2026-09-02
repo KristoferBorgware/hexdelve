@@ -265,7 +265,8 @@ end of a swing the knee is nearly straight, so the foot is already inside the
 contact band while it is still travelling forwards, and that stretch cancels part
 of the stance it is averaged with. The walk measures 0.62 m/s that way and 1.58
 m/s between its two contact keys, which is what the stride is actually worth — so
-the men in those labs walk slower than their legs and their feet slide a little.
+the men in those labs travel at about two fifths of what their legs are doing,
+and their feet slide the rest of it.
 Lab 09 measures the second way and travels at the speed its stride makes, which
 is why the same character is quicker there. The older labs are left as they are:
 changing the measurement would move every speed in six of them.
