@@ -231,7 +231,11 @@ module.exports = function createVoices({ S, place, rnd }) {
   }
 
   // A muted, plucked string, damped almost to death.
-  function pluck(tStart, midi, amp, panPos, send, damp = 0.9985, bright = 0.14) {
+  // Options rather than a tail of positional arguments: a lute needs very
+  // different damping and a bounded duration from a dungeon plink. Every
+  // default below is what the dungeon tracks already relied on.
+  function pluck(tStart, midi, amp, panPos, send,
+                 { damp = 0.9985, bright = 0.14, echo = 0.35, dur = 10 } = {}) {
     const start = Math.round(tStart * SR);
     if (start >= N) return;
     const M = Math.max(2, Math.round(SR / mtof(midi)));
@@ -246,14 +250,14 @@ module.exports = function createVoices({ S, place, rnd }) {
     if (pk > 0) for (let i = 0; i < M; i++) buf[i] /= pk;
 
     const [l, r] = pan2(panPos);
-    const dur = Math.min(NT - start, Math.round(10 * SR));
+    const total = Math.min(NT - start, Math.round(dur * SR));
     let idx = 0;
-    for (let n = 0; n < dur; n++) {
+    for (let n = 0; n < total; n++) {
       const cur = buf[idx];
       buf[idx] = damp * 0.5 * (cur + buf[(idx + 1) % M]);
       idx = idx + 1 === M ? 0 : idx + 1;
-      const fade = n < dur - SR ? 1 : (dur - n) / SR;
-      place(start + n, cur * amp * fade, l, r, send, 0.35);
+      const fade = n < total - SR ? 1 : (total - n) / SR;
+      place(start + n, cur * amp * fade, l, r, send, echo);
     }
   }
 
