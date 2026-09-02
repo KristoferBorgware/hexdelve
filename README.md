@@ -27,7 +27,7 @@ no server needed.**
 
 | 07 | [Player character](labs/07-player-character/index.html) | The same world, with the roles swapped. You drive the **wanderer** — a second character on the same rig, carrying nothing — while the blacksmith stands at his anvil and works on his own schedule, hammer aimed by IK, whether or not you are watching. A **helmet** lies in the yard: click it and he fetches it, stoops and puts it on. Picking it up is one re-parent onto the head bone, so every clip carries it from then on. |
 
-| 08 | [The bat](labs/08-bat/index.html) | An enemy, on a rig that is nothing like the humanoid one. It sleeps folded on its hexagon; come within three tiles and it wakes, paths after you over the same grid you walk, and steps off it to bite — then loses you at six and flies home. Its wings clear two terraces where you can only manage one. |
+| 08 | [The bat](labs/08-bat/index.html) | An enemy, on a rig that is nothing like the humanoid one. It sleeps folded on its hexagon; come within three tiles and it wakes, paths after you over the same grid you walk, and steps off it to bite — then loses you at six and flies home. Its wings clear two terraces where you can only manage one. There is a helmet, a sword and a shield in the yard: pick them up and hit it back. |
 
 Labs 02–08 share one rig and one animation system (lab 08 adds a second rig for
 the bat), and labs 06–08 share one world; see `labs/shared/` below.
@@ -63,6 +63,8 @@ node assets/audio/dungeon-crawl.js
 | `clips.js` — hand-authored clips as plain data | `helmet.js` — a prop: one group, no bones |
 | `batrig.js` — a second skeleton, four bones to a wing | `bat.js` — the creature's prisms, spars and membrane |
 | `batpose.js` — perch, flap and lunge as pure functions | `world.js` — the yard labs 06–08 all stand in |
+| | `props.js` — a thing on the ground, or on a bone |
+| | `sword.js` / `shield.js` — gear, built round the bone that holds it |
 | | `ui.js` / `ui.css` — the panel and the camera gestures |
 
 Nothing in the left column imports or mentions Three.js. Poses are plain data
@@ -135,6 +137,25 @@ along the wing as a wave, which is the difference between a bat and a doorway.
 And the bite is lab 06's measurement on a different animal: play the lunge to
 the moment the jaws arrive, ask where they end up, and stand so that point
 lands on the man. Re-time the strike and the stance follows.
+
+## Gear is the same trick as the helmet
+
+A prop has no bones. It is one group, and equipping it is which node that group
+hangs from — the scene, or a bone. So each is modelled around the origin of the
+bone it belongs to: the helmet around the head, the sword around the fist, the
+shield around the forearm. Worn, its transform is the identity. There is no
+second model for the held version, no offsets to keep in step, and every clip
+carries it afterwards without knowing it exists.
+
+`props.js` is the forty lines that hold the other half — where it rests on the
+ground, and how it lies there, since a helmet stands up and a sword does not.
+
+The swing is `SWING` from `clips.js`, authored back in lab 03 and unused until
+now. Its reach is not a tuned constant: play the clip to the key its `whoosh`
+event sits on, ask where the point of the blade actually is, and that is how
+close he has to be. Re-author the swing or lengthen the blade and the number
+moves with it — the same measurement the smith's stance and the bat's bite both
+come from.
 
 ## Every lab works on a phone
 

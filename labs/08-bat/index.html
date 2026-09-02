@@ -16,7 +16,9 @@
 		<p class="sub">An enemy on a rig of its own. It sleeps on its hexagon with its
 			wings wrapped round it; come within <b>three tiles</b> and it wakes, hunts
 			you across the grid, and lunges off it to bite. <b>Click</b> to walk,
-			<b>click again</b> to run — and it is slower than a run.</p>
+			<b>click again</b> to run — and it is slower than a run. There is a
+			<b>helmet, a sword and a shield</b> lying in the yard: click one and he
+			fetches it and puts it on. Armed, <b>click the bat</b> to go at it.</p>
 
 		<div class="row checks">
 			<label><input id="ik" type="checkbox" checked /> IK</label>
@@ -32,6 +34,12 @@
 			half metres of wing wrap up small enough to sit on one tile. Turn
 			<b>Skeletons</b> on and it draws itself from that list — the same viewer
 			that draws the man.</p>
+		<p class="hint">The gear is three props and no bones apiece — one group
+			each, modelled around the origin of the bone it belongs to, so putting
+			it on is a re-parent and every clip carries it afterwards. The swing is
+			the sword clip that has been sitting unused in clips.js
+			since lab 03; its reach is measured from where the blade's point
+			actually arrives, not guessed.</p>
 		<p class="hint">It is not flying free: it paths over the same hexagons you
 			walk, one A* at a time, and only leaves the grid for the same reason you
 			do — to get within reach of something. Its wings clear two terraces in a
@@ -55,6 +63,10 @@
 	<script src="../shared/blendtree.js"></script>
 	<script src="../shared/rigview.js"></script>
 	<script src="../shared/wanderer.js"></script>
+	<script src="../shared/props.js"></script>
+	<script src="../shared/helmet.js"></script>
+	<script src="../shared/sword.js"></script>
+	<script src="../shared/shield.js"></script>
 	<script src="../shared/batrig.js"></script>
 	<script src="../shared/batpose.js"></script>
 	<script src="../shared/bat.js"></script>

@@ -22,6 +22,13 @@
  * The one place it differs from a man is what a step costs: its wings clear two
  * terraces where he can only manage one. That is a number passed to
  * `world.passable`, not a different pathfinder.
+ *
+ * And because a man with nothing in his hands is not much of an answer to it,
+ * there is a helmet, a sword and a shield lying in the yard. They are props
+ * (../shared/props.js): no bones, one group each, modelled around the origin of
+ * the bone they hang from, so picking one up is a re-parent and every clip
+ * carries it afterwards. The swing is the sword clip that has been sitting in
+ * clips.js unused since lab 03.
  */
 
 'use strict';
@@ -31,10 +38,14 @@ const { worldToAxial, distance: hexDistance, neighbours, findPath, keyOf } = Hex
 const { SKELETON, BONES, TIPS, HIPS_Y } = Hexdelve.skeleton;
 const { buildRig, buildSkeletonView, applySparsePose } = Hexdelve.rigview;
 const { buildWanderer } = Hexdelve.wanderer;
+const { makeItem } = Hexdelve.props;
 const { attachPanel, attachView, startZoom } = Hexdelve.ui;
 const { walkPose, WALK_PERIOD, WALK_CONTACTS } = Hexdelve.walk;
-const { IDLE, RUN, LEAN_LEFT, LEAN_RIGHT, UPRIGHT } = Hexdelve.clips;
-const { bakeClip, samplePose, measureGroundSpeed, solveWorld, denseToSparse, DEG } = Hexdelve.anim;
+const { IDLE, RUN, SWING, DUCK, LEAN_LEFT, LEAN_RIGHT, UPRIGHT } = Hexdelve.clips;
+const {
+	bakeClip, samplePose, measureGroundSpeed, solveWorld, denseToSparse,
+	createPose, lerpPose, bindClip, sampleBound, DEG,
+} = Hexdelve.anim;
 const { ClipNode, Blend1D, Additive, BlendTree, calibrateSpeed, parameterForSpeed, speedForParameter } =
 	Hexdelve.blendtree;
 const { solveTwoBone, levelBone, attachmentPosition } = Hexdelve.ik;
@@ -193,6 +204,57 @@ const BITE_STANCE = (function () {
 	};
 })();
 
+/* ------------------------------------------------------------------ gear -- */
+
+/*
+ * Three props, lying where he can find them. Each one names the bone it belongs
+ * on and how it sits when it is on the ground — a helmet stands up, a sword and
+ * a shield lie flat — and ../shared/props.js does the rest. Nothing below here
+ * knows what any of them is, only that he is carrying it.
+ */
+const items = [
+	makeItem(scene, {
+		label: 'helmet',
+		bone: 'head',
+		build: Hexdelve.helmet.buildHelmet,
+		lift: Hexdelve.helmet.GROUND_LIFT,
+		tilt: 0,
+	}),
+	makeItem(scene, {
+		label: 'sword',
+		bone: 'handR',
+		build: Hexdelve.sword.buildSword,
+		lift: Hexdelve.sword.GROUND_LIFT,
+		tilt: Hexdelve.sword.GROUND_TILT,
+	}),
+	makeItem(scene, {
+		label: 'shield',
+		bone: 'forearmL',
+		build: Hexdelve.shield.buildShield,
+		lift: Hexdelve.shield.GROUND_LIFT,
+		tilt: Hexdelve.shield.GROUND_TILT,
+	}),
+];
+
+const [helmet, sword, shield] = items;
+
+// Laid out between where he starts and where the bat sleeps, so the walk to the
+// gear is also the walk into its hearing.
+{
+	const spots = [
+		{ item: helmet, at: [-1.6, -3.2], yaw: -0.7 },
+		{ item: sword, at: [0.9, -2.4], yaw: 1.1 },
+		{ item: shield, at: [-0.4, -1.2], yaw: 2.3 },
+	];
+	for (const spot of spots) {
+		const cell = worldToAxial(spot.at[0], spot.at[1]);
+		const tile = tileAt(cell.q, cell.r);
+		spot.item.ground(tile.x + 0.35, tile.z + 0.2, spot.yaw, tile.top);
+	}
+}
+
+const armed = () => sword.worn;
+
 /* ------------------------------------------------------- the man's motion -- */
 
 const baked = bakeClip({
@@ -227,6 +289,88 @@ const CRUISE = { walk: Math.min(WALK_SPEED, MAX_SPEED), run: MAX_SPEED * 0.97 };
 // Deliberately under a sprint: it should be able to run you down while you dawdle
 // and lose you while you run, so that the range numbers mean something.
 const BAT_SPEED = MAX_SPEED * 0.72;
+
+/* ------------------------------------------------- what his hands are doing -- */
+
+/*
+ * Two clips play over the top of the blend tree rather than inside it, because
+ * neither is locomotion: the crouch he picks things up with, and the swing.
+ * Only one is ever up at a time, so they share one buffer and one weight.
+ */
+const boneIndex = new Map(BONES.map((n, i) => [n, i]));
+const duckEntry = { clip: DUCK, bound: bindClip(DUCK, boneIndex) };
+const swingEntry = { clip: SWING, bound: bindClip(SWING, boneIndex) };
+const overlayPose = createPose(BONES.length);
+const playerPose = createPose(BONES.length);
+
+// The duck from lab 03 is a crouch with both hands forward, which is what
+// reaching down looks like; it is faded away while it holds at the bottom, so
+// he rises by blending back into the tree rather than playing it backwards.
+const STOOP = { grab: 0.4, release: 0.56, end: 0.95, hold: 0.85 };
+const stoop = { clock: 0, blend: 0, done: false, item: null, x: 0, z: 0 };
+
+function beginStoop(item) {
+	stoop.clock = 0;
+	stoop.done = false;
+	stoop.item = item;
+	stoop.x = item.x;
+	stoop.z = item.z;
+	control.state = 'stoop';
+	control.message = `picking up the ${item.label}`;
+	control.path = null;
+	showPathOn(pathMarkers, null);
+	goalMarker.visible = false;
+}
+
+/*
+ * The swing, and how far it reaches.
+ *
+ * Same measurement as the hammer in lab 06 and the bat's own jaws: play the
+ * clip to the key the whoosh event sits on, ask where the point of the blade
+ * actually is, and take that as the reach. Re-author the swing or lengthen the
+ * blade and the number follows.
+ */
+const SWING_CONTACT = 0.66;
+
+const REACH = (function () {
+	const pose = samplePose(SWING, SWING_CONTACT);
+	const tip = attachmentPosition(SKELETON, pose, 'handR', Hexdelve.sword.TIP);
+	return { distance: Math.hypot(tip[0], tip[2]), height: tip[1] };
+})();
+
+const swing = { active: false, clock: 0, blend: 0, hit: false, hits: 0 };
+
+/**
+ * The moment the blade arrives. Everything that decides whether it connects is
+ * here and nowhere else: close enough, in front of him, and roughly level with
+ * the thing — a bat that has climbed above the swing is over his head, and one
+ * behind him was never in the arc.
+ */
+function landSwing() {
+	const dx = bat.x - player.x;
+	const dz = bat.z - player.z;
+	const gap = Math.hypot(dx, dz) || 1e-6;
+	const infront = (dx * Math.sin(player.yaw) + dz * Math.cos(player.yaw)) / gap;
+	const bladeY = player.y + REACH.height;
+	const bodyY = bat.y + BAT.HOVER_Y;
+
+	if (gap > REACH.distance + 0.35 || infront < 0.3 || Math.abs(bodyY - bladeY) > 1.0) return;
+
+	swing.hits++;
+	motes.spawn(bat.x, bodyY, bat.z, 9, 1.6, 1.9);
+	reel();
+}
+
+function beginSwing() {
+	swing.active = true;
+	swing.clock = 0;
+	swing.hit = false;
+	control.state = 'swinging';
+	control.message = 'swinging';
+	control.path = null;
+	showPathOn(pathMarkers, null);
+	goalMarker.visible = false;
+}
 
 /* --------------------------------------------------------------- markers -- */
 
@@ -329,11 +473,13 @@ const motes = new Bits(14, 0x4a3a3c, -5.5, 0.5, 0.05);
 /* ------------------------------------------------------------ controller -- */
 
 const control = {
-	state: 'idle', // idle → moving
+	// idle → moving → (stoop, at a prop) or (closing → swinging, at the bat)
+	state: 'idle',
 	path: null,
 	index: 0,
 	cruise: 0,
 	goalCell: null,
+	fetching: null, // the prop this walk is for
 	message: 'waiting',
 	lastClickAt: -10,
 };
@@ -341,7 +487,28 @@ const control = {
 let speedNow = 0;
 let turnNow = 0;
 
-function goTo(cell, running) {
+/**
+ * Send him somewhere. `kind` is what was clicked, not where: a prop is a place
+ * to walk to and then bend down at, and the bat is a place to walk to and then
+ * swing at — if he has anything to swing.
+ */
+function goTo(cell, running, kind, item) {
+	if (control.state === 'stoop' || control.state === 'swinging') return; // let him finish
+
+	if (kind === 'bat') {
+		if (!armed()) {
+			control.message = 'nothing to fight with';
+			return;
+		}
+		control.state = 'closing';
+		control.message = 'closing in';
+		control.path = null;
+		control.fetching = null;
+		showPathOn(pathMarkers, null);
+		goalMarker.visible = false;
+		return;
+	}
+
 	const here = worldToAxial(player.x, player.z);
 	const path = findPath(here, cell, { passable: walkable });
 	if (!path) {
@@ -358,11 +525,13 @@ function goTo(cell, running) {
 	control.state = 'moving';
 	control.cruise = running ? CRUISE.run : CRUISE.walk;
 	control.goalCell = cell;
-	control.message = running ? 'running' : 'walking';
+	control.fetching = kind === 'item' ? item : null;
+	control.message = control.fetching ? `fetching the ${item.label}` : running ? 'running' : 'walking';
 
 	const tile = tileAt(cell.q, cell.r);
 	goalMarker.visible = true;
 	goalMarker.position.set(tile.x, tile.top + 0.02, tile.z);
+	goalMarker.material.color.set(control.fetching ? 0x5f7f9c : 0x4a7a3c);
 	showPathOn(pathMarkers, path);
 }
 
@@ -370,7 +539,17 @@ function goTo(cell, running) {
 
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
-const PICKABLE = [world.groundMesh].concat(world.buildings);
+const batMeshes = new Set(bat.character.meshes);
+
+/*
+ * Everything worth clicking, and what clicking it means. Each hit resolves to a
+ * tile to walk to plus what was actually hit, which is what tells "go there"
+ * from "go and pick that up" from "go and hit that".
+ */
+const PICKABLE = [world.groundMesh]
+	.concat(world.buildings)
+	.concat(bat.character.meshes)
+	.concat(items.reduce((all, item) => all.concat([...item.meshes]), []));
 
 function pickCell(clientX, clientY) {
 	const rect = canvas.getBoundingClientRect();
@@ -379,9 +558,20 @@ function pickCell(clientX, clientY) {
 	raycaster.setFromCamera(ndc, camera);
 	const hits = raycaster.intersectObjects(PICKABLE);
 	for (const hit of hits) {
+		if (batMeshes.has(hit.object)) {
+			const cell = worldToAxial(bat.x, bat.z);
+			return { cell: tileAt(cell.q, cell.r), kind: 'bat' };
+		}
+		for (const item of items) {
+			// Worn, a prop is part of him and not something to go and fetch.
+			if (!item.meshes.has(hit.object)) continue;
+			if (item.worn) return null;
+			const tile = tileAt(item.cell.q, item.cell.r);
+			return tile ? { cell: tile, kind: 'item', item: item } : null;
+		}
 		if (hit.object !== world.groundMesh) return null;
 		const meta = world.groundMesh.userData.meta[hit.instanceId];
-		if (meta) return meta;
+		if (meta) return { cell: meta, kind: 'tile' };
 	}
 	return null;
 }
@@ -395,21 +585,24 @@ attachView(canvas, view, {
 		ui.follow.checked = false;
 	},
 	onTap: function (x, y) {
-		const cell = pickCell(x, y);
-		if (!cell) return;
+		const pick = pickCell(x, y);
+		if (!pick) return;
 		const now = performance.now() / 1000;
 		const quick = now - control.lastClickAt < 0.45;
 		control.lastClickAt = now;
-		goTo(cell, quick || control.state === 'moving');
+		goTo(pick.cell, quick || control.state === 'moving', pick.kind, pick.item);
 	},
 	onHover: function (x, y) {
-		const cell = pickCell(x, y);
-		if (!cell) {
+		const pick = pickCell(x, y);
+		if (!pick) {
 			hover.visible = false;
 			return;
 		}
 		hover.visible = true;
-		hover.position.set(cell.x, cell.top + 0.015, cell.z);
+		hover.position.set(pick.cell.x, pick.cell.top + 0.015, pick.cell.z);
+		hover.material.color.set(
+			pick.kind === 'bat' ? 0xd08a72 : pick.kind === 'item' ? 0x9fc4e0 : 0xffffff,
+		);
 	},
 	onHoverEnd: function () {
 		hover.visible = false;
@@ -430,15 +623,21 @@ attachPanel();
 
 function applyVisibility() {
 	const showS = ui.showSkel.checked;
-	for (const actor of actors) {
-		for (const m of actor.skeletonView.meshes) m.visible = showS;
-		for (const mat of actor.character.materials.values()) {
+	function ghost(materials) {
+		for (const mat of materials.values()) {
 			mat.transparent = showS;
 			mat.opacity = showS ? 0.34 : 1;
 			mat.depthWrite = !showS;
 			mat.needsUpdate = true;
 		}
 	}
+	for (const actor of actors) {
+		for (const m of actor.skeletonView.meshes) m.visible = showS;
+		ghost(actor.character.materials);
+	}
+	// The gear turns to glass with him, so the rig shows through what he is
+	// wearing rather than the helmet hiding the skull.
+	for (const item of items) ghost(item.materials);
 }
 ui.showSkel.addEventListener('change', applyVisibility);
 ui.showPath.addEventListener('change', () => {
@@ -565,11 +764,55 @@ function updatePlayer(dt) {
 		control.index = state.index;
 		turnNow = state.turn;
 		if (state.arrived) {
-			control.state = 'idle';
-			control.message = 'idle';
 			control.path = null;
 			showPathOn(pathMarkers, null);
 			goalMarker.visible = false;
+			if (control.fetching && !control.fetching.worn) {
+				beginStoop(control.fetching);
+			} else {
+				control.state = 'idle';
+				control.message = 'idle';
+			}
+			control.fetching = null;
+		}
+	} else if (control.state === 'closing') {
+		/*
+		 * Chasing something that is itself moving, so there is no path to
+		 * follow: he steers straight at it and swings the moment it is inside
+		 * the reach the clip measured.
+		 */
+		turnTowards(player, bat.x, bat.z, dt, 3.2);
+		const gap = Math.hypot(bat.x - player.x, bat.z - player.z);
+		if (gap > REACH.distance * 0.85) {
+			wantSpeed = Math.min(CRUISE.run, gap * 2);
+		} else {
+			beginSwing();
+		}
+	} else if (control.state === 'stoop') {
+		turnTowards(player, stoop.x, stoop.z, dt, 3.2);
+		turnNow *= Math.max(0, 1 - dt * 4);
+		stoop.clock += dt;
+		if (!stoop.done && stoop.clock >= STOOP.grab) {
+			stoop.done = true;
+			// The whole of picking it up: the prop changes parent.
+			stoop.item.equip(player.rig);
+		}
+		if (stoop.clock >= STOOP.end) {
+			control.state = 'idle';
+			control.message = armed() ? 'armed' : 'idle';
+		}
+	} else if (control.state === 'swinging') {
+		turnTowards(player, bat.x, bat.z, dt, 2.2);
+		turnNow *= Math.max(0, 1 - dt * 4);
+		swing.clock += dt;
+		if (!swing.hit && swing.clock >= SWING_CONTACT) {
+			swing.hit = true;
+			landSwing();
+		}
+		if (swing.clock >= 1.15) {
+			swing.active = false;
+			control.state = 'idle';
+			control.message = 'armed';
 		}
 	} else {
 		turnNow *= Math.max(0, 1 - dt * 4);
@@ -588,8 +831,40 @@ function updatePlayer(dt) {
 	const under = groundAt(player.x, player.z);
 	player.y += (under - player.y) * Math.min(1, dt * 7);
 
+	/*
+	 * One overlay over the tree, at most: the crouch or the swing. The crouch
+	 * fades out while it holds at the bottom; the swing rides a bell so it
+	 * arrives fast, lands, and hands the body back to the legs.
+	 */
+	const wantStoop = control.state === 'stoop' && stoop.clock < STOOP.release ? 1 : 0;
+	stoop.blend += (wantStoop - stoop.blend) * Math.min(1, dt * 9);
+	swing.blend = swing.active
+		? Math.min(1, Math.min(swing.clock / 0.12, (1.15 - swing.clock) / 0.22))
+		: Math.max(0, swing.blend - dt * 6);
+
 	tree.update({ speed: param, turn: turnNow }, dt);
-	denseToSparse(BONES, tree.pose, player.sparse);
+
+	let entry = null;
+	let at = 0;
+	let blend = 0;
+	if (stoop.blend > 0.002) {
+		entry = duckEntry;
+		at = Math.min(stoop.clock, STOOP.hold);
+		blend = stoop.blend;
+	} else if (swing.blend > 0.002) {
+		entry = swingEntry;
+		at = Math.min(swing.clock, SWING.duration);
+		blend = Math.max(0, swing.blend);
+	}
+	if (entry) {
+		sampleBound(entry, at, overlayPose);
+		lerpPose(playerPose, tree.pose, overlayPose, blend);
+	} else {
+		playerPose.rot.set(tree.pose.rot);
+		playerPose.pos.set(tree.pose.pos);
+	}
+
+	denseToSparse(BONES, playerPose, player.sparse);
 	if (ui.ik.checked) applyFootIK(player);
 	placeActor(player);
 	return realSpeed;
@@ -613,6 +888,7 @@ const hunt = {
 	turn: 0,
 	arrived: false,
 	repathIn: 0,
+	reel: 0,
 	lastGoal: null,
 	wake: 0, // 0 folded, 1 flying
 	flap: 0, // wing phase
@@ -684,6 +960,22 @@ function goHome() {
 	hunt.index = 1;
 	hunt.lastGoal = PERCH;
 	showPathOn(batMarkers, path);
+}
+
+/**
+ * Hit. Whatever it was doing stops — including a lunge halfway to his throat —
+ * and it is thrown back off the grid, wings thrashing, before it comes round
+ * and starts again.
+ */
+function reel() {
+	hunt.state = 'reeling';
+	hunt.message = 'hit';
+	hunt.reel = 0.55;
+	hunt.lunge = 0;
+	hunt.lungeBlend = 0;
+	hunt.wake = 1;
+	hunt.path = null;
+	showPathOn(batMarkers, null);
 }
 
 function updateBat(dt, time) {
@@ -794,6 +1086,25 @@ function updateBat(dt, time) {
 			break;
 		}
 
+		case 'reeling': {
+			hunt.reel -= dt;
+			const dx = bat.x - player.x;
+			const dz = bat.z - player.z;
+			const d = Math.hypot(dx, dz) || 1;
+			const push = 2.6 * Math.max(0, hunt.reel / 0.55);
+			bat.x += (dx / d) * push * dt;
+			bat.z += (dz / d) * push * dt;
+			wantSpeed = push;
+			flapAmp = 1.45; // thrashing, not cruising
+			turnTowards(bat, player.x, player.z, dt, 1.6);
+			if (hunt.reel <= 0) {
+				hunt.state = 'hunting';
+				hunt.cooldown = 0.7;
+				repath();
+			}
+			break;
+		}
+
 		case 'returning': {
 			hunt.message = 'going home';
 			const state = { path: hunt.path, index: hunt.index, speed: hunt.speed, turn: 0, arrived: false };
@@ -899,13 +1210,16 @@ function frame(now) {
 		const cell = playerCell();
 		const tile = tileAt(cell.q, cell.r);
 		const hunting = hunt.state !== 'asleep' && hunt.state !== 'settling';
+		const carried = items.filter((i) => i.worn).map((i) => i.label);
 		const rows = [
 			['You', `<span class="${control.message === 'no route' ? 'warn' : control.state !== 'idle' ? 'busy' : ''}">${control.message}</span> · ${manSpeed.toFixed(2)} m/s`],
 			['Cell', `${cell.q}, ${cell.r} · terrace ${tile ? tile.level : '–'}`],
+			['Carrying', carried.length ? `<span class="busy">${carried.join(', ')}</span>` : 'nothing'],
 			['Bat', `<span class="${hunting ? 'warn' : ''}">${hunt.message}</span> · ${batSpeed.toFixed(2)} m/s`],
 			['Range', `${tilesToPlayer()} tiles · wakes at ${WAKE_RANGE}`],
-			['Bites', `${hunt.bites}`],
+			['Bites / hits', `${hunt.bites} · ${swing.hits}`],
 		];
+		if (armed()) rows.push(['Reach', `${(REACH.distance * 100).toFixed(0)} cm, from the clip`]);
 		if (ui.ik.checked) rows.push(['Pelvis drop', `${(player.pelvisDrop * 100).toFixed(1)} cm`]);
 		ui.stats.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 	}
@@ -942,6 +1256,7 @@ applyVisibility();
 
 window.lab = {
 	control, player, bat, hunt, actors, world, tileAt, goTo, pickCell, view,
+	items, helmet, sword, shield, swing, stoop, REACH, armed,
 	BITE_STANCE, WAKE_RANGE, LOSE_RANGE, PERCH, BAT_SPEED, CRUISE,
 	tilesToPlayer, walkable, flyable,
 };
