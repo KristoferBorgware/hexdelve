@@ -239,7 +239,6 @@ export class HexdelveClient {
 
 	private advance(dt: number): void {
 		const controls = this.controls;
-		controls?.updateCamera(dt);
 
 		// The aim plane sits a little above his feet, so the cursor lands where
 		// his chest is rather than where the ground is behind him.

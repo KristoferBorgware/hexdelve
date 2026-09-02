@@ -7,11 +7,12 @@
  * Nothing downstream knows which of them is driving: both end up as a heading
  * and a throttle, and the game reads only that.
  *
- * The mouse does not move the camera. It aims, and it cuts, and that is all —
- * because the mouse is already doing the most important job on the screen, and
- * a drag that both aimed him and swung the world round him would be two
- * meanings on one gesture. The camera follows him, always; its angle is set
- * from the keyboard with Q and E, or from the editor's own controls.
+ * Nothing here moves the camera. The mouse aims and cuts, the keys walk him,
+ * and that is the whole of it — because the mouse is already doing the most
+ * important job on the screen, and a drag that both aimed him and swung the
+ * world round him would be two meanings on one gesture. The camera follows
+ * him, always, and its angle belongs to whoever is embedding this: the editor
+ * drives it through `client.camera`, and so would anyone else.
  *
  * The camera is still read here, because its azimuth changes what A and D mean
  * — they are the screen's axes, and the screen is wherever it is looking.
@@ -38,8 +39,6 @@ const BINDINGS: Record<string, keyof KeyState> = {
 	ArrowRight: 'right',
 	ShiftLeft: 'run',
 	ShiftRight: 'run',
-	KeyQ: 'camLeft',
-	KeyE: 'camRight',
 };
 
 interface KeyState {
@@ -48,20 +47,10 @@ interface KeyState {
 	left: number;
 	right: number;
 	run: number;
-	camLeft: number;
-	camRight: number;
 }
 
 export class Controls {
-	readonly keys: KeyState = {
-		forward: 0,
-		back: 0,
-		left: 0,
-		right: 0,
-		run: 0,
-		camLeft: 0,
-		camRight: 0,
-	};
+	readonly keys: KeyState = { forward: 0, back: 0, left: 0, right: 0, run: 0 };
 
 	/** Where the mouse is, in client pixels, and whether it is over the canvas. */
 	readonly pointer = { x: 0, y: 0, has: false };
@@ -226,13 +215,6 @@ export class Controls {
 		this.stick.active = false;
 		this.stick.id = -1;
 		this.stick.throttle = 0;
-	}
-
-	/** Q and E turn the camera; they are the only keys it owns. */
-	updateCamera(dt: number): void {
-		if (this.keys.camLeft || this.keys.camRight) {
-			this.camera.yaw += (this.keys.camRight - this.keys.camLeft) * 1.6 * dt;
-		}
 	}
 
 	/**
