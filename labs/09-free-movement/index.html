@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Hexdelve — Lab 09: Free movement</title>
+	<link rel="stylesheet" href="style.css" />
+	<link rel="stylesheet" href="../shared/ui.css" />
+</head>
+<body>
+	<canvas id="scene"></canvas>
+
+	<div id="stick" hidden><i></i></div>
+
+	<div id="panel" class="collapsed">
+		<h1><button id="panelToggle" type="button" aria-expanded="false" aria-controls="panelBody">Lab 09 — Free movement</button></h1>
+		<div id="panelBody">
+		<p class="sub"><b>W A S D</b> to move, <b>the mouse</b> to face — and those
+			are two different things. Forward is wherever you are pointing, so
+			holding <b>W</b> and swinging the mouse curves him round, and holding
+			<b>A</b> while you keep the mouse on the anvil walks him round it
+			sideways, still watching it. <b>Shift</b> runs. Off the grid entirely:
+			no path, no tiles to click, just a heading and a throttle. There is a
+			<b>helmet, a sword and a shield</b> in the yard — walk over one and he
+			picks it up — and armed, <b>click</b> (or space) to cut. On a phone, <b>drag
+			anywhere</b>: your thumb is the stick.</p>
+
+		<div class="row checks">
+			<label><input id="ik" type="checkbox" checked /> IK</label>
+			<label><input id="vectors" type="checkbox" checked /> Vectors</label>
+			<label><input id="showSkel" type="checkbox" /> Skeleton</label>
+			<label><input id="follow" type="checkbox" checked /> Follow</label>
+		</div>
+
+		<dl id="stats"></dl>
+
+		<p class="hint">Every character in labs 02–08 walked where it was looking,
+			so one forward cycle was the whole of locomotion. Take that apart and a
+			blend tree of forward clips has nothing to say: a man backing away from
+			something he is watching is not playing a walk. The usual fix is three
+			more clips — back, left, right — and a blend space over them.</p>
+		<p class="hint">Not here, because the walk was never a clip. It is a
+			function of one phase angle (<b>walk.js</b>), so the direction of travel
+			is simply another argument to it: the stride turns, and one cycle covers
+			the whole circle of headings. What it cannot do is turn <i>evenly</i> —
+			a leg swinging forward has the whole world in front of it, and a leg
+			swinging sideways has the other leg. So the stride is an <b>ellipse</b>,
+			0.36 m down the line of the body and 0.15 m across it, and a bearing
+			gets the radius in its own direction.</p>
+		<p class="hint">Which is why the numbers in the readout are not round. The
+			speed is measured off the pose, every frame, by asking where the planted
+			foot is at the two contact keys: whatever ground it covers, he covers.
+			A side-step comes out at about half a walk — not a handicap anyone typed
+			in, just the room the other leg leaves — and the readout shows what is
+			left over as foot slip, which is nothing at all down the cardinals and
+			a few centimetres a second on a running diagonal.</p>
+		<p class="hint">The pelvis opens towards where he is going and the chest
+			turns back, so his shoulders keep facing the mouse while his legs take
+			their own heading. That is lab 08's upper-body mask argued the other way
+			round. The cut is masked the same way while he moves: whole-body when
+			he is standing, arms only when he is not, because his legs are busy.</p>
+		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel or pinch — zoom &nbsp;·&nbsp;
+			right-drag or two-finger drag — pan &nbsp;·&nbsp; Q / E — turn the camera</p>
+		</div>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+	<script src="../shared/ui.js"></script>
+	<script src="../shared/hex.js"></script>
+	<script src="../shared/cabin.js"></script>
+	<script src="../shared/hexgrid.js"></script>
+	<script src="../shared/world.js"></script>
+	<script src="../shared/anim.js"></script>
+	<script src="../shared/ik.js"></script>
+	<script src="../shared/skeleton.js"></script>
+	<script src="../shared/stride.js"></script>
+	<script src="../shared/clips.js"></script>
+	<script src="../shared/rigview.js"></script>
+	<script src="../shared/wanderer.js"></script>
+	<script src="../shared/props.js"></script>
+	<script src="../shared/helmet.js"></script>
+	<script src="../shared/sword.js"></script>
+	<script src="../shared/shield.js"></script>
+	<script src="main.js"></script>
+</body>
+</html>

@@ -29,8 +29,10 @@ no server needed.**
 
 | 08 | [The bat](labs/08-bat/index.html) | An enemy, on a rig that is nothing like the humanoid one. It sleeps folded on its hexagon; come within three tiles and it wakes, paths after you over the same grid you walk, and bites from whichever hexagon it lands on — never leaving the grid, because the reach comes out of the lunge rather than out of walking closer. Then it loses you at six and flies home. Its wings clear two terraces where you can only manage one. There is a helmet, a sword and a shield in the yard: pick them up and hit it back — click the bat, or the red-tinted hexagon it occupies, and he runs to a tile beside it and cuts. Neither can walk into a cell the other is standing in. |
 
-Labs 02–08 share one rig and one animation system (lab 08 adds a second rig for
-the bat), and labs 06–08 share one world; see `labs/shared/` below.
+| 09 | [Free movement](labs/09-free-movement/index.html) | The same yard, off the grid. **W A S D** moves and **the mouse** faces, and for the first time those are two different numbers: forward is wherever you are pointing, so holding **A** with the mouse on the anvil walks him round it sideways, still watching it. There is no path and nothing to click — a heading, a throttle, and the tile test used as a wall instead of a route. The helmet, sword and shield are lying in the grass again; walk over one to pick it up. His gait is not a clip but a function of the direction of travel, and how fast it carries him is read off the pose every frame. |
+
+Labs 02–09 share one rig and one animation system (lab 08 adds a second rig for
+the bat), and labs 06–09 share one world; see `labs/shared/` below.
 
 ## Layout
 
@@ -60,9 +62,10 @@ node assets/audio/dungeon-crawl.js
 | `hexgrid.js` — axial coordinates, hex distance, A* | `cabin.js` — the log cabin construction |
 | `skeleton.js` — the humanoid rig as plain data | `blacksmith.js` — the smith's prisms, hung on bones |
 | `walk.js` — the procedural walk as a pose function | `wanderer.js` — the player character, same bones, no tool |
+| `stride.js` — the same walk, with the direction of travel as an argument | |
 | `clips.js` — hand-authored clips as plain data | `helmet.js` — a prop: one group, no bones |
 | `batrig.js` — a second skeleton, four bones to a wing | `bat.js` — the creature's prisms, spars and membrane |
-| `batpose.js` — perch, flap and lunge as pure functions | `world.js` — the yard labs 06–08 all stand in |
+| `batpose.js` — perch, flap and lunge as pure functions | `world.js` — the yard labs 06–09 all stand in |
 | | `props.js` — a thing on the ground, or on a bone |
 | | `sword.js` / `shield.js` — gear, built round the bone that holds it |
 | | `ui.js` / `ui.css` — the panel and the camera gestures |
@@ -185,6 +188,44 @@ finishing its arc back there is not cutting anything he is fighting. That is
 also what lets him square up to what he is fighting rather than standing
 side-on to aim the arc at it.
 
+## Facing and travel come apart
+
+Everything up to lab 08 walked where it was looking. That is one number, and it
+is why a single forward cycle was enough for all of them: the blend tree picks a
+speed, the path picks a heading, and the heading is also the face.
+
+Lab 09 hands the facing to the mouse and the travel to `WASD`, and they are now
+two numbers that need not agree — backing away from something while watching it,
+or side-stepping round it. No clip in `clips.js` says anything about that. The
+usual answer is three more clips (back, left, right) and a blend space over
+them, and it is not the answer here, because the walk was never a clip: it is a
+function of one phase angle, so the direction of travel is simply another
+argument to it. `stride.js` is `walk.js` with that argument added — the stride
+turns, and one cycle covers the whole circle of headings.
+
+What the stride will not do is turn evenly, and that is the interesting part. A
+leg swinging forward has the whole world in front of it; a leg swinging sideways
+has the other leg. So the step is written in metres of foot travel rather than in
+joint angles — 0.36 m down the line of the body, 0.26 m backwards, 0.15 m across
+it — and a heading is asked for the radius of that ellipse in its own direction.
+A side-step therefore comes out at about half a walk. Nobody typed that in; it is
+the room the other leg leaves, and widening the stance (which is what anybody
+does to shuffle) is what keeps the ankles from passing inside a boot's width of
+each other on the diagonals.
+
+The pelvis then opens up to 35° towards where he is going and the spine and chest
+take exactly that much back out, so his shoulders stay square to the mouse while
+his legs take their own heading. That is lab 08's upper-body mask argued the
+other way round: there the arms held a stance while the hips walked; here the
+hips take a heading while the chest holds the aim. It is also worth speed, since
+it converts part of a side-step into the swing that has room to be long.
+
+How fast any of it carries him is measured, not tuned — every frame, from the
+pose itself. The planted foot is asked where it is at the two contact keys, and
+whatever ground it covers between them, the body covers the other way in half a
+stride pair. Two solves of a seventeen-bone rig, and the feet do not slide at any
+bearing or any throttle.
+
 ## Every lab works on a phone
 
 The labs share a camera model — `view = { azimuth, target, zoom, zoomGoal }` —
@@ -198,7 +239,9 @@ So `ui.js` owns the shell. One finger orbits, or taps; a second finger is the
 phone's right button and wheel at once — pinch to zoom, drag to pan — and it
 cancels whatever the first finger was doing, so a pinch is never also a tap.
 Each lab passes in only what is its own: the zoom limits, whether the camera is
-fenced in, what a tap means, what the pointer is over.
+fenced in, what a tap means, what the pointer is over. Lab 09 is the one that
+wants the finger for itself — `WASD` and a mouse do not exist on a phone, so one
+finger is a thumbstick there and the camera makes do with the second one.
 
 `ui.css` carries the other half. The notes panel is a disclosure, collapsed on
 load (`?panel=1` opens it), because on a phone it would otherwise cover the
@@ -215,3 +258,14 @@ authored angles put it. Lab 05 fixes contact with IK, but only for two-bone
 chains — the spine is never involved, so an anvil below about 0.9 m is simply
 out of the arm's reach and the solver says so instead of bending him over it.
 Reaching further would need the spine in the chain (full-body IK).
+
+Labs 03–08 take their locomotion speed from `measureGroundSpeed`, which finds the
+contact interval by watching the feet drop. On this rig it under-reports: at the
+end of a swing the knee is nearly straight, so the foot is already inside the
+contact band while it is still travelling forwards, and that stretch cancels part
+of the stance it is averaged with. The walk measures 0.62 m/s that way and 1.58
+m/s between its two contact keys, which is what the stride is actually worth — so
+the men in those labs walk slower than their legs and their feet slide a little.
+Lab 09 measures the second way and travels at the speed its stride makes, which
+is why the same character is quicker there. The older labs are left as they are:
+changing the measurement would move every speed in six of them.
