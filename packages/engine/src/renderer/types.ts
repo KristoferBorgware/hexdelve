@@ -40,6 +40,31 @@ export interface Frame {
 	readonly light: Light;
 }
 
+/**
+ * How the instance array is divided into passes.
+ *
+ * One buffer, drawn three times, because the order matters and the depth
+ * buffer cannot sort transparency for us. Opaque first, so the depth buffer is
+ * complete before anything reads it without writing. Then the blended pass —
+ * smoke, the flecks a blow throws off, the tinted tile under the bat — which
+ * tests depth so a puff behind a roof stays behind it, but does not write it,
+ * since a transparent surface should not occlude what comes after. Then the
+ * overlay, which skips the depth test entirely: the two ground arrows are a
+ * readout of where he faces against where he is going, and a terrace half a
+ * metre away would otherwise bury them.
+ *
+ * The three counts are consecutive spans of the same array, in this order.
+ */
+export interface InstanceRanges {
+	readonly opaque: number;
+	readonly blended: number;
+	readonly overlay: number;
+}
+
+export function instanceTotal(ranges: InstanceRanges): number {
+	return ranges.opaque + ranges.blended + ranges.overlay;
+}
+
 export interface RendererOptions {
 	readonly canvas: HTMLCanvasElement;
 	readonly backend?: BackendPreference;
@@ -69,10 +94,13 @@ export interface Renderer {
 	resize(width: number, height: number, pixelRatio: number): void;
 
 	/**
-	 * Uploads the instance array. Call it when the scene changes, not every
-	 * frame — a static field is uploaded once and drawn thereafter.
+	 * Uploads the instance array, divided into the three passes above.
+	 *
+	 * Lab 9 rebuilds most of this every frame — a posed rig is a different set
+	 * of prisms each time — so unlike a static field this is a per-frame call,
+	 * and the buffer is sized to grow rather than reallocated.
 	 */
-	setInstances(data: Float32Array, count: number): void;
+	setInstances(data: Float32Array, ranges: InstanceRanges): void;
 
 	render(frame: Frame): void;
 

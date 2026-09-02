@@ -9,10 +9,13 @@
 
 export * as vec3 from './math/vec3.js';
 export * as mat4 from './math/mat4.js';
+export * as quat from './math/quat.js';
 
 export type { Vec3, Vec3Like } from './math/vec3.js';
 export type { Mat4, Mat4Like, DepthRange } from './math/mat4.js';
+export type { Quat, QuatLike } from './math/quat.js';
 
 export * from './hex/axial.js';
+export * from './hex/path.js';
 export * from './random.js';
 export * from './color.js';

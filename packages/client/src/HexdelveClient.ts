@@ -10,18 +10,21 @@
 
 import {
 	createRenderer,
+	ISO_PITCH,
 	OrbitCamera,
 	Ticker,
 	type BackendPreference,
-	type HexInstances,
 	type Light,
 	type Renderer,
 	type RendererInfo,
 } from '@hexdelve/engine';
 import { vec3, type Vec3 } from '@hexdelve/shared';
 
-import { OrbitControls } from './input/OrbitControls.js';
-import { buildYard, type YardOptions } from './scene/yard.js';
+import { Controls } from './input/Controls.js';
+import { Simulation, type SimulationToggles, type YardStats } from './game/simulation.js';
+
+/** Half the world height the viewport spans at zoom 1, matching the labs. */
+const VIEW_HEIGHT = 5.5;
 
 export interface ClientOptions {
 	canvas: HTMLCanvasElement;
@@ -31,9 +34,11 @@ export interface ClientOptions {
 	autoResize?: boolean;
 	/** Start the frame loop as soon as the client is created. On by default. */
 	autoStart?: boolean;
-	/** Attach mouse and touch camera controls. On by default. */
+	/** Attach keyboard, mouse and touch controls. On by default. */
 	controls?: boolean;
-	scene?: YardOptions;
+	/** Seed for the yard's scenery, so a given seed is a given yard. */
+	seed?: number;
+	toggles?: Partial<SimulationToggles>;
 	/**
 	 * Called if the GPU takes the renderer's device away. The client stops its
 	 * loop when this happens; recovering means disposing it and creating a new
@@ -53,18 +58,24 @@ export class HexdelveClient {
 	readonly renderer: Renderer;
 	readonly camera: OrbitCamera;
 	readonly ticker: Ticker;
+	readonly simulation: Simulation;
 
-	/** The sun. Mutable, because the editor hangs a control off it. */
+	/**
+	 * The sun, at the labs' own bearing: 140 degrees round and 48 up, which is
+	 * what puts the light across the terraces rather than down them and makes a
+	 * step read as a step. Mutable, because the editor hangs a control off it.
+	 */
 	readonly light: Light & { direction: Vec3; ambient: Vec3; intensity: number } = {
-		direction: vec3.normalize(vec3.vec3(), vec3.vec3(0.45, 0.78, 0.35)),
-		intensity: 0.85,
-		ambient: vec3.vec3(0.42, 0.45, 0.42),
+		direction: vec3.normalize(vec3.vec3(), vec3.vec3(-0.514, 0.745, 0.432)),
+		intensity: 0.95,
+		// The sky's own colour, standing in for the labs' hemisphere light.
+		ambient: vec3.vec3(0.42, 0.46, 0.49),
 	};
 
 	private readonly canvas: HTMLCanvasElement;
-	private readonly controls: OrbitControls | null;
+	private readonly controls: Controls | null;
 	private readonly resizeObserver: ResizeObserver | null;
-	private instances: HexInstances;
+	private instanceCount = 0;
 	private smoothedFps = 0;
 	private disposed = false;
 
@@ -80,6 +91,7 @@ export class HexdelveClient {
 		const renderer = await createRenderer({
 			canvas: options.canvas,
 			...(options.backend !== undefined ? { backend: options.backend } : {}),
+			clearColor: [0.66, 0.76, 0.71, 1],
 			onDeviceLost: (reason) => {
 				box.client?.stop();
 				options.onDeviceLost?.(reason);
@@ -93,16 +105,44 @@ export class HexdelveClient {
 	private constructor(options: ClientOptions, renderer: Renderer) {
 		this.canvas = options.canvas;
 		this.renderer = renderer;
-		this.camera = new OrbitCamera({ distance: 26, pitch: 0.62, yaw: Math.PI * 0.22 });
+
+		/*
+		 * The labs' camera exactly: orthographic at the isometric pitch, so a
+		 * hexagon is the same hexagon wherever it sits on the screen and the
+		 * terraces read as steps rather than as perspective.
+		 */
+		this.camera = new OrbitCamera({
+			projection: 'orthographic',
+			viewHeight: VIEW_HEIGHT,
+			zoom: 1.35,
+			pitch: ISO_PITCH,
+			yaw: (62 * Math.PI) / 180,
+			distance: 60,
+			near: 0.1,
+			far: 200,
+		});
+
+		this.simulation = new Simulation({
+			...(options.seed !== undefined ? { seed: options.seed } : {}),
+			...(options.toggles ? { toggles: options.toggles } : {}),
+		});
+
+		this.camera.target[0] = this.simulation.focus.x;
+		this.camera.target[1] = this.simulation.focus.y;
+		this.camera.target[2] = this.simulation.focus.z;
+
 		this.ticker = new Ticker();
-
-		this.instances = buildYard(options.scene ?? {});
-		this.renderer.setInstances(this.instances.data, this.instances.count);
-
 		this.ticker.onFrame = this.onFrame;
 
 		this.controls =
-			options.controls === false ? null : new OrbitControls(this.canvas, this.camera);
+			options.controls === false
+				? null
+				: new Controls(this.canvas, this.camera, {
+						onStrike: () => this.simulation.strike(),
+						onPan: () => {
+							this.simulation.toggles.follow = false;
+						},
+					});
 
 		if (options.autoResize === false) {
 			this.resizeObserver = null;
@@ -127,9 +167,18 @@ export class HexdelveClient {
 	get stats(): ClientStats {
 		return {
 			fps: this.smoothedFps,
-			instances: this.instances.count,
+			instances: this.instanceCount,
 			backend: this.renderer.backend,
 		};
+	}
+
+	/** The lab's readout: speed, bearing, foot slip, what the bat is doing. */
+	get state(): YardStats {
+		return this.simulation.stats;
+	}
+
+	get toggles(): SimulationToggles {
+		return this.simulation.toggles;
 	}
 
 	start(): void {
@@ -140,10 +189,10 @@ export class HexdelveClient {
 		this.ticker.stop();
 	}
 
-	/** Rebuilds the world and re-uploads it. The editor calls this on a reseed. */
-	setScene(options: YardOptions): void {
-		this.instances = buildYard(options);
-		this.renderer.setInstances(this.instances.data, this.instances.count);
+	/** Rebuilds the world from a new seed. */
+	setSeed(seed: number): void {
+		const toggles = { ...this.simulation.toggles };
+		(this as { simulation: Simulation }).simulation = new Simulation({ seed, toggles });
 	}
 
 	/** Matches the drawing buffer to the canvas's laid-out size. */
@@ -154,7 +203,14 @@ export class HexdelveClient {
 		this.renderer.resize(width, height, window.devicePixelRatio || 1);
 	}
 
-	/** Draws one frame without running the loop — for a paused editor viewport. */
+	/** Advances and draws one frame without running the loop. */
+	step(dt: number): void {
+		if (this.disposed) return;
+		this.advance(dt);
+		this.draw();
+	}
+
+	/** Draws the current state without advancing — for a paused viewport. */
 	renderOnce(): void {
 		if (this.disposed) return;
 		this.draw();
@@ -172,8 +228,39 @@ export class HexdelveClient {
 	private readonly onFrame = (dt: number): void => {
 		// An exponential average, so the readout is legible rather than exact.
 		if (dt > 0) this.smoothedFps += (1 / dt - this.smoothedFps) * 0.1;
+		this.advance(dt);
 		this.draw();
 	};
+
+	private advance(dt: number): void {
+		const controls = this.controls;
+		controls?.updateCamera(dt);
+
+		// The aim plane sits a little above his feet, so the cursor lands where
+		// his chest is rather than where the ground is behind him.
+		const aim = controls?.aimOnPlane(this.simulation.player.y + 0.15) ?? null;
+
+		this.simulation.update(dt, {
+			forward: controls?.keys.forward ?? 0,
+			back: controls?.keys.back ?? 0,
+			left: controls?.keys.left ?? 0,
+			right: controls?.keys.right ?? 0,
+			run: (controls?.keys.run ?? 0) > 0,
+			aim,
+			stick: controls?.stick ?? null,
+			cameraAzimuth: this.camera.yaw,
+		});
+
+		if (this.simulation.toggles.follow) {
+			this.camera.target[0] = this.simulation.focus.x;
+			this.camera.target[1] = this.simulation.focus.y;
+			this.camera.target[2] = this.simulation.focus.z;
+		}
+
+		const built = this.simulation.build(controls?.stick.active ? null : aim);
+		this.instanceCount = built.ranges.opaque + built.ranges.blended + built.ranges.overlay;
+		this.renderer.setInstances(built.data, built.ranges);
+	}
 
 	private draw(): void {
 		if (!this.renderer.alive) return;

@@ -1,7 +1,10 @@
 /*
- * The left-hand panel. There is no scene graph to list yet — the world is one
- * static instance buffer — so this stands in for one with the pieces the yard
- * is actually made of, and will be driven by the scene once there is a scene.
+ * The left-hand panel: what is in the yard.
+ *
+ * Still a hand-written list rather than a real scene graph, because there is
+ * still no graph to walk — the world is one instance buffer and the actors are
+ * rigs, not nodes. It names what is actually out there now, and will be driven
+ * by the scene once there is a scene to drive it from.
  */
 
 import Box from '@mui/material/Box';
@@ -15,18 +18,24 @@ import CabinIcon from '@mui/icons-material/Cabin';
 import HardwareIcon from '@mui/icons-material/Hardware';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import VideocamIcon from '@mui/icons-material/Videocam';
+import DirectionsWalkIcon from '@mui/icons-material/DirectionsWalk';
+import PestControlIcon from '@mui/icons-material/PestControl';
+import ShieldIcon from '@mui/icons-material/Shield';
 import { useState } from 'react';
 
 const NODES = [
+	{ id: 'wanderer', label: 'Wanderer', detail: '17 bones, free movement', icon: <DirectionsWalkIcon /> },
+	{ id: 'bat', label: 'The bat', detail: '20 bones, hunts the grid', icon: <PestControlIcon /> },
+	{ id: 'gear', label: 'Gear', detail: 'helmet, sword, shield', icon: <ShieldIcon /> },
 	{ id: 'ground', label: 'Ground', detail: 'hex field, terraced', icon: <GrassIcon /> },
-	{ id: 'cabin', label: 'Log cabin', detail: 'walls, roof, chimney', icon: <CabinIcon /> },
+	{ id: 'cabin', label: 'Buildings', detail: 'smithy and log cabin', icon: <CabinIcon /> },
 	{ id: 'anvil', label: 'Anvil', detail: 'stump and face', icon: <HardwareIcon /> },
 	{ id: 'sun', label: 'Sun', detail: 'directional', icon: <LightModeIcon /> },
-	{ id: 'camera', label: 'Camera', detail: 'orbit', icon: <VideocamIcon /> },
+	{ id: 'camera', label: 'Camera', detail: 'orthographic, isometric', icon: <VideocamIcon /> },
 ];
 
 export function SceneOutline() {
-	const [selected, setSelected] = useState('ground');
+	const [selected, setSelected] = useState('wanderer');
 
 	return (
 		<Box

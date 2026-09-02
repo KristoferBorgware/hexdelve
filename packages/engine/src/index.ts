@@ -19,10 +19,83 @@ export {
 	HexInstances,
 	HEX_INSTANCE_BYTES,
 	HEX_INSTANCE_FLOATS,
+	HEX_FLAG_NONE,
+	HEX_FLAG_UNLIT,
 	type ColorInput,
+	type PrismOptions,
 } from './scene/HexInstances.js';
 
-export { OrbitCamera, type OrbitCameraOptions } from './scene/OrbitCamera.js';
+export {
+	Model,
+	buildSkeletonView,
+	type Part,
+	type PartOptions,
+	type EmitOptions,
+	type SkeletonViewOptions,
+} from './scene/Model.js';
+
+export {
+	OrbitCamera,
+	ISO_PITCH,
+	type OrbitCameraOptions,
+	type CameraProjection,
+} from './scene/OrbitCamera.js';
+
+/* The animation system: poses, clips, forward kinematics and two-bone IK. */
+export {
+	createPose,
+	copyPose,
+	clearPose,
+	lerpPose,
+	lerpPoseMasked,
+	denseToSparse,
+	sparseToDense,
+	makeMask,
+	setSparse,
+	mixSparse,
+	type DensePose,
+	type SparsePose,
+	type SparseBone,
+} from './anim/pose.js';
+
+export {
+	buildClip,
+	poseClip,
+	mirrorPose,
+	samplePose,
+	bindClip,
+	sampleBound,
+	evalTrack,
+	type Clip,
+	type ClipSpec,
+	type ClipEvent,
+	type BoundClip,
+	type Easing,
+	type PoseKey,
+	type PoseEntry,
+	type RawKey,
+} from './anim/clip.js';
+
+export {
+	solveWorld,
+	attachmentPosition,
+	boneNames,
+	boneIndex,
+	findBone,
+	parentMap,
+	type Bone,
+	type BoneTip,
+	type BoneWorld,
+	type Skeleton,
+	type WorldPose,
+} from './anim/skeleton.js';
+
+export {
+	solveTwoBone,
+	levelBone,
+	type IkChain,
+	type IkResult,
+} from './anim/ik.js';
 
 export { Ticker, type TickerOptions, type FixedUpdate, type FrameUpdate } from './core/Ticker.js';
 
@@ -37,7 +110,10 @@ export {
 	type Renderer,
 	type RendererInfo,
 	type RendererOptions,
+	type InstanceRanges,
 } from './renderer/types.js';
+
+export { instanceTotal } from './renderer/types.js';
 
 export { WebGPURenderer } from './renderer/webgpu/WebGPURenderer.js';
 export { WebGL2Renderer } from './renderer/webgl2/WebGL2Renderer.js';

@@ -12,8 +12,10 @@ import type { DepthRange, Mat4 } from '@hexdelve/shared';
 import { hexPrismGeometry, HEX_VERTEX_STRIDE_BYTES } from '../../geometry/hexPrism.js';
 import { HEX_INSTANCE_BYTES } from '../../scene/HexInstances.js';
 import {
+	instanceTotal,
 	RendererCreationError,
 	type Frame,
+	type InstanceRanges,
 	type Renderer,
 	type RendererInfo,
 	type RendererOptions,
@@ -44,7 +46,7 @@ export class WebGL2Renderer implements Renderer {
 	private readonly indexCount: number;
 
 	private instanceCapacity = 0;
-	private instanceCount = 0;
+	private ranges: InstanceRanges = { opaque: 0, blended: 0, overlay: 0 };
 	private disposed = false;
 	private contextLost = false;
 	private readonly onContextLost: (event: Event) => void;
@@ -96,10 +98,10 @@ export class WebGL2Renderer implements Renderer {
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.STATIC_DRAW);
 
-		// Three vec4s of instance data, advanced once per prism rather than
+		// Four vec4s of instance data, advanced once per prism rather than
 		// once per vertex.
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
-		for (let i = 0; i < 3; i++) {
+		for (let i = 0; i < 4; i++) {
 			const location = 2 + i;
 			gl.enableVertexAttribArray(location);
 			gl.vertexAttribPointer(location, 4, gl.FLOAT, false, HEX_INSTANCE_BYTES, i * 16);
@@ -151,10 +153,11 @@ export class WebGL2Renderer implements Renderer {
 		this.canvas.height = h;
 	}
 
-	setInstances(data: Float32Array, count: number): void {
+	setInstances(data: Float32Array, ranges: InstanceRanges): void {
 		if (!this.alive) return;
 		const gl = this.gl;
-		this.instanceCount = count;
+		this.ranges = ranges;
+		const count = instanceTotal(ranges);
 
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
 		if (count > this.instanceCapacity) {
@@ -177,7 +180,8 @@ export class WebGL2Renderer implements Renderer {
 		gl.clearDepth(1);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-		if (this.instanceCount === 0) return;
+		const { opaque, blended, overlay } = this.ranges;
+		if (opaque + blended + overlay === 0) return;
 
 		gl.useProgram(this.program);
 		gl.uniformMatrix4fv(this.uniforms.viewProjection, false, frame.viewProjection as Mat4);
@@ -188,14 +192,52 @@ export class WebGL2Renderer implements Renderer {
 		gl.uniform3f(this.uniforms.ambient, ambient[0]!, ambient[1]!, ambient[2]!);
 
 		gl.bindVertexArray(this.vao);
-		gl.drawElementsInstanced(
-			gl.TRIANGLES,
-			this.indexCount,
-			gl.UNSIGNED_SHORT,
-			0,
-			this.instanceCount,
-		);
+
+		// Opaque: depth written, so everything after this can test against a
+		// complete depth buffer.
+		gl.disable(gl.BLEND);
+		gl.depthMask(true);
+		gl.enable(gl.DEPTH_TEST);
+		this.drawRange(0, opaque);
+
+		if (blended > 0 || overlay > 0) {
+			gl.enable(gl.BLEND);
+			gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+			// Transparent surfaces are drawn back-to-front by the caller where it
+			// matters and never write depth, so one cannot hide another.
+			gl.depthMask(false);
+			this.drawRange(opaque, blended);
+
+			gl.disable(gl.DEPTH_TEST);
+			this.drawRange(opaque + blended, overlay);
+			gl.enable(gl.DEPTH_TEST);
+
+			gl.depthMask(true);
+			gl.disable(gl.BLEND);
+		}
+
 		gl.bindVertexArray(null);
+	}
+
+	/**
+	 * One instanced draw over a span of the instance buffer.
+	 *
+	 * WebGL2 has no base-instance parameter — that lives in an extension half
+	 * the browsers do not have — so the instance attributes are re-pointed at
+	 * the span instead. The pointer calls are recorded into the bound vertex
+	 * array, which is what makes this as cheap as passing an offset would be.
+	 */
+	private drawRange(first: number, count: number): void {
+		if (count <= 0) return;
+		const gl = this.gl;
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
+		const base = first * HEX_INSTANCE_BYTES;
+		for (let i = 0; i < 4; i++) {
+			gl.vertexAttribPointer(2 + i, 4, gl.FLOAT, false, HEX_INSTANCE_BYTES, base + i * 16);
+		}
+
+		gl.drawElementsInstanced(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_SHORT, 0, count);
 	}
 
 	dispose(): void {
