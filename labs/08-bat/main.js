@@ -35,7 +35,7 @@
 
 const { hexGeometry, makeRandom } = Hexdelve.hex;
 const { worldToAxial, distance: hexDistance, neighbours, findPath, keyOf } = Hexdelve.hexgrid;
-const { SKELETON, BONES, TIPS, HIPS_Y, UPPER_BODY } = Hexdelve.skeleton;
+const { SKELETON, BONES, TIPS, HIPS_Y } = Hexdelve.skeleton;
 const { buildRig, buildSkeletonView, applySparsePose } = Hexdelve.rigview;
 const { buildWanderer } = Hexdelve.wanderer;
 const { makeItem } = Hexdelve.props;
@@ -313,28 +313,34 @@ const playerPose = createPose(BONES.length);
  * guard would freeze him to the spot; with it, the stance belongs to his arms
  * and the gait belongs to his hips, which is what the mask was written for.
  */
-const UPPER = makeMask(BONES, UPPER_BODY, 0);
-
 /*
- * The stance is bladed — the body turned off square so the shield side leads —
- * and that lives in the ROOT, which the upper-body mask deliberately does not
- * cover. Masked out, the guard arrived in the lab as a man standing square with
- * his arms in position, which is not the same pose at all.
+ * The guard, as three masks rather than one, because the two arms want
+ * different things from it.
  *
- * So the root comes in on its own mask, and only while he is standing: turning
- * the root while he travels would have him crabbing sideways down the path,
- * since it is his yaw and not his hips that decides which way he walks.
+ *   the shield arm holds it flat out, walking or running: the shield is the
+ *   thing keeping him alive, and a shield that drops when he jogs is worse than
+ *   no shield at all
+ *
+ *   the sword side eases off as he speeds up, so a run gets some counter-swing
+ *   back through the arm and shoulders — a man sprinting with his sword arm
+ *   welded in place reads as a shop dummy — but only some, or the blade starts
+ *   waving about
+ *
+ *   the root carries the bladed stance, and only while he is standing still,
+ *   since it is his yaw and not his hips that decides where he walks
+ *
+ * Anything not named in a mask stays with the blend tree, which is how the legs
+ * keep the gait and the empty hand keeps swinging.
  */
+const GUARD_SHIELD = makeMask(BONES, { armL: 1, forearmL: 1, handL: 1 }, 0);
+const GUARD_SWORD = makeMask(BONES, {
+	armR: 1, forearmR: 1, handR: 1, spine: 0.45, chest: 1, neck: 1, head: 1,
+}, 0);
 const ROOT_ONLY = makeMask(BONES, { root: 1 }, 0);
 
-/*
- * A shield on its own is not a guard. Carrying one with the arm hanging leaves
- * it flat against his thigh with the face pointing behind him — the mount is
- * built for an arm that is bent, because that is the only way a shield is ever
- * actually held. So a shield alone still brings the stance up, but only on the
- * shield side: the sword arm has nothing in it and should stay with the walk.
- */
-const SHIELD_ONLY = makeMask(BONES, { armL: 1, forearmL: 1, handL: 1, chest: 0.45, spine: 0.2 }, 0);
+// How much of the sword-side guard survives at a full run.
+const GUARD_AT_RUN = 0.65;
+
 let guardWeight = 0;
 
 // The duck from lab 03 is a crouch with both hands forward, which is what
@@ -896,12 +902,22 @@ function updatePlayer(dt) {
 	let base = tree.pose;
 	if (guardWeight > 0.002) {
 		sampleBound(guardEntry, 0, guardPose);
-		lerpPoseMasked(stancePose, tree.pose, guardPose, guardWeight, sword.worn ? UPPER : SHIELD_ONLY);
+		let src = tree.pose;
+		if (shield.worn) {
+			lerpPoseMasked(stancePose, src, guardPose, guardWeight, GUARD_SHIELD);
+			src = stancePose;
+		}
+		if (sword.worn) {
+			const hold = 1 - (1 - GUARD_AT_RUN) * Math.min(1, speedNow / CRUISE.run);
+			lerpPoseMasked(stancePose, src, guardPose, guardWeight * hold, GUARD_SWORD);
+			src = stancePose;
+		}
 		const settled = 1 - Math.min(1, speedNow / CRUISE.walk);
 		if (settled > 0.01) {
-			lerpPoseMasked(stancePose, stancePose, guardPose, guardWeight * settled, ROOT_ONLY);
+			lerpPoseMasked(stancePose, src, guardPose, guardWeight * settled, ROOT_ONLY);
+			src = stancePose;
 		}
-		base = stancePose;
+		base = src;
 	}
 
 	// Then the one thing his whole body is doing, if it is doing one.
