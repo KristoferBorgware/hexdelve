@@ -40,17 +40,27 @@ function buildShield() {
 	const meshes = [];
 
 	/*
-	 * The shield sits square on the forearm and faces the way the character
-	 * does: the only rotation is the quarter turn that stands the prism on its
-	 * edge, and it is the turn that puts the *face* outward once the elbow is
-	 * bent into a guard, which is the only way this is ever seen. It is offset
-	 * forward rather than outward, because the arm goes *through* the straps on
-	 * its back — and canting it about Z put the face at an angle nobody has ever
-	 * held a shield at.
+	 * How the shield sits on the arm, which is the one thing about it that is
+	 * easy to get subtly, embarrassingly wrong.
+	 *
+	 * The boss and the studs are on the plate's +Y; the straps are on its -Y.
+	 * The mount below turns that +Y into FACE (a normal in the bone's space),
+	 * and then the plate has to be offset along that same direction — because
+	 * the arm goes through the straps, so the arm is on the BACK of the shield
+	 * and the shield hangs on the far side of it.
+	 *
+	 * Get the offset and the facing pointing opposite ways, as this did, and the
+	 * geometry is inside-out: the forearm ends up lying across the boss, with
+	 * the straps waving at the enemy. It renders as a shield right up until you
+	 * look at it.
 	 */
+	const MOUNT = -PI / 2;
+	const FACE = [0, Math.cos(MOUNT), Math.sin(MOUNT)]; // outward, in bone space
+	const OUT = 0.08; // how far the plate stands off the arm
+
 	const plate = new THREE.Group();
-	plate.position.set(0.02, -0.14, 0.08);
-	plate.rotation.set(-PI / 2, 0, 0);
+	plate.position.set(0.02, -0.11 + FACE[1] * OUT, FACE[2] * OUT);
+	plate.rotation.set(MOUNT, 0, 0);
 	group.add(plate);
 
 	function mat(color) {
