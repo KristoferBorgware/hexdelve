@@ -27,8 +27,10 @@ no server needed.**
 
 | 07 | [Player character](labs/07-player-character/index.html) | The same world, with the roles swapped. You drive the **wanderer** — a second character on the same rig, carrying nothing — while the blacksmith stands at his anvil and works on his own schedule, hammer aimed by IK, whether or not you are watching. A **helmet** lies in the yard: click it and he fetches it, stoops and puts it on. Picking it up is one re-parent onto the head bone, so every clip carries it from then on. |
 
-Labs 02–07 share one rig and one animation system, labs 01 and 06–07 share one
-cabin, and labs 06–07 share a world; see `labs/shared/` below.
+| 08 | [The bat](labs/08-bat/index.html) | An enemy, on a rig that is nothing like the humanoid one. It sleeps folded on its hexagon; come within three tiles and it wakes, paths after you over the same grid you walk, and steps off it to bite — then loses you at six and flies home. Its wings clear two terraces where you can only manage one. |
+
+Labs 02–08 share one rig and one animation system (lab 08 adds a second rig for
+the bat), and labs 06–08 share one world; see `labs/shared/` below.
 
 ## Layout
 
@@ -59,6 +61,8 @@ node assets/audio/dungeon-crawl.js
 | `skeleton.js` — the humanoid rig as plain data | `blacksmith.js` — the smith's prisms, hung on bones |
 | `walk.js` — the procedural walk as a pose function | `wanderer.js` — the player character, same bones, no tool |
 | `clips.js` — hand-authored clips as plain data | `helmet.js` — a prop: one group, no bones |
+| `batrig.js` — a second skeleton, four bones to a wing | `bat.js` — the creature's prisms, spars and membrane |
+| `batpose.js` — perch, flap and lunge as pure functions | `world.js` — the yard labs 06–08 all stand in |
 | | `ui.js` / `ui.css` — the panel and the camera gestures |
 
 Nothing in the left column imports or mentions Three.js. Poses are plain data
@@ -109,6 +113,28 @@ around the *head bone's origin*. Worn, its transform is the identity; on the
 ground it is the same group lifted by `GROUND_LIFT`. Picking it up is therefore
 a re-parent and nothing else — no second model, no offsets to keep in step, and
 every clip carries it for free.
+
+## A rig is a list, which is why the bat cost nothing
+
+`batrig.js` is twenty bones in the same shape of data as the humanoid — a name,
+a parent, an offset — and that was the whole integration. `buildRig` wires it,
+`buildSkeletonView` draws it, `solveWorld` measures it, A* moves it. Nothing
+downstream had ever asked what shape the animal was, so nothing downstream
+changed.
+
+What is different is the anatomy. Its arms *are* its wings, running out along
+±X instead of down; the three folds outboard of each shoulder are what let two
+and a half metres of wing collapse small enough to sit on one hexagon, which is
+the perch pose. Each membrane patch is parented to the bone it hangs from, so
+folding the bones folds the wing — there is no cloth simulation anywhere.
+
+The flap is four bones beating a fixed slice of the cycle apart. Beat them in
+phase and you get an oar; beat them a beat apart and the stroke travels out
+along the wing as a wave, which is the difference between a bat and a doorway.
+
+And the bite is lab 06's measurement on a different animal: play the lunge to
+the moment the jaws arrive, ask where they end up, and stand so that point
+lands on the man. Re-time the strike and the stance follows.
 
 ## Every lab works on a phone
 
