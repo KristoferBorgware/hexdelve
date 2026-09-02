@@ -150,12 +150,26 @@ carries it afterwards without knowing it exists.
 `props.js` is the forty lines that hold the other half — where it rests on the
 ground, and how it lies there, since a helmet stands up and a sword does not.
 
-The swing is `SWING` from `clips.js`, authored back in lab 03 and unused until
-now. Its reach is not a tuned constant: play the clip to the key its `whoosh`
-event sits on, ask where the point of the blade actually is, and that is how
-close he has to be. Re-author the swing or lengthen the blade and the number
-moves with it — the same measurement the smith's stance and the bat's bite both
-come from.
+The cut is `SLASH`, and it is a cut rather than a thrust because of where the
+blade travels, not how fast the arm moves. Poking is what happens when the arm
+extends along the line the blade already points down — so it never does that.
+The sword is drawn across the body first, inside the shield, and the strike
+sweeps it back out to his right with the edge leading; the point is not aimed at
+anything at any moment. The hips and spine turn first and drag the arm round
+after them, the elbow extends through contact so the speed is at the tip rather
+than the fist, and the shield arm is thrown back and straight — both the
+counterweight and the only reason the shoulders can come round that fast.
+Between the wind-up and contact the chest travels about ninety degrees.
+
+`GUARD` is the other half: armed, he stands and walks on guard, and that pose is
+laid over the locomotion through the `UPPER_BODY` mask in `skeleton.js` — so the
+stance belongs to his arms and the gait still belongs to his hips. Unmasked it
+would freeze him to the spot, which is what that mask was written for.
+
+Reach is not a tuned constant, and neither is direction: play the clip to its
+contact key, ask where the point of the blade actually is, and take both the
+distance and the *bearing* from it. An inside-out cut lands out to the side, so
+a hit test that assumed "in front" would miss everything it hits.
 
 ## Every lab works on a phone
 

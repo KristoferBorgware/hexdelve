@@ -506,6 +506,199 @@ const DUCK = poseClip('duck', 0.85, 'hold', [
 	},
 ]);
 
+/* ----------------------------------------------------------------- guard -- */
+// Sword and board at the ready. Bladed stance: the body turns off square so the
+// shield side leads and the sword hand is back, cocked, out of the way. Meant to
+// be layered over locomotion through the UPPER_BODY mask, so he can walk while
+// holding it.
+
+const GUARD = poseClip('guard', 0.1, 'hold', [
+	{
+		t: 0,
+		p: {
+			root: { rot: [0, -0.26, 0], pos: [0, -0.015, 0] },
+			spine: [0.06, -0.1, 0.03],
+			chest: [0.05, -0.2, 0.05],
+			neck: [0.02, 0.14, 0],
+			head: [0.02, 0.2, 0],
+			// Shield arm: elbow down and in, forearm across the chest, rolled so
+			// the face of the shield looks where he does.
+			armL: [-0.28, -1.05, 0.3],
+			forearmL: [-1.25, -0.3, 0],
+			handL: [0, 0, 0],
+			// Sword arm: upper arm back, elbow folded hard, so the blade rides
+			// UP beside his head rather than out in front like a spear.
+			armR: [0.15, 0, -0.3],
+			forearmR: [-2.5, 0, 0],
+			handR: [0, -0.3, 0],
+			hipL: [-0.05, -0.1, 0.07],
+			hipR: [-0.02, -0.1, -0.07],
+			shinL: [0.08, 0, 0],
+			shinR: [0.05, 0, 0],
+			footL: [-0.04, 0.1, 0],
+			footR: [-0.02, 0.1, 0],
+		},
+	},
+]);
+
+/* ----------------------------------------------------------------- slash -- */
+/*
+ * A cut, not a thrust, and an inside-out one.
+ *
+ * The difference between a cut and a poke is where the blade travels, and that
+ * is decided by the shoulder and the roll of the wrist — not by how fast the arm
+ * moves. Poking is what happens when the arm extends along the line the blade
+ * already points down, so here the arm never extends that way: the sword is
+ * drawn across the body first, inside the shield, and the strike sweeps it back
+ * out to the right, edge leading, finishing wide. The point is not aimed at
+ * anything at any moment.
+ *
+ * The rest of the body has to come with it or it reads as a man waving:
+ *   hips and spine turn first, and the arm is dragged round by them
+ *   the shield arm is thrown BACK through the strike — both the counterweight
+ *   and the reason the shoulders can come round that fast
+ *   the elbow extends through contact, which is what puts the speed at the tip
+ *   rather than at the fist
+ */
+
+const SLASH = poseClip(
+	'slash',
+	1.15,
+	'hold',
+	[
+		// Out of guard.
+		{
+			t: 0,
+			p: {
+				root: { rot: [0, -0.26, 0], pos: [0, -0.015, 0] },
+				spine: [0.06, -0.1, 0.03],
+				chest: [0.05, -0.2, 0.05],
+				neck: [0.02, 0.14, 0],
+				head: [0.02, 0.2, 0],
+				armL: [-0.28, -1.05, 0.3],
+				forearmL: [-1.25, -0.3, 0],
+				armR: [0.15, 0, -0.3],
+				forearmR: [-2.5, 0, 0],
+				handR: [0, -0.3, 0],
+				hipL: [-0.05, -0.1, 0.07],
+				hipR: [-0.02, -0.1, -0.07],
+				shinL: [0.08, 0, 0],
+				shinR: [0.05, 0, 0],
+				footL: [-0.04, 0.1, 0],
+				footR: [-0.02, 0.1, 0],
+			},
+		},
+		/*
+		 * Cocked, and cocked INSIDE: hips and shoulders wind to his left and the
+		 * sword comes across the chest behind the shield, elbow folded, edge
+		 * already turned outward. Everything after this is that unwinding.
+		 */
+		{
+			t: 0.3,
+			e: 'flat',
+			p: {
+				root: { rot: [0, 0.42, 0], pos: [-0.03, -0.025, -0.04] },
+				spine: [0.02, 0.28, -0.08],
+				chest: [-0.04, 0.5, -0.12],
+				// The head does not wind up with the body; it stays on the target,
+				// which is what makes the shoulders read as loaded rather than as
+				// the whole man turning round.
+				neck: [0.02, -0.24, 0],
+				head: [0.02, -0.34, 0],
+				armL: [-0.5, -1.05, 0.42],
+				forearmL: [-1.4, -0.3, 0],
+				armR: [-0.45, 0, 0.95],
+				forearmR: [-1.75, 0, 0],
+				handR: [0, 0.7, 0],
+				hipL: [0.02, 0.24, 0.07],
+				hipR: [-0.1, 0.24, -0.07],
+				shinL: [0.06, 0, 0],
+				shinR: [0.14, 0, 0],
+				footL: [-0.03, -0.2, 0],
+				footR: [-0.06, -0.2, 0],
+			},
+		},
+		/*
+		 * Contact. Hips, spine and chest have all whipped the other way — near
+		 * ninety degrees of shoulder between this and the key before it, which is
+		 * where the force comes from — and the sword sweeps out to his right with
+		 * the elbow extending through it. This is the frame the lab measures the
+		 * reach and the bearing from: the blade is out to the SIDE here, not out
+		 * in front, and the hit test asks the pose rather than assuming.
+		 */
+		{
+			t: 0.44,
+			p: {
+				root: { rot: [0, -0.32, 0], pos: [0.04, -0.05, 0.06] },
+				spine: [0.12, -0.3, 0.06],
+				chest: [0.14, -0.58, 0.1],
+				neck: [0, 0.24, 0],
+				// The head stays level and on the target the whole way through.
+				head: [0.02, 0.38, 0],
+				/*
+				 * Thrown back and open: the counterweight, and the only reason the
+				 * shoulders can come round this fast. The elbow has to STRAIGHTEN
+				 * for that — swinging the upper arm back with the elbow still bent
+				 * just folds the shield across his own face.
+				 */
+				armL: [0.9, -0.5, 0.3],
+				forearmL: [-0.15, 0, 0],
+				armR: [-0.6, 0, -0.85],
+				forearmR: [-0.28, 0, 0],
+				handR: [0, 0.2, 0],
+				hipL: [-0.14, -0.26, 0.07],
+				hipR: [0.05, -0.26, -0.07],
+				shinL: [0.14, 0, 0],
+				shinR: [0.06, 0, 0],
+				footL: [-0.06, 0.2, 0],
+				footR: [-0.03, 0.2, 0],
+			},
+		},
+		// Follow-through: wide and low on his right, which is where an inside-out
+		// cut ends up if nothing stopped it.
+		{
+			t: 0.6,
+			p: {
+				root: { rot: [0, -0.45, 0], pos: [0.03, -0.06, 0.03] },
+				spine: [0.16, -0.38, 0.09],
+				chest: [0.18, -0.72, 0.14],
+				neck: [0, 0.28, 0],
+				head: [0.04, 0.42, 0],
+				armL: [0.7, -0.55, 0.28],
+				forearmL: [-0.35, 0, 0],
+				armR: [-0.35, 0, -1.3],
+				forearmR: [-0.55, 0, 0],
+				handR: [0, -0.05, 0],
+				hipL: [-0.16, -0.34, 0.07],
+				hipR: [0.06, -0.34, -0.07],
+			},
+		},
+		// And back to guard, slower than he struck.
+		{
+			t: 1.15,
+			p: {
+				root: { rot: [0, -0.26, 0], pos: [0, -0.015, 0] },
+				spine: [0.06, -0.1, 0.03],
+				chest: [0.05, -0.2, 0.05],
+				neck: [0.02, 0.14, 0],
+				head: [0.02, 0.2, 0],
+				armL: [-0.28, -1.05, 0.3],
+				forearmL: [-1.25, -0.3, 0],
+				armR: [0.15, 0, -0.3],
+				forearmR: [-2.5, 0, 0],
+				handR: [0, -0.3, 0],
+				hipL: [-0.05, -0.1, 0.07],
+				hipR: [-0.02, -0.1, -0.07],
+				shinL: [0.08, 0, 0],
+				shinR: [0.05, 0, 0],
+				footL: [-0.04, 0.1, 0],
+				footR: [-0.02, 0.1, 0],
+			},
+		},
+	],
+	[{ t: 0.44, name: 'cut' }],
+);
+
 /* ------------------------------------------------------------------- run -- */
 // Half the cycle is authored and mirrored onto the other half. A run differs
 // from a walk in kind, not degree: there is a flight phase where neither foot
@@ -612,7 +805,7 @@ const LEAN_LEFT = poseClip('leanLeft', 0.1, 'hold', [{ t: 0, p: LEAN_POSE }]);
 const LEAN_RIGHT = poseClip('leanRight', 0.1, 'hold', [{ t: 0, p: mirrorPose(LEAN_POSE) }]);
 const UPRIGHT = poseClip('upright', 0.1, 'hold', [{ t: 0, p: { root: [0, 0, 0] } }]);
 
-const AUTHORED = [IDLE, HAMMER, SWING, JUMP, DUCK, RUN, LEAN_LEFT, LEAN_RIGHT, UPRIGHT];
+const AUTHORED = [IDLE, HAMMER, SWING, SLASH, GUARD, JUMP, DUCK, RUN, LEAN_LEFT, LEAN_RIGHT, UPRIGHT];
 
-return { IDLE, HAMMER, SWING, JUMP, DUCK, RUN, LEAN_LEFT, LEAN_RIGHT, UPRIGHT, AUTHORED };
+return { IDLE, HAMMER, SWING, SLASH, GUARD, JUMP, DUCK, RUN, LEAN_LEFT, LEAN_RIGHT, UPRIGHT, AUTHORED };
 })();

@@ -35,16 +35,16 @@
 
 const { hexGeometry, makeRandom } = Hexdelve.hex;
 const { worldToAxial, distance: hexDistance, neighbours, findPath, keyOf } = Hexdelve.hexgrid;
-const { SKELETON, BONES, TIPS, HIPS_Y } = Hexdelve.skeleton;
+const { SKELETON, BONES, TIPS, HIPS_Y, UPPER_BODY } = Hexdelve.skeleton;
 const { buildRig, buildSkeletonView, applySparsePose } = Hexdelve.rigview;
 const { buildWanderer } = Hexdelve.wanderer;
 const { makeItem } = Hexdelve.props;
 const { attachPanel, attachView, startZoom } = Hexdelve.ui;
 const { walkPose, WALK_PERIOD, WALK_CONTACTS } = Hexdelve.walk;
-const { IDLE, RUN, SWING, DUCK, LEAN_LEFT, LEAN_RIGHT, UPRIGHT } = Hexdelve.clips;
+const { IDLE, RUN, SLASH, GUARD, DUCK, LEAN_LEFT, LEAN_RIGHT, UPRIGHT } = Hexdelve.clips;
 const {
 	bakeClip, samplePose, measureGroundSpeed, solveWorld, denseToSparse,
-	createPose, lerpPose, bindClip, sampleBound, DEG,
+	createPose, lerpPose, lerpPoseMasked, makeMask, bindClip, sampleBound, DEG,
 } = Hexdelve.anim;
 const { ClipNode, Blend1D, Additive, BlendTree, calibrateSpeed, parameterForSpeed, speedForParameter } =
 	Hexdelve.blendtree;
@@ -299,9 +299,22 @@ const BAT_SPEED = MAX_SPEED * 0.72;
  */
 const boneIndex = new Map(BONES.map((n, i) => [n, i]));
 const duckEntry = { clip: DUCK, bound: bindClip(DUCK, boneIndex) };
-const swingEntry = { clip: SWING, bound: bindClip(SWING, boneIndex) };
+const slashEntry = { clip: SLASH, bound: bindClip(SLASH, boneIndex) };
+const guardEntry = { clip: GUARD, bound: bindClip(GUARD, boneIndex) };
 const overlayPose = createPose(BONES.length);
+const guardPose = createPose(BONES.length);
+const stancePose = createPose(BONES.length);
 const playerPose = createPose(BONES.length);
+
+/*
+ * Armed, he stands and walks on guard — sword up, shield across — and that is a
+ * static pose laid over the locomotion through the upper-body mask from
+ * skeleton.js, so his legs keep walking underneath it. Without the mask the
+ * guard would freeze him to the spot; with it, the stance belongs to his arms
+ * and the gait belongs to his hips, which is what the mask was written for.
+ */
+const UPPER = makeMask(BONES, UPPER_BODY, 0);
+let guardWeight = 0;
 
 // The duck from lab 03 is a crouch with both hands forward, which is what
 // reaching down looks like; it is faded away while it holds at the bottom, so
@@ -323,20 +336,28 @@ function beginStoop(item) {
 }
 
 /*
- * The swing, and how far it reaches.
+ * The cut, and where it actually goes.
  *
- * Same measurement as the hammer in lab 06 and the bat's own jaws: play the
- * clip to the key the whoosh event sits on, ask where the point of the blade
- * actually is, and take that as the reach. Re-author the swing or lengthen the
- * blade and the number follows.
+ * Same measurement as the hammer in lab 06 and the bat's own jaws, with one
+ * addition: an inside-out cut sweeps out to his RIGHT, so the blade at contact
+ * is not in front of him, and a hit test that assumed "in front" would miss
+ * everything he actually hits. So the pose is asked for the bearing too, and
+ * the arc is checked against that.
  */
-const SWING_CONTACT = 0.66;
+const SWING_CONTACT = 0.44;
 
 const REACH = (function () {
-	const pose = samplePose(SWING, SWING_CONTACT);
+	const pose = samplePose(SLASH, SWING_CONTACT);
 	const tip = attachmentPosition(SKELETON, pose, 'handR', Hexdelve.sword.TIP);
-	return { distance: Math.hypot(tip[0], tip[2]), height: tip[1] };
+	return {
+		distance: Math.hypot(tip[0], tip[2]),
+		bearing: Math.atan2(tip[0], tip[2]),
+		height: tip[1],
+	};
 })();
+
+// How far either side of that bearing still counts as inside the arc.
+const ARC = 1.0;
 
 const swing = { active: false, clock: 0, blend: 0, hit: false, hits: 0 };
 
@@ -350,11 +371,12 @@ function landSwing() {
 	const dx = bat.x - player.x;
 	const dz = bat.z - player.z;
 	const gap = Math.hypot(dx, dz) || 1e-6;
-	const infront = (dx * Math.sin(player.yaw) + dz * Math.cos(player.yaw)) / gap;
+	// Where the thing is, relative to where the blade actually swings.
+	const off = wrapAngle(Math.atan2(dx, dz) - (player.yaw + REACH.bearing));
 	const bladeY = player.y + REACH.height;
 	const bodyY = bat.y + BAT.HOVER_Y;
 
-	if (gap > REACH.distance + 0.35 || infront < 0.3 || Math.abs(bodyY - bladeY) > 1.0) return;
+	if (gap > REACH.distance + 0.35 || Math.abs(off) > ARC || Math.abs(bodyY - bladeY) > 1.0) return;
 
 	swing.hits++;
 	motes.spawn(bat.x, bodyY, bat.z, 9, 1.6, 1.9);
@@ -781,11 +803,14 @@ function updatePlayer(dt) {
 		 * follow: he steers straight at it and swings the moment it is inside
 		 * the reach the clip measured.
 		 */
-		turnTowards(player, bat.x, bat.z, dt, 3.2);
+		// He squares up so the arc, not his nose, ends up pointing at it.
+		const want = Math.atan2(bat.x - player.x, bat.z - player.z) - REACH.bearing;
+		const diff = wrapAngle(want - player.yaw);
+		player.yaw += Math.max(-3.2 * dt, Math.min(3.2 * dt, diff));
 		const gap = Math.hypot(bat.x - player.x, bat.z - player.z);
-		if (gap > REACH.distance * 0.85) {
+		if (gap > REACH.distance * 0.8) {
 			wantSpeed = Math.min(CRUISE.run, gap * 2);
-		} else {
+		} else if (Math.abs(diff) < 0.5) {
 			beginSwing();
 		}
 	} else if (control.state === 'stoop') {
@@ -802,14 +827,13 @@ function updatePlayer(dt) {
 			control.message = armed() ? 'armed' : 'idle';
 		}
 	} else if (control.state === 'swinging') {
-		turnTowards(player, bat.x, bat.z, dt, 2.2);
 		turnNow *= Math.max(0, 1 - dt * 4);
 		swing.clock += dt;
 		if (!swing.hit && swing.clock >= SWING_CONTACT) {
 			swing.hit = true;
 			landSwing();
 		}
-		if (swing.clock >= 1.15) {
+		if (swing.clock >= SLASH.duration) {
 			swing.active = false;
 			control.state = 'idle';
 			control.message = 'armed';
@@ -839,11 +863,22 @@ function updatePlayer(dt) {
 	const wantStoop = control.state === 'stoop' && stoop.clock < STOOP.release ? 1 : 0;
 	stoop.blend += (wantStoop - stoop.blend) * Math.min(1, dt * 9);
 	swing.blend = swing.active
-		? Math.min(1, Math.min(swing.clock / 0.12, (1.15 - swing.clock) / 0.22))
+		? Math.min(1, Math.min(swing.clock / 0.1, (SLASH.duration - swing.clock) / 0.2))
 		: Math.max(0, swing.blend - dt * 6);
 
 	tree.update({ speed: param, turn: turnNow }, dt);
 
+	// Guard first, masked to the upper body, so the legs keep the gait.
+	const wantGuard = armed() && control.state !== 'stoop' ? 1 : 0;
+	guardWeight += (wantGuard - guardWeight) * Math.min(1, dt * 4);
+	let base = tree.pose;
+	if (guardWeight > 0.002) {
+		sampleBound(guardEntry, 0, guardPose);
+		lerpPoseMasked(stancePose, tree.pose, guardPose, guardWeight, UPPER);
+		base = stancePose;
+	}
+
+	// Then the one thing his whole body is doing, if it is doing one.
 	let entry = null;
 	let at = 0;
 	let blend = 0;
@@ -852,16 +887,16 @@ function updatePlayer(dt) {
 		at = Math.min(stoop.clock, STOOP.hold);
 		blend = stoop.blend;
 	} else if (swing.blend > 0.002) {
-		entry = swingEntry;
-		at = Math.min(swing.clock, SWING.duration);
+		entry = slashEntry;
+		at = Math.min(swing.clock, SLASH.duration);
 		blend = Math.max(0, swing.blend);
 	}
 	if (entry) {
 		sampleBound(entry, at, overlayPose);
-		lerpPose(playerPose, tree.pose, overlayPose, blend);
+		lerpPose(playerPose, base, overlayPose, blend);
 	} else {
-		playerPose.rot.set(tree.pose.rot);
-		playerPose.pos.set(tree.pose.pos);
+		playerPose.rot.set(base.rot);
+		playerPose.pos.set(base.pos);
 	}
 
 	denseToSparse(BONES, playerPose, player.sparse);
