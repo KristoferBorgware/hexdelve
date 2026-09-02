@@ -58,7 +58,25 @@
 		<h1>Hexdelve</h1>
 		<p class="tag">Hexagon experiments on a flat plane, viewed isometrically. Every
 			object in every scene is a <b>hexagonal prism</b> — the terrain, the buildings,
-			the characters, the helmet, the smoke. Each lab is a standalone page with no build step.</p>
+			the characters, the helmet, the smoke. The labs are standalone pages with no
+			build step; the engine, client and editor are a TypeScript monorepo that draws
+			the same shapes on <b>WebGPU</b>, and on WebGL2 where WebGPU is not to be had.</p>
+
+		<h2>Applications</h2>
+			<a class="lab" href="editor/index.html">
+				<span class="num">ED</span>
+				<span class="body">
+					<span class="name">Editor</span>
+					<span class="desc">The React and Material UI editor, with the client running live in its viewport. Switch the renderer between WebGPU and WebGL2 from the toolbar and watch the same scene come back drawn by the other backend.</span>
+				</span>
+			</a>
+			<a class="lab" href="client/index.html">
+				<span class="num">CL</span>
+				<span class="body">
+					<span class="name">Client</span>
+					<span class="desc">The client on its own, the way it ships: one canvas, no editor around it. WebGPU where the browser has it, WebGL2 everywhere else.</span>
+				</span>
+			</a>
 
 		<h2>Labs</h2>
 			<a class="lab" href="labs/01-log-cabin/index.html">

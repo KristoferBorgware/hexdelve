@@ -1,0 +1,27 @@
+{
+	"name": "@hexdelve/engine",
+	"version": "0.1.0",
+	"description": "Hexdelve engine — WebGPU and WebGL2 rendering, camera and frame loop",
+	"license": "MIT",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": ["dist", "src"],
+	"sideEffects": false,
+	"scripts": {
+		"build": "tsc -b",
+		"typecheck": "tsc -b"
+	},
+	"dependencies": {
+		"@hexdelve/shared": "0.1.0"
+	},
+	"devDependencies": {
+		"@webgpu/types": "^0.1.72"
+	}
+}

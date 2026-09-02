@@ -1,0 +1,14 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"rootDir": "./src",
+		"outDir": "./dist-types",
+		"tsBuildInfoFile": "./dist-types/.tsbuildinfo",
+		"jsx": "react-jsx",
+		"noEmit": false,
+		"emitDeclarationOnly": true,
+		"types": []
+	},
+	"include": ["src/**/*.ts", "src/**/*.tsx"],
+	"references": [{ "path": "../shared" }, { "path": "../engine" }, { "path": "../client" }]
+}

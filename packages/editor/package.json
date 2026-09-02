@@ -1,0 +1,31 @@
+{
+	"name": "@hexdelve/editor",
+	"version": "0.1.0",
+	"description": "Hexdelve editor — a React and Material UI shell around the client",
+	"license": "MIT",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc -b && vite build",
+		"preview": "vite preview",
+		"typecheck": "tsc -b"
+	},
+	"dependencies": {
+		"@emotion/react": "^11.14.0",
+		"@emotion/styled": "^11.14.1",
+		"@hexdelve/client": "0.1.0",
+		"@hexdelve/engine": "0.1.0",
+		"@hexdelve/shared": "0.1.0",
+		"@mui/icons-material": "^9.4.0",
+		"@mui/material": "^9.4.0",
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8"
+	},
+	"devDependencies": {
+		"@types/react": "^19.2.18",
+		"@types/react-dom": "^19.2.5",
+		"@vitejs/plugin-react": "^6.1.1",
+		"vite": "^8.2.2"
+	}
+}

@@ -1,16 +1,15 @@
-# Publish the labs to GitHub Pages on every push to main.
+# Publish the site to GitHub Pages on every push to main.
 #
-# There is nothing to compile — the labs are plain HTML/CSS/JS and Three.js
-# comes from a CDN — so "build" here means two things worth doing:
+# The site is three things served side by side, staged by tools/build-pages.js:
 #
-#   1. syntax-check every script, which is the only automated check this
-#      project has and catches the breakage that actually happens (a stray
-#      byte from an editor, syntax newer than a target browser parses)
-#   2. regenerate the landing page from the labs, so it can never go stale
+#   /              the landing page, generated from the labs themselves
+#   /labs/         labs 01-09, plain HTML and JS with no build step
+#   /editor/       the React and Material UI editor
+#   /client/       the standalone client build
 #
 # Requires Settings -> Pages -> Source: "GitHub Actions" to be selected once.
 
-name: Deploy labs
+name: Deploy site
 
 on:
   push:
@@ -37,9 +36,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
 
-      - name: Syntax-check every script
+      - run: npm ci
+
+      - name: Typecheck every package
+        run: npm run typecheck
+
+      - name: Syntax-check the labs
         run: |
+          # The labs are plain scripts with no build step, so parsing them is
+          # the only automated check they have, and it catches the breakage
+          # that actually happens: a stray byte, or syntax a target browser
+          # will not parse.
           fail=0
           while IFS= read -r f; do
             if ! node --check "$f" 2>&1; then
@@ -71,14 +80,14 @@ jobs:
           if [ "$fail" -ne 0 ]; then exit 1; fi
           echo "all script references resolve"
 
-      - name: Generate landing page
-        run: node tools/build-index.js
+      - name: Build the packages and stage the site
+        run: npm run build:pages
 
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: dist/pages
 
   deploy:
     needs: build

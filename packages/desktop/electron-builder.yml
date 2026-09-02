@@ -1,0 +1,25 @@
+appId: se.borgware.hexdelve
+productName: Hexdelve
+copyright: Copyright © KristoferBorgware
+
+directories:
+  output: release
+  buildResources: build
+
+# The shell plus the client's web build — nothing else from the workspace has
+# to travel, because the client bundle already contains the engine.
+files:
+  - dist/**/*
+  - package.json
+extraResources:
+  - from: ../client/dist-app
+    to: app/client
+
+mac:
+  category: public.app-category.games
+  target: [dmg, zip]
+win:
+  target: [nsis]
+linux:
+  target: [AppImage]
+  category: Game

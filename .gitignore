@@ -4,8 +4,22 @@
 *.wav
 .mixgain-*
 
+# Dependencies and build output
+node_modules/
+dist/
+dist-app/
+dist-lib/
+dist-types/
+release/
+*.tsbuildinfo
+.vite/
+
 # IDE
 .idea/
+.vscode/
+
+# OS
+.DS_Store
 
 # Claude Code local settings (launch.json is tracked on purpose)
 .claude/settings.local.json

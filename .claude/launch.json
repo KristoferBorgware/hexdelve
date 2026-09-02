@@ -1,6 +1,18 @@
 {
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"configurations": [
+		{
+			"name": "hexdelve-editor",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": ["run", "dev:editor"],
+			"port": 5181
+		},
+		{
+			"name": "hexdelve-client",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": ["run", "dev:client"],
+			"port": 5180
+		},
 		{
 			"name": "hexdelve-labs",
 			"runtimeExecutable": "npx",

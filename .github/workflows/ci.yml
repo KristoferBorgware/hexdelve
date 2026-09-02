@@ -1,0 +1,49 @@
+# Typecheck and build the monorepo on every branch and pull request.
+#
+# The deploy workflow does the same work before publishing, but only on main.
+# This is the copy that runs before a change gets there.
+
+name: CI
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck every package
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Syntax-check the labs
+        run: |
+          # The labs are plain scripts with no build step, so parsing them is
+          # the only automated check they have.
+          fail=0
+          while IFS= read -r f; do
+            if ! node --check "$f" 2>&1; then
+              echo "::error file=$f::syntax error"
+              fail=1
+            fi
+          done < <(find labs assets tools -name '*.js' | sort)
+          if [ "$fail" -ne 0 ]; then exit 1; fi
+          echo "all scripts parsed"

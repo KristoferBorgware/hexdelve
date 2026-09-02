@@ -36,11 +36,24 @@ the bat), and labs 06–09 share one world; see `labs/shared/` below.
 
 ## Layout
 
+Two halves that share a subject and nothing else. The **labs** are plain HTML
+and JavaScript with no build step, opened straight from disk, and they stay
+that way. The **packages** are a TypeScript monorepo built with Vite — the
+engine, the client and the editor — where the ideas the labs worked out get
+built properly.
+
 ```
+packages/
+  shared/       maths, hex coordinates, seeded random — no dependencies at all
+  engine/       WebGPU and WebGL2 rendering, camera, frame loop
+  client/       the game itself; the package built for external distribution
+  editor/       React and Material UI shell that runs the client in a viewport
+  desktop/      Electron wrapper around the client's build
 labs/           one folder per lab, each a standalone page
   shared/       the code the labs are built from
 assets/
   audio/        ambience, and the scripts that synthesise it
+tools/          the landing-page generator and the Pages staging script
 ```
 
 `assets/audio` holds three generated loops plus the Node scripts that render
@@ -48,6 +61,82 @@ them from scratch — no samples, no dependencies:
 
 ```
 node assets/audio/dungeon-crawl.js
+```
+
+## The packages
+
+```
+npm install
+npm run dev:editor      # the editor, with the client live in its viewport
+npm run dev:client      # the client on its own
+npm run build           # every package
+npm run typecheck       # every package, no output
+npm run build:pages     # build, then stage the whole site in dist/pages
+```
+
+npm workspaces, so one `npm install` at the root wires the five packages
+together. Every package is `strict` TypeScript against one `tsconfig.base.json`,
+and they are joined by project references, so `tsc -b` builds them in
+dependency order and typechecking one typechecks what it stands on.
+
+**`@hexdelve/shared`** is the floor: 4x4 matrices, three-component vectors, the
+axial hex coordinates the labs already use, a seeded RNG. It touches no GPU, no
+DOM and no framework, and it has no dependencies.
+
+**`@hexdelve/engine`** draws. One shape — the unit hexagonal prism, radius 1,
+height 1, a vertex on +Z — instanced, with twelve floats per instance for
+position, yaw, scale and colour. Two backends implement one `Renderer`
+interface, and the interface is the point: nothing above it can tell them
+apart. Two things leak through on purpose. `depthRange`, because WebGL clips
+depth to [-1, 1] and WebGPU to [0, 1], and a projection built for the wrong one
+loses the near half of the scene; and `info`, because a user is entitled to
+know which backend they got.
+
+**`@hexdelve/client`** is the game, and the package this is all ultimately for.
+Hand it a canvas, get a running world. Its whole dependency list is the engine
+and the shared maths — no framework, no bundler runtime, no CDN script — which
+is what makes it distributable: `npm run build -w @hexdelve/client` emits an ES
+module and a UMD bundle of about 25 kB, engine included.
+
+**`@hexdelve/editor`** is React and Material UI around `createClient`. It has
+no renderer and no scene of its own; its viewport is the client, in a box, so
+whatever the editor can do to the world an embedder can do too. The renderer
+toggle is in the toolbar rather than a settings dialog, because two backends
+meant to draw the same picture only stay that way if switching is one click
+during ordinary work.
+
+**`@hexdelve/desktop`** opens an Electron window on the client's own web build.
+No desktop-only rendering path and no desktop-only game code, so what ships on
+the web ships there.
+
+## WebGPU first, WebGL2 always
+
+`createRenderer` prefers WebGPU and falls back to WebGL2. "Prefers" is not a
+feature detect: `navigator.gpu` exists in browsers where `requestAdapter` still
+answers null, and a device request can fail on a machine that has the API — so
+the only honest test is to try, and fall back on any failure. A caller who names
+a backend gets that one or an error; only `auto` falls back, and `info.fellBack`
+says when it did.
+
+A device can also go away long after it was handed over — a driver reset, a GPU
+switch, an adapter that only ever claimed to work. Nothing throws when that
+happens; the picture simply stops changing. Both backends watch for it
+(`device.lost`, `webglcontextlost`), stop drawing, and report it, because a
+frozen frame and a working one look identical.
+
+The two shaders are written twice rather than generated from one source, so a
+change to the lighting has to be made in both places and the two pictures
+cannot quietly drift apart.
+
+## What is published
+
+`main` deploys to <https://kristoferborgware.github.io/hexdelve/>:
+
+```
+/               the landing page, generated from the labs themselves
+/labs/          labs 01-09, exactly as they are in the repo
+/editor/        the editor
+/client/        the standalone client build
 ```
 
 ## The engine boundary

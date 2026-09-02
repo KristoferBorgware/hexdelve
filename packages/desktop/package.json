@@ -1,0 +1,23 @@
+{
+	"name": "@hexdelve/desktop",
+	"version": "0.1.0",
+	"description": "Electron shell around the Hexdelve client",
+	"license": "MIT",
+	"private": true,
+	"main": "./dist/main.js",
+	"scripts": {
+		"build": "tsc -b",
+		"dev": "npm run build && electron .",
+		"start": "electron .",
+		"package": "npm run build && electron-builder",
+		"typecheck": "tsc -b"
+	},
+	"dependencies": {
+		"@hexdelve/client": "0.1.0"
+	},
+	"devDependencies": {
+		"@types/node": "^26.4.1",
+		"electron": "^44.1.1",
+		"electron-builder": "^26.15.3"
+	}
+}
