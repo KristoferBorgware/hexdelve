@@ -34,6 +34,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check picking agrees with the projection
+        # A camera basis derived twice is a sign waiting to be got wrong, and
+        # nothing throws when it is: the cursor simply stops landing where it
+        # is pointing. This round-trips screen points through the real matrix.
+        run: npm run check:picking
+
       - name: Check the shaders compile and the pipelines build
         # Catches a WGSL or GLSL mistake at the point it is made. WebGPU marks
         # a bad pipeline invalid rather than throwing, so without this a broken
