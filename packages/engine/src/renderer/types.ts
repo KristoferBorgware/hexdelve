@@ -35,9 +35,29 @@ export interface Light {
 	readonly ambient: Vec3Like;
 }
 
+/**
+ * Where the sun looks from, for the shadow pass.
+ *
+ * The caller supplies the matrix rather than the renderer deriving one,
+ * because fitting it is a question about the scene — how far the world
+ * extends and how much of it must be inside the map — and the renderer does
+ * not know what is in the buffer it was handed.
+ */
+export interface ShadowView {
+	readonly viewProjection: Mat4;
+	/**
+	 * Depth slack, in light-space units, before a surface shadows itself.
+	 * Too little and a flat face stripes; too much and a foot floats free of
+	 * its own shadow.
+	 */
+	readonly bias?: number;
+}
+
 export interface Frame {
 	readonly viewProjection: Mat4;
 	readonly light: Light;
+	/** Omit or pass null to draw without shadows. */
+	readonly shadow?: ShadowView | null;
 }
 
 /**
@@ -70,6 +90,8 @@ export interface RendererOptions {
 	readonly backend?: BackendPreference;
 	/** 4x multisampling, on by default. */
 	readonly msaa?: boolean;
+	/** Shadow map resolution, square. 2048 by default; 0 turns shadows off. */
+	readonly shadowMapSize?: number;
 	/** Clear colour, r/g/b/a in 0..1. */
 	readonly clearColor?: readonly [number, number, number, number];
 	/**

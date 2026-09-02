@@ -10,6 +10,7 @@
 
 import {
 	createRenderer,
+	directionalShadowMatrix,
 	ISO_PITCH,
 	OrbitCamera,
 	Ticker,
@@ -18,13 +19,19 @@ import {
 	type Renderer,
 	type RendererInfo,
 } from '@hexdelve/engine';
-import { vec3, type Vec3 } from '@hexdelve/shared';
+import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
 import { Controls } from './input/Controls.js';
 import { Simulation, type SimulationToggles, type YardStats } from './game/simulation.js';
 
 /** Half the world height the viewport spans at zoom 1, matching the labs. */
 const VIEW_HEIGHT = 5.5;
+
+/**
+ * The sphere the shadow map covers: the whole yard, plus enough height for the
+ * smithy's chimney, which is the tallest thing that casts.
+ */
+const SHADOW_FIT = { center: vec3.vec3(0, 1.5, 0), radius: 17 };
 
 export interface ClientOptions {
 	canvas: HTMLCanvasElement;
@@ -78,6 +85,7 @@ export class HexdelveClient {
 	private instanceCount = 0;
 	private smoothedFps = 0;
 	private disposed = false;
+	private readonly shadowMatrix: Mat4 = mat4.mat4();
 
 	/**
 	 * Creates a client. Asynchronous because asking for a GPU device is, and
@@ -269,9 +277,20 @@ export class HexdelveClient {
 		const height = this.canvas.height;
 		if (width === 0 || height === 0) return;
 
+		// Rebuilt each frame rather than cached, because the sun is a control the
+		// editor can move and two matrices that disagree about where it is
+		// would light the scene from one place and shadow it from another.
+		directionalShadowMatrix(
+			this.shadowMatrix,
+			this.light.direction,
+			SHADOW_FIT,
+			this.renderer.depthRange,
+		);
+
 		this.renderer.render({
 			viewProjection: this.camera.matrix(width / height, this.renderer.depthRange),
 			light: this.light,
+			shadow: { viewProjection: this.shadowMatrix, bias: 0.0022 },
 		});
 	}
 }

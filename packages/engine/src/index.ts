@@ -35,6 +35,11 @@ export {
 } from './scene/Model.js';
 
 export {
+	directionalShadowMatrix,
+	type ShadowFit,
+} from './scene/shadow.js';
+
+export {
 	OrbitCamera,
 	ISO_PITCH,
 	type OrbitCameraOptions,
@@ -111,6 +116,7 @@ export {
 	type RendererInfo,
 	type RendererOptions,
 	type InstanceRanges,
+	type ShadowView,
 } from './renderer/types.js';
 
 export { instanceTotal } from './renderer/types.js';
