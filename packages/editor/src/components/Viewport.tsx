@@ -2,9 +2,19 @@
  * The editor's view of the game.
  *
  * This is the whole reason the client is a package and not an application: the
- * editor mounts a canvas, hands it to `createClient`, and from then on it is
+ * editor makes a canvas, hands it to `createClient`, and from then on it is
  * looking at exactly what a player would be looking at. There is no editor
  * renderer and no editor scene — only the client, in a box.
+ *
+ * The canvas is created here rather than rendered as JSX, which is worth a
+ * word. A canvas hands out one kind of context and then that is what it is
+ * forever: ask a canvas that has given out `webgpu` for `webgl2` and it
+ * answers null. So switching backend means a genuinely new element, and
+ * leaving that to React's reconciler is too subtle to rely on — under a fast
+ * switch, while the first (asynchronous) `createClient` is still in flight,
+ * two effect runs could end up sharing one element and the second would find
+ * the context type already spoken for. Building the element inside the effect
+ * ties its life to that effect exactly: one run, one canvas, one context.
  */
 
 import Box from '@mui/material/Box';
@@ -21,19 +31,22 @@ export interface ViewportProps {
 }
 
 export function Viewport({ backend, running, onClientReady }: ViewportProps) {
-	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const hostRef = useRef<HTMLDivElement>(null);
 	const clientRef = useRef<HexdelveClient | null>(null);
 	const [status, setStatus] = useState<'starting' | 'ready' | 'failed'>('starting');
 	const [error, setError] = useState<string>('');
 
-	// Re-created when the backend changes, because a renderer owns its context
-	// and a canvas will only ever give out one.
 	useEffect(() => {
-		const canvas = canvasRef.current;
-		if (!canvas) return;
+		const host = hostRef.current;
+		if (!host) return;
+
+		const canvas = document.createElement('canvas');
+		canvas.style.cssText = 'display:block;width:100%;height:100%;touch-action:none';
+		host.replaceChildren(canvas);
 
 		let disposed = false;
 		setStatus('starting');
+		setError('');
 
 		createClient({
 			canvas,
@@ -45,6 +58,8 @@ export function Viewport({ backend, running, onClientReady }: ViewportProps) {
 			},
 		})
 			.then((client) => {
+				// The backend may have been switched again while the device
+				// request was in flight; this client is already obsolete.
 				if (disposed) {
 					client.dispose();
 					return;
@@ -64,6 +79,7 @@ export function Viewport({ backend, running, onClientReady }: ViewportProps) {
 			disposed = true;
 			clientRef.current?.dispose();
 			clientRef.current = null;
+			canvas.remove();
 			onClientReady(null);
 		};
 	}, [backend, onClientReady]);
@@ -90,14 +106,7 @@ export function Viewport({ backend, running, onClientReady }: ViewportProps) {
 				overflow: 'hidden',
 			}}
 		>
-			{/* A canvas is replaced wholesale when the backend changes: keying it
-			    forces React to make a new element rather than reuse a canvas that
-			    already has a context bound to it. */}
-			<canvas
-				key={backend}
-				ref={canvasRef}
-				style={{ display: 'block', width: '100%', height: '100%', touchAction: 'none' }}
-			/>
+			<Box ref={hostRef} sx={{ width: '100%', height: '100%' }} />
 
 			{status === 'starting' && (
 				<Box sx={overlay}>

@@ -1,0 +1,13 @@
+{
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
+		"lib": ["ES2022"],
+		"types": ["node"]
+	},
+	"include": ["vite.workspace.mts", "packages/*/vite.config.ts", "packages/*/vite.lib.config.ts"]
+}

@@ -9,8 +9,11 @@
 
 import { defineConfig } from 'vite';
 
+import { workspaceAliases } from '../../vite.workspace.mts';
+
 export default defineConfig({
 	base: './',
+	resolve: { alias: workspaceAliases },
 	build: {
 		outDir: 'dist-app',
 		emptyOutDir: true,

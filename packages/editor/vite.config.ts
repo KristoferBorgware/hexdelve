@@ -7,9 +7,12 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+import { workspaceAliases } from '../../vite.workspace.mts';
+
 export default defineConfig({
 	base: './',
 	plugins: [react()],
+	resolve: { alias: workspaceAliases },
 	build: {
 		outDir: 'dist',
 		emptyOutDir: true,

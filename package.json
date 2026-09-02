@@ -29,7 +29,7 @@
 		"dev:editor": "npm run dev -w @hexdelve/editor",
 		"dev:desktop": "npm run dev -w @hexdelve/desktop",
 		"index": "node tools/build-index.js",
-		"typecheck": "tsc -b packages/shared packages/engine packages/client packages/editor packages/desktop",
+		"typecheck": "tsc -b packages/shared packages/engine packages/client packages/editor packages/desktop && tsc -p tsconfig.tools.json",
 		"clean": "node tools/clean.js"
 	},
 	"devDependencies": {

@@ -11,7 +11,10 @@ import { resolve } from 'node:path';
 
 import { defineConfig } from 'vite';
 
+import { workspaceAliases } from '../../vite.workspace.mts';
+
 export default defineConfig({
+	resolve: { alias: workspaceAliases },
 	build: {
 		outDir: 'dist-lib',
 		emptyOutDir: true,
