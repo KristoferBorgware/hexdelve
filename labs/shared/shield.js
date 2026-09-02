@@ -32,18 +32,25 @@ const PALETTE = {
 const GROUND_LIFT = 0.05;
 const GROUND_TILT = PI / 2;
 
-const RADIUS = 0.34;
+const RADIUS = 0.26;
 
 function buildShield() {
 	const group = new THREE.Group();
 	const materials = new Map();
 	const meshes = [];
 
-	// The whole shield sits outboard and down the forearm, angled off the arm so
-	// it faces the way the character does rather than straight out to the side.
+	/*
+	 * The shield sits square on the forearm and faces the way the character
+	 * does: the only rotation is the quarter turn that stands the prism on its
+	 * edge, and it is the turn that puts the *face* outward once the elbow is
+	 * bent into a guard, which is the only way this is ever seen. It is offset
+	 * forward rather than outward, because the arm goes *through* the straps on
+	 * its back — and canting it about Z put the face at an angle nobody has ever
+	 * held a shield at.
+	 */
 	const plate = new THREE.Group();
-	plate.position.set(0.11, -0.14, 0.02);
-	plate.rotation.set(PI / 2, 0, -0.22);
+	plate.position.set(0.02, -0.14, 0.08);
+	plate.rotation.set(-PI / 2, 0, 0);
 	group.add(plate);
 
 	function mat(color) {
