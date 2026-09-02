@@ -147,9 +147,6 @@ export class HexdelveClient {
 				? null
 				: new Controls(this.canvas, this.camera, {
 						onStrike: () => this.simulation.strike(),
-						onPan: () => {
-							this.simulation.toggles.follow = false;
-						},
 					});
 
 		if (options.autoResize === false) {

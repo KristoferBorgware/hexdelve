@@ -58,6 +58,16 @@ export function Inspector({ client }: InspectorProps) {
 	const [stats, setStats] = useState<YardStats | null>(null);
 	// Mirrored only so the checkboxes re-render; the client stays the owner.
 	const [toggleTick, setToggleTick] = useState(0);
+	/*
+	 * The camera's own numbers, polled.
+	 *
+	 * These are controlled rather than defaulted because this panel is now the
+	 * only pointing device the camera has — the mouse aims and cuts and does
+	 * not touch it. Q and E still turn it, so a slider that showed only where
+	 * it was first put would be telling a lie about the thing it controls.
+	 */
+	const [zoom, setZoom] = useState(1.35);
+	const [azimuth, setAzimuth] = useState(1.08);
 
 	useEffect(() => {
 		if (!client) {
@@ -68,6 +78,9 @@ export function Inspector({ client }: InspectorProps) {
 			setFps(client.stats.fps);
 			setInstances(client.stats.instances);
 			setStats(client.state);
+			setZoom(client.camera.zoom);
+			// Wrapped, because Q and E keep turning past a full circle.
+			setAzimuth(((client.camera.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2));
 		}, 250);
 		return () => window.clearInterval(handle);
 	}, [client]);
@@ -195,9 +208,10 @@ export function Inspector({ client }: InspectorProps) {
 				min={0.4}
 				max={3}
 				step={0.05}
-				defaultValue={client?.camera.zoom ?? 1.35}
+				value={zoom}
 				disabled={!client}
 				onChange={(_, value) => {
+					setZoom(value as number);
 					if (client) client.camera.zoom = value as number;
 					if (client && !client.running) client.renderOnce();
 				}}
@@ -211,9 +225,10 @@ export function Inspector({ client }: InspectorProps) {
 				min={0}
 				max={Math.PI * 2}
 				step={0.01}
-				defaultValue={client?.camera.yaw ?? 1.08}
+				value={azimuth}
 				disabled={!client}
 				onChange={(_, value) => {
+					setAzimuth(value as number);
 					if (client) client.camera.yaw = value as number;
 					if (client && !client.running) client.renderOnce();
 				}}
@@ -243,7 +258,9 @@ export function Inspector({ client }: InspectorProps) {
 
 			<Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
 				<b>W</b>/<b>S</b> are his, <b>A</b>/<b>D</b> the screen's. <b>Shift</b> runs,
-				<b> Q</b>/<b>E</b> turn the camera, <b>click</b> or <b>space</b> cuts.
+				<b> click</b> or <b>space</b> cuts. The mouse aims and nothing else — the
+				camera follows him, and its angle comes from <b>Q</b>/<b>E</b> or the
+				slider above.
 			</Typography>
 		</Box>
 	);
