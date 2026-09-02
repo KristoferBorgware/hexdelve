@@ -29,7 +29,7 @@ no server needed.**
 
 | 08 | [The bat](labs/08-bat/index.html) | An enemy, on a rig that is nothing like the humanoid one. It sleeps folded on its hexagon; come within three tiles and it wakes, paths after you over the same grid you walk, and bites from whichever hexagon it lands on — never leaving the grid, because the reach comes out of the lunge rather than out of walking closer. Then it loses you at six and flies home. Its wings clear two terraces where you can only manage one. There is a helmet, a sword and a shield in the yard: pick them up and hit it back — click the bat, or the red-tinted hexagon it occupies, and he runs to a tile beside it and cuts. Neither can walk into a cell the other is standing in. |
 
-| 09 | [Free movement](labs/09-free-movement/index.html) | The same yard, off the grid. **W A S D** moves and **the mouse** faces, and for the first time those are two different numbers: forward is wherever you are pointing, so holding **A** with the mouse on the anvil walks him round it sideways, still watching it. There is no path and nothing to click — a heading, a throttle, and the tile test used as a wall instead of a route. The helmet, sword and shield are lying in the grass again; walk over one to pick it up. His gait is not a clip but a function of the direction of travel, and how fast it carries him is read off the pose every frame. |
+| 09 | [Free movement](labs/09-free-movement/index.html) | The same yard, off the grid. **W A S D** moves and **the mouse** faces, and for the first time those are two different numbers: forward is wherever you are pointing, so holding **A** with the mouse on the anvil walks him round it sideways, still watching it. There is no path and nothing to click — a heading, a throttle, and the tile test used as a wall instead of a route. The helmet, sword and shield are lying in the grass again; walk over one to pick it up, and **the bat** is asleep out past the anvil — it hunts you across hexagons you are no longer standing on. Armed, **click** to cut: nothing aims it for you, so back off with **S** and come round it with **A** and **D** and put it in the arc yourself. His gait is not a clip but a function of the direction of travel, and how fast it carries him is read off the pose every frame. |
 
 Labs 02–09 share one rig and one animation system (lab 08 adds a second rig for
 the bat), and labs 06–09 share one world; see `labs/shared/` below.
@@ -225,6 +225,18 @@ pose itself. The planted foot is asked where it is at the two contact keys, and
 whatever ground it covers between them, the body covers the other way in half a
 stride pair. Two solves of a seventeen-bone rig, and the feet do not slide at any
 bearing or any throttle.
+
+The bat came across from lab 08 whole, and that is the other half of the point.
+It still paths over the hexagons, still bites from whichever one it is standing
+on, still wakes at three tiles and loses you at six — while the man it is hunting
+is no longer on that grid at all. The only line in it that ever noticed is the
+one asking which cell he is in, and that was never the same thing as "the tile he
+is walking to". What did change is your half of the fight: in lab 08 the
+pathfinder walked you into range and held you facing it, and here nothing aims
+for you. The blade's reach and the bearings its arc sweeps between are still
+measured off the clip — 1.49 m across 115° of his front — so a cut thrown at
+where the thing *was* misses, and backing off on **S** while keeping it under the
+mouse is a real thing to do rather than a demonstration.
 
 ## Every lab works on a phone
 
