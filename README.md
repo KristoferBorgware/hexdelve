@@ -27,7 +27,7 @@ no server needed.**
 
 | 07 | [Player character](labs/07-player-character/index.html) | The same world, with the roles swapped. You drive the **wanderer** — a second character on the same rig, carrying nothing — while the blacksmith stands at his anvil and works on his own schedule, hammer aimed by IK, whether or not you are watching. A **helmet** lies in the yard: click it and he fetches it, stoops and puts it on. Picking it up is one re-parent onto the head bone, so every clip carries it from then on. |
 
-| 08 | [The bat](labs/08-bat/index.html) | An enemy, on a rig that is nothing like the humanoid one. It sleeps folded on its hexagon; come within three tiles and it wakes, paths after you over the same grid you walk, and steps off it to bite — then loses you at six and flies home. Its wings clear two terraces where you can only manage one. There is a helmet, a sword and a shield in the yard: pick them up and hit it back. |
+| 08 | [The bat](labs/08-bat/index.html) | An enemy, on a rig that is nothing like the humanoid one. It sleeps folded on its hexagon; come within three tiles and it wakes, paths after you over the same grid you walk, and bites from whichever hexagon it lands on — never leaving the grid, because the reach comes out of the lunge rather than out of walking closer. Then it loses you at six and flies home. Its wings clear two terraces where you can only manage one. There is a helmet, a sword and a shield in the yard: pick them up and hit it back — click the bat, or the red-tinted hexagon it occupies, and he runs to a tile beside it and cuts. Neither can walk into a cell the other is standing in. |
 
 Labs 02–08 share one rig and one animation system (lab 08 adds a second rig for
 the bat), and labs 06–08 share one world; see `labs/shared/` below.
@@ -176,10 +176,14 @@ laid over the locomotion through the `UPPER_BODY` mask in `skeleton.js` — so t
 stance belongs to his arms and the gait still belongs to his hips. Unmasked it
 would freeze him to the spot, which is what that mask was written for.
 
-Reach is not a tuned constant, and neither is direction: play the clip to its
-contact key, ask where the point of the blade actually is, and take both the
-distance and the *bearing* from it. An inside-out cut lands out to the side, so
-a hit test that assumed "in front" would miss everything it hits.
+Reach is not a tuned constant, and neither is the arc. Asking the pose one
+question at the contact key turned out not to be enough — a cut sweeps. The
+blade is sampled right through the strike instead, and what comes back is how
+far it reaches and between which bearings it passes: 1.49 m across 115° of his
+front, with the follow-through behind his shoulder discarded, since a sword
+finishing its arc back there is not cutting anything he is fighting. That is
+also what lets him square up to what he is fighting rather than standing
+side-on to aim the arc at it.
 
 ## Every lab works on a phone
 

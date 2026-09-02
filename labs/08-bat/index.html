@@ -18,7 +18,10 @@
 			you across the grid, and lunges off it to bite. <b>Click</b> to walk,
 			<b>click again</b> to run — and it is slower than a run. There is a
 			<b>helmet, a sword and a shield</b> lying in the yard: click one and he
-			fetches it and puts it on. Armed, <b>click the bat</b> to go at it.</p>
+			fetches it and puts it on. Armed, <b>click the bat</b> — or the hexagon
+			it is standing on, tinted red — and he runs to a tile beside it, facing
+			it the whole way, and cuts. Neither of them can walk into a hexagon the
+			other is standing in.</p>
 
 		<div class="row checks">
 			<label><input id="ik" type="checkbox" checked /> IK</label>
@@ -42,10 +45,12 @@
 			Its reach <i>and its bearing</i> are measured from where the blade
 			actually is at contact — the arc is out to the side, so a hit test that
 			assumed "in front" would miss everything it hits.</p>
-		<p class="hint">It is not flying free: it paths over the same hexagons you
-			walk, one A* at a time, and only leaves the grid for the same reason you
-			do — to get within reach of something. Its wings clear two terraces in a
-			step where you can only manage one.</p>
+		<p class="hint">It is not flying free, and it never leaves the grid at all:
+			it paths over the same hexagons you walk, one A* at a time, and bites
+			from whichever one it is standing on. The reach for that comes out of
+			the lunge, which throws its body a metre forward and back inside the
+			pose — so it can leap at you and still be exactly where the grid says.
+			Its wings clear two terraces in a step where you can only manage one.</p>
 		<p class="hint">drag — orbit &nbsp;·&nbsp; wheel or pinch — zoom &nbsp;·&nbsp;
 			right-drag or two-finger drag — pan</p>
 		</div>

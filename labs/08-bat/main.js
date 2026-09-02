@@ -15,8 +15,9 @@
  *   wakes      when you come within three tiles — perch pose blended into flight
  *   hunts      A* over the same grid you walk, re-pathed as you move; it is not
  *              flying free, it goes tile to tile like everything else here
- *   strikes    steps off the grid to a stance measured from its own lunge, the
- *              way the smith steps off his to reach the anvil, bites, backs off
+ *   strikes    from the hexagon it is standing on. It never leaves the grid:
+ *              the reach comes out of the lunge itself, which drives a metre
+ *              forward and back inside the pose
  *   gives up   loses you at six tiles and flies home to its perch
  *
  * The one place it differs from a man is what a step costs: its wings clear two
@@ -67,6 +68,14 @@ const WAKE_RANGE = 3; // tiles: how close you get before it notices you
 const LOSE_RANGE = 6; // tiles: how far you get before it stops caring
 const BITE_COOLDOWN = 1.1;
 const HOVER_LIFT = 0.62; // how far off the ground the wings hold it, once awake
+/*
+ * No closer than this. It is not a body radius, it is geometry: hexagons here
+ * are 1.73 m centre to centre, so their circumradius is exactly 1.0 m. Holding
+ * him at 1.0 left him standing on the boundary, where rounding put him in the
+ * bat's cell about a third of the time. A shade beyond it and he is outside
+ * that hexagon in every direction.
+ */
+const KEEP_APART = 1.15;
 
 const random = makeRandom(53);
 
@@ -144,10 +153,20 @@ const world = Hexdelve.world.build(scene, { random: random, groundRadius: GROUND
 const tileAt = world.tileAt;
 const groundAt = world.groundAt;
 
-// The same ground, asked two different questions. He walks, so a terrace is a
-// step up; it flies, so a terrace is a flap.
-const walkable = (cell, from) => world.passable(cell, from, MAX_CLIMB);
-const flyable = (cell, from) => world.passable(cell, from, BAT_CLIMB);
+/*
+ * The same ground, asked different questions. He walks, so a terrace is a step
+ * up; it flies, so a terrace is a flap. And neither of them can walk through the
+ * other: a cell with somebody standing in it is as solid as a wall, which is
+ * why `occupied` is a live lookup rather than part of the static `blocked` set
+ * — the obstacle moves.
+ */
+const cellOf = (actor) => worldToAxial(actor.x, actor.z);
+const sameCell = (a, b) => a.q === b.q && a.r === b.r;
+
+const walkable = (cell, from) =>
+	!sameCell(cell, cellOf(bat)) && world.passable(cell, from, MAX_CLIMB);
+const flyable = (cell, from) =>
+	!sameCell(cell, cellOf(player)) && world.passable(cell, from, BAT_CLIMB);
 
 /* ---------------------------------------------------------------- actors -- */
 
@@ -185,24 +204,28 @@ bat.cell = PERCH;
 const actors = [player, bat];
 
 /*
- * How close it has to be to bite you.
+ * How far it can bite.
  *
  * The same measurement lab 06 makes for the hammer, on a different animal: play
- * the lunge to the moment the jaws arrive, ask where they end up relative to
- * the bat's own origin, and stand so that point lands on you. Re-time the
- * strike or lengthen its neck and the stance follows, with nothing to re-tune.
+ * the lunge to the moment the jaws arrive and ask where they end up relative to
+ * the bat's own origin. Lab 06 used its answer to decide where to *stand*; this
+ * one uses it to decide whether the bite could possibly have landed, because
+ * the bat does not move to suit its attack — it attacks from whichever hexagon
+ * it is on. Re-time the strike or lengthen its neck and the number follows.
  */
 const JAW_TIP = [0, -0.02, 0.16];
 
-const BITE_STANCE = (function () {
+const BITE = (function () {
 	const pose = lungePose(LUNGE_CONTACT);
 	const jaws = attachmentPosition(BAT.SKELETON, pose, 'jaw', JAW_TIP);
 	return {
-		distance: Math.hypot(jaws[0], jaws[2]),
-		bearing: Math.atan2(jaws[0], jaws[2]),
+		reach: Math.hypot(jaws[0], jaws[2]),
 		height: jaws[1],
 	};
 })();
+
+// How far off the jaws can be and still count as having caught him.
+const BITE_TOLERANCE = 0.55;
 
 /* ------------------------------------------------------------------ gear -- */
 
@@ -363,28 +386,44 @@ function beginStoop(item) {
 }
 
 /*
- * The cut, and where it actually goes.
+ * The cut, and everywhere it goes.
  *
- * Same measurement as the hammer in lab 06 and the bat's own jaws, with one
- * addition: an inside-out cut sweeps out to his RIGHT, so the blade at contact
- * is not in front of him, and a hit test that assumed "in front" would miss
- * everything he actually hits. So the pose is asked for the bearing too, and
- * the arc is checked against that.
+ * Asking the pose one question at the contact key was not enough. A cut sweeps:
+ * this one starts across his body, crosses his front and finishes wide on his
+ * right, and anything standing anywhere along that path is hit. So the blade is
+ * sampled through the strike and what comes back is the whole arc — how far it
+ * reaches, and between which two bearings it passes.
+ *
+ * That is also what lets him square up to what he is fighting. Aiming the arc
+ * instead of his eyes had him standing side-on to the thing trying to bite him.
  */
 const SWING_CONTACT = 0.44;
 
 const REACH = (function () {
-	const pose = samplePose(SLASH, SWING_CONTACT);
-	const tip = attachmentPosition(SKELETON, pose, 'handR', Hexdelve.sword.TIP);
-	return {
-		distance: Math.hypot(tip[0], tip[2]),
-		bearing: Math.atan2(tip[0], tip[2]),
-		height: tip[1],
-	};
+	let distance = 0;
+	let height = 0;
+	let from = Infinity;
+	let to = -Infinity;
+	for (let t = 0.34; t <= 0.58; t += 0.02) {
+		const tip = attachmentPosition(SKELETON, samplePose(SLASH, t), 'handR', Hexdelve.sword.TIP);
+		const bearing = Math.atan2(tip[0], tip[2]);
+		// Only the part of the sweep that is in front of him. The follow-through
+		// carries the blade round behind his shoulder, and a sword finishing its
+		// arc back there is not cutting anything he is fighting.
+		if (Math.abs(bearing) > 1.9) continue;
+		const d = Math.hypot(tip[0], tip[2]);
+		if (d > distance) {
+			distance = d;
+			height = tip[1];
+		}
+		from = Math.min(from, bearing);
+		to = Math.max(to, bearing);
+	}
+	return { distance, height, from, to };
 })();
 
-// How far either side of that bearing still counts as inside the arc.
-const ARC = 1.0;
+// A body is not a point, so the arc gets a little either side of it.
+const ARC_PAD = 0.35;
 
 const swing = { active: false, clock: 0, blend: 0, hit: false, hits: 0 };
 
@@ -399,11 +438,12 @@ function landSwing() {
 	const dz = bat.z - player.z;
 	const gap = Math.hypot(dx, dz) || 1e-6;
 	// Where the thing is, relative to where the blade actually swings.
-	const off = wrapAngle(Math.atan2(dx, dz) - (player.yaw + REACH.bearing));
+	const off = wrapAngle(Math.atan2(dx, dz) - player.yaw);
 	const bladeY = player.y + REACH.height;
 	const bodyY = bat.y + BAT.HOVER_Y;
 
-	if (gap > REACH.distance + 0.35 || Math.abs(off) > ARC || Math.abs(bodyY - bladeY) > 1.0) return;
+	const inArc = off >= REACH.from - ARC_PAD && off <= REACH.to + ARC_PAD;
+	if (gap > REACH.distance + 0.35 || !inArc || Math.abs(bodyY - bladeY) > 1.0) return;
 
 	swing.hits++;
 	motes.spawn(bat.x, bodyY, bat.z, 9, 1.6, 1.9);
@@ -435,6 +475,9 @@ function flatMarker(color, radius, opacity) {
 }
 
 const hover = flatMarker(0xffffff, 0.9, 0.28);
+// The hexagon the bat is standing on. It is solid ground as far as he is
+// concerned — you cannot walk into it — so it is worth being able to see.
+const batCellMarker = flatMarker(0xd2603a, 0.93, 0.34);
 const goalMarker = flatMarker(0x4a7a3c, 0.8, 0.55);
 const perchMarker = flatMarker(0x8d6bb0, 0.75, 0.3);
 const pathMarkers = [];
@@ -529,6 +572,7 @@ const control = {
 	cruise: 0,
 	goalCell: null,
 	fetching: null, // the prop this walk is for
+	attacking: false, // ... or is this walk on its way to a fight?
 	message: 'waiting',
 	lastClickAt: -10,
 };
@@ -541,21 +585,55 @@ let turnNow = 0;
  * to walk to and then bend down at, and the bat is a place to walk to and then
  * swing at — if he has anything to swing.
  */
+/** The free hexagon next to the bat that is closest to him. */
+function besideBat() {
+	const here = cellOf(player);
+	let best = null;
+	let bestScore = Infinity;
+	for (const n of neighbours(cellOf(bat))) {
+		if (!walkable(n, null)) continue;
+		const d = hexDistance(here, n);
+		if (d < bestScore) {
+			bestScore = d;
+			best = n;
+		}
+	}
+	return best;
+}
+
 function goTo(cell, running, kind, item) {
 	if (control.state === 'stoop' || control.state === 'swinging') return; // let him finish
 
+	let attacking = false;
 	if (kind === 'bat') {
-		if (!armed()) {
-			control.message = 'nothing to fight with';
+		const here = cellOf(player);
+		// Already beside it — nothing to walk, just go.
+		if (hexDistance(here, cellOf(bat)) <= 1) {
+			if (!armed()) {
+				control.message = 'nothing to fight with';
+				return;
+			}
+			control.state = 'closing';
+			control.message = 'closing in';
+			control.path = null;
+			control.fetching = null;
+			showPathOn(pathMarkers, null);
+			goalMarker.visible = false;
 			return;
 		}
-		control.state = 'closing';
-		control.message = 'closing in';
-		control.path = null;
-		control.fetching = null;
-		showPathOn(pathMarkers, null);
-		goalMarker.visible = false;
-		return;
+		/*
+		 * Otherwise walk to a hexagon beside it, never into it. Its own cell is
+		 * not somewhere he can stand, so the destination is the free neighbour
+		 * closest to him — and he goes at a run, because it is a fight.
+		 */
+		const beside = besideBat();
+		if (!beside) {
+			control.message = 'no way in to it';
+			return;
+		}
+		cell = beside;
+		running = true;
+		attacking = armed();
 	}
 
 	const here = worldToAxial(player.x, player.z);
@@ -575,12 +653,17 @@ function goTo(cell, running, kind, item) {
 	control.cruise = running ? CRUISE.run : CRUISE.walk;
 	control.goalCell = cell;
 	control.fetching = kind === 'item' ? item : null;
-	control.message = control.fetching ? `fetching the ${item.label}` : running ? 'running' : 'walking';
+	control.attacking = attacking;
+	control.message = attacking
+		? 'going for it'
+		: control.fetching
+			? `fetching the ${item.label}`
+			: running ? 'running' : 'walking';
 
 	const tile = tileAt(cell.q, cell.r);
 	goalMarker.visible = true;
 	goalMarker.position.set(tile.x, tile.top + 0.02, tile.z);
-	goalMarker.material.color.set(control.fetching ? 0x5f7f9c : 0x4a7a3c);
+	goalMarker.material.color.set(attacking ? 0xc25a3a : control.fetching ? 0x5f7f9c : 0x4a7a3c);
 	showPathOn(pathMarkers, path);
 }
 
@@ -620,7 +703,9 @@ function pickCell(clientX, clientY) {
 		}
 		if (hit.object !== world.groundMesh) return null;
 		const meta = world.groundMesh.userData.meta[hit.instanceId];
-		if (meta) return { cell: meta, kind: 'tile' };
+		// Clicking the hexagon it is standing on means the same as clicking it:
+		// there is no walking into that cell, so it can only be an attack.
+		if (meta) return { cell: meta, kind: sameCell(meta, cellOf(bat)) ? 'bat' : 'tile' };
 	}
 	return null;
 }
@@ -818,11 +903,15 @@ function updatePlayer(dt) {
 			goalMarker.visible = false;
 			if (control.fetching && !control.fetching.worn) {
 				beginStoop(control.fetching);
+			} else if (control.attacking && armed()) {
+				control.state = 'closing';
+				control.message = 'closing in';
 			} else {
 				control.state = 'idle';
 				control.message = 'idle';
 			}
 			control.fetching = null;
+			control.attacking = false;
 		}
 	} else if (control.state === 'closing') {
 		/*
@@ -830,12 +919,11 @@ function updatePlayer(dt) {
 		 * follow: he steers straight at it and swings the moment it is inside
 		 * the reach the clip measured.
 		 */
-		// He squares up so the arc, not his nose, ends up pointing at it.
-		const want = Math.atan2(bat.x - player.x, bat.z - player.z) - REACH.bearing;
-		const diff = wrapAngle(want - player.yaw);
+		// Facing it, squarely, the whole way in.
+		const diff = wrapAngle(Math.atan2(bat.x - player.x, bat.z - player.z) - player.yaw);
 		player.yaw += Math.max(-3.2 * dt, Math.min(3.2 * dt, diff));
 		const gap = Math.hypot(bat.x - player.x, bat.z - player.z);
-		if (gap > REACH.distance * 0.8) {
+		if (gap > REACH.distance * 0.9) {
 			wantSpeed = Math.min(CRUISE.run, gap * 2);
 		} else if (Math.abs(diff) < 0.5) {
 			beginSwing();
@@ -854,6 +942,9 @@ function updatePlayer(dt) {
 			control.message = armed() ? 'armed' : 'idle';
 		}
 	} else if (control.state === 'swinging') {
+		// Still tracking it: a thing that circles you while you swing should not
+		// end up behind your shoulder.
+		turnTowards(player, bat.x, bat.z, dt, 2.4);
 		turnNow *= Math.max(0, 1 - dt * 4);
 		swing.clock += dt;
 		if (!swing.hit && swing.clock >= SWING_CONTACT) {
@@ -875,10 +966,27 @@ function updatePlayer(dt) {
 	const param = parameterForSpeed(SPEED_TABLE, speedNow);
 	const realSpeed = speedForParameter(SPEED_TABLE, param);
 
-	if (control.state === 'moving') {
+	if (control.state === 'moving' || control.state === 'closing') {
 		player.x += Math.sin(player.yaw) * realSpeed * dt;
 		player.z += Math.cos(player.yaw) * realSpeed * dt;
 	}
+
+	/*
+	 * Nobody stands inside anybody. Of the two it is the man who gives way,
+	 * because he is the one moving freely — the bat is locked to its hexagon and
+	 * shoving it out of the way would be shoving it off the grid. So he is held
+	 * at arm's length whatever he was doing, path or no path.
+	 */
+	{
+		const dx = player.x - bat.x;
+		const dz = player.z - bat.z;
+		const d = Math.hypot(dx, dz);
+		if (d < KEEP_APART && d > 1e-4) {
+			player.x = bat.x + (dx / d) * KEEP_APART;
+			player.z = bat.z + (dz / d) * KEEP_APART;
+		}
+	}
+
 	const under = groundAt(player.x, player.z);
 	player.y += (under - player.y) * Math.min(1, dt * 7);
 
@@ -974,8 +1082,7 @@ const hunt = {
 	bitten: false,
 	cooldown: 0,
 	bites: 0,
-	spot: null,
-	home: null,
+	missed: 0,
 	message: 'asleep',
 };
 
@@ -989,21 +1096,6 @@ const batCell = () => worldToAxial(bat.x, bat.z);
 const playerCell = () => worldToAxial(player.x, player.z);
 const tilesToPlayer = () => hexDistance(batCell(), playerCell());
 const metresToPlayer = () => Math.hypot(player.x - bat.x, player.z - bat.z);
-
-// Where to stand to bite: `distance` out from the man along the line between
-// them, turned by the bearing its own jaws sit at.
-function biteSpot() {
-	let dx = bat.x - player.x;
-	let dz = bat.z - player.z;
-	const len = Math.hypot(dx, dz) || 1;
-	dx /= len;
-	dz /= len;
-	return {
-		x: player.x + dx * BITE_STANCE.distance,
-		z: player.z + dz * BITE_STANCE.distance,
-		yaw: Math.atan2(-dx, -dz) - BITE_STANCE.bearing,
-	};
-}
 
 // Path to a tile beside the man, not onto him: the grid is for getting there,
 // the last half metre is the strike's business.
@@ -1092,11 +1184,15 @@ function updateBat(dt, time) {
 			hunt.index = state.index;
 			if (state.arrived) hunt.path = null;
 
-			if (metresToPlayer() < BITE_STANCE.distance + 0.9 && hunt.cooldown <= 0) {
+			/*
+			 * It attacks from the hexagon it is on, so the condition is about
+			 * the grid and not about metres: next to him, actually settled on
+			 * the cell rather than still crossing it, and off cooldown.
+			 */
+			const settled = state.arrived || hunt.speed < 0.4;
+			if (near <= 1 && settled && hunt.cooldown <= 0) {
 				hunt.state = 'striking';
 				hunt.message = 'striking';
-				hunt.spot = biteSpot();
-				hunt.home = { x: bat.x, z: bat.z };
 				hunt.lunge = 0;
 				hunt.bitten = false;
 				showPathOn(batMarkers, null);
@@ -1109,53 +1205,44 @@ function updateBat(dt, time) {
 		}
 
 		case 'striking': {
-			// Off the grid, exactly as the smith steps off his to reach the anvil.
-			const spot = hunt.spot;
-			const dx = spot.x - bat.x;
-			const dz = spot.z - bat.z;
-			const dist = Math.hypot(dx, dz);
-			const diff = wrapAngle(spot.yaw - bat.yaw);
-			bat.yaw += Math.max(-3.4 * dt, Math.min(3.4 * dt, diff));
-			if (dist > 1e-4) {
-				const step = Math.min(Math.min(2.2, dist * 5 + 0.4) * dt, dist);
-				bat.x += (dx / dist) * step;
-				bat.z += (dz / dist) * step;
-				wantSpeed = step / dt;
-			}
+			/*
+			 * Rooted to its cell. The only movement is turning to face him and
+			 * the lunge itself, which throws the body a metre forward and pulls
+			 * it back inside the pose — so it can leap at him and still be
+			 * exactly where the grid says it is.
+			 */
+			turnTowards(bat, player.x, player.z, dt, 3.4);
+			hunt.lunge = Math.min(1, hunt.lunge + dt / 0.85);
+			hunt.lungeBlend = Math.min(1, hunt.lungeBlend + dt * 7);
+			flapAmp = 0.5;
 
-			if (dist < 0.12 || hunt.lunge > 0) {
-				hunt.lunge = Math.min(1, hunt.lunge + dt / 0.85);
-				hunt.lungeBlend = Math.min(1, hunt.lungeBlend + dt * 7);
-				flapAmp = 0.35;
-				if (!hunt.bitten && hunt.lunge >= LUNGE_CONTACT) {
-					hunt.bitten = true;
+			if (!hunt.bitten && hunt.lunge >= LUNGE_CONTACT) {
+				hunt.bitten = true;
+				// Where the jaws actually got to, not where it aimed.
+				const jaws = attachmentPosition(BAT.SKELETON, bat.sparse, 'jaw', JAW_TIP);
+				const w = toWorldXZ(bat, jaws[0], jaws[2]);
+				const gap = Math.hypot(w.x - player.x, w.z - player.z);
+				if (gap <= BITE_TOLERANCE) {
 					hunt.bites++;
-					const jaws = attachmentPosition(BAT.SKELETON, bat.sparse, 'jaw', JAW_TIP);
-					const w = toWorldXZ(bat, jaws[0], jaws[2]);
 					motes.spawn(w.x, bat.y + jaws[1], w.z, 7, 1.3, 1.6);
+				} else {
+					hunt.missed++;
 				}
-				if (hunt.lunge >= 1) {
-					hunt.state = 'recovering';
-					hunt.message = 'backing off';
-					hunt.cooldown = BITE_COOLDOWN;
-				}
+			}
+			if (hunt.lunge >= 1) {
+				hunt.state = 'recovering';
+				hunt.message = 'backing off';
+				hunt.cooldown = BITE_COOLDOWN;
 			}
 			break;
 		}
 
 		case 'recovering': {
+			// It never left its cell, so there is nothing to walk back from:
+			// this is only the beat between blows.
 			hunt.lungeBlend = Math.max(0, hunt.lungeBlend - dt * 5);
-			const back = hunt.home;
-			const dx = back.x - bat.x;
-			const dz = back.z - bat.z;
-			const dist = Math.hypot(dx, dz);
 			turnTowards(bat, player.x, player.z, dt, 2.0);
-			if (dist > 0.06) {
-				const step = Math.min(1.6 * dt, dist);
-				bat.x += (dx / dist) * step;
-				bat.z += (dz / dist) * step;
-				wantSpeed = step / dt;
-			} else if (hunt.cooldown <= 0) {
+			if (hunt.cooldown <= 0) {
 				hunt.state = 'hunting';
 				hunt.lunge = 0;
 				repath();
@@ -1215,12 +1302,24 @@ function updateBat(dt, time) {
 	if (hunt.cooldown > 0) hunt.cooldown -= dt;
 	hunt.speed += (wantSpeed - hunt.speed) * Math.min(1, dt * 6);
 
-	// Following a path steers and sets a pace; flying it is this line. The two
-	// off-grid states move themselves, straight at their target, because a
-	// half-metre lunge is not something to steer into.
+	/*
+	 * Following a path steers and sets a pace; flying it is these lines. A* will
+	 * not route it through the hexagon he is standing in, but a path is only
+	 * checked at the corners — between them it flies in a straight line, and
+	 * that line was taking it clean through him. So a step is only taken if it
+	 * leaves them a body apart, or if it is moving away: blocked, it stops short
+	 * of him and re-paths on the next think, rather than being shoved sideways
+	 * off the grid it is supposed to be standing on.
+	 */
 	if (hunt.state === 'hunting' || hunt.state === 'returning') {
-		bat.x += Math.sin(bat.yaw) * hunt.speed * dt;
-		bat.z += Math.cos(bat.yaw) * hunt.speed * dt;
+		const nx = bat.x + Math.sin(bat.yaw) * hunt.speed * dt;
+		const nz = bat.z + Math.cos(bat.yaw) * hunt.speed * dt;
+		const now = Math.hypot(bat.x - player.x, bat.z - player.z);
+		const next = Math.hypot(nx - player.x, nz - player.z);
+		if (next > KEEP_APART || next >= now) {
+			bat.x = nx;
+			bat.z = nz;
+		}
 	}
 
 	/*
@@ -1280,6 +1379,12 @@ function frame(now) {
 	const batSpeed = updateBat(dt, elapsed);
 
 	perchMarker.visible = ui.showPath.checked && hunt.state === 'asleep';
+	{
+		const c = cellOf(bat);
+		const tile = tileAt(c.q, c.r);
+		batCellMarker.visible = !!tile;
+		if (tile) batCellMarker.position.set(tile.x, tile.top + 0.03, tile.z);
+	}
 
 	statTimer += dt;
 	if (statTimer > 0.12) {
@@ -1294,9 +1399,12 @@ function frame(now) {
 			['Carrying', carried.length ? `<span class="busy">${carried.join(', ')}</span>` : 'nothing'],
 			['Bat', `<span class="${hunting ? 'warn' : ''}">${hunt.message}</span> · ${batSpeed.toFixed(2)} m/s`],
 			['Range', `${tilesToPlayer()} tiles · wakes at ${WAKE_RANGE}`],
-			['Bites / hits', `${hunt.bites} · ${swing.hits}`],
+			['Bites / missed', `${hunt.bites} · ${hunt.missed}`],
+			['Your hits', `${swing.hits}`],
 		];
-		if (armed()) rows.push(['Reach', `${(REACH.distance * 100).toFixed(0)} cm, from the clip`]);
+		if (armed()) {
+			rows.push(['Reach', `${(REACH.distance * 100).toFixed(0)} cm · arc ${Math.round((REACH.to - REACH.from) * 57.3)}°`]);
+		}
 		if (ui.ik.checked) rows.push(['Pelvis drop', `${(player.pelvisDrop * 100).toFixed(1)} cm`]);
 		ui.stats.innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 	}
@@ -1334,7 +1442,7 @@ applyVisibility();
 window.lab = {
 	control, player, bat, hunt, actors, world, tileAt, goTo, pickCell, view,
 	items, helmet, sword, shield, swing, stoop, REACH, armed,
-	BITE_STANCE, WAKE_RANGE, LOSE_RANGE, PERCH, BAT_SPEED, CRUISE,
+	BITE, BITE_TOLERANCE, WAKE_RANGE, LOSE_RANGE, PERCH, BAT_SPEED, CRUISE,
 	tilesToPlayer, walkable, flyable,
 };
 
