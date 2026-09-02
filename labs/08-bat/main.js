@@ -314,6 +314,27 @@ const playerPose = createPose(BONES.length);
  * and the gait belongs to his hips, which is what the mask was written for.
  */
 const UPPER = makeMask(BONES, UPPER_BODY, 0);
+
+/*
+ * The stance is bladed — the body turned off square so the shield side leads —
+ * and that lives in the ROOT, which the upper-body mask deliberately does not
+ * cover. Masked out, the guard arrived in the lab as a man standing square with
+ * his arms in position, which is not the same pose at all.
+ *
+ * So the root comes in on its own mask, and only while he is standing: turning
+ * the root while he travels would have him crabbing sideways down the path,
+ * since it is his yaw and not his hips that decides which way he walks.
+ */
+const ROOT_ONLY = makeMask(BONES, { root: 1 }, 0);
+
+/*
+ * A shield on its own is not a guard. Carrying one with the arm hanging leaves
+ * it flat against his thigh with the face pointing behind him — the mount is
+ * built for an arm that is bent, because that is the only way a shield is ever
+ * actually held. So a shield alone still brings the stance up, but only on the
+ * shield side: the sword arm has nothing in it and should stay with the walk.
+ */
+const SHIELD_ONLY = makeMask(BONES, { armL: 1, forearmL: 1, handL: 1, chest: 0.45, spine: 0.2 }, 0);
 let guardWeight = 0;
 
 // The duck from lab 03 is a crouch with both hands forward, which is what
@@ -869,12 +890,17 @@ function updatePlayer(dt) {
 	tree.update({ speed: param, turn: turnNow }, dt);
 
 	// Guard first, masked to the upper body, so the legs keep the gait.
-	const wantGuard = armed() && control.state !== 'stoop' ? 1 : 0;
+	const carrying = sword.worn || shield.worn;
+	const wantGuard = carrying && control.state !== 'stoop' ? 1 : 0;
 	guardWeight += (wantGuard - guardWeight) * Math.min(1, dt * 4);
 	let base = tree.pose;
 	if (guardWeight > 0.002) {
 		sampleBound(guardEntry, 0, guardPose);
-		lerpPoseMasked(stancePose, tree.pose, guardPose, guardWeight, UPPER);
+		lerpPoseMasked(stancePose, tree.pose, guardPose, guardWeight, sword.worn ? UPPER : SHIELD_ONLY);
+		const settled = 1 - Math.min(1, speedNow / CRUISE.walk);
+		if (settled > 0.01) {
+			lerpPoseMasked(stancePose, stancePose, guardPose, guardWeight * settled, ROOT_ONLY);
+		}
 		base = stancePose;
 	}
 

@@ -523,8 +523,8 @@ const GUARD = poseClip('guard', 0.1, 'hold', [
 			head: [0.02, 0.2, 0],
 			// Shield arm: elbow down and in, forearm across the chest, rolled so
 			// the face of the shield looks where he does.
-			armL: [-0.28, -1.05, 0.3],
-			forearmL: [-1.25, -0.3, 0],
+			armL: [-0.85, -1.0, 0.32],
+			forearmL: [-1.45, -0.3, 0],
 			handL: [0, 0, 0],
 			/*
 			 * Sword arm. The blade rides up beside his head, and it gets there
@@ -581,8 +581,8 @@ const SLASH = poseClip(
 				chest: [0.05, -0.2, 0.05],
 				neck: [0.02, 0.14, 0],
 				head: [0.02, 0.2, 0],
-				armL: [-0.28, -1.05, 0.3],
-				forearmL: [-1.25, -0.3, 0],
+				armL: [-0.85, -1.0, 0.32],
+				forearmL: [-1.45, -0.3, 0],
 				armR: [0.25, 0, -0.42],
 				forearmR: [-2.0, 0, 0],
 				handR: [-1.0, -0.35, 0],
@@ -611,8 +611,8 @@ const SLASH = poseClip(
 				// the whole man turning round.
 				neck: [0.02, -0.24, 0],
 				head: [0.02, -0.34, 0],
-				armL: [-0.5, -1.05, 0.42],
-				forearmL: [-1.4, -0.3, 0],
+				armL: [-0.95, -1.0, 0.4],
+				forearmL: [-1.5, -0.3, 0],
 				armR: [-0.45, 0, 0.95],
 				forearmR: [-1.75, 0, 0],
 				// Cocked: the wrist is loaded here and unloads through contact,
@@ -690,8 +690,8 @@ const SLASH = poseClip(
 				chest: [0.05, -0.2, 0.05],
 				neck: [0.02, 0.14, 0],
 				head: [0.02, 0.2, 0],
-				armL: [-0.28, -1.05, 0.3],
-				forearmL: [-1.25, -0.3, 0],
+				armL: [-0.85, -1.0, 0.32],
+				forearmL: [-1.45, -0.3, 0],
 				armR: [0.25, 0, -0.42],
 				forearmR: [-2.0, 0, 0],
 				handR: [-1.0, -0.35, 0],
