@@ -7,8 +7,14 @@
  * Nothing downstream knows which of them is driving: both end up as a heading
  * and a throttle, and the game reads only that.
  *
- * The camera is here too, because orbiting it changes what A and D mean — they
- * are the screen's axes, and the screen is wherever the camera is looking.
+ * The mouse does not move the camera. It aims, and it cuts, and that is all —
+ * because the mouse is already doing the most important job on the screen, and
+ * a drag that both aimed him and swung the world round him would be two
+ * meanings on one gesture. The camera follows him, always; its angle is set
+ * from the keyboard with Q and E, or from the editor's own controls.
+ *
+ * The camera is still read here, because its azimuth changes what A and D mean
+ * — they are the screen's axes, and the screen is wherever it is looking.
  */
 
 import { ISO_PITCH, type OrbitCamera } from '@hexdelve/engine';
@@ -17,10 +23,8 @@ const STICK_DEAD = 9;
 const STICK_FULL = 62;
 
 export interface ControlsOptions {
-	/** Called on a click or a tap that was not a drag, and on space. */
+	/** Called on a click, a tap, or space. */
 	onStrike?: () => void;
-	/** Called when the user takes the camera somewhere themselves. */
-	onPan?: () => void;
 }
 
 const BINDINGS: Record<string, keyof KeyState> = {
@@ -64,12 +68,10 @@ export class Controls {
 
 	readonly stick = { active: false, id: -1, ox: 0, oy: 0, x: 0, z: 0, throttle: 0 };
 
+	/** Whether the finger currently down has ever pushed the stick off centre. */
+	private stickMoved = false;
+
 	private readonly listeners: (() => void)[] = [];
-	private dragging = false;
-	private dragButton = -1;
-	private dragged = false;
-	private lastX = 0;
-	private lastY = 0;
 	private readonly pinch = new Map<number, { x: number; y: number }>();
 	private pinchDistance = 0;
 
@@ -133,14 +135,13 @@ export class Controls {
 				this.stick.ox = event.clientX;
 				this.stick.oy = event.clientY;
 				this.stick.throttle = 0;
+				this.stickMoved = false;
 				return;
 			}
 
-			this.dragging = true;
-			this.dragButton = event.button;
-			this.dragged = false;
-			this.lastX = event.clientX;
-			this.lastY = event.clientY;
+			// On press rather than on release. There is no drag to tell a cut
+			// apart from any more, and a blow should land when you ask for it.
+			if (event.button === 0) this.options.onStrike?.();
 		});
 
 		this.on(this.canvas, 'pointermove', (event) => {
@@ -148,21 +149,6 @@ export class Controls {
 				this.pointer.x = event.clientX;
 				this.pointer.y = event.clientY;
 				this.pointer.has = true;
-
-				if (this.dragging) {
-					const dx = event.clientX - this.lastX;
-					const dy = event.clientY - this.lastY;
-					this.lastX = event.clientX;
-					this.lastY = event.clientY;
-					if (Math.abs(dx) + Math.abs(dy) > 2) this.dragged = true;
-
-					if (this.dragButton === 2) {
-						this.camera.pan(-dx * 0.012, dy * 0.012);
-						this.options.onPan?.();
-					} else {
-						this.camera.orbit(-dx * 0.006, 0);
-					}
-				}
 				return;
 			}
 
@@ -187,6 +173,7 @@ export class Controls {
 			const dy = event.clientY - this.stick.oy;
 			const len = Math.hypot(dx, dy);
 			this.stick.throttle = clamp((len - STICK_DEAD) / (STICK_FULL - STICK_DEAD), 0, 1);
+			if (this.stick.throttle > 0) this.stickMoved = true;
 			if (this.stick.throttle > 0) {
 				// Screen to ground, through the camera: up the screen is away
 				// from it, and right is the camera's own X axis, (sin, -cos) of
@@ -206,15 +193,15 @@ export class Controls {
 			this.pinch.delete(event.pointerId);
 			if (this.pinch.size < 2) this.pinchDistance = 0;
 
-			if (event.pointerType === 'mouse') {
-				if (this.dragging && !this.dragged && this.dragButton === 0) {
-					this.options.onStrike?.();
-				}
-				this.dragging = false;
-				this.dragButton = -1;
-				return;
+			if (event.pointerType === 'mouse') return;
+			if (event.pointerId === this.stick.id) {
+				// A finger put down and lifted without ever pushing the stick
+				// off centre is a tap, and a tap is a cut. Without this there
+				// is no way to swing on a touch screen at all: the stick
+				// swallows every press.
+				if (!this.stickMoved) this.options.onStrike?.();
+				this.endStick();
 			}
-			if (event.pointerId === this.stick.id) this.endStick();
 		};
 
 		this.on(this.canvas, 'pointerup', release);
