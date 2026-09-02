@@ -155,8 +155,15 @@ function flyPose(theta, amp, time = 0, out = {}) {
 /*
  * The strike, as four keys: gather, throw, contact, recover. Same reasoning as
  * the hammer in ../shared/clips.js — the timing is the point, so it is spelt
- * out rather than derived. The wings sweep hard back on the throw, because
- * that is what puts the body forward, and the jaws are wide at contact.
+ * out rather than derived. The wings sweep hard back on the throw, because that
+ * is what puts the body forward, and the jaws are wide at contact.
+ *
+ * The forward drive in `rootPos` is what carries the bite across the gap. It
+ * matters because the creature attacks from a hexagon and never leaves it:
+ * neighbouring centres are 1.73 m apart, so a strike that only leaned would
+ * close on nothing. It is a metre of travel inside the pose — a leap and a
+ * recovery — rather than the animal being moved, which is why it can lunge and
+ * still be exactly where the grid says it is.
  */
 function keyPose(p) {
 	const out = {};
@@ -182,7 +189,7 @@ const LUNGE_KEYS = [
 		t: 0,
 		p: keyPose({
 			lift: [1.0, 0.5, 0.45, 0.3], sweep: [-0.3, -0.2, -0.15, -0.1],
-			root: [-0.22, 0, 0], rootPos: [0, 0.06, -0.12],
+			root: [-0.22, 0, 0], rootPos: [0, 0.07, -0.18],
 			chest: [-0.1, 0, 0], neck: [-0.24, 0, 0], head: [-0.2, 0, 0],
 			jaw: 0.25, ear: -0.1, leg: 1.0, foot: -0.4, tail: 0.1,
 		}),
@@ -192,7 +199,7 @@ const LUNGE_KEYS = [
 		t: 0.34,
 		p: keyPose({
 			lift: [-0.35, -0.2, -0.15, -0.1], sweep: [0.85, 0.5, 0.35, 0.2],
-			root: [0.24, 0, 0], rootPos: [0, -0.02, 0.3],
+			root: [0.24, 0, 0], rootPos: [0, 0.02, 0.82],
 			chest: [0.12, 0, 0], neck: [-0.08, 0, 0], head: [0.02, 0, 0],
 			jaw: 0.85, ear: 0.3, leg: 0.2, foot: 0.5, tail: -0.25,
 		}),
@@ -202,7 +209,7 @@ const LUNGE_KEYS = [
 		t: 0.46,
 		p: keyPose({
 			lift: [-0.5, -0.3, -0.2, -0.12], sweep: [0.95, 0.55, 0.4, 0.25],
-			root: [0.28, 0, 0], rootPos: [0, -0.03, 0.36],
+			root: [0.28, 0, 0], rootPos: [0, 0.0, 0.98],
 			chest: [0.14, 0, 0], neck: [-0.06, 0, 0], head: [0.06, 0, 0],
 			jaw: 0.3, ear: 0.35, leg: 0.15, foot: 0.55, tail: -0.3,
 		}),
