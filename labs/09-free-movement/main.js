@@ -356,11 +356,12 @@ canvas.addEventListener('pointermove', function (e) {
 	const len = Math.hypot(dx, dy);
 	stick.throttle = clamp((len - STICK_DEAD) / (STICK_FULL - STICK_DEAD), 0, 1);
 	if (stick.throttle > 0) {
-		// Screen to ground, through the camera: up the screen is away from it.
+		// Screen to ground, through the camera: up the screen is away from it, and
+		// right is the camera's own X axis, (sin, -cos) of the azimuth.
 		const ux = dx / len;
 		const uy = dy / len;
-		const rx = -Math.sin(view.azimuth);
-		const rz = Math.cos(view.azimuth);
+		const rx = Math.sin(view.azimuth);
+		const rz = -Math.cos(view.azimuth);
 		const fx = -Math.cos(view.azimuth);
 		const fz = -Math.sin(view.azimuth);
 		stick.x = rx * ux - fx * uy;
@@ -696,6 +697,7 @@ const ui = {
 	ik: document.getElementById('ik'),
 	vectors: document.getElementById('vectors'),
 	paths: document.getElementById('paths'),
+	screenKeys: document.getElementById('screenKeys'),
 	showSkel: document.getElementById('showSkel'),
 	follow: document.getElementById('follow'),
 	stats: document.getElementById('stats'),
@@ -855,14 +857,46 @@ let slipNow = 0;
 let yawRate = 0;
 let bank = 0;
 
+/*
+ * What the keys mean, which turns out not to be one question.
+ *
+ * W and S are his: forward is wherever the mouse has him pointing, so they read
+ * straight off as a heading in his own frame. A and D are the screen's: left
+ * means left on your monitor, whatever he happens to be facing, because that is
+ * what a hand expects of a key that never turns. So the camera's left axis is
+ * brought into his frame and added there, and the two halves of the stick are
+ * read in two different frames on purpose.
+ *
+ * It has one consequence worth knowing rather than hiding: point him along the
+ * screen's own left-right axis and W and A are then pulling on the same line in
+ * opposite directions, so holding both stands him still. That is what mixing
+ * frames costs, and turning `Screen strafe` off puts A and D back on his hips,
+ * where W is forward, A is his left, and nothing can cancel.
+ *
+ * A thumb has neither problem: the stick gives a direction in the world and he
+ * faces down it, so travel and facing are the same line again.
+ */
 function wishFrom() {
-	// A thumb gives a direction in the world and he faces down it; a keyboard
-	// gives one relative to the face the mouse has already chosen.
 	if (stick.active && stick.throttle > 0) {
 		return { x: 0, z: 1, throttle: stick.throttle, run: stick.throttle > 0.92 };
 	}
-	const x = keys.left - keys.right;
-	const z = keys.fwd - keys.back;
+	const strafe = keys.left - keys.right;
+	let x = 0;
+	let z = keys.fwd - keys.back;
+	if (strafe && ui.screenKeys.checked) {
+		// Screen-left as a direction in the world, and then in his own frame. The
+		// camera's own X axis is (sin, -cos) of the azimuth — worth checking by
+		// projecting it rather than deriving it, which is how this got written
+		// backwards the first time.
+		const lx = -Math.sin(view.azimuth);
+		const lz = Math.cos(view.azimuth);
+		const sy = Math.sin(player.yaw);
+		const cy = Math.cos(player.yaw);
+		x += strafe * (lx * cy - lz * sy);
+		z += strafe * (lx * sy + lz * cy);
+	} else {
+		x += strafe;
+	}
 	const len = Math.hypot(x, z);
 	if (len < 1e-6) return { x: 0, z: 0, throttle: 0, run: false };
 	return { x: x / len, z: z / len, throttle: 1, run: !!keys.run };
@@ -1483,6 +1517,7 @@ applyVisibility();
 	if (qs.has('ik')) ui.ik.checked = qs.get('ik') !== '0';
 	if (qs.has('skel')) ui.showSkel.checked = qs.get('skel') !== '0';
 	if (qs.has('vec')) ui.vectors.checked = qs.get('vec') !== '0';
+	if (qs.has('strafe')) ui.screenKeys.checked = qs.get('strafe') !== '0';
 	if (qs.has('follow')) ui.follow.checked = qs.get('follow') !== '0';
 	if (qs.has('zoom')) view.zoom = view.zoomGoal = +qs.get('zoom');
 	// Handy for sharing a view of the guard and the cut without walking the

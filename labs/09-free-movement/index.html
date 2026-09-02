@@ -16,11 +16,13 @@
 		<h1><button id="panelToggle" type="button" aria-expanded="false" aria-controls="panelBody">Lab 09 — Free movement</button></h1>
 		<div id="panelBody">
 		<p class="sub"><b>W A S D</b> to move, <b>the mouse</b> to face — and those
-			are two different things. Forward is wherever you are pointing, so
-			holding <b>W</b> and swinging the mouse curves him round, and holding
-			<b>A</b> while you keep the mouse on the anvil walks him round it
-			sideways, still watching it. <b>Shift</b> runs. Off the grid entirely:
-			no path, no tiles to click, just a heading and a throttle. There is a
+			are two different things. <b>W</b> and <b>S</b> are his: forward is
+			wherever you are pointing, so swinging the mouse curves him round.
+			<b>A</b> and <b>D</b> are the screen's: left is left on your monitor
+			whatever he is facing, so you can hold <b>A</b>, keep the mouse on the
+			anvil, and walk a straight line round it while he watches it.
+			<b>Shift</b> runs. Off the grid entirely: no path, no tiles to click,
+			just a heading and a throttle. There is a
 			<b>helmet, a sword and a shield</b> in the yard — walk over one and he
 			picks it up — and <b>the bat from lab 08</b> is asleep out past the anvil.
 			Come within three tiles and it wakes and hunts you over the hexagons you
@@ -33,12 +35,23 @@
 			<label><input id="ik" type="checkbox" checked /> IK</label>
 			<label><input id="vectors" type="checkbox" checked /> Vectors</label>
 			<label><input id="paths" type="checkbox" checked /> Paths</label>
+			<label><input id="screenKeys" type="checkbox" checked /> Screen strafe</label>
 			<label><input id="showSkel" type="checkbox" /> Skeleton</label>
 			<label><input id="follow" type="checkbox" checked /> Follow</label>
 		</div>
 
 		<dl id="stats"></dl>
 
+		<p class="hint">The two halves of the keyboard are therefore read in two
+			different frames, which is a choice and not an oversight: a key that
+			never turns should mean the same thing on the screen every time, and a
+			key that means "onwards" should mean where he is pointed. It costs one
+			thing, and the lab would rather show it than hide it — point him along
+			the screen's own left-right line and <b>W</b> and <b>A</b> are pulling
+			on the same axis in opposite directions, so holding both stands him
+			still. Turn <b>Screen strafe</b> off and the keys all go back on his
+			hips, where nothing can cancel and <b>A</b> is his left rather than
+			yours.</p>
 		<p class="hint">Every character in labs 02–08 walked where it was looking,
 			so one forward cycle was the whole of locomotion. Take that apart and a
 			blend tree of forward clips has nothing to say: a man backing away from

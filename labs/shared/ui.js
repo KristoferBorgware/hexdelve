@@ -111,12 +111,17 @@ function attachView(canvas, view, options) {
 		view.zoomGoal = Math.max(zoomRange[0], Math.min(zoomRange[1], z));
 	}
 
-	// Move the target in the ground plane, by a screen-space delta.
+	// Move the target in the ground plane, by a screen-space delta. The two axes
+	// are the camera's own, projected flat: its X is (sin, -cos) of the azimuth
+	// and up the screen is away from it. Both are then moved *against* the
+	// pointer, which is what makes the scene follow the finger holding it — the
+	// horizontal one used to have the sign of its axis the other way round, so a
+	// drag to the right slid the world left while a drag downwards slid it down.
 	function panView(dx, dy) {
 		if (o.onPan) o.onPan();
 		const scale = (2 * viewHeight) / (window.innerHeight * view.zoom);
 		fwd.set(-Math.cos(view.azimuth), 0, -Math.sin(view.azimuth));
-		right.set(-Math.sin(view.azimuth), 0, Math.cos(view.azimuth));
+		right.set(Math.sin(view.azimuth), 0, -Math.cos(view.azimuth));
 		view.target.addScaledVector(right, -dx * scale);
 		view.target.addScaledVector(fwd, (dy * scale) / Math.sin(pitch));
 		if (o.clampTarget) o.clampTarget(view.target);
