@@ -255,10 +255,10 @@ export class Controls {
 	 * under a still mouse moves the point it is over — the cursor is over a
 	 * place in the world, not a place on the screen.
 	 *
-	 * The camera is orthographic, so every ray through the viewport is parallel
-	 * and the arithmetic is a plane offset rather than a projection: the point
-	 * on the screen maps to a point on the camera's own right and up axes, and
-	 * the ray from there along the view direction meets the plane once.
+	 * The arithmetic belongs to the camera, which is the one thing that knows
+	 * how it is pointed. Doing it here as well, from the yaw and pitch, is how
+	 * this shipped with the aim tracking sideways correctly and moving only a
+	 * third as far up and down.
 	 */
 	aimOnPlane(planeY: number): { x: number; z: number } | null {
 		if (!this.pointer.has) return null;
@@ -269,32 +269,7 @@ export class Controls {
 		const ndcX = ((this.pointer.x - rect.left) / rect.width) * 2 - 1;
 		const ndcY = -((this.pointer.y - rect.top) / rect.height) * 2 + 1;
 
-		const halfHeight = this.camera.viewHeight / this.camera.zoom;
-		const halfWidth = halfHeight * (rect.width / rect.height);
-
-		const yaw = this.camera.yaw;
-		const pitch = this.camera.pitch;
-
-		// The camera's basis. Forward is from the eye towards the target.
-		const fx = -Math.cos(pitch) * Math.sin(yaw);
-		const fy = -Math.sin(pitch);
-		const fz = -Math.cos(pitch) * Math.cos(yaw);
-		const rx = Math.cos(yaw);
-		const rz = -Math.sin(yaw);
-		const ux = -Math.sin(pitch) * Math.sin(yaw) * -1;
-		const uy = Math.cos(pitch);
-		const uz = -Math.sin(pitch) * Math.cos(yaw) * -1;
-
-		const eye = this.camera.eye();
-		const ox = eye[0]! + rx * ndcX * halfWidth + ux * ndcY * halfHeight;
-		const oy = eye[1]! + uy * ndcY * halfHeight;
-		const oz = eye[2]! + rz * ndcX * halfWidth + uz * ndcY * halfHeight;
-
-		if (Math.abs(fy) < 1e-6) return null;
-		const t = (planeY - oy) / fy;
-		if (t < 0) return null;
-
-		return { x: ox + fx * t, z: oz + fz * t };
+		return this.camera.groundPoint(ndcX, ndcY, rect.width / rect.height, planeY);
 	}
 
 	dispose(): void {

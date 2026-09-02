@@ -115,6 +115,79 @@ export class OrbitCamera {
 	}
 
 	/**
+	 * Where a point on the screen lands on a horizontal plane.
+	 *
+	 * The basis is read out of the view matrix rather than derived a second
+	 * time from the yaw and pitch, and that is the whole point of this living
+	 * here. A second derivation is a second chance to get a sign wrong, and
+	 * that is exactly what happened: the camera's up vector had its horizontal
+	 * half negated, which left the cursor tracking correctly across the screen
+	 * and moving the aim only a third as far up and down it. Reading the basis
+	 * out of the matrix the renderer actually draws with means the two cannot
+	 * disagree about where the camera is pointing.
+	 *
+	 * @param ndcX  -1 at the left edge of the viewport, +1 at the right
+	 * @param ndcY  -1 at the bottom, +1 at the top
+	 * @returns the point, or null if the ray runs away from the plane
+	 */
+	groundPoint(
+		ndcX: number,
+		ndcY: number,
+		aspect: number,
+		planeY: number,
+	): { x: number; z: number } | null {
+		const eye = this.eye();
+		mat4.lookAt(this.view, eye, this.target, UP);
+		const m = this.view;
+
+		// Columns of the rotation: right, up, and back along the view.
+		const rightX = m[0]!;
+		const rightY = m[4]!;
+		const rightZ = m[8]!;
+		const upX = m[1]!;
+		const upY = m[5]!;
+		const upZ = m[9]!;
+		const forwardX = -m[2]!;
+		const forwardY = -m[6]!;
+		const forwardZ = -m[10]!;
+
+		let ox: number;
+		let oy: number;
+		let oz: number;
+		let dx: number;
+		let dy: number;
+		let dz: number;
+
+		if (this.projection === 'orthographic') {
+			// Every ray is parallel, so the screen position moves the origin
+			// and the direction is the same for all of them.
+			const halfHeight = this.viewHeight / this.zoom;
+			const halfWidth = halfHeight * aspect;
+			ox = eye[0]! + rightX * ndcX * halfWidth + upX * ndcY * halfHeight;
+			oy = eye[1]! + rightY * ndcX * halfWidth + upY * ndcY * halfHeight;
+			oz = eye[2]! + rightZ * ndcX * halfWidth + upZ * ndcY * halfHeight;
+			dx = forwardX;
+			dy = forwardY;
+			dz = forwardZ;
+		} else {
+			// Rays all leave the eye; the screen position tilts the direction.
+			const tan = Math.tan(this.fovY / 2);
+			ox = eye[0]!;
+			oy = eye[1]!;
+			oz = eye[2]!;
+			dx = forwardX + rightX * ndcX * tan * aspect + upX * ndcY * tan;
+			dy = forwardY + rightY * ndcX * tan * aspect + upY * ndcY * tan;
+			dz = forwardZ + rightZ * ndcX * tan * aspect + upZ * ndcY * tan;
+		}
+
+		if (Math.abs(dy) < 1e-9) return null;
+		const t = (planeY - oy) / dy;
+		if (t < 0) return null;
+
+		return { x: ox + dx * t, z: oz + dz * t };
+	}
+
+	/**
 	 * The combined matrix for a frame. `depthRange` comes from the renderer,
 	 * because WebGPU and WebGL do not agree about clip space.
 	 */
