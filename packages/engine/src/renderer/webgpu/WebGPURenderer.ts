@@ -13,8 +13,10 @@ import type { DepthRange } from '@hexdelve/shared';
 import { hexPrismGeometry, HEX_VERTEX_STRIDE_BYTES } from '../../geometry/hexPrism.js';
 import { HEX_INSTANCE_BYTES } from '../../scene/HexInstances.js';
 import {
+	instanceTotal,
 	RendererCreationError,
 	type Frame,
+	type InstanceRanges,
 	type Renderer,
 	type RendererInfo,
 	type RendererOptions,
@@ -36,7 +38,10 @@ export class WebGPURenderer implements Renderer {
 	private readonly sampleCount: number;
 	private readonly clearColor: readonly [number, number, number, number];
 
+	/** One per pass: opaque, blended (depth-tested), overlay (not depth-tested). */
 	private readonly pipeline: GPURenderPipeline;
+	private readonly blendedPipeline: GPURenderPipeline;
+	private readonly overlayPipeline: GPURenderPipeline;
 	private readonly bindGroup: GPUBindGroup;
 	private readonly uniformBuffer: GPUBuffer;
 	private readonly uniformData = new Float32Array(UNIFORM_BYTES / 4);
@@ -46,7 +51,7 @@ export class WebGPURenderer implements Renderer {
 
 	private instanceBuffer: GPUBuffer | null = null;
 	private instanceCapacity = 0;
-	private instanceCount = 0;
+	private ranges: InstanceRanges = { opaque: 0, blended: 0, overlay: 0 };
 
 	private depthTexture: GPUTexture | null = null;
 	private msaaTexture: GPUTexture | null = null;
@@ -150,8 +155,13 @@ export class WebGPURenderer implements Renderer {
 			entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }],
 		});
 
-		this.pipeline = device.createRenderPipeline({
-			label: 'hexdelve:hex',
+		const describePipeline = (
+			label: string,
+			blend: boolean,
+			depthWrite: boolean,
+			depthCompare: GPUCompareFunction,
+		): GPURenderPipelineDescriptor => ({
+			label,
 			layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
 			vertex: {
 				module,
@@ -172,6 +182,7 @@ export class WebGPURenderer implements Renderer {
 							{ shaderLocation: 2, offset: 0, format: 'float32x4' },
 							{ shaderLocation: 3, offset: 16, format: 'float32x4' },
 							{ shaderLocation: 4, offset: 32, format: 'float32x4' },
+							{ shaderLocation: 5, offset: 48, format: 'float32x4' },
 						],
 					},
 				],
@@ -179,12 +190,43 @@ export class WebGPURenderer implements Renderer {
 			fragment: {
 				module,
 				entryPoint: 'fragmentMain',
-				targets: [{ format: this.format }],
+				targets: [
+					{
+						format: this.format,
+						...(blend
+							? {
+									blend: {
+										color: { srcFactor: 'src-alpha', dstFactor: 'one-minus-src-alpha' },
+										alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
+									},
+								}
+							: {}),
+					},
+				],
 			},
 			primitive: { topology: 'triangle-list', cullMode: 'back', frontFace: 'ccw' },
-			depthStencil: { format: DEPTH_FORMAT, depthWriteEnabled: true, depthCompare: 'less' },
+			depthStencil: { format: DEPTH_FORMAT, depthWriteEnabled: depthWrite, depthCompare },
 			multisample: { count: this.sampleCount },
 		});
+
+		/*
+		 * WebGPU bakes blending and depth state into the pipeline rather than
+		 * letting them be set between draws, so the three passes are three
+		 * pipelines over one shader module and one vertex layout.
+		 *
+		 * The overlay pipeline compares 'always' instead of turning the depth
+		 * test off: there is no such switch here, and a comparison that always
+		 * passes is exactly what the WebGL2 side's disable(DEPTH_TEST) does.
+		 */
+		this.pipeline = device.createRenderPipeline(
+			describePipeline('hexdelve:hex', false, true, 'less'),
+		);
+		this.blendedPipeline = device.createRenderPipeline(
+			describePipeline('hexdelve:hex-blended', true, false, 'less'),
+		);
+		this.overlayPipeline = device.createRenderPipeline(
+			describePipeline('hexdelve:hex-overlay', true, false, 'always'),
+		);
 
 		this.info = {
 			backend: 'webgpu',
@@ -233,9 +275,10 @@ export class WebGPURenderer implements Renderer {
 				: null;
 	}
 
-	setInstances(data: Float32Array, count: number): void {
+	setInstances(data: Float32Array, ranges: InstanceRanges): void {
 		if (!this.alive) return;
-		this.instanceCount = count;
+		this.ranges = ranges;
+		const count = instanceTotal(ranges);
 		if (count === 0) return;
 
 		if (count > this.instanceCapacity) {
@@ -304,13 +347,24 @@ export class WebGPURenderer implements Renderer {
 			},
 		});
 
-		if (this.instanceCount > 0 && this.instanceBuffer) {
-			pass.setPipeline(this.pipeline);
+		const { opaque, blended, overlay } = this.ranges;
+		if (opaque + blended + overlay > 0 && this.instanceBuffer) {
 			pass.setBindGroup(0, this.bindGroup);
 			pass.setVertexBuffer(0, this.vertexBuffer);
 			pass.setVertexBuffer(1, this.instanceBuffer);
 			pass.setIndexBuffer(this.indexBuffer, 'uint16');
-			pass.drawIndexed(this.indexCount, this.instanceCount);
+
+			// firstInstance is core here, so the three spans are three draws
+			// over one buffer with no rebinding.
+			const draw = (pipeline: GPURenderPipeline, first: number, count: number): void => {
+				if (count <= 0) return;
+				pass.setPipeline(pipeline);
+				pass.drawIndexed(this.indexCount, count, 0, 0, first);
+			};
+
+			draw(this.pipeline, 0, opaque);
+			draw(this.blendedPipeline, opaque, blended);
+			draw(this.overlayPipeline, opaque + blended, overlay);
 		}
 
 		pass.end();

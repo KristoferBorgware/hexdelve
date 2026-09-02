@@ -9,6 +9,16 @@ import { mat4, vec3, type DepthRange, type Mat4, type Vec3 } from '@hexdelve/sha
 
 const UP = vec3.vec3(0, 1, 0);
 
+/**
+ * Perspective for a scene someone is inspecting; orthographic for the game,
+ * which is drawn the way the labs draw it — a fixed isometric pitch, no
+ * convergence, so a hexagon is the same hexagon wherever it sits on screen.
+ */
+export type CameraProjection = 'perspective' | 'orthographic';
+
+/** The isometric pitch: the angle at which a unit cube's diagonal is vertical. */
+export const ISO_PITCH = Math.atan(1 / Math.SQRT2);
+
 export interface OrbitCameraOptions {
 	target?: Vec3;
 	distance?: number;
@@ -19,6 +29,11 @@ export interface OrbitCameraOptions {
 	fovY?: number;
 	near?: number;
 	far?: number;
+	projection?: CameraProjection;
+	/** Orthographic only: half the world height the viewport spans at zoom 1. */
+	viewHeight?: number;
+	/** Orthographic only: larger is closer in. */
+	zoom?: number;
 }
 
 export class OrbitCamera {
@@ -29,6 +44,9 @@ export class OrbitCamera {
 	fovY: number;
 	near: number;
 	far: number;
+	projection: CameraProjection;
+	viewHeight: number;
+	zoom: number;
 
 	minDistance = 3;
 	maxDistance = 120;
@@ -37,7 +55,7 @@ export class OrbitCamera {
 
 	private readonly eyeScratch = vec3.vec3();
 	private readonly view: Mat4 = mat4.mat4();
-	private readonly projection: Mat4 = mat4.mat4();
+	private readonly projectionMatrix: Mat4 = mat4.mat4();
 	private readonly viewProjection: Mat4 = mat4.mat4();
 
 	constructor(options: OrbitCameraOptions = {}) {
@@ -48,6 +66,9 @@ export class OrbitCamera {
 		this.fovY = options.fovY ?? 0.6;
 		this.near = options.near ?? 0.1;
 		this.far = options.far ?? 500;
+		this.projection = options.projection ?? 'perspective';
+		this.viewHeight = options.viewHeight ?? 5.5;
+		this.zoom = options.zoom ?? 1;
 	}
 
 	/** Where the eye currently sits. The returned vector is reused. */
@@ -66,10 +87,24 @@ export class OrbitCamera {
 		this.pitch = clamp(this.pitch + deltaPitch, this.minPitch, this.maxPitch);
 	}
 
-	/** Multiplicative so a wheel notch moves the same proportion at any range. */
-	zoom(factor: number): void {
-		this.distance = clamp(this.distance * factor, this.minDistance, this.maxDistance);
+	/**
+	 * Multiplicative, so a wheel notch moves the same proportion at any range.
+	 *
+	 * Which quantity it moves depends on the projection, because they are not
+	 * the same thing: dollying an orthographic camera changes nothing at all
+	 * about the picture, since parallel rays do not converge. So perspective
+	 * moves the eye and orthographic scales the frustum.
+	 */
+	dolly(factor: number): void {
+		if (this.projection === 'orthographic') {
+			this.zoom = clamp(this.zoom / factor, this.minZoom, this.maxZoom);
+		} else {
+			this.distance = clamp(this.distance * factor, this.minDistance, this.maxDistance);
+		}
 	}
+
+	minZoom = 0.6;
+	maxZoom = 4;
 
 	/** Slides the target across the ground plane, in the camera's own frame. */
 	pan(right: number, forward: number): void {
@@ -85,8 +120,23 @@ export class OrbitCamera {
 	 */
 	matrix(aspect: number, depthRange: DepthRange): Mat4 {
 		mat4.lookAt(this.view, this.eye(), this.target, UP);
-		mat4.perspective(this.projection, this.fovY, aspect, this.near, this.far, depthRange);
-		return mat4.multiply(this.viewProjection, this.projection, this.view);
+		if (this.projection === 'orthographic') {
+			const halfHeight = this.viewHeight / this.zoom;
+			const halfWidth = halfHeight * aspect;
+			mat4.ortho(
+				this.projectionMatrix,
+				-halfWidth,
+				halfWidth,
+				-halfHeight,
+				halfHeight,
+				this.near,
+				this.far,
+				depthRange,
+			);
+		} else {
+			mat4.perspective(this.projectionMatrix, this.fovY, aspect, this.near, this.far, depthRange);
+		}
+		return mat4.multiply(this.viewProjection, this.projectionMatrix, this.view);
 	}
 }
 

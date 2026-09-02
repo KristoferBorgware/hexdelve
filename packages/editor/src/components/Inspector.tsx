@@ -1,41 +1,101 @@
 /*
- * The right-hand panel: what the renderer is, and the handful of knobs worth
- * having before there is anything in the world to select.
+ * The right-hand panel: what the renderer is, what the world is doing, and the
+ * toggles lab 09 carried in its own panel.
  *
- * Camera and light are mutated on the client directly rather than mirrored in
- * React state — the frame loop reads them sixty times a second, and routing
- * that through a re-render would be both slower and a lie about who owns them.
+ * The toggles are the demonstration that matters here. They are not editor
+ * features — they are fields on the running client, and flipping one from
+ * React reaches the same object an embedder would reach from their own page.
+ * The editor has no privileged access to the game; it is just a caller.
+ *
+ * The live numbers are polled rather than pushed, and deliberately: the frame
+ * loop produces them sixty times a second and a re-render at that rate would
+ * be both slower and unreadable.
  */
 
 import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Slider from '@mui/material/Slider';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import { useEffect, useState } from 'react';
-import type { HexdelveClient } from '@hexdelve/client';
+import { useEffect, useState, type ReactElement } from 'react';
+import type { HexdelveClient, SimulationToggles, YardStats } from '@hexdelve/client';
 
 export interface InspectorProps {
 	client: HexdelveClient | null;
 }
 
+const TOGGLES: { key: keyof SimulationToggles; label: string; hint: string }[] = [
+	{ key: 'ik', label: 'Foot IK', hint: 'Plant his feet on the terraces' },
+	{ key: 'vectors', label: 'Vectors', hint: 'Where he faces against where he is going' },
+	{ key: 'paths', label: 'Paths', hint: "The bat's route, its hexagon and its perch" },
+	{ key: 'screenStrafe', label: 'Screen strafe', hint: "A and D on the screen's axes, not his hips" },
+	{ key: 'skeleton', label: 'Skeleton', hint: 'Ghost the bodies and show the rigs' },
+	{ key: 'follow', label: 'Follow', hint: 'The camera tracks him' },
+];
+
+const BEARINGS: { to: number; name: string }[] = [
+	{ to: 0.4, name: 'forward' },
+	{ to: 1.2, name: 'half left' },
+	{ to: 2.0, name: 'left' },
+	{ to: 2.75, name: 'back left' },
+	{ to: Math.PI + 0.01, name: 'backwards' },
+];
+
+function bearingName(angle: number): string {
+	const a = Math.abs(angle);
+	for (const band of BEARINGS) {
+		if (a <= band.to) return angle < 0 ? band.name.replace('left', 'right') : band.name;
+	}
+	return 'backwards';
+}
+
 export function Inspector({ client }: InspectorProps) {
 	const [fps, setFps] = useState(0);
+	const [instances, setInstances] = useState(0);
+	const [stats, setStats] = useState<YardStats | null>(null);
+	// Mirrored only so the checkboxes re-render; the client stays the owner.
+	const [toggleTick, setToggleTick] = useState(0);
 
 	useEffect(() => {
-		if (!client) return;
-		const handle = window.setInterval(() => setFps(client.stats.fps), 500);
+		if (!client) {
+			setStats(null);
+			return;
+		}
+		const handle = window.setInterval(() => {
+			setFps(client.stats.fps);
+			setInstances(client.stats.instances);
+			setStats(client.state);
+		}, 250);
 		return () => window.clearInterval(handle);
 	}, [client]);
 
 	const info = client?.info;
 
+	const row = (label: string, value: string): ReactElement => (
+		<Box
+			key={label}
+			sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.15 }}
+		>
+			<Typography variant="caption" color="text.secondary">
+				{label}
+			</Typography>
+			<Typography
+				variant="caption"
+				sx={{ fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}
+			>
+				{value}
+			</Typography>
+		</Box>
+	);
+
 	return (
 		<Box
 			component="aside"
 			sx={{
-				width: 288,
+				width: 300,
 				flexShrink: 0,
 				borderLeft: 1,
 				borderColor: 'divider',
@@ -56,112 +116,135 @@ export function Inspector({ client }: InspectorProps) {
 				/>
 				{info && <Chip size="small" variant="outlined" label={`${info.msaaSamples}x MSAA`} />}
 				<Chip size="small" variant="outlined" label={`${fps.toFixed(0)} fps`} />
+				<Chip size="small" variant="outlined" label={`${instances} prisms`} />
 			</Stack>
 
-			<Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-word' }}>
-				{info?.device ?? 'starting…'}
+			<Divider sx={{ my: 1.5 }} />
+
+			<Typography variant="subtitle2" color="text.secondary" gutterBottom>
+				Free movement
 			</Typography>
 
-			{info?.fellBack && (
-				<Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
-					WebGPU was asked for and was not available.
+			{stats ? (
+				<Box sx={{ mb: 1 }}>
+					{row('You', stats.message)}
+					{row('Speed', `${stats.speed.toFixed(2)} m/s · ${stats.gait > 0.5 ? 'run' : 'walk'}`)}
+					{row(
+						'Going',
+						stats.amp > 0.05
+							? `${bearingName(stats.heading)} · ${Math.round(Math.abs((stats.heading * 180) / Math.PI))}°`
+							: '—',
+					)}
+					{row('Foot slip', `${Math.abs(stats.slip * 100).toFixed(0)} cm/s`)}
+					{row('Cell', `${stats.cell.q}, ${stats.cell.r} · terrace ${stats.terrace ?? '–'}`)}
+					{row('Carrying', stats.carrying.length ? stats.carrying.join(', ') : 'nothing')}
+					{row('Pelvis drop', `${(stats.pelvisDrop * 100).toFixed(1)} cm`)}
+					<Divider sx={{ my: 0.75 }} />
+					{row('Bat', `${stats.batMessage} · ${stats.batSpeed.toFixed(2)} m/s`)}
+					{row('Range', `${stats.batRange} tiles · wakes at ${stats.wakeRange}`)}
+					{row('Bites / missed', `${stats.bites} · ${stats.batMissed}`)}
+					{stats.cuts > 0 && row('Cuts / hits', `${stats.cuts} · ${stats.hits}`)}
+				</Box>
+			) : (
+				<Typography variant="caption" color="text.secondary">
+					starting…
 				</Typography>
 			)}
 
-			{client && (
-				<>
-					<Divider sx={{ my: 2 }} />
-					<Typography variant="subtitle2" color="text.secondary">
-						Camera
-					</Typography>
-					<Stack spacing={1.5} sx={{ mt: 1.5 }}>
-						<Labelled label="Distance">
-							<Slider
-								size="small"
-								min={4}
-								max={80}
-								step={0.5}
-								defaultValue={client.camera.distance}
-								onChange={(_, value) => {
-									client.camera.distance = value as number;
-									if (!client.running) client.renderOnce();
-								}}
-							/>
-						</Labelled>
-						<Labelled label="Pitch">
-							<Slider
-								size="small"
-								min={0.08}
-								max={1.5}
-								step={0.01}
-								defaultValue={client.camera.pitch}
-								onChange={(_, value) => {
-									client.camera.pitch = value as number;
-									if (!client.running) client.renderOnce();
-								}}
-							/>
-						</Labelled>
-						<Labelled label="Field of view">
-							<Slider
-								size="small"
-								min={0.2}
-								max={1.2}
-								step={0.01}
-								defaultValue={client.camera.fovY}
-								onChange={(_, value) => {
-									client.camera.fovY = value as number;
-									if (!client.running) client.renderOnce();
-								}}
-							/>
-						</Labelled>
-					</Stack>
+			<Divider sx={{ my: 1.5 }} />
 
-					<Divider sx={{ my: 2 }} />
-					<Typography variant="subtitle2" color="text.secondary">
-						Light
-					</Typography>
-					<Stack spacing={1.5} sx={{ mt: 1.5 }}>
-						<Labelled label="Intensity">
-							<Slider
-								size="small"
-								min={0}
-								max={1.5}
-								step={0.01}
-								defaultValue={client.light.intensity}
-								onChange={(_, value) => {
-									client.light.intensity = value as number;
-									if (!client.running) client.renderOnce();
-								}}
-							/>
-						</Labelled>
-						<Labelled label="Ambient">
-							<Slider
-								size="small"
-								min={0}
-								max={1}
-								step={0.01}
-								defaultValue={client.light.ambient[0]}
-								onChange={(_, value) => {
-									const level = value as number;
-									client.light.ambient.set([level, level * 1.06, level]);
-									if (!client.running) client.renderOnce();
-								}}
-							/>
-						</Labelled>
-					</Stack>
-				</>
-			)}
-		</Box>
-	);
-}
-
-function Labelled({ label, children }: { label: string; children: React.ReactNode }) {
-	return (
-		<Box>
-			<Typography variant="caption" color="text.secondary">
-				{label}
+			<Typography variant="subtitle2" color="text.secondary" gutterBottom>
+				Show
 			</Typography>
-			{children}
+
+			<Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 1 }}>
+				{TOGGLES.map(({ key, label, hint }) => (
+					<FormControlLabel
+						key={key}
+						title={hint}
+						sx={{ m: 0 }}
+						control={
+							<Checkbox
+								size="small"
+								disabled={!client}
+								checked={client ? client.toggles[key] : false}
+								onChange={(event) => {
+									if (!client) return;
+									client.toggles[key] = event.target.checked;
+									setToggleTick(toggleTick + 1);
+									if (!client.running) client.renderOnce();
+								}}
+							/>
+						}
+						label={<Typography variant="caption">{label}</Typography>}
+					/>
+				))}
+			</Box>
+
+			<Divider sx={{ my: 1.5 }} />
+
+			<Typography variant="subtitle2" color="text.secondary" gutterBottom>
+				Camera
+			</Typography>
+
+			<Typography variant="caption" color="text.secondary">
+				Zoom
+			</Typography>
+			<Slider
+				size="small"
+				min={0.4}
+				max={3}
+				step={0.05}
+				defaultValue={client?.camera.zoom ?? 1.35}
+				disabled={!client}
+				onChange={(_, value) => {
+					if (client) client.camera.zoom = value as number;
+					if (client && !client.running) client.renderOnce();
+				}}
+			/>
+
+			<Typography variant="caption" color="text.secondary">
+				Azimuth
+			</Typography>
+			<Slider
+				size="small"
+				min={0}
+				max={Math.PI * 2}
+				step={0.01}
+				defaultValue={client?.camera.yaw ?? 1.08}
+				disabled={!client}
+				onChange={(_, value) => {
+					if (client) client.camera.yaw = value as number;
+					if (client && !client.running) client.renderOnce();
+				}}
+			/>
+
+			<Divider sx={{ my: 1.5 }} />
+
+			<Typography variant="subtitle2" color="text.secondary" gutterBottom>
+				Sun
+			</Typography>
+
+			<Typography variant="caption" color="text.secondary">
+				Intensity
+			</Typography>
+			<Slider
+				size="small"
+				min={0}
+				max={2}
+				step={0.05}
+				defaultValue={client?.light.intensity ?? 0.95}
+				disabled={!client}
+				onChange={(_, value) => {
+					if (client) client.light.intensity = value as number;
+					if (client && !client.running) client.renderOnce();
+				}}
+			/>
+
+			<Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+				<b>W</b>/<b>S</b> are his, <b>A</b>/<b>D</b> the screen's. <b>Shift</b> runs,
+				<b> Q</b>/<b>E</b> turn the camera, <b>click</b> or <b>space</b> cuts.
+			</Typography>
 		</Box>
 	);
 }
