@@ -30,9 +30,11 @@
 		"dev:desktop": "npm run dev -w @hexdelve/desktop",
 		"index": "node tools/build-index.js",
 		"typecheck": "tsc -b packages/shared packages/engine packages/client packages/editor packages/desktop && tsc -p tsconfig.tools.json",
+		"check:shaders": "node tools/check-shaders.mjs",
 		"clean": "node tools/clean.js"
 	},
 	"devDependencies": {
+		"playwright": "1.56.1",
 		"typescript": "5.9.3"
 	}
 }
