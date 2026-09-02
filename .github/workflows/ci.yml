@@ -34,6 +34,14 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Check the shaders compile and the pipelines build
+        # Catches a WGSL or GLSL mistake at the point it is made. WebGPU marks
+        # a bad pipeline invalid rather than throwing, so without this a broken
+        # shader reaches a browser looking healthy and only fails on the first
+        # draw. Uses the runner's own Chrome, so there is no browser to
+        # download; the script skips itself if it cannot find one.
+        run: npm run check:shaders
+
       - name: Syntax-check the labs
         run: |
           # The labs are plain scripts with no build step, so parsing them is

@@ -107,7 +107,31 @@ export class WebGPURenderer implements Renderer {
 			throw new RendererCreationError('webgpu', 'The canvas would not give a webgpu context.');
 		}
 
-		return new WebGPURenderer(options, device, context, adapter);
+		/*
+		 * Build everything inside an error scope.
+		 *
+		 * A pipeline that fails validation is not thrown, and it is not null
+		 * either: WebGPU hands back an object marked invalid and only complains
+		 * when something tries to use it. That turns one mistake in a shader
+		 * into a wall of "invalid due to a previous error" once a frame, with
+		 * the actual cause nowhere in sight — and, worse, an `auto` renderer
+		 * that reports webgpu and draws nothing rather than falling back.
+		 *
+		 * So the scope is popped here and a failure becomes a creation error,
+		 * which is what `createRenderer` already knows how to fall back from.
+		 */
+		device.pushErrorScope('validation');
+		const renderer = new WebGPURenderer(options, device, context, adapter);
+		const failure = await device.popErrorScope();
+		if (failure) {
+			renderer.dispose();
+			throw new RendererCreationError(
+				'webgpu',
+				`A WebGPU pipeline failed validation: ${failure.message}`,
+			);
+		}
+
+		return renderer;
 	}
 
 	private constructor(

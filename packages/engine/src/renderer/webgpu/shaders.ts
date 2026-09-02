@@ -74,6 +74,13 @@ fn vertexMain(input : VertexIn) -> VertexOut {
  * here — and y is flipped, because texture space runs down the screen and clip
  * space runs up it. That difference from the GLSL version is the API's, not a
  * choice.
+ *
+ * textureSampleCompareLevel rather than textureSampleCompare, and that is not
+ * a preference either. The latter picks a mip level, which means it needs
+ * derivatives, which means WGSL will only let it be called from uniform
+ * control flow — and this is called from inside a branch, after early returns
+ * of its own. The Level form names level 0 outright, takes no derivatives, and
+ * is legal anywhere. A shadow map has no mips to choose between in any case.
  */
 fn sunlight(lightSpace : vec4<f32>) -> f32 {
 	if (globals.shadow.x < 0.5) {
@@ -95,7 +102,7 @@ fn sunlight(lightSpace : vec4<f32>) -> f32 {
 	for (var y = -1; y <= 1; y++) {
 		for (var x = -1; x <= 1; x++) {
 			let at = uv + vec2<f32>(f32(x), f32(y)) * texel;
-			sum = sum + textureSampleCompare(shadowMap, shadowSampler, at, reference);
+			sum = sum + textureSampleCompareLevel(shadowMap, shadowSampler, at, reference);
 		}
 	}
 	return sum / 9.0;
