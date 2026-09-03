@@ -1,9 +1,10 @@
 /*
- * tools/render-harness.mjs — draw the yard in a browser and get the pixels back.
+ * test/harness/render-harness.mjs — draw the yard in a browser and get the
+ * pixels back.
  *
- * Shared by the two things that need a picture: check-render.mjs, which
- * compares one against a reference kept in the repository, and
- * check-backends.mjs, which compares WebGL2's against WebGPU's.
+ * Shared by the two tests that need a picture: render.test.ts, which compares
+ * one against a reference kept in the repository, and backends.test.ts, which
+ * compares WebGL2's against WebGPU's.
  *
  * Three things here exist to make the same scene come out the same way twice,
  * which is the whole basis of comparing anything:
@@ -33,6 +34,7 @@ const STEP = 1 / 60;
 
 const LIB = resolve(
 	import.meta.dirname,
+	'..',
 	'..',
 	'packages',
 	'client',
@@ -78,6 +80,25 @@ window.run = async (backend) => {
 };
 </script>`;
 
+/** Whether there is anything here to draw with. Tests skip rather than fail. */
+export async function harnessAvailable() {
+	if (!existsSync(LIB)) return 'no client library at packages/client/dist-lib — run `npm run build`';
+	try {
+		await import('playwright');
+	} catch {
+		return 'playwright is not installed';
+	}
+	return null;
+}
+
+/**
+ * One frame, or the reason there is not one.
+ *
+ * @typedef {{ ok: true, width: number, height: number, pixels: Buffer }} Frame
+ * @typedef {{ ok: false, why: string }} NoFrame
+ * @typedef {Frame | NoFrame} Shot
+ */
+
 /**
  * Run `body` with a `capture(backend)` function, then tear everything down.
  *
@@ -86,17 +107,16 @@ window.run = async (backend) => {
  * running a build has a browser driver, and refusing to build for want of one
  * would be worse than skipping a check nobody asked for.
  */
+/**
+ * @template T
+ * @param {(capture: (backend: 'webgl2' | 'webgpu') => Promise<Shot>) => Promise<T>} body
+ * @returns {Promise<T | null>}
+ */
 export async function withHarness(body) {
-	if (!existsSync(LIB)) {
-		console.error('No client library at packages/client/dist-lib — run `npm run build` first.');
-		process.exit(1);
-	}
-
 	let chromium;
 	try {
 		({ chromium } = await import('playwright'));
 	} catch {
-		console.log('playwright is not installed — skipping.');
 		return null;
 	}
 

@@ -30,15 +30,13 @@
 		"dev:desktop": "npm run dev -w @hexdelve/desktop",
 		"index": "node tools/build-index.js",
 		"typecheck": "tsc -b packages/shared packages/engine packages/client packages/editor packages/desktop && tsc -p tsconfig.tools.json",
-		"check:shaders": "node tools/check-shaders.mjs",
-		"check:picking": "node tools/check-picking.mjs",
-		"check:blend": "node tools/check-blend.mjs",
-		"check:render": "node tools/check-render.mjs",
-		"check:backends": "node tools/check-backends.mjs",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"clean": "node tools/clean.js"
 	},
 	"devDependencies": {
 		"playwright": "1.56.1",
-		"typescript": "5.9.3"
+		"typescript": "5.9.3",
+		"vitest": "^4.1.11"
 	}
 }

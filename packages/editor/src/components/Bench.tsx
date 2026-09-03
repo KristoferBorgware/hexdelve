@@ -48,6 +48,8 @@ export function Bench({ backend, running }: BenchProps) {
 	const [selectedBone, setSelectedBone] = useState<string | null>(null);
 	const [show, setShow] = useState<BenchShow>(DEFAULT_SHOW);
 	const [speed, setSpeed] = useState(1);
+	/** Repeat at the end of the cycle. On by default; see `CharacterBench.loop`. */
+	const [loop, setLoop] = useState(true);
 	/*
 	 * A tree's parameters, and whether its synced leaves share a phase. Both
 	 * live here for the same reason as everything else on this list: the tree
@@ -72,6 +74,7 @@ export function Bench({ backend, running }: BenchProps) {
 		if (bench.clip !== animation) bench.setAnimation(animation);
 		bench.selectedBone = selectedBone;
 		bench.speed = speed;
+		bench.loop = loop;
 		Object.assign(bench.show, show);
 		if (isTree(animation)) {
 			// Written onto the tree rather than passed to it, because the frame
@@ -80,7 +83,7 @@ export function Bench({ backend, running }: BenchProps) {
 			animation.tree.sync = treeSync;
 		}
 		if (!bench.running) bench.renderOnce();
-	}, [bench, rig, animation, selectedBone, show, speed, params, treeSync]);
+	}, [bench, rig, animation, selectedBone, show, speed, loop, params, treeSync]);
 
 	const chooseAnimation = (next: BenchAnimation): void => {
 		setAnimation(next);
@@ -123,6 +126,8 @@ export function Bench({ backend, running }: BenchProps) {
 				onShowChange={(key, value) => setShow((current) => ({ ...current, [key]: value }))}
 				speed={speed}
 				onSpeedChange={setSpeed}
+				loop={loop}
+				onLoopChange={setLoop}
 				selectedBone={selectedBone}
 			/>
 		</>

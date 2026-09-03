@@ -109,6 +109,13 @@ export {
 	type GroundSpeedOptions,
 } from './anim/measure.js';
 
+export {
+	calibrateSpeed,
+	type SpeedCalibration,
+	type SpeedSample,
+	type CalibrateSpeedOptions,
+} from './anim/calibrate.js';
+
 /*
  * Blend trees: a pose from a set of numbers rather than from a clip name.
  * Engine-side because everything it touches is — poses, clips, skeletons — and

@@ -1,9 +1,9 @@
 /*
- * tools/image-diff.mjs — comparing two renderings of the same scene.
+ * test/harness/image-diff.mjs — comparing two renderings of the same scene.
  *
  * Both picture checks want the same thing and neither wants an exact match.
- * check-render.mjs compares a frame against one stored months ago, possibly
- * rasterised by a different build of SwiftShader; check-backends.mjs compares
+ * render.test.ts compares a frame against one stored months ago, possibly
+ * rasterised by a different build of SwiftShader; backends.test.ts compares
  * two frames drawn by two different shader compilers. In both cases an edge
  * pixel landing one place over is the hardware, and a check that failed over
  * it would be reset until nobody read it.

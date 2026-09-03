@@ -34,36 +34,26 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Check picking agrees with the projection
-        # A camera basis derived twice is a sign waiting to be got wrong, and
-        # nothing throws when it is: the cursor simply stops landing where it
-        # is pointing. This round-trips screen points through the real matrix.
-        run: npm run check:picking
-
-      - name: Check the blend tree blends what it says it does
-        # The failure this catches is the one nothing throws for: two gaits
-        # drifting out of phase still produce sensible weights and a valid
-        # pose, and the only symptom is a character who skates. Asserts the
-        # thresholds, the sync, the additive gain and the mask.
-        run: npm run check:blend
-
-      - name: Check the shaders compile and the pipelines build
-        # Catches a WGSL or GLSL mistake at the point it is made. WebGPU marks
-        # a bad pipeline invalid rather than throwing, so without this a broken
-        # shader reaches a browser looking healthy and only fails on the first
-        # draw. Uses the runner's own Chrome, so there is no browser to
-        # download; the script skips itself if it cannot find one.
-        run: npm run check:shaders
-
-      - name: Check the yard still renders as it did
-        # The other checks prove the code is well formed without ever looking
-        # at a picture: none of them would notice a sign flip that put every
-        # shadow on the wrong side. This draws the scene through WebGL2 and
-        # compares it against tools/reference/yard-webgl2.png. WebGL2 only,
-        # because a runner reliably has a software rasteriser and reliably has
-        # no WebGPU device; check:backends compares the two, and stays local
-        # for that reason.
-        run: npm run check:render
+      - name: Test
+        # Everything the project can assert without somebody looking at a
+        # screen, in one runner. Three of the five drive a browser, and skip
+        # rather than fail when there is none to drive:
+        #
+        #   picking     a screen point has to map back to the ground drawn
+        #               there — a camera basis derived twice is a sign waiting
+        #               to be got wrong, and nothing throws when it is
+        #   blend-tree  a tree that has drifted out of phase still produces a
+        #               valid pose; the only symptom is a character who skates
+        #   shaders     WebGPU marks a bad pipeline invalid rather than
+        #               throwing, so a broken shader reaches a browser looking
+        #               healthy and fails on the first draw
+        #   render      none of the above would notice a sign flip that put
+        #               every shadow on the wrong side, so a picture is kept in
+        #               the repository and compared against
+        #   backends    the two shader sets are written twice on purpose; this
+        #               is what stops them drifting apart. Needs a working
+        #               WebGPU device and usually skips for want of one.
+        run: npm test
 
       - name: Upload the render diff
         # Only reachable when the comparison failed, and it is the only way to

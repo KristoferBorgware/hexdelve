@@ -54,6 +54,16 @@ export interface BenchParameter {
 	readonly initial: number;
 	readonly unit?: string;
 	readonly hint?: string;
+	/**
+	 * The slider's value, to the value the tree is actually given.
+	 *
+	 * Absent on an axis that means what it says. Present on a CALIBRATED one,
+	 * where the slider is in real units and the tree's own parameter is not
+	 * quite: a blend halfway between a walk and a run does not travel at the
+	 * average of their speeds, so a slider in true metres per second has to
+	 * bend before it reaches the tree. See `calibrateSpeed`.
+	 */
+	readonly toTree?: (value: number) => number;
 }
 
 export interface BenchTreeAnimation extends BenchAnimation {
@@ -136,6 +146,22 @@ export function treeAnimation(options: TreeAnimationOptions): BenchTreeAnimation
 	const params: Record<string, number> = {};
 	for (const parameter of parameters) params[parameter.name] = parameter.initial;
 
+	/*
+	 * What the tree is actually handed. Kept apart from `params` because the
+	 * panel's numbers and the tree's are not always the same number — a
+	 * calibrated axis is in real units on the slider and in the tree's own
+	 * units by the time it arrives. Reused rather than rebuilt, since this is
+	 * read on every frame.
+	 */
+	const treeParams: Record<string, number> = {};
+	const mapped = (): Record<string, number> => {
+		for (const parameter of parameters) {
+			const value = params[parameter.name] ?? parameter.initial;
+			treeParams[parameter.name] = parameter.toTree ? parameter.toTree(value) : value;
+		}
+		return treeParams;
+	};
+
 	const animation: BenchTreeAnimation = {
 		kind: 'tree',
 		id: options.id,
@@ -149,12 +175,12 @@ export function treeAnimation(options: TreeAnimationOptions): BenchTreeAnimation
 			// The cycle is the weighted blend of the active leaves' own lengths,
 			// so it is not known until the tree has been walked. One walk is
 			// cheap and allocation-free; a stale number is not honest.
-			tree.resolve(params);
+			tree.resolve(mapped());
 			return tree.cycle;
 		},
 
 		sample(t, out) {
-			tree.resolve(params);
+			tree.resolve(mapped());
 			const cycle = tree.cycle;
 			tree.phase = cycle > 1e-6 ? t / cycle : 0;
 			// Unsynced leaves keep their own clock, and this is it. With sync
@@ -168,7 +194,7 @@ export function treeAnimation(options: TreeAnimationOptions): BenchTreeAnimation
 	const skeleton = options.skeleton;
 	if (skeleton) {
 		animation.measure = (): GroundVelocity => {
-			tree.resolve(params);
+			tree.resolve(mapped());
 			const cycle = tree.cycle;
 			// The measurement walks the cycle, so it has to put the playhead
 			// back where it found it or a paused bench would jump every poll.

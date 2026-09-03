@@ -7,7 +7,22 @@
 		"noEmit": true,
 		"allowImportingTsExtensions": true,
 		"lib": ["ES2022"],
-		"types": ["node"]
+		"types": ["node"],
+		/*
+		 * The test harness is plain .mjs — a PNG encoder, an image diff and a
+		 * Playwright fixture, none of which gains anything from being typed and
+		 * all of which would be a risky rewrite. allowJs lets the TypeScript
+		 * tests import it and infer what it returns; checkJs stays off, so the
+		 * harness is read, not audited.
+		 */
+		"allowJs": true,
+		"checkJs": false
 	},
-	"include": ["vite.workspace.mts", "packages/*/vite.config.ts", "packages/*/vite.lib.config.ts"]
+	"include": [
+		"vite.workspace.mts",
+		"vitest.config.mts",
+		"packages/*/vite.config.ts",
+		"packages/*/vite.lib.config.ts",
+		"test/**/*.ts"
+	]
 }

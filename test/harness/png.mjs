@@ -1,5 +1,6 @@
 /*
- * tools/png.mjs — just enough PNG to store and read back a reference picture.
+ * test/harness/png.mjs — just enough PNG to store and read back a reference
+ * picture.
  *
  * Writing is the easy half: one uncompressed filter byte a row and let zlib do
  * the work, which for a picture of flat-shaded hexagons is small enough that
