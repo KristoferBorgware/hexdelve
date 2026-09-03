@@ -56,7 +56,7 @@ RANDOMISE)` evaluates:
 * the base plus the dice roll, plus
 * the **M** term: `m_bonus(z, level)` — a normal deviate with mean
   `z × level / 128` and standard deviation `z / 4`, clamped to `0…z`
-  (see *Overview* 1.6 for `m_bonus`).
+  (see *Overview* 1.8 for `m_bonus`).
 
 So `SPEED[4+M5]` on Boots of Elvenkind is +4 to +9, with the top of the
 range only likely at deep levels. In `MINIMISE`/`MAXIMISE`/`AVERAGE`

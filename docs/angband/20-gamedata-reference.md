@@ -62,8 +62,8 @@ fields, and where in this bible it is explained.
 | `artifact.txt` | 138 | fixed artifacts: `base-object`, `graphics`, `level`, `weight`, `cost`, `alloc:prob:min to max`, `attack`, `armor`, `flags`, `act`, `time`, `msg`, `values`, `brand`, `slay`, `curse`, `desc` | | Ch. 14.5 |
 | `curse.txt` | 27 | curses: `type` (object bases), `weight`, `combat`, `effect`/`dice`/`expr`, `time`, `flags`, `values`, `msg`, `conflict`, `conflict-flags` | | Ch. 14.7 |
 | `activation.txt` | 163 | named activations for artifacts, egos and randarts: `aim`, `level`, `power`, `effect`, `dice`, `expr`, `msg`, `desc` | | Ch. 9 |
-| `brand.txt` | 10 | brands: `code`, `name`, `verb`, `multiplier`, `o-multiplier`, `power`, `resist-flag`, `vuln-flag` | | Ch. 7.6 |
-| `slay.txt` | 11 | slays: `code`, `name`, `race-flag`/`base`, `multiplier`, `o-multiplier`, `power`, `melee-verb`, `range-verb` | | Ch. 7.6 |
+| `brand.txt` | 10 | brands: `code`, `name`, `verb`, `multiplier`, `o-multiplier`, `power`, `resist-flag`, `vuln-flag` | | Ch. 7.4 |
+| `slay.txt` | 11 | slays: `code`, `name`, `race-flag`/`base`, `multiplier`, `o-multiplier`, `power`, `melee-verb`, `range-verb` | | Ch. 7.4 |
 | `flavor.txt` | | flavour pools: `kind:tval:char`, `flavor:index:attr:text`, `fixed:index:sval:attr:text` (e.g. the One Ring's fixed look) | | Ch. 14.9 |
 | `object_property.txt` | shared with player | see 20.2 | | |
 
@@ -76,9 +76,9 @@ fields, and where in this bible it is explained.
 | `monster_base.txt` | 56 | templates: `glyph`, `pain` (message set), `flags`, `desc` | | Ch. 12.1 |
 | `monster.txt` | 624 | races: `base`, `glyph`, `color`, `speed`, `hit-points`, `light`, `hearing`, `smell`, `armor-class`, `sleepiness`, `depth`, `rarity`, `experience`, `blow:method:effect:dice`, `flags`, `flags-off`, `innate-freq`, `spell-freq`, `spell-power`, `spells`, `message-*`, `drop`, `drop-base`, `mimic`, `friends`, `friends-base`, `shape`, `desc` | | Ch. 12, 13 |
 | `monster_spell.txt` | 91 | monster spells: `msgt`, `hit`, `effect`/`dice`/`expr` (with `SPELL_POWER`, `PLAYER_LEVEL`, `DUNGEON_LEVEL`, `MAX_SIGHT`, `WEAPON_DAMAGE`, `PLAYER_HP`, `MONSTER_PERCENT_HP_GONE`), `power-cutoff`, `lore`, `lore-color-*`, `message-vis/invis/miss`, `save-message` | | Ch. 13.1 |
-| `blow_methods.txt` | 19 | HIT, TOUCH, BITE, CLAW, CRUSH, STING, KICK, BUTT, ENGULF, CRAWL, DROOL, SPIT, GAZE, WAIL, SPORE, BEG, INSULT, MOAN, HOWL: `cut`, `stun`, `miss`, `phys`, `msg`, `act`, `desc` | | Ch. 7.9 |
-| `blow_effects.txt` | 30 | HURT, POISON, DISENCHANT, DRAIN_CHARGES, EAT_GOLD, EAT_ITEM, EAT_FOOD, EAT_LIGHT, ACID, ELEC, FIRE, COLD, BLIND, CONFUSE, TERRIFY, PARALYZE, LOSE_STR…LOSE_ALL, SHATTER, EXP_10…EXP_80, HALLU, BLACK_BREATH: `power`, `eval`, `desc`, `lore-color-*`, `effect-type`, `resist`, `lash-type` | | Ch. 7.9 |
-| `pain.txt` | ~12 | pain message sets: 7 messages per set by remaining-hp band | | Ch. 7.10 |
+| `blow_methods.txt` | 19 | HIT, TOUCH, BITE, CLAW, CRUSH, STING, KICK, BUTT, ENGULF, CRAWL, DROOL, SPIT, GAZE, WAIL, SPORE, BEG, INSULT, MOAN, HOWL: `cut`, `stun`, `miss`, `phys`, `msg`, `act`, `desc` | | Ch. 7.7 |
+| `blow_effects.txt` | 30 | HURT, POISON, DISENCHANT, DRAIN_CHARGES, EAT_GOLD, EAT_ITEM, EAT_FOOD, EAT_LIGHT, ACID, ELEC, FIRE, COLD, BLIND, CONFUSE, TERRIFY, PARALYZE, LOSE_STR…LOSE_ALL, SHATTER, EXP_10…EXP_80, HALLU, BLACK_BREATH: `power`, `eval`, `desc`, `lore-color-*`, `effect-type`, `resist`, `lash-type` | | Ch. 7.7 |
+| `pain.txt` | ~12 | pain message sets: 7 messages per set by remaining-hp band | | Ch. 7.8 |
 | `summon.txt` | 17 | summon types: `msgt`, `uniques`, `base`/`race-flag`, `fallback`, `desc` | | Ch. 13.4 |
 | `projection.txt` | 25 + | projections: elements first (ACID … DISEN, in `list-elements.h` order), then LIGHT_WEAK, DARK_WEAK, KILL_WALL, KILL_DOOR, KILL_TRAP, MAKE_DOOR, MAKE_TRAP, AWAY_UNDEAD/EVIL/SPIRIT/ALL, TURN_*, DISP_*, SLEEP_ALL, MON_CLONE, MON_POLY, MON_HEAL, MON_SPEED, MON_SLOW, MON_CONF, MON_HOLD, MON_STUN, MON_DRAIN, MON_CRUSH: `type`, `desc`, `player-desc`, `blind-desc`, `lash-desc`, `numerator`/`denominator` (resist fraction), `divisor` and `damage-cap` (breaths), `msgt`, `obvious`, `wake`, `color` | | Ch. 8, 10 |
 
@@ -111,7 +111,7 @@ armor-class:108
 sleepiness:80                # 12.3: sleep 160 + 1d800
 depth:51                     # 12.2: alloc weight 100/rarity × (1 + 51/10) = 600 at rarity 1
 rarity:2                     # → 300
-experience:2800              # 5.x: 2800 × 51 / plev exp
+experience:2800              # 5.3: 2800 × 51 / plev exp
 blow:CLAW:HURT:6d12
 blow:CLAW:HURT:6d12
 blow:BITE:HURT:8d14

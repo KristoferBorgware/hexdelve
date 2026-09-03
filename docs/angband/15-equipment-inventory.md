@@ -158,8 +158,7 @@ Weapon weight limit (`calc_bonuses`): with `hold = adj_str_hold[STR]`
 `hold × 10` tenth-pounds is "heavy": `to_h += 2 × (hold − weight/10)`
 (a penalty), the blows calculation is skipped so the character gets a
 single blow, and "You have trouble wielding such a heavy weapon." is
-shown. The same test applies to bows ("…such a heavy bow"). See *Melee
-Combat* 7.2 for blows.
+shown. The same test applies to bows ("…such a heavy bow"). See *Player Stats* 4.7 for blows.
 
 ---
 
@@ -231,7 +230,7 @@ Weight itself: every object weight is in tenth-pounds (Long Sword 130 =
   ignored object when a pile is full.
 * Element damage to floor objects (fire balls burning scrolls, etc.)
   uses the same `HATES_x` / `IGNORE_x` flags as inventory damage, see
-  *Elements and Resistances* 10.8.
+  *Elements and Resistances* 10.5.
 
 ---
 
@@ -245,7 +244,7 @@ armour loses 1 to-AC, each with probability `cperc / 10000`; other items
 are destroyed one by one, each with probability `cperc / 10000` (rods a
 quarter of that); artifacts and equipped items are skipped here
 (equipped armour is handled separately by `minus_ac`, see *Chapter 10*
-10.8). Callers pass `cperc` as a multiple of the damage taken, so a
+10.5). Callers pass `cperc` as a multiple of the damage taken, so a
 300-point fire breath (`cperc` capped at 300) burns each scroll with
 about 3 % chance.
 

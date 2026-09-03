@@ -6,7 +6,7 @@
 
 Interacting with the dungeon's furniture: floor traps and runes, doors
 (opening, locking, bashing), rubble and walls (tunnelling), and chests.
-All of these use the disarm and digging skills from *Player Stats* 4.7.
+All of these use the disarm and digging skills from *Player Stats* 4.5 and 4.11.
 
 ---
 
@@ -188,7 +188,7 @@ Each attempt is one turn and succeeds if `chance > randint0(1600)`:
 Permanent rock cannot be dug. `SKILL_DIGGING` = race/class base +
 `TUNNEL` modifier × 20 from equipment (shovel +1, pick +2, dwarven
 pick +3, egos more) + wielded weapon weight / 10 + the STR-based
-`adj_str_dig` table (see *Player Stats* 4.7).
+`adj_str_dig` table (see *Player Stats* 4.11).
 The command automatically swaps to your **best digger** in the pack
 (`player_best_digger`) for the calculation, so you need not wield it.
 

@@ -27,7 +27,7 @@ once per "world tick" of 10 game turns. In that tick, in order:
 | Bloodlust | over-exertion penalties |
 | Heal timed effect | 30 hp per tick |
 | Black Breath | 50 % each: −CON, −STR, and drain `100 + exp/100 × life-drain (2)` experience |
-| Food | see *Timed Effects* 11.6: every 100 game turns digest `turn_energy(speed) × 100 / food-value`, ×2 `REGEN`, ÷2 `SLOW_DIGEST`; when Full, lose `5000/food_value` per tick instead; Faint: 1 in 10 faint (paralysed 1–5); Starving: damage `(PY_FOOD_STARVE − food) / 10` |
+| Food | see *Timed Effects* 11.4: every 100 game turns digest `turn_energy(speed) × 100 / food-value`, ×2 `REGEN`, ÷2 `SLOW_DIGEST`; when Full, lose `5000/food_value` per tick instead; Faint: 1 in 10 faint (paralysed 1–5); Starving: damage `(PY_FOOD_STARVE − food) / 10` |
 | Regeneration | `player_regen_hp` (if below max), `player_regen_mana` — *Chapter 11* |
 | Timed effects | `decrease_timeouts` — every player timed effect −1 (or its grade rule), curse timeouts −1 and curse effects fire at 0 (*Objects* 14.7.3) |
 | Light | `player_update_light`: torches/lanterns burn 1 fuel; "Your light is growing faint" at 100, out at 0 |
@@ -231,7 +231,7 @@ writes a separate file).
 | `birth_know_runes` | off | all runes known from the start |
 | `birth_know_flavors` | off | all flavours known from the start |
 | `birth_levels_persist` | off | levels are stored and restored (*Dungeon Generation* 16.8) |
-| `birth_percent_damage` | off | experimental: to-dam is a percentage of the dice (*Melee Combat* 7.5 O-combat multipliers) |
+| `birth_percent_damage` | off | experimental: to-dam is a percentage of the dice (*Melee Combat* 7.4 O-combat multipliers) |
 
 Birth options are frozen when the character is accepted; they are
 shown on the character dump.

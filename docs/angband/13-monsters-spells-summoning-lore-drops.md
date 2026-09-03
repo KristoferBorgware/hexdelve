@@ -7,7 +7,7 @@
 This chapter covers everything a monster does at range — spells,
 breaths, missiles, summons — and the two bookkeeping systems attached to
 monsters: what the player learns about them (lore) and what they carry
-(drops). Monster melee is in *Melee Combat* 7.9; how a monster decides to
+(drops). Monster melee is in *Melee Combat* 7.7; how a monster decides to
 act at all is in *Chapter 12*.
 
 ---
@@ -58,7 +58,7 @@ failure rate in 13.3.2.
 `spell_power` (P below) defaults to the monster's level unless the
 record sets `spell-power:`. Breath damage is a fraction of the
 monster's *current* hit points and is listed in *Elements and
-Resistances* 10.6; the standard divisors are 3 for the basic four
+Resistances* 10.2; the standard divisors are 3 for the basic four
 elements and poison, 6 for most others, and fixed caps per element.
 
 | Spell | Damage / effect |
@@ -203,7 +203,7 @@ for each level of confusion the monster has: to_hit = to_hit × 80 / 100
 hits = check_hit(player, to_hit)      /* same test_hit as melee, against ac + to_a */
 ```
 
-`test_hit` is the melee formula from *Melee Combat* 7.3:
+`test_hit` is the melee formula from *Melee Combat* 7.1:
 `0.12 + 0.83 × max(0, to_hit − 2AC/3) / to_hit`. A level-30 archer with
 `hit:50` arrows has to_hit 140; against AC 60 that hits
 `0.12 + 0.83 × (140 − 40)/140 = 71 %`. Spells with `hit:100` (all balls,
@@ -212,7 +212,7 @@ bolts, breaths and curses) always hit.
 Spells with a **saving throw** (`MIND_BLAST`, `BRAIN_SMASH`, `WOUND`,
 `SCARE`, `BLIND`, `CONF`, `SLOW`, `HOLD`, `TELE_LEVEL`, `FORGET`) are
 resisted when `randint0(100) < skills[SKILL_SAVE]` ("You resist the
-effects!"); see *Player Stats* 4.7 for the saving-throw skill.
+effects!"); see *Player Stats* 4.5 for the saving-throw skill.
 
 ### 13.3.4 Breath geometry
 

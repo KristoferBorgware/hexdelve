@@ -85,7 +85,7 @@ free, * = variable.
 | Zap rod | `z` / `a` | F |
 | Activate | `A` | F |
 | Use (any of the above) | `U` | F |
-| Fire | `f` / `t` | F ÷ shots (see *Ranged Combat* 8.2) |
+| Fire | `f` / `t` | F ÷ shots (see *Ranged Combat* 8.1) |
 | Fire at nearest | `h` / `Tab` | as fire |
 | Throw | `v` | F (thrown-weapon rules) |
 
