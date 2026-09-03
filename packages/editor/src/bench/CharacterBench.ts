@@ -35,27 +35,11 @@ import {
 	type SparsePose,
 	type WorldPose,
 } from '@hexdelve/engine';
-import { axialDisc, axialToWorld, mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
+import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
 import { BenchControls } from './BenchControls.js';
 import { BENCH_RIGS, type BenchAnimation, type BenchRig } from './rigs.js';
-
-/*
- * The stand: a hex disc of this radius in tiles, on a plinth.
- *
- * Three shades rather than two, because a hex grid cannot be two-coloured —
- * every cell has six neighbours in a ring of odd parity. `(q - r) mod 3` is
- * the three-colouring, and it is what makes the turntable read as turning.
- */
-const PAD_RADIUS = 1;
-const PAD_DEPTH = 0.3;
-const PAD_SHADES = [0x5f7053, 0x6d7f60, 0x4e5c45];
-const PAD_EDGE = 0x3c4636;
-/** Circumradius of the plinth, chosen to sit just outside the disc. */
-const PLINTH_RADIUS = 3.05;
-
-/** What the shadow map has to cover: the pad, and a creature standing on it. */
-const SHADOW_FIT = { center: vec3.vec3(0, 0.8, 0), radius: 3.4 };
+import { emitStand, SHADOW_FIT } from './stand.js';
 
 export interface BenchOptions {
 	canvas: HTMLCanvasElement;
@@ -132,6 +116,7 @@ export class CharacterBench {
 	private instanceCount = 0;
 	private smoothedFps = 0;
 	private disposed = false;
+	private lastDuration = 0;
 
 	/** Asynchronous for the same reason the client is: asking for a GPU is. */
 	static async create(options: BenchOptions): Promise<CharacterBench> {
@@ -269,6 +254,10 @@ export class CharacterBench {
 	setAnimation(animation: BenchAnimation): void {
 		this.animation = animation;
 		this.time = 0;
+		// A different animation is a different cycle, and its length is not a
+		// change in this one's — so there is nothing to rescale against.
+		this.lastDuration = 0;
+		this.playing = true;
 		if (!this.running) this.renderOnce();
 	}
 
@@ -356,14 +345,33 @@ export class CharacterBench {
 		this.build();
 	}
 
+	/**
+	 * Keep the playhead meaning the same thing when the cycle changes length.
+	 *
+	 * A clip's duration is a constant, but a blend tree's is not: blend a walk
+	 * towards a run and the cadence speeds up under you. Left alone, a playhead
+	 * measured in seconds would then sit at a different point in the cycle than
+	 * it did a frame ago — the footfall would jump. Rescaling it holds the
+	 * PHASE, which is the quantity that actually matters, and is the same thing
+	 * as integrating the phase directly.
+	 */
+	private syncCycle(): void {
+		const duration = this.animation.duration;
+		if (this.lastDuration > 1e-6 && duration > 1e-6 && duration !== this.lastDuration) {
+			this.time *= duration / this.lastDuration;
+		}
+		this.lastDuration = duration;
+	}
+
 	/** Everything on screen, rebuilt into the three passes. */
 	private build(): void {
+		this.syncCycle();
 		const { opaque, blended, overlay, frame } = this;
 		opaque.clear();
 		blended.clear();
 		overlay.clear();
 
-		if (this.show.ground) this.emitStand(opaque);
+		if (this.show.ground) emitStand(opaque);
 
 		this.animation.sample(this.time, this.pose);
 		this.world = solveWorld(this.rigOnStand.skeleton, this.pose, this.world);
@@ -395,21 +403,6 @@ export class CharacterBench {
 			blended: blended.count,
 			overlay: overlay.count,
 		});
-	}
-
-	/**
-	 * The stand: a hex pad, checkered, on a plinth.
-	 *
-	 * Checkered because a turntable with no texture on it does not read as
-	 * turning, and the whole value of spinning the stand is seeing that it did.
-	 */
-	private emitStand(out: HexInstances): void {
-		out.push(0, -PAD_DEPTH - 0.09, 0, PLINTH_RADIUS, 0.18, PLINTH_RADIUS, PAD_EDGE);
-		for (const cell of axialDisc(PAD_RADIUS)) {
-			const { x, z } = axialToWorld(cell.q, cell.r);
-			const shade = PAD_SHADES[(((cell.q - cell.r) % 3) + 3) % 3]!;
-			out.push(x, -PAD_DEPTH / 2, z, 0.985, PAD_DEPTH, 0.985, shade);
-		}
 	}
 
 	/** A marker on the selected bone, drawn without a depth test so it is findable. */

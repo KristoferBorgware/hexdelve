@@ -1,33 +1,19 @@
 /*
  * What the bench can put on the stand.
  *
- * A rig here is the three things that have to agree before a character can be
- * looked at — a skeleton, a body hung on it, and something that poses it — and
+ * A rig here is the things that have to agree before a character can be looked
+ * at — a skeleton, a body hung on it, and the animations that pose it — and
  * they all come out of `@hexdelve/client`, because that is the package that
  * owns them. The bench builds no character of its own; if the wanderer grows a
  * bone, he grows it in one place and the bench shows it.
  *
- * The one abstraction the bench adds is `BenchAnimation`: a duration and a
- * function from a time to a pose. That is deliberately the smallest thing both
- * kinds of animation in this project can be. A keyframed clip is one, and so is
- * the procedural stride, which is a function of an angle and has no keys at
- * all — and so, later, is a blend tree, which is a function of its parameters.
- * The transport does not need to know which it is driving.
+ * The animations are three kinds under one interface (see `animation.ts`):
+ * keyframed clips, pose functions, and blend trees. The list below deliberately
+ * carries all three for each subject, because the point of having the tree next
+ * to its own leaves is being able to look at one and then the other.
  */
 
-import {
-	bindClip,
-	boneIndex,
-	boneNames,
-	createPose,
-	denseToSparse,
-	sampleBound,
-	type BoneTip,
-	type Clip,
-	type Model,
-	type Skeleton,
-	type SparsePose,
-} from '@hexdelve/engine';
+import type { BoneTip, Model, Skeleton } from '@hexdelve/engine';
 import {
 	BAT_SKELETON,
 	BAT_TIPS,
@@ -41,26 +27,19 @@ import {
 	HOVER_Y,
 	lungePose,
 	perchPose,
+	RUN_PERIOD,
 	SKELETON,
 	SLASH,
 	stridePose,
-	RUN_PERIOD,
 	TIPS,
 	WALK_PERIOD,
 } from '@hexdelve/client';
 
-export interface BenchAnimation {
-	readonly id: string;
-	readonly label: string;
-	/** One cycle, in seconds. Scrubbing runs 0..duration and no further. */
-	readonly duration: number;
-	/** Whether the end of that cycle is the start of it again. */
-	readonly loop: boolean;
-	/** Where it came from, for the readout: keys on disk, or code. */
-	readonly kind: 'clip' | 'procedural';
-	/** The pose at `t` seconds, written into `out` and returned. */
-	sample(t: number, out: SparsePose): SparsePose;
-}
+import { clipAnimation, procedural, type BenchAnimation } from './animation.js';
+import { batTree, wandererTree } from './trees.js';
+
+export type { BenchAnimation, BenchParameter, BenchTreeAnimation } from './animation.js';
+export { initialParameters, isTree } from './animation.js';
 
 export interface BenchRig {
 	readonly id: string;
@@ -74,44 +53,6 @@ export interface BenchRig {
 	readonly focusY: number;
 	/** And how far out to stand to see all of it. */
 	readonly frameDistance: number;
-}
-
-/**
- * A clip, bound to its skeleton once.
- *
- * Binding resolves the clip's bone names to indices, so sampling a frame is a
- * walk down a short array rather than a string lookup per bone. That matters
- * less on a bench than in the game — but the bench is meant to show what the
- * game will do with a clip, and sampling it through a different path would be
- * a poor way to check one.
- */
-function clipAnimation(clip: Clip, skeleton: Skeleton, label: string): BenchAnimation {
-	const names = boneNames(skeleton);
-	const bound = bindClip(clip, boneIndex(skeleton));
-	const dense = createPose(names.length);
-
-	return {
-		id: clip.name,
-		label,
-		duration: clip.duration,
-		loop: clip.loop === 'loop',
-		kind: 'clip',
-		sample(t, out) {
-			sampleBound(bound, t, dense);
-			return denseToSparse(names, dense, out);
-		},
-	};
-}
-
-/** A pose function, wrapped as an animation over one cycle of it. */
-function procedural(
-	id: string,
-	label: string,
-	duration: number,
-	loop: boolean,
-	sample: (t: number, out: SparsePose) => SparsePose,
-): BenchAnimation {
-	return { id, label, duration, loop, kind: 'procedural', sample };
 }
 
 const TAU = Math.PI * 2;
@@ -142,6 +83,7 @@ function wandererRig(): BenchRig {
 		frameDistance: 4.2,
 		model: () => (built ??= buildWanderer()),
 		animations: [
+			wandererTree(),
 			procedural('idle', 'Idle', BREATH_PERIOD, true, (t, out) =>
 				stridePose(0, 0, FORWARD, 0, t, out),
 			),
@@ -171,6 +113,7 @@ function batRig(): BenchRig {
 		frameDistance: 5.4,
 		model: () => (built ??= buildBat()),
 		animations: [
+			batTree(),
 			procedural('fly', 'Fly', FLAP_PERIOD, true, (t, out) =>
 				flyPose((t / FLAP_PERIOD) * TAU, 1, t, out),
 			),

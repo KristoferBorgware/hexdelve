@@ -1,16 +1,21 @@
 /*
- * The editor shell: a toolbar, and one of three views under it.
+ * The editor shell: a toolbar, and one of four views under it.
  *
  * The YARD is the game, in a box — the client, unchanged, doing what a player
- * would see. The other two are benches, and a bench is this editor's word for a
- * view that holds one thing still while it is judged, because a running world
- * will not. The CHARACTER bench holds a rig at a frame you choose; the LEVEL
- * bench holds a generated dungeon while its algorithm is compared against
- * another one's.
+ * would see. The three BENCHES are the other thing an editor is for: one
+ * subject, alone, held still. The character bench puts a rig on a stand with a
+ * clock, because a running world will not hold a frame still; the prop bench
+ * puts one piece of gear on the same stand, because a running world will not
+ * show you a helmet at all — the three in the yard are lying in the grass at the
+ * far end of it; and the level bench holds one generated dungeon while its
+ * algorithm is compared against another one's, because a generator is a function
+ * from a seed to a shape and the only way to judge the shape is to look at a lot
+ * of them quickly. All three have scenes of their own for that reason and no
+ * other.
  *
- * The level bench has no clock, which is why the transport is disabled while it
- * is up rather than left there doing nothing: a level does not move, it is
- * redrawn when something about it changes.
+ * The level bench is the one with no clock, which is why the transport is
+ * disabled while it is up rather than left there doing nothing: a level does not
+ * move, it is redrawn when something about it changes.
  *
  * The backend selector and the transport are shared, and sit here rather than
  * being buried in a settings dialog on purpose. Two renderers that are meant to
@@ -33,12 +38,13 @@ import type { HexdelveClient } from '@hexdelve/client';
 import type { BackendPreference } from '@hexdelve/engine';
 
 import { Bench } from './components/Bench.js';
+import { PropBenchView } from './components/PropBenchView.js';
 import { Inspector } from './components/Inspector.js';
 import { Levels } from './components/Levels.js';
 import { SceneOutline } from './components/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
 
-type View = 'yard' | 'bench' | 'levels';
+type View = 'yard' | 'bench' | 'props' | 'levels';
 
 export function App() {
 	const [client, setClient] = useState<HexdelveClient | null>(null);
@@ -69,6 +75,7 @@ export function App() {
 					>
 						<ToggleButton value="yard">Yard</ToggleButton>
 						<ToggleButton value="bench">Character</ToggleButton>
+						<ToggleButton value="props">Props</ToggleButton>
 						<ToggleButton value="levels">Level</ToggleButton>
 					</ToggleButtonGroup>
 
@@ -118,6 +125,7 @@ export function App() {
 					</>
 				)}
 				{view === 'bench' && <Bench backend={backend} running={running} />}
+				{view === 'props' && <PropBenchView backend={backend} running={running} />}
 				{view === 'levels' && <Levels backend={backend} />}
 			</Box>
 		</Box>

@@ -23,7 +23,13 @@ import { useCallback, useEffect, useState } from 'react';
 import type { BackendPreference } from '@hexdelve/engine';
 
 import type { BenchShow, CharacterBench } from '../bench/CharacterBench.js';
-import { BENCH_RIGS, type BenchAnimation, type BenchRig } from '../bench/rigs.js';
+import {
+	BENCH_RIGS,
+	initialParameters,
+	isTree,
+	type BenchAnimation,
+	type BenchRig,
+} from '../bench/rigs.js';
 import { BenchInspector } from './BenchInspector.js';
 import { BenchViewport } from './BenchViewport.js';
 import { BoneOutline } from './BoneOutline.js';
@@ -42,6 +48,16 @@ export function Bench({ backend, running }: BenchProps) {
 	const [selectedBone, setSelectedBone] = useState<string | null>(null);
 	const [show, setShow] = useState<BenchShow>(DEFAULT_SHOW);
 	const [speed, setSpeed] = useState(1);
+	/*
+	 * A tree's parameters, and whether its synced leaves share a phase. Both
+	 * live here for the same reason as everything else on this list: the tree
+	 * objects outlive any one renderer, but the panel's reading of them would
+	 * not if it were held next to the device.
+	 */
+	const [params, setParams] = useState<Record<string, number>>(() =>
+		initialParameters(BENCH_RIGS[0]!.animations[0]!),
+	);
+	const [treeSync, setTreeSync] = useState(true);
 
 	// Stable, because BenchViewport tears the bench down when this changes.
 	const onBenchReady = useCallback((next: CharacterBench | null) => setBench(next), []);
@@ -57,15 +73,27 @@ export function Bench({ backend, running }: BenchProps) {
 		bench.selectedBone = selectedBone;
 		bench.speed = speed;
 		Object.assign(bench.show, show);
+		if (isTree(animation)) {
+			// Written onto the tree rather than passed to it, because the frame
+			// loop samples between renders and React is not in that path.
+			Object.assign(animation.params, params);
+			animation.tree.sync = treeSync;
+		}
 		if (!bench.running) bench.renderOnce();
-	}, [bench, rig, animation, selectedBone, show, speed]);
+	}, [bench, rig, animation, selectedBone, show, speed, params, treeSync]);
+
+	const chooseAnimation = (next: BenchAnimation): void => {
+		setAnimation(next);
+		// Parameters belong to a tree, so they start again with each one.
+		setParams(initialParameters(next));
+	};
 
 	const chooseRig = (next: BenchRig): void => {
 		if (next === rig) return;
 		// A new creature brings its own bones and its own clips; neither of the
 		// old selections means anything on it.
 		setRig(next);
-		setAnimation(next.animations[0]!);
+		chooseAnimation(next.animations[0]!);
 		setSelectedBone(null);
 	};
 
@@ -84,7 +112,13 @@ export function Bench({ backend, running }: BenchProps) {
 				bench={bench}
 				rig={rig}
 				animation={animation}
-				onAnimationChange={setAnimation}
+				onAnimationChange={chooseAnimation}
+				params={params}
+				onParamChange={(name, value) =>
+					setParams((current) => ({ ...current, [name]: value }))
+				}
+				treeSync={treeSync}
+				onTreeSyncChange={setTreeSync}
 				show={show}
 				onShowChange={(key, value) => setShow((current) => ({ ...current, [key]: value }))}
 				speed={speed}

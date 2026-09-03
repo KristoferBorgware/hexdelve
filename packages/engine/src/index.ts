@@ -51,6 +51,7 @@ export {
 	createPose,
 	copyPose,
 	clearPose,
+	addPose,
 	lerpPose,
 	lerpPoseMasked,
 	denseToSparse,
@@ -101,6 +102,39 @@ export {
 	type IkChain,
 	type IkResult,
 } from './anim/ik.js';
+
+export {
+	measureGroundSpeed,
+	type GroundVelocity,
+	type GroundSpeedOptions,
+} from './anim/measure.js';
+
+/*
+ * Blend trees: a pose from a set of numbers rather than from a clip name.
+ * Engine-side because everything it touches is — poses, clips, skeletons — and
+ * nothing in it knows what a renderer is.
+ */
+export {
+	BlendTree,
+	clipSource,
+	poseSource,
+	leaf,
+	blend1d,
+	additive,
+	layer,
+	nodeChildren,
+	type PoseSource,
+	type BlendNode,
+	type LeafNode,
+	type LeafOptions,
+	type Blend1DNode,
+	type Blend1DEntry,
+	type AdditiveNode,
+	type LayerNode,
+	type ActiveLeaf,
+	type BlendTreeOptions,
+	type Parameters,
+} from './anim/blendtree.js';
 
 export { Ticker, type TickerOptions, type FixedUpdate, type FrameUpdate } from './core/Ticker.js';
 

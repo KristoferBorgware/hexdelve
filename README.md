@@ -34,6 +34,14 @@ no server needed.**
 Labs 02–09 share one rig and one animation system (lab 08 adds a second rig for
 the bat), and labs 06–09 share one world; see `labs/shared/` below.
 
+## Documentation
+
+- [The Angband Bible](docs/angband/README.md) — a 21-chapter mechanics
+  reference for Angband 4.2.6 derived from its source code: energy and
+  speed, combat, magic, resistances, monsters and their AI, objects, dungeon
+  generation, traps, stores, scoring, and every gamedata file. Written as
+  background reading for the dungeon-crawl side of these experiments.
+
 ## Layout
 
 Two halves that share a subject and nothing else. The **labs** are plain HTML
@@ -47,16 +55,17 @@ packages/
   shared/       maths, hex coordinates, seeded random — no dependencies at all
   engine/       WebGPU and WebGL2 rendering, camera, frame loop
   client/       the game itself; the package built for external distribution
-  editor/       React and Material UI shell: the client in a viewport, and two
-                benches — one rig on its own, and one generated level
-docs/
-  angband/      notes on Angband's rules, as a reference for the game's own
-  levelgen.md   the level generation stacks, what they measured, what is next
+  editor/       React and Material UI shell: the client in a viewport, plus a
+                character bench for one rig, a prop bench for one piece of gear
+                and a level bench for one generated dungeon, each on its own
   desktop/      Electron wrapper around the client's build
 labs/           one folder per lab, each a standalone page
   shared/       the code the labs are built from
 assets/
   audio/        ambience, and the scripts that synthesise it
+docs/
+  angband/      Angband's rules, read out of its source as a reference
+  levelgen.md   the level generation stacks, what they measured, what is next
 tools/          the landing-page generator and the Pages staging script
 ```
 
@@ -76,6 +85,10 @@ npm run dev:client      # the client on its own
 npm run build           # every package
 npm run typecheck       # every package, no output
 npm run build:pages     # build, then stage the whole site in dist/pages
+npm run check:picking   # does a point on screen map back to the point drawn there
+npm run check:blend     # does the blend tree blend what it says it does
+npm run check:shaders   # do both shader sets compile and both pipeline sets build
+npm run check:render    # does the yard still look like the stored picture
 ```
 
 npm workspaces, so one `npm install` at the root wires the five packages
@@ -107,44 +120,112 @@ renderer toggle is in the toolbar rather than a settings dialog, because two
 backends meant to draw the same picture only stay that way if switching is one
 click during ordinary work.
 
-It has three views. The **yard** is the client, in a box: no editor renderer and
+It has four views. The **yard** is the client, in a box: no editor renderer and
 no editor scene, so whatever the editor can do to the world an embedder can do
-too. The other two are *benches*, and a bench is this editor's word for a view
-that holds one thing still while it is judged, because a running world will not.
+too. The three **benches** are the exception, and say why in their own name — a
+bench is one subject, alone, held still, which is exactly what a running world
+will not give you. They have scenes of their own for that reason and no other,
+and they build nothing of their own: the skeletons, the bodies, the clips and
+the gear all come out of the client, so what reads well on a bench is what the
+game draws.
 
-The **character bench** puts one rig on a stand with a clock. It has a scene of
-its own for that reason and no other, and it still builds no character of its
-own: the skeleton, the body and the clips all come out of the client, so a pose
-that reads well on the bench is the pose the game will play. It is deliberately a
-*preview*, not an editor. Pick a subject, pick an animation, play it, scrub it,
-slow it down, ghost the body to see the rig through it, mark a bone and read
-where the pose put it. What it is built around is the smallest thing every
-animation in this project has in common — a duration, and a function from a time
-to a pose. A keyframed clip is one of those, and so is the procedural stride,
-which has no keys at all; a blend tree will be another, and when it arrives it
-becomes one more entry in the list with parameters of its own, and the transport
-does not change.
+The **character bench** puts a rig on a stand with a clock. Pick a subject, pick
+an animation, play it, scrub it, slow it down, ghost the body to see the rig
+through it, mark a bone and read where the pose put it. What it is built around
+is the smallest thing every animation in this project has in common — a
+duration, and a function from a time to a pose. A keyframed clip is one of
+those; so is the procedural stride, which has no keys at all; and so is a blend
+tree, which is a function of its parameters. Gaining trees did not change the
+transport, only what is underneath it.
 
-The **level bench** does the same for level generation, against a different
-problem: a generator is a function from a seed to a shape, and the only way to
-know whether the shape is any good is to look at a lot of them quickly with the
-knobs in reach. It has no clock at all, so the transport is disabled while it is
-up — a level does not move, it is redrawn when something about it changes. It
-draws a `Level` and knows nothing about how one is made, which is what makes the
-comparison worth trusting: two algorithms cannot look different because one of
-them got nicer drawing code.
+### Blend trees
+
+`@hexdelve/engine` carries the tree itself, next to the poses and clips it is
+made of, because nothing in it knows what a renderer is. Three operations:
+
+| | |
+|---|---|
+| `blend1d` | the two children bracketing a parameter, weighted by where it falls between their thresholds |
+| `additive` | a subtree laid **on top of** another. A sum, because every value here is already a delta from rest, so the same lean composes with every gait instead of being authored once per gait |
+| `layer` | a subtree blended in through a per-bone **mask** — how this game carries a shield while walking: the arms hold a stance and the hips go on with the stride |
+
+A leaf is not a clip. It is anything that can answer "the pose at *t*", which
+here means a keyframed clip **or** a pose function — half the animation in this
+project is a function of an angle and has no keys at all.
+
+The interesting part is not the weighting, it is **phase synchronisation**. Two
+cycles of different lengths, run on their own clocks and mixed, put a
+character's legs in two places at once, and the average of a foot planting and
+a foot lifting is a foot skating. So the synced leaves share one normalised
+phase, are stretched onto the weighted blend of their own cycle lengths, and are
+each offset by their own contact phase so the footfalls land together. The
+bench has a toggle to take that away, and a readout that says what it cost.
+
+Thresholds on the speed axis are metres per second, and they are **measured**
+rather than typed: `measureGroundSpeed` asks the pose where the planted foot is
+at the two contact keys, which is the same argument the stride's own velocity
+rests on and now the same code. So the bench can show the asked-for speed
+against the delivered one, and the gap in between two thresholds is the honest
+error a calibration pass would remove. A bench should show that, not hide it.
+
+`npm run check:blend` asserts all of that without a browser, because a blend
+tree is the part of an animation system that fails without telling anyone:
+nothing throws when two gaits drift apart. The weights stay sensible, the pose
+stays valid, the man still walks — he just skates. So the check pins the
+thresholds (at a leaf's own threshold the tree must *be* that leaf, same cycle
+and same speed), the sync (zero spread across the whole axis, and never
+travelling backwards), the additive gain (0 changes nothing, ½ adds half, 1 adds
+the layer whole) and the mask (the upper body takes the guard, the legs go on
+striding). Take the contact phase out and it reports him walking backwards at
+half a metre a second.
+
+The **prop bench** is the catalogue: every piece of gear in the game in one
+list, and three ways of looking at the one you pick, which are the three
+transforms a prop is ever drawn through. *Stand* is the model as authored,
+centred on the pad. *Ground* is its own lift and tilt — how it lies in the
+grass. *Worn* hangs it on its bone on a ghosted wanderer, which is the view that
+catches mistakes: a prop is modelled around the origin of the bone it belongs
+to, so equipping it is a change of parent and nothing else, and the only way to
+know the modelling is right is to see it on the man it was measured against.
+Alongside those are the numbers. The measured ones are read off the mesh — every
+corner of every prism through the transform it is drawn under, so a dimension is
+a dimension. The rest are a **mock**: props in this game are meshes and have no
+stats at all yet, and the panel says so. It is a form, generated from a table of
+field descriptions rather than written out, so adding a stat is one line and
+adding an item system later replaces the table and not the panel. Nothing is
+saved; edits survive a renderer switch and a walk through the catalogue, and a
+reload starts over.
+
+The **level bench** is the third, and the one with no clock at all — which is why
+the transport is disabled while it is up rather than left there doing nothing. A
+level does not move; it is redrawn when something about it changes. What it is
+for is a different problem from the other two: a generator is a function from a
+seed to a shape, and the only way to know whether the shape is any good is to
+look at a lot of them quickly with the knobs in reach. It draws a `Level` and
+knows nothing about how one is made, which is what makes the comparison worth
+trusting — two algorithms cannot look different because one of them got nicer
+drawing code.
 
 Two stacks are in it so far, from opposite ends of the field. The **cave** stack
-is chamfer's own noise-band carve, read on the ground plane — the algorithm that
-could only make one wide folded sheet in three dimensions makes winding
-corridors in two, because the band round a contour on a plane is a ribbon. The
-**WFC** stack is mxgmn's simple tiled model on six neighbours, over a tileset of
-hex cells whose six edges carry a wall, a corridor or a room socket; rooms,
-corridors and doors all fall out of one rule, that corridors and rooms may not
-meet except through a tile that has both. They fail in opposite directions — the
-cave has no concept of a room, the wave function has no idea whether the level is
-one piece — and the bench shows both failures as numbers rather than opinions.
-`docs/levelgen.md` has the measurements and the list of what to try next.
+is chamfer's own noise-band carve, ported down to the hash and the octave order
+and read on the ground plane. chamfer's note on that function says the band round
+a zero set in three dimensions is a slab, which is why its caves are one wide
+folded sheet; on a plane the zero set is a set of curves and the band round one
+is a ribbon, which is a corridor — the thing that world works around is the thing
+this wants. The **WFC** stack is mxgmn's simple tiled model on six neighbours,
+over a tileset of our own: thirteen specs of a hex cell whose six edges carry a
+wall, a corridor or a room socket, expanded to 61 rotations, with adjacency
+derived from the sockets rather than listed as neighbour pairs. Three socket
+kinds rather than two is the whole design — corridors and rooms may not meet
+except through a tile that has both — so rooms, corridors and doors all fall out
+of one rule.
+
+They fail in opposite directions, which is the useful result: the cave has no
+concept of a room and never will, and the wave function has no idea whether the
+level is one piece and can fail outright. The bench reports both as numbers
+rather than opinions — a region count, a colour per component, and how many seeds
+the solver burned. `docs/levelgen.md` has the measurements and eight algorithms
+worth trying next.
 
 **`@hexdelve/desktop`** opens an Electron window on the client's own web build.
 No desktop-only rendering path and no desktop-only game code, so what ships on
@@ -455,3 +536,10 @@ and their feet slide the rest of it.
 Lab 09 measures the second way and travels at the speed its stride makes, which
 is why the same character is quicker there. The older labs are left as they are:
 changing the measurement would move every speed in six of them.
+
+The packages only ever measure the second way. `measureGroundSpeed` in
+`@hexdelve/engine` shares the labs' name and none of its method: it is given the
+contact schedule rather than hunting for contact by height, which is what the
+stride's own velocity has always done and now the only copy of that argument.
+Blend-tree thresholds are read off it, so a threshold in the editor's bench is a
+real metre per second.

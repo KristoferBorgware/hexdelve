@@ -187,15 +187,31 @@ non-issue and makes the cave carve usable at narrower widths, and it costs one
 function that every future stack inherits for free. This is the highest-value
 next thing in the folder.
 
-**2. Room-and-corridor (BSP or accretion).** The classic, and the one Angband
-uses — `docs/angband/` is already in this repository. Partition the disc, place
-rooms in the partitions, connect them with tunnels. Connected by construction,
-trivially fast, and every room is a place the game can *name*: a vault, a
-treasure room, a guard post. On hexes the partition wants to be a rhombus or
-triangle subdivision rather than a rectangle split, or skip the partition and do
+Angband does exactly this and calls it `ensure_connectedness`: flood-fill from
+the first room, tunnel to anything not yet reachable, and the level is connected
+without the player needing to dig — see `docs/angband/16-dungeon-generation.md`
+§16.3.3. It is worth copying the *placement* of the step as much as the step: it
+runs after the generator has had its say, not inside it, which is why it works
+for every profile that game has.
+
+**2. Room-and-corridor.** The classic, and the one Angband uses;
+`docs/angband/16-dungeon-generation.md` is a chapter-length description of a
+shipped implementation and should be read before writing this stack. Place rooms
+from a weighted table of *builders* (§16.2.2), then connect their centres in a
+shuffled cycle with a tunneller that heads for its target but turns at random 30%
+of the time, pierces room walls and leaves a door there 25% of the time, and
+puts a door at 50% of the junctions it crosses (§16.3.3). Connected by
+construction, trivially fast, and every room is a place the game can *name* — a
+vault, a pit, a nest (§16.4, §16.5).
+
+Two things do not port unchanged. Angband's classic profile reserves rooms in
+11×11 blocks and its modified profile lets each builder find its own space; on a
+hex disc the second is the one that generalises, since there is no clean
+rectangular block to reserve. And the tunneller's four directions become six,
+which is a simplification rather than a complication: there are no diagonals to
+special-case, which is the reason this project uses hexes at all.
 **Brogue-style accretion** — place one room, attach the next to a door on the
-frontier, repeat — which suits an irregular disc better and gives more varied
-rooms.
+frontier, repeat — is the same family and suits an irregular disc even better.
 
 **3. Delaunay + minimum spanning tree (the "TinyKeep" recipe).** Scatter room
 centres, push them apart until they stop overlapping, triangulate the centres,
@@ -209,15 +225,18 @@ different from stack one: seed noise at random, then repeatedly set each cell to
 the majority of its six neighbours. On a hex grid there are no diagonal
 ambiguities and the rule is one comparison. Produces rounder, blobbier caverns
 than the noise band, which are worth having as a contrast — and it is about
-fifteen lines. Cheap enough that it should probably go in before anything
-complicated.
+fifteen lines. Angband's own **cavern** profile is this, joined into one
+connected region afterwards and never lit (§16.7). Cheap enough that it should
+probably go in before anything complicated.
 
 **5. Growing-tree mazes, then carve.** Recursive backtracker or Prim over the
 hex grid gives a perfect maze — connected, no loops, every cell reachable — and
 then the classic recipe is to remove a fraction of dead ends and widen some
 cells into rooms. Its virtue is that connectivity is a *theorem* rather than a
 hope, which is exactly what WFC lacks. Its vice is that undecorated maze output
-is tedious to walk.
+is tedious to walk, which Angband concedes by making its **labyrinth** profile a
+rare, mostly-lit, sometimes fully-mapped special case rather than a normal level
+(§16.7).
 
 **6. Generative grammars / mission graphs (Dormans).** Generate the *mission*
 first as a graph — enter, find key, open lock, reach boss — and only then lay it
@@ -243,6 +262,25 @@ Two things that are **not** worth the trouble here: answer-set programming and
 constraint solvers in general (the expressiveness is real, the dependency and
 the solve times are not), and anything learned from data (there is no corpus of
 Hexdelve levels to learn from, and there will not be one).
+
+## Beyond the shape
+
+Two things the bench does not yet ask about, both worth deciding early because
+they constrain the choice above.
+
+**Stairs and arrival.** Entry and exit here are the two ends of the floor graph,
+which is a reasonable default and is not what a game wants: Angband places 1–3
+down staircases and 1–2 up, and with persistent levels it places them where the
+adjacent level's stairs were, so they line up (§16.3.5, §16.8). The moment
+levels persist, "where is the exit" stops being a property of one level.
+
+**What a room is for.** Every algorithm above produces space; none of them
+produces *meaning*. Angband gets that from a rarity-weighted table of room
+builders and from `pit.txt` — a pit is a room whose contents are one themed
+monster group, and a vault is a room read from a text file with its own layout
+and guarantee (§16.4, §16.5). That is a data problem sitting on top of whichever
+generator wins, and it is the reason to prefer a stack whose output *has* rooms
+that can be labelled, over one that merely has open space.
 
 ## Reading the bench
 

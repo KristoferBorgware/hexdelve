@@ -1,12 +1,17 @@
 /*
- * The bench's right-hand panel: the transport, and what the pose is doing.
+ * The bench's right-hand panel: the transport, the tree, and what the pose is
+ * doing.
  *
- * The transport is the part worth arguing about. An animation here is a
- * duration and a function from a time to a pose — that is all a keyframed clip
- * and the procedural stride have in common, and it is all a blend tree will
- * have in common with either. So the panel drives a playhead and nothing else:
- * pick, play, scrub, slow down. When a tree arrives it becomes another entry in
- * the list with parameters of its own, and none of this changes.
+ * The transport drives a playhead and nothing else — pick, play, scrub, slow
+ * down — because a duration and a function from a time to a pose is all a clip,
+ * a pose function and a blend tree have in common. Gaining trees did not change
+ * it; it grew a section underneath.
+ *
+ * That section is where a tree is actually checked rather than merely watched.
+ * The parameters move the pose, the tree view says which leaf is worth what,
+ * and three numbers say whether the blend is honest: the cycle it settled on,
+ * how far the synced leaves have drifted apart, and — for a subject that walks
+ * — what the blend really carries him at against what was asked for.
  *
  * What is chosen here is owned by `Bench`, so it survives a renderer switch;
  * what the CLOCK is doing is owned by the bench and polled. The frame loop
@@ -31,15 +36,21 @@ import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import { useEffect, useState, type ReactElement } from 'react';
+import type { ActiveLeaf } from '@hexdelve/engine';
 
 import type { BenchShow, CharacterBench } from '../bench/CharacterBench.js';
-import type { BenchAnimation, BenchRig } from '../bench/rigs.js';
+import { isTree, type BenchAnimation, type BenchRig } from '../bench/rigs.js';
+import { TreeView } from './TreeView.js';
 
 export interface BenchInspectorProps {
 	bench: CharacterBench | null;
 	rig: BenchRig;
 	animation: BenchAnimation;
 	onAnimationChange(animation: BenchAnimation): void;
+	params: Record<string, number>;
+	onParamChange(name: string, value: number): void;
+	treeSync: boolean;
+	onTreeSyncChange(value: boolean): void;
 	show: BenchShow;
 	onShowChange(key: keyof BenchShow, value: boolean): void;
 	speed: number;
@@ -56,11 +67,21 @@ const SHOW: { key: keyof BenchShow; label: string; hint: string }[] = [
 
 const SPEEDS = [0.1, 0.25, 0.5, 1, 2];
 
+const KIND_LABEL: Record<BenchAnimation['kind'], string> = {
+	clip: 'keyframed clip',
+	procedural: 'pose function',
+	tree: 'blend tree',
+};
+
 export function BenchInspector({
 	bench,
 	rig,
 	animation,
 	onAnimationChange,
+	params,
+	onParamChange,
+	treeSync,
+	onTreeSyncChange,
 	show,
 	onShowChange,
 	speed,
@@ -73,6 +94,11 @@ export function BenchInspector({
 	const [time, setTime] = useState(0);
 	const [playing, setPlaying] = useState(true);
 	const [bonePosition, setBonePosition] = useState<[number, number, number] | null>(null);
+	const [active, setActive] = useState<readonly ActiveLeaf[]>([]);
+	const [spread, setSpread] = useState(0);
+	const [measured, setMeasured] = useState<number | null>(null);
+
+	const tree = isTree(animation) ? animation : null;
 
 	useEffect(() => {
 		if (!bench) return;
@@ -84,14 +110,20 @@ export function BenchInspector({
 			setPlaying(bench.playing);
 			const bone = selectedBone ? bench.bones[selectedBone] : undefined;
 			setBonePosition(bone ? [bone.p[0], bone.p[1], bone.p[2]] : null);
+
+			if (!tree) return;
+			setActive(tree.tree.active);
+			setSpread(tree.tree.phaseSpread());
+			setMeasured(tree.measure ? tree.measure().z : null);
 		}, 80);
 		return () => window.clearInterval(handle);
-	}, [bench, selectedBone]);
+	}, [bench, selectedBone, tree]);
 
 	const info = bench?.info;
-	// The bench may be a frame or two behind a fresh choice; clamp rather than
-	// let the scrub bar draw a playhead past its own end.
-	const playhead = Math.min(time, animation.duration);
+	// A tree's cycle moves under the playhead, so clamp rather than let the
+	// scrub bar draw one past its own end.
+	const duration = animation.duration;
+	const playhead = Math.min(time, duration);
 
 	const row = (label: string, value: string): ReactElement => (
 		<Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.15 }}>
@@ -108,7 +140,7 @@ export function BenchInspector({
 		<Box
 			component="aside"
 			sx={{
-				width: 300,
+				width: 320,
 				flexShrink: 0,
 				borderLeft: 1,
 				borderColor: 'divider',
@@ -148,7 +180,6 @@ export function BenchInspector({
 					const next = rig.animations.find((candidate) => candidate.id === event.target.value);
 					if (!next) return;
 					onAnimationChange(next);
-					if (bench) bench.playing = true;
 					setPlaying(true);
 				}}
 			>
@@ -169,7 +200,7 @@ export function BenchInspector({
 								if (!bench) return;
 								// Playing a held one-shot from its last frame would
 								// be a no-op, so the button rewinds it first.
-								if (!bench.playing && !animation.loop && bench.time >= animation.duration) {
+								if (!bench.playing && !animation.loop && bench.time >= duration) {
 									bench.seek(0);
 								}
 								bench.playing = !bench.playing;
@@ -193,15 +224,15 @@ export function BenchInspector({
 					variant="caption"
 					sx={{ fontVariantNumeric: 'tabular-nums', flexGrow: 1, textAlign: 'right' }}
 				>
-					{playhead.toFixed(2)} / {animation.duration.toFixed(2)} s
+					{playhead.toFixed(2)} / {duration.toFixed(2)} s
 				</Typography>
 			</Stack>
 
 			<Slider
 				size="small"
 				min={0}
-				max={animation.duration}
-				step={animation.duration / 240}
+				max={duration}
+				step={duration / 240}
 				value={playhead}
 				disabled={!bench}
 				onChange={(_, value) => {
@@ -216,10 +247,86 @@ export function BenchInspector({
 			/>
 
 			<Box sx={{ mt: 0.5, mb: 1 }}>
-				{row('Source', animation.kind === 'clip' ? 'keyframed clip' : 'pose function')}
+				{row('Source', KIND_LABEL[animation.kind])}
 				{row('Ends', animation.loop ? 'loops' : 'holds')}
-				{row('Phase', `${((playhead / animation.duration) * 100).toFixed(0)} %`)}
+				{row('Phase', `${((playhead / duration) * 100).toFixed(0)} %`)}
 			</Box>
+
+			{tree && (
+				<>
+					<Divider sx={{ my: 1.5 }} />
+
+					<Typography variant="subtitle2" color="text.secondary" gutterBottom>
+						Parameters
+					</Typography>
+
+					{tree.parameters.map((parameter) => (
+						<Box key={parameter.name} sx={{ mb: 0.5 }} title={parameter.hint ?? ''}>
+							<Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+								<Typography variant="caption" color="text.secondary">
+									{parameter.label}
+								</Typography>
+								<Typography
+									variant="caption"
+									sx={{ fontVariantNumeric: 'tabular-nums' }}
+								>
+									{(params[parameter.name] ?? parameter.initial).toFixed(2)}
+									{parameter.unit ? ` ${parameter.unit}` : ''}
+								</Typography>
+							</Box>
+							<Slider
+								size="small"
+								min={parameter.min}
+								max={parameter.max}
+								step={parameter.step}
+								value={params[parameter.name] ?? parameter.initial}
+								disabled={!bench}
+								onChange={(_, value) => onParamChange(parameter.name, value as number)}
+							/>
+						</Box>
+					))}
+
+					<Divider sx={{ my: 1.5 }} />
+
+					<Typography variant="subtitle2" color="text.secondary" gutterBottom>
+						Blend tree
+					</Typography>
+
+					<TreeView root={tree.tree.root} active={active} />
+
+					<Box sx={{ mt: 1 }}>
+						{row('Cycle', `${duration.toFixed(3)} s`)}
+						{row('Phase spread', `${(spread * 100).toFixed(1)} % of a cycle`)}
+						{measured !== null &&
+							row(
+								'Asks / carries',
+								`${(params['speed'] ?? 0).toFixed(2)} / ${measured.toFixed(2)} m/s`,
+							)}
+					</Box>
+
+					<FormControlLabel
+						title="Stretch the synced leaves onto one cycle and line their footfalls up"
+						sx={{ m: 0, mt: 0.5 }}
+						control={
+							<Checkbox
+								size="small"
+								disabled={!bench}
+								checked={treeSync}
+								onChange={(event) => onTreeSyncChange(event.target.checked)}
+							/>
+						}
+						label={<Typography variant="caption">Phase sync</Typography>}
+					/>
+
+					<Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+						{treeSync
+							? 'Off it, the leaves run on their own clocks and the spread above wanders through the whole range — which is the feet disagreeing about where the ground is.'
+							: 'The leaves are on their own clocks now. Watch the spread, and the feet.'}
+					</Typography>
+				</>
+			)}
+
+			<Divider sx={{ my: 1.5 }} />
 
 			<Typography variant="caption" color="text.secondary">
 				Speed
