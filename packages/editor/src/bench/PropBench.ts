@@ -57,6 +57,15 @@ import { emitStand, SHADOW_FIT } from './stand.js';
  */
 export const WEARER = findRig('wanderer');
 
+/**
+ * The pose he stands in by default: the first of his animations that is not a
+ * blend tree. A tree is driven by parameters and this panel has no sliders for
+ * them — that is the character bench's job — so the wearer starts on something
+ * whose pose is the whole of what it is.
+ */
+export const WEARER_DEFAULT: BenchAnimation =
+	WEARER.animations.find((candidate) => candidate.kind !== 'tree') ?? WEARER.animations[0]!;
+
 /** How the prop is placed. See the note at the top of the file. */
 export type PropDisplay = 'stand' | 'ground' | 'worn';
 
@@ -121,7 +130,7 @@ export class PropBench {
 	private onStand: BenchProp;
 	private model: Model;
 	private mode: PropDisplay = 'stand';
-	private wearerAnimation: BenchAnimation = WEARER.animations[0]!;
+	private wearerAnimation: BenchAnimation = WEARER_DEFAULT;
 
 	/** The placement the current mode works out to, and the box it lands in. */
 	private readonly baseRotation: Quat = quat.quat();
