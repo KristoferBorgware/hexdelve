@@ -45,13 +45,13 @@ level, `depth` = dungeon level.
 | Energy per game turn | `turn_energy(speed)` table: 10 at +0, 20 at +10, 30 at +20, 38 at +30, capped 49 | 2.2 |
 | Player turn | acts when energy ≥ 100 (`move-energy`) | 2.3 |
 | Stat index | value 3–18 → 0–15; 18/xx → 16 + xx/10, max 37 | 4.2 |
-| Blows per turn | `blows_table[weight index][dex index]`, capped by class `max-attacks`, +extra blows | 4.7 |
+| Blows per turn | `min(10000 / blows_table[str idx][dex idx], 100 × max-attacks) + 100 × extra blows`, in hundredths | 4.7 |
 | Experience needed | `player_exp[lev−2] × expfact / 100` | 5.1 |
 | Kill experience | `mexp × mlevel / plev` (+ fractional carry) | 5.3 |
 | Melee hit chance | `0.12 + 0.83 × max(0, chance − 2·AC/3) / chance`, chance = skill + (to_h)·3 | 7.1 |
 | Critical (melee) | power = weight + (to_h + debuff)·5 + skill·1 − 60, roll 5000; 2×/3×/4× tiers at 400/700/900/1300 | 7.5 |
 | Missile damage | `(dice + to_d) × multiplier`, crits from weight and skill | 8.3 |
-| Spell failure | `base − 3 × (plev − slevel)` adjusted by stat, min per class, ×2 stunned, encumbrance | 9.2 |
+| Spell failure | `base − 3 × (plev − slevel) − adj_mag_fail[stat]`, clamped to `[minfail, 50]`, then stun/encumbrance penalties | 9.2 |
 | Device failure | `380 − 370·x/(5+|x|)` per 1000 with x = skill − 2·level | 9.5 |
 | Resisted damage | `dam × numerator / denominator` from `projection.txt` (1/3 for basics, 1/9 doubled) | 10.2 |
 | Breath damage | `monster current hp / divisor`, capped per element (1600 fire…) | 10.2, 13.3.4 |
