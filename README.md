@@ -237,8 +237,16 @@ with no legal neighbour all still produce levels that look like dungeons.
 They fail in opposite directions, which is the useful result: the cave has no
 concept of a room and never will, and the wave function has no idea whether the
 level is one piece and can fail outright. The bench reports both as numbers
-rather than opinions — a region count, a colour per component, and how many seeds
-the solver burned. `docs/levelgen.md` has the measurements and eight algorithms
+rather than opinions — a piece count, a colour per component, and how many seeds
+the solver burned.
+
+**Connectivity is not a property either algorithm can state**, so it is not
+asked of them. The finish every stack shares runs Prim's algorithm over the
+graph of pieces, digging the shortest tunnel it can find from everything joined
+so far to anything that is not, until the level is one piece — which it always
+is, over 240 levels of both stacks. It will not dig through the rim, because a
+stitcher free to route round the outside joins the level up by removing the
+thing that made it a place. `docs/levelgen.md` has the measurements and what is
 worth trying next.
 
 **`@hexdelve/desktop`** opens an Electron window on the client's own web build.

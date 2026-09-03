@@ -38,6 +38,13 @@ export interface LevelCell {
 	readonly tile: string;
 	/** Connected component of the floor graph, or -1 for rock. */
 	region: number;
+	/**
+	 * Rock the carve declared inviolable — the rim that gives the level an
+	 * edge. Exposed rather than kept private because it is a real property of
+	 * the place: anything that later wants to dig, place stairs or drop a vault
+	 * needs to know which rock is structural.
+	 */
+	readonly sealed: boolean;
 	/** 0xRRGGBB, chosen by the stack that made it. */
 	readonly color: number;
 }
@@ -46,10 +53,20 @@ export interface LevelStats {
 	readonly cells: number;
 	readonly floor: number;
 	readonly rock: number;
-	/** Separate walkable components before pruning. One is the good answer. */
+	/**
+	 * Walkable components the CARVE produced, before anything downstream
+	 * joined or filled them in. This is the algorithm's own honest output and
+	 * the number a tileset gets tuned against.
+	 */
 	readonly regions: number;
+	/** And how many the finished level came out in. One is the good answer. */
+	readonly pieces: number;
 	/** Floor cells in the largest of them. */
 	readonly largest: number;
+	/** Tunnels the stitcher dug to join the pieces up. */
+	readonly joins: number;
+	/** Cells those tunnels cost. */
+	readonly tunnelled: number;
 	/** Steps from entry to exit, or 0 if there is no route. */
 	readonly route: number;
 	/** How many seeds the stack burned before one produced a level. */
@@ -102,7 +119,9 @@ export interface LevelSettings {
 	readonly radius: number;
 	/** Keyed by `LevelParam.key`, already defaulted by `settingsFor`. */
 	readonly params: Readonly<Record<string, number>>;
-	/** Throw away everything but the biggest connected component. */
+	/** Dig tunnels between the pieces, so the level comes out walkable end to end. */
+	readonly stitch: boolean;
+	/** Throw away everything the stitch could not reach. */
 	readonly prune: boolean;
 }
 

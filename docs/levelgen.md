@@ -23,7 +23,8 @@ every one of them:
 carve            the stack's own business
 symmetrise       an edge is open only if both sides say so
 flood            label the connected components
-prune            optionally fill in everything but the biggest
+stitch           dig tunnels until the level is one piece
+prune            fill in anything the stitch could not reach
 farthest pair    two breadth-first sweeps; the ends are the entry and the exit
 route            breadth-first again, entry to exit
 ```
@@ -31,6 +32,47 @@ route            breadth-first again, entry to exit
 The finish is shared on purpose. If the cave carve had its own idea of
 "connected", the region count on screen would not mean the same thing for both,
 and the comparison would be worthless.
+
+### Stitching
+
+Both stacks need this and neither can do it. The noise band opens a tile where a
+field crosses a band and has no way to ask whether the tile next door landed on
+the same side of it. The wave function enforces adjacency and nothing else, so
+every one of its levels is locally legal and globally a handful of separate
+dungeons. **Connectivity is not a property either algorithm is able to state**,
+which is exactly why it belongs in the finish — after the carve has had its say,
+applying to whatever the carve was.
+
+The shape of it is Prim's algorithm on the graph of pieces, with the length of
+the tunnel between two pieces as the edge weight. Start with the largest piece;
+breadth-first outward from *everything joined so far at once*, through rock,
+until the search first touches a piece that is not; dig back along the way it
+came; repeat. Leaving from every joined cell simultaneously is what makes each
+round find the shortest join available, and a short join is what stops the
+result looking like somebody ruled lines across the map.
+
+Two things it is deliberately allowed to do. **It breaches walls** — a floor
+cell's edge to rock is shut by definition, so every tunnel opens one the carve
+closed. **It digs exactly one tile wide**, opening only the two edges along the
+path, so a tunnel arrives with walls down both sides and reads on screen as
+something cut rather than something found.
+
+What it will not touch is `sealed` rock: the rim both stacks keep so a passage
+cannot run off the boundary. A stitcher free to route round the outside would
+join the level up by removing the thing that made it a place.
+
+Measured over 240 levels (both stacks, 30 seeds, radii 6–20), it takes every
+level to one piece:
+
+| | carved in | tunnels | cells dug |
+| --- | --- | --- | --- |
+| cave | 7.5 pieces | 6.5 | 8.0 |
+| WFC | 9.0 pieces | 8.0 | 2.4 |
+
+Tunnels are always *pieces − 1*, which is what Prim's guarantees and what the
+test asserts. The wave function costs almost no digging — 2.4 cells for eight
+joins — because most of its joins are two floor cells already side by side with
+a wall between them, and the join is to open the wall.
 
 Connectivity is per **edge**, not per cell. Two floor tiles can sit side by side
 with a wall between them, which is a room's back wall against a corridor and is
@@ -201,20 +243,11 @@ rules that happen to produce a global shape.
 
 Roughly in the order they would pay off.
 
-**1. Connectivity stitching, as a shared finish step.** Not an algorithm of its
-own — a post-pass. After flooding, join every component to the largest by
-tunnelling between their nearest cells (A* over rock, weighted so it prefers
-short runs and existing walls). This turns WFC's biggest weakness into a
-non-issue and makes the cave carve usable at narrower widths, and it costs one
-function that every future stack inherits for free. This is the highest-value
-next thing in the folder.
-
-Angband does exactly this and calls it `ensure_connectedness`: flood-fill from
-the first room, tunnel to anything not yet reachable, and the level is connected
-without the player needing to dig — see `docs/angband/16-dungeon-generation.md`
-§16.3.3. It is worth copying the *placement* of the step as much as the step: it
-runs after the generator has had its say, not inside it, which is why it works
-for every profile that game has.
+~~**1. Connectivity stitching.**~~ **Done** — see *Stitching* above. Angband
+does the same thing and calls it `ensure_connectedness`
+(`docs/angband/16-dungeon-generation.md` §16.3.3); the *placement* of the step
+mattered as much as the step, since running it after the generator rather than
+inside it is what lets every profile that game has inherit it.
 
 **2. Room-and-corridor.** The classic, and the one Angband uses;
 `docs/angband/16-dungeon-generation.md` is a chapter-length description of a

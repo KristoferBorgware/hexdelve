@@ -24,6 +24,7 @@ export type {
 } from './types.js';
 export { defaultParams, readParam, readChoice } from './types.js';
 
+export { STITCH_TILE, STITCH_COLOR, ROCK_COLOR } from './build.js';
 export { CAVE_STACK, caveFieldAt } from './caveStack.js';
 export { WFC_STACK } from './wfcStack.js';
 export { DUNGEON_TILES, expandTiles, buildPropagator, openMask } from './wfc/tileset.js';

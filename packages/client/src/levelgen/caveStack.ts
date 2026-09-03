@@ -117,7 +117,13 @@ function carve(settings: LevelSettings): Level {
 		// ground under a player. Here it stops a corridor from running off the
 		// edge of the world into nothing.
 		const ring = (Math.abs(cell.q) + Math.abs(cell.r) + Math.abs(cell.q + cell.r)) / 2;
-		if (ring > open) continue;
+		if (ring > open) {
+			// Sealed, not merely rock: the stitcher digs through anything that
+			// is not, and a tunnel routed round the outside of the level would
+			// join it up by removing the edge that made it a place.
+			cell.sealed = true;
+			continue;
+		}
 
 		const { x, z } = axialToWorld(cell.q, cell.r);
 		// Sampled at the tile's own world position over the lattice scale —

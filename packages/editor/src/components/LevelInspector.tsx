@@ -42,6 +42,8 @@ export interface LevelInspectorProps {
 	onSeedChange(seed: number): void;
 	radius: number;
 	onRadiusChange(radius: number): void;
+	stitch: boolean;
+	onStitchChange(stitch: boolean): void;
 	prune: boolean;
 	onPruneChange(prune: boolean): void;
 	params: Readonly<Record<string, number>>;
@@ -55,6 +57,7 @@ const SHOW: { key: keyof LevelShow; label: string; hint: string }[] = [
 	{ key: 'walls', label: 'Edge walls', hint: 'Shut edges between two floor tiles' },
 	{ key: 'route', label: 'Entry & exit', hint: 'The two ends, and the way between them' },
 	{ key: 'regions', label: 'Regions', hint: 'Colour the floor by connected component' },
+	{ key: 'stitching', label: 'Stitching', hint: 'Pick out the tunnels the stitcher dug' },
 ];
 
 export function LevelInspector({
@@ -65,6 +68,8 @@ export function LevelInspector({
 	onSeedChange,
 	radius,
 	onRadiusChange,
+	stitch,
+	onStitchChange,
 	prune,
 	onPruneChange,
 	params,
@@ -181,8 +186,21 @@ export function LevelInspector({
 			/>
 
 			<FormControlLabel
-				sx={{ m: 0, mt: 0.5 }}
-				title="Fill in everything but the biggest connected piece"
+				sx={{ m: 0, mt: 0.5, display: 'flex' }}
+				title="Dig tunnels between the pieces, so the level is walkable end to end"
+				control={
+					<Checkbox
+						size="small"
+						checked={stitch}
+						onChange={(event) => onStitchChange(event.target.checked)}
+					/>
+				}
+				label={<Typography variant="caption">Stitch the pieces together</Typography>}
+			/>
+
+			<FormControlLabel
+				sx={{ m: 0, display: 'flex' }}
+				title="Fill in anything the stitch could not reach"
 				control={
 					<Checkbox
 						size="small"
@@ -190,7 +208,7 @@ export function LevelInspector({
 						onChange={(event) => onPruneChange(event.target.checked)}
 					/>
 				}
-				label={<Typography variant="caption">Keep only the largest region</Typography>}
+				label={<Typography variant="caption">Fill in what is left over</Typography>}
 			/>
 
 			<Divider sx={{ my: 1.5 }} />
@@ -279,7 +297,14 @@ export function LevelInspector({
 				<Box sx={{ mb: 1 }}>
 					{row('Cells', `${stats.cells}`)}
 					{row('Floor', `${stats.floor}  (${((100 * stats.floor) / stats.cells).toFixed(0)} %)`)}
-					{row('Regions', `${stats.regions}`, stats.regions > 1)}
+					{row('Carved in', `${stats.regions} piece${stats.regions === 1 ? '' : 's'}`)}
+					{row(
+						'Ended up',
+						`${stats.pieces} piece${stats.pieces === 1 ? '' : 's'}`,
+						stats.pieces > 1,
+					)}
+					{stats.joins > 0 &&
+						row('Stitched', `${stats.joins} tunnels, ${stats.tunnelled} cells`)}
 					{row('Largest', `${stats.largest}`)}
 					{row('Entry to exit', stats.route > 0 ? `${stats.route} steps` : 'no route', stats.route === 0)}
 					{row('Attempts', `${stats.attempts}`, stats.attempts > 1)}

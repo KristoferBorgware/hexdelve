@@ -33,7 +33,7 @@ import {
 	type Renderer,
 	type RendererInfo,
 } from '@hexdelve/engine';
-import type { Level, LevelCell } from '@hexdelve/client';
+import { STITCH_TILE, type Level, type LevelCell } from '@hexdelve/client';
 import {
 	AXIAL_DIRECTIONS,
 	axialKey,
@@ -82,6 +82,9 @@ const EDGE_WALL_COLOR = 0x2e2a24;
  */
 const REGION_COLORS = [0x6f9ad4, 0xd48f5a, 0x77b573, 0xb56fa8, 0xc7bb62, 0x63b4b0];
 
+/** What a dug tunnel goes when the stitching overlay is on. */
+const STITCH_HIGHLIGHT = 0x4ec9d6;
+
 export interface LevelBenchOptions {
 	canvas: HTMLCanvasElement;
 	backend?: BackendPreference;
@@ -99,6 +102,8 @@ export interface LevelShow {
 	route: boolean;
 	/** Colour the floor by connected component instead of by tile. */
 	regions: boolean;
+	/** Pick out the tunnels the stitcher dug, so its work can be judged. */
+	stitching: boolean;
 }
 
 export interface LevelBenchStats {
@@ -118,7 +123,13 @@ export class LevelBench {
 		ambient: vec3.vec3(0.36, 0.38, 0.42),
 	};
 
-	readonly show: LevelShow = { rock: true, walls: true, route: true, regions: false };
+	readonly show: LevelShow = {
+		rock: true,
+		walls: true,
+		route: true,
+		regions: false,
+		stitching: false,
+	};
 
 	private level: Level | null = null;
 
@@ -290,8 +301,12 @@ export class LevelBench {
 			return;
 		}
 
-		const color =
-			this.show.regions && cell.region >= 0
+		// Stitching wins over regions on purpose: with the stitch on there is
+		// only one region to colour by, so the question the two toggles answer
+		// together is "was it one piece already, and if not what joined it".
+		const color = this.show.stitching && cell.tile === STITCH_TILE
+			? STITCH_HIGHLIGHT
+			: this.show.regions && cell.region >= 0
 				? REGION_COLORS[cell.region % REGION_COLORS.length]!
 				: cell.color;
 		out.pushUpright(x, 0, z, TILE_RADIUS, FLOOR_DEPTH, color);

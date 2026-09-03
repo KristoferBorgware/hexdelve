@@ -161,6 +161,12 @@ function collapse(settings: LevelSettings): Level {
 	}
 
 	const cells = solidDraft(settings.radius);
+	for (const cell of cells.values()) {
+		// The same rim, marked so the stitcher goes round it rather than
+		// through it. Pinning it to rock is what the solver was told; sealing it
+		// is what everything after the solver is told.
+		if (pin(cell) === 'rock') cell.sealed = true;
+	}
 	const settled = result;
 	if (settled) {
 		settled.cells.forEach((cell, i) => {
