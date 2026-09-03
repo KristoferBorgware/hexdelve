@@ -48,6 +48,12 @@ jobs:
         # download; the script skips itself if it cannot find one.
         run: npm run check:shaders
 
+      - name: Check the two backends draw the same picture
+        # Captures a frame from each off the GPU and diffs them. Skips the
+        # comparison, without failing, on a runner with no usable WebGPU
+        # device — which is most of them; it still proves WebGL2 renders.
+        run: npm run check:backends
+
       - name: Syntax-check the labs
         run: |
           # The labs are plain scripts with no build step, so parsing them is

@@ -85,6 +85,13 @@ export function instanceTotal(ranges: InstanceRanges): number {
 	return ranges.opaque + ranges.blended + ranges.overlay;
 }
 
+/** One frame's pixels, RGBA, eight bits a channel, top row first. */
+export interface FrameCapture {
+	readonly width: number;
+	readonly height: number;
+	readonly pixels: Uint8Array;
+}
+
 export interface RendererOptions {
 	readonly canvas: HTMLCanvasElement;
 	readonly backend?: BackendPreference;
@@ -125,6 +132,21 @@ export interface Renderer {
 	setInstances(data: Float32Array, ranges: InstanceRanges): void;
 
 	render(frame: Frame): void;
+
+	/**
+	 * The pixels of the next frame drawn.
+	 *
+	 * Read off the GPU rather than off the page, which is the only way to get
+	 * at a WebGPU picture: a WebGPU canvas does not preserve its drawing
+	 * buffer, so toDataURL gives blank, and on a headless machine the
+	 * compositor may never see the frame at all.
+	 *
+	 * What it is for is comparing the two backends. They are meant to draw the
+	 * same picture from two shaders written twice, and until something diffs
+	 * their output, "the same picture" rests entirely on whoever edited them
+	 * last remembering to edit both.
+	 */
+	captureFrame(): Promise<FrameCapture>;
 
 	dispose(): void;
 }

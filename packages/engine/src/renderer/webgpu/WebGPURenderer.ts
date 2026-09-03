@@ -16,6 +16,7 @@ import {
 	instanceTotal,
 	RendererCreationError,
 	type Frame,
+	type FrameCapture,
 	type InstanceRanges,
 	type Renderer,
 	type RendererInfo,
@@ -66,6 +67,10 @@ export class WebGPURenderer implements Renderer {
 	private instanceBuffer: GPUBuffer | null = null;
 	private instanceCapacity = 0;
 	private ranges: InstanceRanges = { opaque: 0, blended: 0, overlay: 0 };
+	private pendingCapture: {
+		resolve: (capture: FrameCapture) => void;
+		reject: (cause: Error) => void;
+	} | null = null;
 
 	private depthTexture: GPUTexture | null = null;
 	private msaaTexture: GPUTexture | null = null;
@@ -162,7 +167,15 @@ export class WebGPURenderer implements Renderer {
 			console.error('[hexdelve] WebGPU error:', (event as GPUUncapturedErrorEvent).error.message);
 		});
 
-		context.configure({ device, format: this.format, alphaMode: 'opaque' });
+		context.configure({
+			device,
+			format: this.format,
+			alphaMode: 'opaque',
+			// COPY_SRC so a frame can be read back off the GPU. It costs nothing
+			// unless something asks, and it is the only way to see a WebGPU
+			// picture at all: the canvas does not preserve its drawing buffer.
+			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+		});
 
 		const geometry = hexPrismGeometry();
 		this.indexCount = geometry.indexCount;
@@ -452,7 +465,8 @@ export class WebGPURenderer implements Renderer {
 		this.uniformData[43] = 0;
 		this.device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformData);
 
-		const swapchainView = this.context.getCurrentTexture().createView();
+		const swapchainTexture = this.context.getCurrentTexture();
+		const swapchainView = swapchainTexture.createView();
 		const [r, g, b, a] = this.clearColor;
 
 		const colorAttachment: GPURenderPassColorAttachment = this.msaaTexture
@@ -539,7 +553,92 @@ export class WebGPURenderer implements Renderer {
 		}
 
 		pass.end();
+
+		/*
+		 * A readback, if one was asked for.
+		 *
+		 * The copy is encoded into this same command buffer rather than issued
+		 * afterwards, so it is submitted with the frame it belongs to and there
+		 * is no window in which the texture could be presented and recycled
+		 * first. With multisampling the attachment is the MSAA texture and the
+		 * swapchain is its resolve target, so this reads the resolved image
+		 * either way.
+		 */
+		const capture = this.pendingCapture;
+		let readback: { buffer: GPUBuffer; width: number; height: number; bytesPerRow: number } | null =
+			null;
+		if (capture) {
+			this.pendingCapture = null;
+			const width = this.targetWidth;
+			const height = this.targetHeight;
+			// A texture-to-buffer copy wants its rows aligned to 256 bytes, so
+			// the buffer is wider than the image and is trimmed on the way out.
+			const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
+			const buffer = this.device.createBuffer({
+				label: 'hexdelve:readback',
+				size: bytesPerRow * height,
+				usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+			});
+			encoder.copyTextureToBuffer(
+				{ texture: swapchainTexture },
+				{ buffer, bytesPerRow, rowsPerImage: height },
+				{ width, height },
+			);
+			readback = { buffer, width, height, bytesPerRow };
+		}
+
 		this.device.queue.submit([encoder.finish()]);
+
+		if (capture && readback) void this.resolveCapture(capture, readback);
+	}
+
+	/**
+	 * Map the readback buffer and hand over the pixels.
+	 *
+	 * The preferred canvas format is usually bgra8unorm, so the bytes come back
+	 * with red and blue the other way round from what the contract promises.
+	 * Swizzling here rather than making the caller ask which format it got is
+	 * the whole point of having a contract.
+	 */
+	private async resolveCapture(
+		capture: { resolve: (c: FrameCapture) => void; reject: (e: Error) => void },
+		readback: { buffer: GPUBuffer; width: number; height: number; bytesPerRow: number },
+	): Promise<void> {
+		const { buffer, width, height, bytesPerRow } = readback;
+		try {
+			await buffer.mapAsync(GPUMapMode.READ);
+			const mapped = new Uint8Array(buffer.getMappedRange());
+			const stride = width * 4;
+			const pixels = new Uint8Array(stride * height);
+			const swap = this.format.startsWith('bgra');
+
+			for (let y = 0; y < height; y++) {
+				const from = y * bytesPerRow;
+				const to = y * stride;
+				for (let x = 0; x < stride; x += 4) {
+					pixels[to + x] = mapped[from + x + (swap ? 2 : 0)]!;
+					pixels[to + x + 1] = mapped[from + x + 1]!;
+					pixels[to + x + 2] = mapped[from + x + (swap ? 0 : 2)]!;
+					pixels[to + x + 3] = mapped[from + x + 3]!;
+				}
+			}
+
+			buffer.unmap();
+			capture.resolve({ width, height, pixels });
+		} catch (cause) {
+			// A device lost between the submit and the map takes the readback
+			// with it. Say so rather than hanging on a promise nobody resolves.
+			capture.reject(cause instanceof Error ? cause : new Error(String(cause)));
+		} finally {
+			buffer.destroy();
+		}
+	}
+
+	captureFrame(): Promise<FrameCapture> {
+		if (!this.alive) return Promise.reject(new Error('The WebGPU device is gone.'));
+		return new Promise((resolve, reject) => {
+			this.pendingCapture = { resolve, reject };
+		});
 	}
 
 	dispose(): void {

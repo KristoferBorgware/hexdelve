@@ -15,6 +15,7 @@ import {
 	OrbitCamera,
 	Ticker,
 	type BackendPreference,
+	type FrameCapture,
 	type Light,
 	type Renderer,
 	type RendererInfo,
@@ -219,6 +220,17 @@ export class HexdelveClient {
 	renderOnce(): void {
 		if (this.disposed) return;
 		this.draw();
+	}
+
+	/**
+	 * The pixels of the next frame, read off the GPU.
+	 *
+	 * For comparing the two backends against each other: they are meant to draw
+	 * the same picture out of two shaders written twice, and this is what lets
+	 * something check rather than assume.
+	 */
+	captureFrame(): Promise<FrameCapture> {
+		return this.renderer.captureFrame();
 	}
 
 	dispose(): void {

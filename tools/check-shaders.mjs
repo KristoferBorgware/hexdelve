@@ -16,11 +16,14 @@
  * launch a headless browser, ask for each backend by name, and fail if either
  * one refuses to be created.
  *
- * What it does NOT prove is that either backend draws the right picture. It
- * runs on a software adapter with no display, and on the sandboxed runners
- * this project builds on the WebGPU device is often torn down seconds after it
- * is handed over. Compiling is not rendering. But a shader that will not
- * compile can never render, and that is the failure this catches.
+ * What it does NOT prove is that either backend draws the right picture.
+ * Compiling is not rendering. On the sandboxed machines this project is built
+ * on, a WebGPU device is torn down after about one frame — a twenty-line
+ * clear-loop with no shaders and no pipelines dies there the same way — so
+ * there is often nothing to look at even when everything compiles. See
+ * check-backends.mjs, which compares the two pictures where that is possible.
+ * A shader that will not compile can never render, and that is what this
+ * catches.
  */
 
 import { createServer } from 'node:http';

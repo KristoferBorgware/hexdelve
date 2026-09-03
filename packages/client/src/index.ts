@@ -36,7 +36,7 @@ export {
 } from './game/stride.js';
 export { DUCK, GUARD, SLASH, SWING_CONTACT } from './game/clips.js';
 
-export type { BackendKind, BackendPreference, RendererInfo } from '@hexdelve/engine';
+export type { BackendKind, BackendPreference, RendererInfo, FrameCapture } from '@hexdelve/engine';
 
 import { HexdelveClient, type ClientOptions } from './HexdelveClient.js';
 
