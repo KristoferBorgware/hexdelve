@@ -109,6 +109,17 @@ export class CharacterBench {
 	/** Playback rate. Slowing a swing down is most of what a bench is for. */
 	speed = 1;
 	playing = true;
+	/**
+	 * Repeat at the end of the cycle, rather than hold the last frame.
+	 *
+	 * On by default and independent of whether the animation was AUTHORED to
+	 * loop, because those are two different questions. A slash holds in the
+	 * game — that is what the clip means — and on a bench you want to watch it
+	 * twenty times without reaching for the rewind. The wrap will pop, since a
+	 * clip that holds was never authored to close onto its own first key, and
+	 * seeing that pop is the other half of what the toggle is for.
+	 */
+	loop = true;
 	/** How far the stand has turned, in radians. */
 	turntable = 0;
 
@@ -347,11 +358,12 @@ export class CharacterBench {
 			const duration = this.animation.duration;
 			this.time += dt * this.speed;
 			if (duration > 0) {
-				if (this.animation.loop) {
+				if (this.loop) {
 					this.time -= Math.floor(this.time / duration) * duration;
 				} else if (this.time >= duration) {
-					// A one-shot holds on its last frame, the way the game plays
-					// it — stopping the clock rather than snapping back.
+					// Without the loop it holds on its last frame, the way the
+					// game plays a one-shot — stopping the clock rather than
+					// snapping back to the start.
 					this.time = duration;
 					this.playing = false;
 				}

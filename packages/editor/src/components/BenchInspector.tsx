@@ -34,6 +34,7 @@ import Typography from '@mui/material/Typography';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import RepeatIcon from '@mui/icons-material/Repeat';
 import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import { useEffect, useState, type ReactElement } from 'react';
 import type { ActiveLeaf } from '@hexdelve/engine';
@@ -55,6 +56,8 @@ export interface BenchInspectorProps {
 	onShowChange(key: keyof BenchShow, value: boolean): void;
 	speed: number;
 	onSpeedChange(speed: number): void;
+	loop: boolean;
+	onLoopChange(loop: boolean): void;
 	selectedBone: string | null;
 }
 
@@ -86,6 +89,8 @@ export function BenchInspector({
 	onShowChange,
 	speed,
 	onSpeedChange,
+	loop,
+	onLoopChange,
 	selectedBone,
 }: BenchInspectorProps) {
 	const [fps, setFps] = useState(0);
@@ -198,9 +203,9 @@ export function BenchInspector({
 							disabled={!bench}
 							onClick={() => {
 								if (!bench) return;
-								// Playing a held one-shot from its last frame would
-								// be a no-op, so the button rewinds it first.
-								if (!bench.playing && !animation.loop && bench.time >= duration) {
+								// Playing from a held last frame would be a no-op,
+								// so the button rewinds it first.
+								if (!bench.playing && !loop && bench.time >= duration) {
 									bench.seek(0);
 								}
 								bench.playing = !bench.playing;
@@ -216,6 +221,25 @@ export function BenchInspector({
 					<span>
 						<IconButton size="small" disabled={!bench} onClick={() => bench?.seek(0)}>
 							<SkipPreviousIcon />
+						</IconButton>
+					</span>
+				</Tooltip>
+
+				<Tooltip
+					title={
+						loop
+							? 'Repeating. A clip authored to hold will pop at the wrap — it was never made to close onto its first key.'
+							: 'Playing once, then holding the last frame'
+					}
+				>
+					<span>
+						<IconButton
+							size="small"
+							disabled={!bench}
+							color={loop ? 'primary' : 'default'}
+							onClick={() => onLoopChange(!loop)}
+						>
+							<RepeatIcon />
 						</IconButton>
 					</span>
 				</Tooltip>
@@ -248,7 +272,8 @@ export function BenchInspector({
 
 			<Box sx={{ mt: 0.5, mb: 1 }}>
 				{row('Source', KIND_LABEL[animation.kind])}
-				{row('Ends', animation.loop ? 'loops' : 'holds')}
+				{row('Authored to', animation.loop ? 'loop' : 'hold')}
+				{row('Playing', loop ? 'repeating' : 'once, then holding')}
 				{row('Phase', `${((playhead / duration) * 100).toFixed(0)} %`)}
 			</Box>
 
@@ -272,6 +297,12 @@ export function BenchInspector({
 								>
 									{(params[parameter.name] ?? parameter.initial).toFixed(2)}
 									{parameter.unit ? ` ${parameter.unit}` : ''}
+									{parameter.toTree && (
+										<Box component="span" sx={{ color: 'text.secondary' }}>
+											{' → '}
+											{parameter.toTree(params[parameter.name] ?? parameter.initial).toFixed(2)}
+										</Box>
+									)}
 								</Typography>
 							</Box>
 							<Slider

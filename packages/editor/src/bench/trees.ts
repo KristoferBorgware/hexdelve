@@ -20,10 +20,17 @@
  *
  * Thresholds on the speed axis are metres per second, and they are measured off
  * the poses rather than typed: `strideVelocity` asks the stride where its
- * planted foot is at the two contact keys. So 0, walk and run sit at their own
- * true speeds — and the gap between what the slider asks for in between and
- * what the readout says it delivers is the honest error a calibration pass
- * would remove. A bench should show that, not hide it.
+ * planted foot is at the two contact keys. So idle, walk and run sit at their
+ * own true speeds.
+ *
+ * Between them they did not, until the axis was calibrated. A blend halfway
+ * between a walk and a run blends the stride and the cadence separately, and
+ * speed is one divided by the other — so the tree delivered about five per cent
+ * less than the slider claimed, and the feet made up the difference by sliding.
+ * `calibrateSpeed` sweeps the axis once at startup, measures what each value
+ * really produces, and hands back the inverse; the slider is then in true
+ * metres per second all the way across, and the bench's "asks / carries"
+ * readout is the proof rather than the confession.
  */
 
 import {
@@ -31,6 +38,7 @@ import {
 	blend1d,
 	BlendTree,
 	boneIndex,
+	calibrateSpeed,
 	clipSource,
 	layer,
 	leaf,
@@ -120,21 +128,35 @@ export function wandererTree(): BenchTreeAnimation {
 		{ label: 'guard, through the upper body', weightParam: 'guard' },
 	);
 
+	const tree = new BlendTree(root, BONES, { fallbackDuration: WALK_PERIOD });
+
+	/*
+	 * Swept with the other axes at rest, because they barely touch the legs —
+	 * the guard is masked to the upper body and the lean is a roll — and a
+	 * curve per combination would be a table nobody could check.
+	 */
+	const speed = calibrateSpeed(tree, SKELETON, 'speed', [0, RUN_SPEED], {
+		steps: 40,
+		params: { turn: 0, lean: 0, guard: 0 },
+		contactPhase: 0,
+	});
+
 	return treeAnimation({
 		id: 'locomotion',
 		label: 'Locomotion tree',
-		tree: new BlendTree(root, BONES, { fallbackDuration: WALK_PERIOD }),
+		tree,
 		skeleton: SKELETON,
 		parameters: [
 			{
 				name: 'speed',
 				label: 'Speed',
 				min: 0,
-				max: RUN_SPEED,
+				max: speed.maxSpeed,
 				step: 0.01,
 				initial: WALK_SPEED,
 				unit: 'm/s',
-				hint: 'Idle, walk and run sit at their own measured speeds',
+				hint: 'Calibrated: the number on the slider is the speed it delivers',
+				toTree: speed.parameterFor,
 			},
 			{
 				name: 'turn',

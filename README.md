@@ -73,10 +73,8 @@ npm run dev:client      # the client on its own
 npm run build           # every package
 npm run typecheck       # every package, no output
 npm run build:pages     # build, then stage the whole site in dist/pages
-npm run check:picking   # does a point on screen map back to the point drawn there
-npm run check:blend     # does the blend tree blend what it says it does
-npm run check:shaders   # do both shader sets compile and both pipeline sets build
-npm run check:render    # does the yard still look like the stored picture
+npm test                # every test in test/, once
+npm run test:watch      # and again on every save
 ```
 
 npm workspaces, so one `npm install` at the root wires the five packages
@@ -156,16 +154,25 @@ rests on and now the same code. So the bench can show the asked-for speed
 against the delivered one, and the gap in between two thresholds is the honest
 error a calibration pass would remove. A bench should show that, not hide it.
 
-`npm run check:blend` asserts all of that without a browser, because a blend
-tree is the part of an animation system that fails without telling anyone:
-nothing throws when two gaits drift apart. The weights stay sensible, the pose
-stays valid, the man still walks — he just skates. So the check pins the
-thresholds (at a leaf's own threshold the tree must *be* that leaf, same cycle
-and same speed), the sync (zero spread across the whole axis, and never
-travelling backwards), the additive gain (0 changes nothing, ½ adds half, 1 adds
-the layer whole) and the mask (the upper body takes the guard, the legs go on
-striding). Take the contact phase out and it reports him walking backwards at
-half a metre a second.
+### Calibration, so the slider means what it says
+
+Put a walk at 1.56 m/s and a run at 2.94 on a `blend1d` and both ends are
+honest: ask for either and you get exactly it. Everything in between is not,
+and it looks like it ought to be.
+
+Halfway along, the tree blends the *stride* and the *cycle length* separately —
+the legs land between the two shapes, the cadence lands between the two periods
+— and speed is one divided by the other. The quotient of two averages is not
+the average of the quotients, so a slider reading 2.25 delivered about 2.14, and
+the difference came out of the one place it could: the feet, sliding.
+
+There is no formula for that error; it depends on what the poses do. So
+`calibrateSpeed` measures it — sweeps the axis once at startup, asks
+`measureGroundSpeed` what each value really produces, and hands back the
+inverse. The bench's slider is then in true metres per second all the way
+across, and the "asks / carries" readout stops being a confession and starts
+being the proof. Turn phase sync off and it goes back to being a confession,
+which is the point of leaving it on screen.
 
 **`@hexdelve/desktop`** opens an Electron window on the client's own web build.
 No desktop-only rendering path and no desktop-only game code, so what ships on
@@ -203,6 +210,41 @@ that is the field to flip, and a real range to add at the same time.
 
 The `workspace:*` protocol would say all this more precisely, but it is a pnpm
 and yarn feature: npm answers `EUNSUPPORTEDPROTOCOL` to both `install` and `ci`.
+
+## Tests
+
+`npm test` runs everything in `test/`, under Vitest. Tests import the workspace
+packages by name and get their **source**, through the same aliases the client
+and the editor build with — so a fresh clone can run them with nothing built,
+and a broken build never looks like a broken test. The three browser-driven
+ones are the exception, because what they check is a property of the *built*
+client: they load `packages/client/dist-lib` and skip themselves when it is not
+there, or when there is no browser driver installed.
+
+| | |
+|---|---|
+| `picking` | A screen point has to map back to the ground drawn there. A camera basis derived twice is a sign waiting to be got wrong, and nothing throws when it is — the original bug tracked the cursor correctly sideways and moved the aim a third as far up and down. |
+| `blend-tree` | A tree out of phase still produces sensible weights and a valid pose; the only symptom is a character who skates. Pins the thresholds, the calibration, the sync, the additive gain and the mask. |
+| `shaders` | WebGPU marks a bad pipeline invalid rather than throwing, so a broken shader reaches a browser looking healthy and only fails on the first draw. |
+| `render` | None of the above would notice a sign flip that put every shadow on the wrong side of every building, so a picture lives in `test/reference/` and is compared against. |
+| `backends` | The two shader sets are written twice on purpose; this is what stops them drifting apart. Needs a working WebGPU device and usually skips for want of one. |
+
+The reference picture is regenerated deliberately, not automatically:
+
+```
+npm run build && UPDATE_REFERENCE=1 npm test -- render
+```
+
+Look at it before committing it. A reference nobody looked at is a reference
+that certifies whatever bug was present when it was made. `WRITE_IMAGES=1`
+writes the actual, reference and diff images to `/tmp` on a pass as well as a
+failure, which is how you find out *what* moved.
+
+`test/harness/` is the machinery the picture tests share — a Playwright
+fixture, just enough PNG, and an image diff that can tell a different
+rasteriser from a moved sun. It is plain `.mjs`, and stays that way: nothing in
+it gains from being typed and rewriting it would put the one check that guards
+every picture at risk to no purpose.
 
 ## WebGPU first, WebGL2 always
 
