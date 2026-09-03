@@ -213,7 +213,7 @@ knows nothing about how one is made, which is what makes the comparison worth
 trusting — two algorithms cannot look different because one of them got nicer
 drawing code.
 
-Three stacks are in it so far. The **cave** stack
+Four stacks are in it so far. The **cave** stack
 is chamfer's own noise-band carve, ported down to the hash and the octave order
 and read on the ground plane. chamfer's note on that function says the band round
 a zero set in three dimensions is a slab, which is why its caves are one wide

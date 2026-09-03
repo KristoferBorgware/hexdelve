@@ -40,6 +40,9 @@ export {
 	CAVE_STACK,
 	WFC_STACK,
 	ROOM_STACK,
+	HALL_STACK,
+	largestRectangle,
+	area,
 	wfcPatterns,
 	learn,
 	patternShape,
@@ -64,6 +67,7 @@ export {
 	type Reach,
 	type Symmetry,
 	type Sample,
+	type Rect,
 } from './levelgen/index.js';
 export { SKELETON, BONES, TIPS, HIPS_Y, UPPER_BODY } from './game/skeleton.js';
 export { BAT_SKELETON, BAT_BONES, BAT_TIPS, HOVER_Y, PERCH_Y } from './game/batrig.js';

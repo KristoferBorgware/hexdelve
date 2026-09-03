@@ -27,6 +27,9 @@ export { defaultParams, readParam, readChoice } from './types.js';
 export { STITCH_TILE, STITCH_COLOR, ROCK_COLOR } from './build.js';
 export { CAVE_STACK, caveFieldAt } from './caveStack.js';
 export { ROOM_STACK } from './roomStack.js';
+export { HALL_STACK } from './hallStack.js';
+export { largestRectangle, area, type Rect } from './rect/largestRectangle.js';
+export { linkNodes, type Node, type ProximityGraph } from './graph.js';
 export { WFC_STACK, wfcPatterns } from './wfcStack.js';
 export {
 	learn,
@@ -56,11 +59,12 @@ export { fbm, valueNoise3, hash3, fade } from './noise.js';
 
 import { CAVE_STACK } from './caveStack.js';
 import type { LevelStack } from './types.js';
+import { HALL_STACK } from './hallStack.js';
 import { ROOM_STACK } from './roomStack.js';
 import { WFC_STACK } from './wfcStack.js';
 
 /** Every stack, in the order the bench offers them. */
-export const LEVEL_STACKS: readonly LevelStack[] = [CAVE_STACK, WFC_STACK, ROOM_STACK];
+export const LEVEL_STACKS: readonly LevelStack[] = [CAVE_STACK, WFC_STACK, ROOM_STACK, HALL_STACK];
 
 export function findStack(id: string): LevelStack {
 	return LEVEL_STACKS.find((stack) => stack.id === id) ?? LEVEL_STACKS[0]!;

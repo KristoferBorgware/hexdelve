@@ -56,6 +56,7 @@ import {
 } from '@hexdelve/shared';
 
 import { finishLevel, ROCK_COLOR, solidDraft, type Carved, type DraftCell } from './build.js';
+import { linkNodes, type ProximityGraph } from './graph.js';
 import { fbm } from './noise.js';
 import {
 	readChoice,
@@ -200,7 +201,7 @@ function build(settings: LevelSettings): Level {
 	growRooms(cells, rooms, settings.seed, ragged, interior);
 	shedSpecks(cells);
 
-	const links = linkRooms(rooms, graph, loops, random);
+	const links = linkNodes(rooms, graph as ProximityGraph, loops, random);
 	const walk = makeRandom((settings.seed + WALK_SEED_OFFSET) | 0);
 	for (const [a, b] of links) dig(cells, rooms[a]!.site, rooms[b]!.site, wiggle, walk);
 
@@ -391,144 +392,6 @@ function shedSpecks(cells: Map<string, DraftCell>): void {
 		cell.kind = 'rock';
 		cell.tile = '';
 		cell.color = ROCK_COLOR;
-	}
-}
-
-/**
- * Which rooms are joined.
- *
- * This is the whole character of the level and it is two decisions, not one.
- *
- * The **spanning tree** is the guarantee. Prim's over the complete graph of
- * sites gives the cheapest set of corridors that reaches every room, and
- * because it is a tree it can never be redundant. It is also, on its own, a
- * bad level: a tree has exactly one route between any two rooms, so every
- * dead end is a walk back the way you came and the map has no shape to
- * remember.
- *
- * The **extra edges** are what fix that, and where they come from matters more
- * than how many there are. Taking them from the complete graph gives corridors
- * that cut clean across the map between rooms that are nowhere near each other
- * — which is why the two options here are both PROXIMITY graphs:
- *
- *   neighbourhood   the relative neighbourhood graph. `a—b` survives only if
- *                   no third room is closer to BOTH of them than they are to
- *                   each other. Sparse, and every edge is unarguably a link
- *                   between neighbours.
- *   gabriel         `a—b` survives if no third room lies inside the circle
- *                   that has `ab` as its diameter. A superset of the
- *                   neighbourhood graph and of the spanning tree, so it offers
- *                   strictly more to choose from — the more generous of the
- *                   two, and the better default.
- *
- * Both are computed straight from the definition in O(n^3) rather than by
- * building a Delaunay triangulation and filtering it. With a dozen rooms that
- * is a few thousand comparisons, and a Delaunay implementation is several
- * hundred lines that would earn their place at a thousand sites and not at
- * twelve.
- *
- * `loops` is then the share of those candidates, chosen at random, that are
- * added on top of the tree. Zero is the bare tree; one is the whole proximity
- * graph.
- */
-function linkRooms(
-	rooms: readonly Room[],
-	graph: string,
-	loops: number,
-	random: Random,
-): [number, number][] {
-	const n = rooms.length;
-	if (n < 2) return [];
-
-	const distance = (a: number, b: number): number => {
-		const dx = rooms[a]!.x - rooms[b]!.x;
-		const dz = rooms[a]!.z - rooms[b]!.z;
-		return Math.hypot(dx, dz);
-	};
-
-	/* ------------------------------------- the tree: Prim, on a dense graph -- */
-
-	const inTree = new Set<string>();
-	const links: [number, number][] = [];
-	const reached = new Set<number>([0]);
-
-	while (reached.size < n) {
-		let best = Infinity;
-		let from = -1;
-		let to = -1;
-		for (const a of reached) {
-			for (let b = 0; b < n; b++) {
-				if (reached.has(b)) continue;
-				const d = distance(a, b);
-				if (d < best) {
-					best = d;
-					from = a;
-					to = b;
-				}
-			}
-		}
-		if (to < 0) break;
-		reached.add(to);
-		links.push([from, to]);
-		inTree.add(edgeKey(from, to));
-	}
-
-	if (graph === 'tree only' || loops <= 0) return links;
-
-	/* --------------------------------------- the loops: a proximity graph -- */
-
-	const extra: [number, number][] = [];
-	for (let a = 0; a < n; a++) {
-		for (let b = a + 1; b < n; b++) {
-			if (inTree.has(edgeKey(a, b))) continue;
-			if (graph === 'gabriel' ? gabriel(rooms, a, b) : neighbourly(rooms, a, b)) {
-				extra.push([a, b]);
-			}
-		}
-	}
-
-	// Shuffled and cut rather than filtered by a coin per edge, so the count is
-	// exactly the share asked for instead of that share on average — a slider
-	// that sometimes does nothing at 0.1 is a slider nobody trusts.
-	shuffle(extra, random);
-	const keep = Math.round(extra.length * loops);
-	for (let i = 0; i < keep; i++) links.push(extra[i]!);
-
-	return links;
-}
-
-const edgeKey = (a: number, b: number): string => (a < b ? `${a}-${b}` : `${b}-${a}`);
-
-/** No third room inside the circle with `ab` as its diameter. */
-function gabriel(rooms: readonly Room[], a: number, b: number): boolean {
-	const midX = (rooms[a]!.x + rooms[b]!.x) / 2;
-	const midZ = (rooms[a]!.z + rooms[b]!.z) / 2;
-	const radius = Math.hypot(rooms[a]!.x - rooms[b]!.x, rooms[a]!.z - rooms[b]!.z) / 2;
-
-	for (let c = 0; c < rooms.length; c++) {
-		if (c === a || c === b) continue;
-		if (Math.hypot(rooms[c]!.x - midX, rooms[c]!.z - midZ) < radius) return false;
-	}
-	return true;
-}
-
-/** No third room closer to both `a` and `b` than they are to each other. */
-function neighbourly(rooms: readonly Room[], a: number, b: number): boolean {
-	const span = Math.hypot(rooms[a]!.x - rooms[b]!.x, rooms[a]!.z - rooms[b]!.z);
-
-	for (let c = 0; c < rooms.length; c++) {
-		if (c === a || c === b) continue;
-		const toA = Math.hypot(rooms[c]!.x - rooms[a]!.x, rooms[c]!.z - rooms[a]!.z);
-		const toB = Math.hypot(rooms[c]!.x - rooms[b]!.x, rooms[c]!.z - rooms[b]!.z);
-		if (Math.max(toA, toB) < span) return false;
-	}
-	return true;
-}
-
-function shuffle<T>(list: T[], random: Random): void {
-	for (let i = list.length - 1; i > 0; i--) {
-		const j = Math.floor(random() * (i + 1));
-		[list[i], list[j]] = [list[j]!, list[i]!];
 	}
 }
 

@@ -359,28 +359,128 @@ At radius 20 it produces ~26% floor in about 10 ms, and it is the only stack
 here that comes out in one piece before the stitcher touches it — the spanning
 tree is that guarantee, made in the algorithm rather than after it.
 
-## Where this leaves the three
+## Stack four — boxes and doors
 
-|  | cave | WFC | rooms |
+The other three all **carve**. The noise band opens tiles where a field crosses
+a band; the wave function paints patterns; even the rooms stack grows blobs and
+lets their edges land where the noise puts them. All three produce *space*, and
+space with rock in it reads as a cave system however carefully it is tuned —
+because a cave is exactly what "connected open space" means.
+
+A room is not open space. It is a shape with an inside, a wall all the way
+round it, and a countable number of ways in. Everything below follows from
+insisting on that.
+
+### Offset coordinates
+
+An axis-aligned box needs rows and columns. Axial `(q, r)` is a perfectly good
+integer lattice, but its rows shear half a cell right of the one above, so a box
+in axial space is a *rhombus* in the world and a room drawn that way leans.
+**Odd-r offset** does not shear: a rectangle of cells is a rectangle on screen,
+with left and right edges that zigzag by half a hex — which is what a hex wall
+looks like anyway. It is the same space the wave function's sample is drawn in,
+and for the same reason.
+
+### The shape of a room
+
+Sites are scattered, each gets a random box, and the boxes are allowed to
+overlap. They are then placed one at a time, and **a room is not the box it was
+given** — it is the largest rectangle that actually fits inside that box, given
+everything placed so far. Placing a room blocks its own cells plus a margin, so
+the next room cannot reach them.
+
+Then the same question is asked again of what is left inside the box, and a
+second rectangle is taken if it is big enough and touches the first. That single
+repetition is the whole shape vocabulary: two rectangles sharing an edge are an
+L, two meeting across a third are a T or a cross, and the pair is most often
+neither — it is a room with an alcove, which a hand-drawn dungeon is full of and
+a generator almost never produces. Measured, **30–49% of rooms come out
+non-rectangular.**
+
+### Largest rectangle in a bitmap
+
+`rect/largestRectangle.ts`, in O(w·h), and worth reading because it is not the
+kind of algorithm anyone derives at the keyboard.
+
+Walk the bitmap row by row keeping one running count per column: zero where the
+cell is blocked, otherwise one more than the row above. That number is how far
+straight up you can go without hitting anything — so after each row you hold a
+**histogram**, and every rectangle whose bottom edge lies on this row is a
+rectangle under it. A column of height `h` extends left and right until the
+first bar strictly shorter than it, so its best rectangle is
+`h × (nextLower − prevLower − 1)`.
+
+Finding those two neighbours by scanning would cost a factor of the width.
+Instead each is precomputed in one pass with a **monotonic stack**: push indices
+while heights are not decreasing, and when one decreases, unwind — every index
+that comes off has just found its next lower bar. Each index is pushed once and
+popped once.
+
+The defaults are the part to get right: `nextLower` defaults to `width` and
+`prevLower` to `-1`, so a bar with nothing shorter beside it reaches the edge
+with no special case. Ties are treated as strictly lower both ways, so neither
+of two equal bars thinks it can reach past the other — the maximum is still
+correct, and `npm test` says so by comparing against the four-nested-loop
+definition over 3,000 random bitmaps.
+
+### Corridors between facing edges
+
+A corridor here is **not a path found through rock**. It is a straight run along
+one column or one row, from an edge of one room to an edge of another *facing
+it*, and it exists only where those two edges see each other. Any run that would
+cross a third room is rejected outright, and of what remains the shortest is
+taken. The ends of a run are **doors**.
+
+That rule is why the output reads as rooms and doors. A pathfinder asked to join
+two rooms will happily enter a third on the way and leave by the other side, and
+the moment that happens the two rooms it passed through have become one L-shaped
+space. Straight runs between facing edges cannot do that.
+
+Rooms that are diagonal from each other share neither a column nor a row and get
+an **L** instead: out along a column, one turn, in along a row. Both arms are
+still straight runs and both are still checked against every other room. The
+alternative — leave those links and let the shared stitcher have them — works
+and looks wrong: the stitcher digs the shortest path it can find and wanders by
+design, and a wandering tunnel between two square rooms reads as a mistake. At
+radius 100 it was digging 235 cells of it per level; with the L fallback that is
+**13**, and the whole stack got faster.
+
+### What is not here
+
+The reference this was built from finishes by converting the grid to polygons
+with marching squares. That is a rendering step for a game that draws walls as
+lines, and this one draws them as hexagonal prisms — there is no outline to
+extract, because every wall is already a cell you can stand next to. Skipped on
+purpose rather than missed.
+
+| | radius 20 | radius 100 | radius 200 |
 | --- | --- | --- | --- |
-| rooms | none, ever | yes | yes, as first-class objects |
-| corridor width | a knob | exactly one tile | exactly one tile |
-| connectivity | often one piece | rarely one piece | **one piece by construction** |
-| cost | ~5 ms | ~60 ms, can fail | ~10 ms |
-| tuning surface | two numbers | thirteen weights and socket rows | six knobs |
-| partial hexagons | none | **walls on edges** | none |
+| rooms placed | 14 | 193 | 313 |
+| non-rectangular | 42% | 30% | 17% |
+| floor | 49% | 46% | 24% |
+| time | 8 ms | 185 ms | 781 ms |
 
-The rooms stack wins on every row that matters for an ARPG-shaped level, and it
-wins for a structural reason rather than a tuning one: it is the only one that
-**decides where the places are before deciding what any hexagon is**. Both of
-the others hope structure falls out of a local rule, and structure does not fall
-out of local rules.
+## Where this leaves the four
 
-What all three still share is that **none of them can say anything about the
-level as a whole** beyond connectivity. No lock and key, no "the exit is behind
-the room with the three doors", no difficulty gradient. The rooms stack is the
-one positioned to gain that, because it already has a graph of rooms to hang it
-on — which is what item 6 below is about.
+|  | cave | WFC | rooms | boxes |
+| --- | --- | --- | --- | --- |
+| rooms | none, ever | emergent | organic blobs | **discrete, with walls** |
+| doors | no concept | no concept | no concept | **yes, marked** |
+| connectivity | often one piece | rarely one piece | by construction | by construction |
+| scales to r300 | yes | **no** | yes | yes |
+| cost at r100 | 0.19 s | — | 0.17 s | 0.19 s |
+
+The two graph stacks both **decide where the places are before deciding what any
+hexagon is**, and that is the structural reason they beat the other two at
+producing a level rather than a space. Between them it is a question of what
+kind of level: the rooms stack erodes, the boxes stack builds. Caves against
+architecture.
+
+What all four still share is that **none can say anything about the level as a
+whole** beyond connectivity. No lock and key, no "the exit is behind the room
+with the three doors", no difficulty gradient. The two graph stacks are the ones
+positioned to gain it, because they already have a graph of rooms to hang it on
+— which is what item 6 below is about.
 
 ## What to consider next
 
@@ -392,12 +492,11 @@ does the same thing and calls it `ensure_connectedness`
 mattered as much as the step, since running it after the generator rather than
 inside it is what lets every profile that game has inherit it.
 
-**2. Rectangular rooms and traditional tunnelling.** The rooms stack scatters
-and grows; Angband *places builders* and tunnels between their centres in a
-shuffled cycle, and the difference shows in the output — its rooms have straight
-walls and can be read from a file as vaults. Worth having as a fourth stack
-rather than as a replacement.
-`docs/angband/16-dungeon-generation.md` is a chapter on a shipped one;
+~~**2. Rectangular rooms.**~~ **Done** — see *Boxes and doors* above. What is
+still missing from it is Angband's **vaults**: a room whose layout is read from
+a file rather than generated, with a guarantee attached. The boxes stack is the
+one that could take them, because its rooms are rectangles with known extents.
+`docs/angband/16-dungeon-generation.md` §16.4;
 `docs/angband/16-dungeon-generation.md` is a chapter-length description of a
 shipped implementation and should be read before writing this stack. Place rooms
 from a weighted table of *builders* (§16.2.2), then connect their centres in a
