@@ -19,6 +19,11 @@
  * far side of a room a different size from the near side. That is exactly the
  * distortion you must not have while judging whether a corridor is one tile
  * wide.
+ *
+ * There is nothing here that draws a wall on an edge, and there never will be
+ * again: a hexagon is the atom of this game, so a wall is a rock cell and is
+ * drawn as one. The slabs this used to put on the boundaries between floor
+ * tiles existed for a tileset that has since been replaced for the same reason.
  */
 
 import {
@@ -34,16 +39,7 @@ import {
 	type RendererInfo,
 } from '@hexdelve/engine';
 import { STITCH_TILE, type Level, type LevelCell } from '@hexdelve/client';
-import {
-	AXIAL_DIRECTIONS,
-	axialKey,
-	axialToWorld,
-	mat4,
-	SQRT3,
-	vec3,
-	type Mat4,
-	type Vec3,
-} from '@hexdelve/shared';
+import { axialToWorld, mat4, SQRT3, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
 import { BenchControls } from './BenchControls.js';
 
@@ -61,24 +57,9 @@ const FLOOR_DEPTH = 0.14;
  * wall, short enough to see the floor of a passage between two of them.
  */
 const ROCK_HEIGHT = 0.62;
-/** A wall on the edge between two floor tiles the tileset left shut. */
-const EDGE_WALL_HEIGHT = 0.62;
-const EDGE_WALL_THICKNESS = 0.17;
-/**
- * Half the slab's length along the edge.
- *
- * A hex side is exactly the hex's radius, so `TILE_RADIUS / 2` would meet the
- * corners and no more. A little past that, because the prism is a hexagon too
- * and tapers to a point at each end: sized to the side exactly, the wall stops
- * short of the corner it is supposed to reach and the room leaks light at every
- * junction.
- */
-const EDGE_WALL_LENGTH = 0.62;
-
 const ENTRY_COLOR = 0x4fd47a;
 const EXIT_COLOR = 0xe8763a;
 const ROUTE_COLOR = 0x7fc4ff;
-const EDGE_WALL_COLOR = 0x2e2a24;
 
 /**
  * Colours for the region overlay.
@@ -104,8 +85,6 @@ export interface LevelBenchOptions {
 export interface LevelShow {
 	/** The solid rock. Off leaves the walkable floor hanging in the dark. */
 	rock: boolean;
-	/** Walls on shut edges between two floor tiles — the tileset's own doing. */
-	walls: boolean;
 	/** The entry, the exit, and the way between them. */
 	route: boolean;
 	/** Colour the floor by connected component instead of by tile. */
@@ -133,7 +112,6 @@ export class LevelBench {
 
 	readonly show: LevelShow = {
 		rock: true,
-		walls: true,
 		route: true,
 		regions: false,
 		stitching: false,
@@ -183,6 +161,10 @@ export class LevelBench {
 			yaw: Math.PI * 0.25,
 			pitch: ISO_PITCH,
 			viewHeight: 18,
+			// Set per level in `frameLevel`: an orthographic frustum has to hold
+			// the whole disc along the view direction, and a disc of three
+			// hundred rings is a thousand units across. Fixed planes clipped
+			// away most of it.
 			near: -200,
 			far: 200,
 		});
@@ -245,6 +227,12 @@ export class LevelBench {
 		// pitch the taller of the two is what the frustum has to hold, plus a
 		// tile of margin so the rim is not flush with the edge of the viewport.
 		this.camera.viewHeight = SQRT3 * radius * 0.82 + 2;
+		// Generous, and symmetric about the target: the camera sits at the
+		// middle of an orthographic box rather than at its near face, so half
+		// the depth has to be behind it.
+		const span = SQRT3 * radius + 20;
+		this.camera.near = -span * 2;
+		this.camera.far = span * 2;
 		this.draw();
 	}
 
@@ -280,7 +268,6 @@ export class LevelBench {
 		const level = this.level;
 		if (level) {
 			for (const cell of level.cells.values()) this.emitCell(opaque, cell);
-			if (this.show.walls) this.emitEdgeWalls(opaque, level);
 			if (this.show.route) this.emitRoute(overlay, level);
 		}
 
@@ -318,48 +305,6 @@ export class LevelBench {
 				? REGION_COLORS[cell.region % REGION_COLORS.length]!
 				: cell.color;
 		out.pushUpright(x, 0, z, TILE_RADIUS, FLOOR_DEPTH, color);
-	}
-
-	/**
-	 * A wall on every shut edge between two floor tiles.
-	 *
-	 * This is the only thing on screen the noise carve can never produce, and
-	 * drawing it is most of what makes the two stacks distinguishable: the wave
-	 * function's rooms have BACKS, and without these the level would look like a
-	 * cave with tidier corners.
-	 *
-	 * Only the first three directions are walked. Every edge has two sides and
-	 * the other three would draw each one a second time, in the same place, at
-	 * the same depth — which costs the instances and buys a z-fight.
-	 */
-	private emitEdgeWalls(out: HexInstances, level: Level): void {
-		for (const cell of level.cells.values()) {
-			if (cell.kind !== 'floor') continue;
-			const { x, z } = axialToWorld(cell.q, cell.r);
-
-			for (let d = 0; d < 3; d++) {
-				if (cell.open & (1 << d)) continue;
-				const step = AXIAL_DIRECTIONS[d]!;
-				const other = level.cells.get(axialKey(cell.q + step.q, cell.r + step.r));
-				// Against rock there is already a metre of stone standing there.
-				if (!other || other.kind !== 'floor') continue;
-
-				const towards = axialToWorld(cell.q + step.q, cell.r + step.r);
-				// Direction d points at (pi/2 + d*pi/3) from +Z; the edge itself
-				// runs across that, so the slab is turned a further quarter.
-				const yaw = Math.PI + (d * Math.PI) / 3;
-				out.push(
-					(x + towards.x) / 2,
-					FLOOR_DEPTH + EDGE_WALL_HEIGHT / 2,
-					(z + towards.z) / 2,
-					EDGE_WALL_THICKNESS,
-					EDGE_WALL_HEIGHT,
-					EDGE_WALL_LENGTH,
-					EDGE_WALL_COLOR,
-					{ yaw },
-				);
-			}
-		}
 	}
 
 	/**
@@ -411,7 +356,13 @@ export class LevelBench {
 		this.renderer.render({
 			viewProjection: this.camera.matrix(width / height, this.renderer.depthRange),
 			light: this.light,
-			shadow: { viewProjection: this.shadowMatrix, bias: 0.002 },
+			// The bias scales with what the map has to cover: one shadow map
+			// over a disc of three hundred rings has texels a metre wide, and a
+			// bias tuned for a small level is acne at that size.
+			shadow: {
+				viewProjection: this.shadowMatrix,
+				bias: 0.002 * Math.max(1, this.shadowRadius / 25),
+			},
 		});
 
 		this.drawMs = performance.now() - startedAt;

@@ -11,11 +11,9 @@
  * DISC and a rectangular array of it is a third empty. Lookup is by key
  * throughout for the same reason.
  *
- * Connectivity is per EDGE rather than per cell. Two floor tiles can sit side
- * by side with a wall between them — that is a room's back wall against a
- * corridor, and it is most of what makes a dungeon read as built rather than
- * eroded. A generator that has no such notion (the cave carve does not) simply
- * opens every edge between two floors and the rest of the code cannot tell.
+ * A hexagon is the atom. Two floor cells side by side are joined, and a wall
+ * is a rock cell — there is no such thing here as half a tile, and nothing
+ * lives on an edge.
  */
 
 import type { Axial } from '@hexdelve/shared';
@@ -27,13 +25,6 @@ export interface LevelCell {
 	readonly q: number;
 	readonly r: number;
 	readonly kind: CellKind;
-	/**
-	 * Which of the six edges this cell opens across, as a bit per direction of
-	 * `AXIAL_DIRECTIONS`. Always symmetric with the neighbour's own mask — the
-	 * generators are responsible for that, and {@link analyseLevel} would find
-	 * a one-way door as an asymmetry it cannot walk back through.
-	 */
-	readonly open: number;
 	/** The tile that produced it, for a readout. Empty where a stack has no tiles. */
 	readonly tile: string;
 	/** Connected component of the floor graph, or -1 for rock. */
@@ -82,7 +73,7 @@ export interface Level {
 	/** Where a party comes in, and where the stairs down are. Null if unwalkable. */
 	readonly entry: Axial | null;
 	readonly exit: Axial | null;
-	/** Entry to exit through open edges, inclusive of both ends. */
+	/** Entry to exit, inclusive of both ends. */
 	readonly route: readonly Axial[];
 	readonly stats: LevelStats;
 	/** A line per pipeline step, shown beside the level so the stack is legible. */

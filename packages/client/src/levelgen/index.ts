@@ -27,10 +27,31 @@ export { defaultParams, readParam, readChoice } from './types.js';
 export { STITCH_TILE, STITCH_COLOR, ROCK_COLOR } from './build.js';
 export { CAVE_STACK, caveFieldAt } from './caveStack.js';
 export { ROOM_STACK } from './roomStack.js';
-export { WFC_STACK } from './wfcStack.js';
-export { DUNGEON_TILES, expandTiles, buildPropagator, openMask } from './wfc/tileset.js';
-export type { Tile, TileSpec, Propagator } from './wfc/tileset.js';
-export { HexWave, type Heuristic, type WfcOptions, type WfcResult } from './wfc/model.js';
+export { WFC_STACK, wfcPatterns } from './wfcStack.js';
+export {
+	learn,
+	patternShape,
+	turnAxial,
+	type Pattern,
+	type PatternSet,
+	type Reach,
+	type Symmetry,
+} from './wfc/overlapping.js';
+export {
+	readSample,
+	sampleToAxial,
+	DUNGEON_SAMPLE,
+	ROCK,
+	FLOOR,
+	type Sample,
+} from './wfc/sample.js';
+export {
+	HexWave,
+	type Heuristic,
+	type Propagator,
+	type WfcOptions,
+	type WfcResult,
+} from './wfc/model.js';
 export { fbm, valueNoise3, hash3, fade } from './noise.js';
 
 import { CAVE_STACK } from './caveStack.js';

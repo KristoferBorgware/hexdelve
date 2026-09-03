@@ -27,21 +27,17 @@ function generate(stack: LevelStack, seed: number, radius: number, stitch: boole
 }
 
 describe.each(LEVEL_STACKS.map((stack) => [stack.id, stack] as const))('%s', (_id, stack) => {
-	it('opens every edge from both sides or from neither', () => {
-		// A one-way door is the failure that looks exactly like a rendering
-		// mistake from the outside: the route walks through it and will not
-		// walk back.
+	it('leaves every floor cell inside the disc and out of the rim', () => {
+		// A hexagon is the atom, so there is no edge state left to get wrong —
+		// what is left to check is that floor only ever appears where the stack
+		// is allowed to put it.
 		for (const seed of SEEDS) {
 			const level = generate(stack, seed, 14, true);
 			for (const cell of level.cells.values()) {
-				if (cell.kind === 'rock') expect(cell.open, `rock at ${cell.q},${cell.r}`).toBe(0);
-				for (let d = 0; d < 6; d++) {
-					if ((cell.open & (1 << d)) === 0) continue;
-					const step = AXIAL_DIRECTIONS[d]!;
-					const other = level.cells.get(axialKey(cell.q + step.q, cell.r + step.r));
-					expect(other?.kind, `${cell.q},${cell.r} edge ${d}`).toBe('floor');
-					expect(other!.open & (1 << ((d + 3) % 6))).not.toBe(0);
-				}
+				if (cell.kind !== 'floor') continue;
+				expect(cell.sealed, `floor on sealed rock at ${cell.q},${cell.r}`).toBe(false);
+				const ring = (Math.abs(cell.q) + Math.abs(cell.r) + Math.abs(cell.q + cell.r)) / 2;
+				expect(ring).toBeLessThanOrEqual(level.radius);
 			}
 		}
 	});
@@ -96,8 +92,10 @@ describe.each(LEVEL_STACKS.map((stack) => [stack.id, stack] as const))('%s', (_i
 						(step) => from.q + step.q === to.q && from.r + step.r === to.r,
 					);
 					expect(d, `route step ${i} is not a neighbour`).toBeGreaterThanOrEqual(0);
-					const cell = level.cells.get(axialKey(from.q, from.r))!;
-					expect(cell.open & (1 << d), `route step ${i} crosses a shut edge`).not.toBe(0);
+					expect(
+						level.cells.get(axialKey(to.q, to.r))?.kind,
+						`route step ${i} stands on rock`,
+					).toBe('floor');
 				}
 			}
 		}

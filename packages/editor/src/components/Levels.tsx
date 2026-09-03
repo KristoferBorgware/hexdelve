@@ -30,7 +30,6 @@ import { StackOutline } from './StackOutline.js';
 
 const DEFAULT_SHOW: LevelShow = {
 	rock: true,
-	walls: true,
 	route: true,
 	regions: false,
 	stitching: false,

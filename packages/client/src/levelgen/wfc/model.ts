@@ -10,8 +10,9 @@
  *      is simply absent, which is what the original's non-periodic branch does
  *      by skipping — so an edge cell is unconstrained from outside rather than
  *      wrapped, and that is the same choice as `periodic = false`.
- *   3. Pattern size `N` is gone. It only ever existed for the overlapping
- *      model; the tiled model passes `N = 1` and every test on it collapses.
+ *   3. Pattern size `N` is gone from the SOLVER. In the original it leaks in
+ *      here to bound the non-periodic domain; on a disc the domain is the
+ *      disc, and how big a pattern is stays entirely the caller's business.
  *
  * Everything that makes the algorithm work is unchanged and deliberately so.
  * The supporter counts in `compatible`, the entropy heuristic with its 1e-6
@@ -31,31 +32,46 @@
  *
  *   - The random source is this project's own mulberry32 rather than .NET's
  *     `Random`, so a seed means the same level in a browser as in a test.
+ *
+ * And it knows nothing about what a tile IS. The original has two models built
+ * on this one — a tiled model whose tiles are pictures with declared adjacency,
+ * and an overlapping model whose tiles are patterns read out of a sample — and
+ * both are the same solver over a different table. So this takes weights and a
+ * propagator and no tileset at all: whatever produced the table can say what
+ * the numbers in it mean.
  */
 
 import { AXIAL_DIRECTIONS, axialDisc, axialKey, makeRandom, type Axial } from '@hexdelve/shared';
 
-import type { Propagator, Tile } from './tileset.js';
-
 export type Heuristic = 'entropy' | 'mrv' | 'scanline';
+
+/** `allowed[d][t]` — every tile that may sit in direction `d` from tile `t`. */
+export type Propagator = readonly (readonly Int32Array[])[];
 
 export interface WfcOptions {
 	readonly radius: number;
-	readonly tiles: readonly Tile[];
+	/** Relative frequency per tile. Its length is how many tiles there are. */
+	readonly weights: readonly number[];
 	readonly propagator: Propagator;
 	readonly seed: number;
 	readonly heuristic?: Heuristic;
 	/**
-	 * A tile-spec name to force on a cell before the first propagation, or null
-	 * to leave it free.
+	 * Whether a tile may stand at a cell at all, asked once before the first
+	 * propagation. Everything it refuses is banned up front.
 	 *
 	 * This is the hex answer to the original's `ground` flag, which nails the
 	 * bottom row of the output to one tile so a Summer landscape has ground
-	 * under it. Here it is how a level gets an EDGE: pin the outer rings to
-	 * rock and the solver is obliged to close every passage that reaches them,
-	 * rather than leaving corridors sheared off at the boundary.
+	 * under it. Here it is how a level gets an EDGE: refuse anything but solid
+	 * on the outer rings and the solver is obliged to close every passage that
+	 * reaches them, rather than leave corridors sheared off at the boundary.
 	 */
-	readonly pin?: (cell: Axial) => string | null;
+	readonly allow?: (cell: Axial, tile: number) => boolean;
+	/**
+	 * What a cell becomes when a failed run left it with nothing. Defaults to
+	 * tile zero; a caller with a solid tile should name it, so the salvage of a
+	 * contradiction reads as rock rather than as whatever sorted first.
+	 */
+	readonly fallback?: number;
 }
 
 export interface WfcResult {
@@ -70,11 +86,12 @@ export interface WfcResult {
 export class HexWave {
 	private readonly cells: Axial[];
 	private readonly neighbours: Int32Array;
-	private readonly tiles: readonly Tile[];
+	private readonly weights: readonly number[];
 	private readonly propagator: Propagator;
 	private readonly heuristic: Heuristic;
 	private readonly random: () => number;
-	private readonly pin: (cell: Axial) => string | null;
+	private readonly allow: (cell: Axial, tile: number) => boolean;
+	private readonly fallback: number;
 
 	private readonly n: number;
 	private readonly t: number;
@@ -100,14 +117,15 @@ export class HexWave {
 
 	constructor(options: WfcOptions) {
 		this.cells = axialDisc(options.radius);
-		this.tiles = options.tiles;
+		this.weights = options.weights;
 		this.propagator = options.propagator;
 		this.heuristic = options.heuristic ?? 'entropy';
 		this.random = makeRandom(options.seed | 0);
-		this.pin = options.pin ?? (() => null);
+		this.allow = options.allow ?? (() => true);
+		this.fallback = options.fallback ?? 0;
 
 		this.n = this.cells.length;
-		this.t = this.tiles.length;
+		this.t = this.weights.length;
 
 		// The neighbour table, built once. It is what replaces the original's
 		// index arithmetic, and it is also where the disc's boundary lives:
@@ -136,7 +154,7 @@ export class HexWave {
 		let sumOfWeights = 0;
 		let sumOfWeightLogWeights = 0;
 		for (let t = 0; t < this.t; t++) {
-			const weight = this.tiles[t]!.weight;
+			const weight = this.weights[t]!;
 			this.weightLogWeights[t] = weight * Math.log(weight);
 			sumOfWeights += weight;
 			sumOfWeightLogWeights += this.weightLogWeights[t]!;
@@ -180,10 +198,6 @@ export class HexWave {
 	 * got, which is worth far more on a bench than an exception is.
 	 */
 	private settle(ok: boolean): WfcResult {
-		const fallback = Math.max(
-			0,
-			this.tiles.findIndex((tile) => tile.spec.kind === 'rock'),
-		);
 		for (let i = 0; i < this.n; i++) {
 			let chosen = -1;
 			for (let t = 0; t < this.t; t++) {
@@ -192,7 +206,7 @@ export class HexWave {
 					break;
 				}
 			}
-			this.observed[i] = chosen < 0 ? fallback : chosen;
+			this.observed[i] = chosen < 0 ? this.fallback : chosen;
 		}
 		return { cells: this.cells, observed: this.observed, ok };
 	}
@@ -218,11 +232,39 @@ export class HexWave {
 			this.entropies[i] = this.startingEntropy;
 		}
 
+		/*
+		 * A tile with no legal neighbour in some direction cannot stand at any
+		 * cell that HAS a neighbour that way, so it is banned before the run
+		 * starts. The original does this and it is easy to leave out — I did —
+		 * and what leaving it out costs is not a wrong picture but a run that
+		 * fails: the solver happily observes such a tile, propagation then finds
+		 * the neighbour has nothing left, and the whole level is thrown away and
+		 * retried on a new seed. The overlapping model produces these routinely,
+		 * because a window taken at the edge of a finite sample can describe an
+		 * arrangement no other window continues.
+		 */
+		for (let t = 0; t < this.t; t++) {
+			let orphaned = 0;
+			for (let d = 0; d < 6; d++) if (this.propagator[d]![t]!.length === 0) orphaned |= 1 << d;
+			if (orphaned === 0) continue;
+
+			for (let i = 0; i < this.n; i++) {
+				if (!this.wave[i * this.t + t]) continue;
+				for (let d = 0; d < 6; d++) {
+					if ((orphaned & (1 << d)) === 0) continue;
+					// Off the disc there is nothing to be incompatible with, so
+					// an edge cell may still hold a tile nothing can follow.
+					if (this.neighbours[i * 6 + d]! < 0) continue;
+					this.ban(i, t);
+					break;
+				}
+			}
+		}
+
 		for (let i = 0; i < this.n; i++) {
-			const wanted = this.pin(this.cells[i]!);
-			if (wanted === null) continue;
+			const cell = this.cells[i]!;
 			for (let t = 0; t < this.t; t++) {
-				if (this.tiles[t]!.spec.name !== wanted && this.wave[i * this.t + t]) this.ban(i, t);
+				if (!this.allow(cell, t) && this.wave[i * this.t + t]) this.ban(i, t);
 			}
 		}
 
@@ -273,7 +315,7 @@ export class HexWave {
 	private observe(node: number): void {
 		const base = node * this.t;
 		for (let t = 0; t < this.t; t++) {
-			this.distribution[t] = this.wave[base + t] ? this.tiles[t]!.weight : 0;
+			this.distribution[t] = this.wave[base + t] ? this.weights[t]! : 0;
 		}
 		const chosen = weightedPick(this.distribution, this.random());
 		for (let t = 0; t < this.t; t++) {
@@ -321,7 +363,7 @@ export class HexWave {
 		this.stackSize++;
 
 		this.sumsOfOnes[i] = this.sumsOfOnes[i]! - 1;
-		this.sumsOfWeights[i] = this.sumsOfWeights[i]! - this.tiles[t]!.weight;
+		this.sumsOfWeights[i] = this.sumsOfWeights[i]! - this.weights[t]!;
 		this.sumsOfWeightLogWeights[i] = this.sumsOfWeightLogWeights[i]! - this.weightLogWeights[t]!;
 
 		if (this.sumsOfOnes[i]! <= 0) {

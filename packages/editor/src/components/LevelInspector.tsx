@@ -54,7 +54,6 @@ export interface LevelInspectorProps {
 
 const SHOW: { key: keyof LevelShow; label: string; hint: string }[] = [
 	{ key: 'rock', label: 'Rock', hint: 'The solid the level is cut out of' },
-	{ key: 'walls', label: 'Edge walls', hint: 'Shut edges between two floor tiles' },
 	{ key: 'route', label: 'Entry & exit', hint: 'The two ends, and the way between them' },
 	{ key: 'regions', label: 'Regions', hint: 'Colour the floor by connected component' },
 	{ key: 'stitching', label: 'Stitching', hint: 'Pick out the tunnels the stitcher dug' },
@@ -173,14 +172,13 @@ export function LevelInspector({
 			</Stack>
 
 			<Typography variant="caption" color="text.secondary">
-				Radius — {radius} rings
+				Radius — {radius} rings, {(3 * radius * (radius + 1) + 1).toLocaleString()} cells
 			</Typography>
 			<Slider
 				size="small"
 				min={4}
-				max={24}
-				step={1}
-				marks
+				max={300}
+				step={2}
 				value={radius}
 				onChange={(_, value) => onRadiusChange(value as number)}
 			/>

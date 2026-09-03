@@ -1,41 +1,40 @@
 /*
- * Stack two: wave function collapse, with a tileset written for dungeons.
+ * Stack two: wave function collapse, learning from a drawn dungeon.
  *
- * The solver next door is mxgmn's, six-sided; the tileset beside it is this
- * project's own. This file is the part that makes the two into a level: it
- * weights the tiles from the panel's knobs, pins the rim to rock so the disc
- * has an edge, runs the wave, and — because a wave function CAN fail — runs it
- * again on the next seed until one comes out whole.
+ * This was a tiled model over thirteen hand-written tiles whose six edges each
+ * carried a wall, corridor or room socket. It produced dungeons and it was
+ * wrong, for a reason that had nothing to do with the solver: a "wall between
+ * two floor tiles" was a socket on an EDGE, and an edge is not something a
+ * character can stand on, walk round or be stopped by. **There is no such thing
+ * as half a hexagon.** Everything else in this project agrees — the yard's
+ * `passable` asks about a cell, Angband's doors are grids — and the tiled model
+ * was the one place that did not.
  *
- * The retry deserves a word, because it is not a workaround. WFC has no
- * backtracking: an observation is never taken back, so a run that paints itself
- * into a corner has no move except to start over. mxgmn's `Program.cs` does the
- * same thing — `for (int k = 0; k < tries; k++) if (model.Run(seed, limit))` —
- * and the honest way to report it is the attempt count, which is why the bench
- * shows it beside the timing. A tileset whose weights are wrong does not look
- * wrong on screen; it looks like twenty attempts.
+ * So the tiles are gone and the model underneath them changed with it. In the
+ * overlapping model a "tile" is a cell together with its neighbours, read out
+ * of a sample; two neighbouring wave cells must agree about the cells they both
+ * cover; and every value in the system is one hexagon being floor or being
+ * rock. Nothing is authored but `sample.ts`, which is a picture of a dungeon.
  *
- * What comes out that the noise carve cannot produce: rooms with straight
- * walls, corridors exactly one tile wide, and doors, because those are three
- * distinct socket vocabularies that can only meet where a tile says they may.
- * What it produces that a dungeon does not want: no guarantee of connection
- * whatsoever. The wave is a LOCAL constraint system — every adjacency is legal
- * and nothing anywhere says the level is one piece — so the shared finish has
- * real work to do here, and the region count in the readout is the number worth
- * watching while the weights are tuned.
+ * The trade is worth stating plainly. What was lost is the vocabulary: the old
+ * tileset could say "room" and "corridor" and "door" as distinct socket kinds,
+ * and this cannot say them at all — it only knows floor and rock, and any room
+ * that comes out is a room because the sample had rooms in it, not because the
+ * model has a concept of one. What was gained is that the tileset is now a
+ * drawing, adjacency is derived instead of declared, and the output is made of
+ * whole hexagons.
+ *
+ * What did NOT change is the solver, which is the point of `model.ts` taking
+ * weights and a propagator and no tileset at all. Both of mxgmn's models are
+ * the same algorithm over a different table.
  */
 
 import { axialKey, type Axial } from '@hexdelve/shared';
 
-import { finishLevel, solidDraft, type Carved, type DraftCell } from './build.js';
+import { finishLevel, solidDraft, type Carved } from './build.js';
 import { HexWave, type Heuristic } from './wfc/model.js';
-import {
-	buildPropagator,
-	DUNGEON_TILES,
-	expandTiles,
-	openMask,
-	type TileSpec,
-} from './wfc/tileset.js';
+import { learn, type PatternSet, type Reach, type Symmetry } from './wfc/overlapping.js';
+import { readSample } from './wfc/sample.js';
 import {
 	readChoice,
 	readParam,
@@ -44,53 +43,65 @@ import {
 	type LevelStack,
 } from './types.js';
 
-/** Which specs answer to the `Rooms` knob. */
-const ROOM_FAMILY = new Set(['chamber', 'chamber-wall', 'chamber-bay', 'chamber-nub']);
+const FLOOR_COLOR = 0x83765f;
+
+/**
+ * The learned pattern sets, kept.
+ *
+ * Learning is a scan of the sample and then an O(T^2) propagator, and at reach 2
+ * with mirrors that is a few hundred patterns and tens of thousands of
+ * comparisons — nothing, once, and unaffordable on every drag of a slider. The
+ * sample never changes at runtime, so there are six possible answers and they
+ * are worth keeping.
+ */
+const learned = new Map<string, PatternSet>();
+
+function patternsFor(reach: Reach, symmetry: Symmetry): PatternSet {
+	const key = `${reach}/${symmetry}`;
+	const held = learned.get(key);
+	if (held) return held;
+	const fresh = learn(readSample(), reach, symmetry);
+	learned.set(key, fresh);
+	return fresh;
+}
 
 export const WFC_STACK: LevelStack = {
 	id: 'wfc-hex',
-	label: 'WFC — hex tiles',
+	label: 'WFC — overlapping',
 	blurb:
-		"mxgmn's simple tiled model on six neighbours, over a tileset of hex " +
-		'cells whose six edges carry a wall, a corridor or a room socket. ' +
-		'Rooms, corridors and doors all fall out of one rule: corridors and ' +
-		'rooms are not allowed to meet except through a tile that has both.',
-	source: 'mxgmn/WaveFunctionCollapse — Model.cs, SimpleTiledModel.cs',
+		"mxgmn's overlapping model on six neighbours. A pattern is a hex and " +
+		'everything within reach of it, read out of a drawn sample; neighbouring ' +
+		'cells must agree about the cells they both cover. Nothing is authored ' +
+		'but the picture, and every value is one whole hexagon.',
+	source: 'mxgmn/WaveFunctionCollapse — OverlappingModel.cs',
 	steps: [
-		'expand 13 tile specs into their distinct hex rotations',
-		'derive the propagator from the edge sockets',
-		'pin the rim to rock, so the level closes',
+		'read every window of the sample dungeon as a pattern',
+		'add its rotations, and count how often each was seen',
+		'derive adjacency: neighbours must agree on their overlap',
+		'pin the rim solid, so the level closes',
 		'collapse: observe the lowest-entropy cell, propagate, repeat',
 		'retry on the next seed if it contradicts',
-		'keep the largest component, mark entry and exit',
+		'read each cell off the centre of the pattern it settled on',
 	],
 	params: [
 		{
-			key: 'rock',
-			label: 'Rock',
-			hint: 'Weight on the solid tile. Higher digs less.',
-			min: 0.25,
-			max: 8,
-			step: 0.25,
-			value: 4.5,
-		},
-		{
-			key: 'rooms',
-			label: 'Rooms',
-			hint: 'Weight on the chamber tiles against the corridor tiles.',
-			min: 0.2,
-			max: 4,
-			step: 0.1,
+			key: 'reach',
+			label: 'Reach',
+			hint: 'How far a pattern sees. 1 is seven cells, 2 is nineteen.',
+			min: 1,
+			max: 2,
+			step: 1,
 			value: 1,
+			integer: true,
 		},
 		{
 			key: 'rim',
 			label: 'Rim',
-			hint: 'Rings of rock pinned round the edge before the wave runs.',
+			hint: 'Rings pinned solid round the edge before the wave runs.',
 			min: 1,
 			max: 4,
 			step: 1,
-			value: 1,
+			value: 2,
 			integer: true,
 		},
 		{
@@ -102,6 +113,16 @@ export const WFC_STACK: LevelStack = {
 			step: 1,
 			value: 12,
 			integer: true,
+		},
+		{
+			key: 'symmetry',
+			label: 'Symmetry',
+			hint: 'Whether the sample also teaches its own rotations and mirrors.',
+			min: 0,
+			max: 2,
+			step: 1,
+			value: 1,
+			choices: ['as drawn', 'rotations', 'rotations and mirrors'],
 		},
 		{
 			key: 'heuristic',
@@ -120,26 +141,28 @@ export const WFC_STACK: LevelStack = {
 function collapse(settings: LevelSettings): Level {
 	const startedAt = performance.now();
 
-	const rockWeight = readParam(WFC_STACK, settings.params, 'rock');
-	const roomWeight = readParam(WFC_STACK, settings.params, 'rooms');
+	const reach = readParam(WFC_STACK, settings.params, 'reach') as Reach;
 	const rim = readParam(WFC_STACK, settings.params, 'rim');
 	const maxAttempts = readParam(WFC_STACK, settings.params, 'attempts');
+	const symmetry = readChoice(WFC_STACK, settings.params, 'symmetry') as Symmetry;
 	const heuristic = readChoice(WFC_STACK, settings.params, 'heuristic') as Heuristic;
 
-	const specs: TileSpec[] = DUNGEON_TILES.map((spec) => ({
-		...spec,
-		weight: spec.weight * weightScale(spec, rockWeight, roomWeight),
-	}));
-	const tiles = expandTiles(specs);
-	const propagator = buildPropagator(tiles);
+	const set = patternsFor(reach, symmetry);
 
-	// The pin is the disc's edge. Anything within `rim` of the boundary is
-	// rock, so a corridor that runs outwards has to turn or end rather than be
-	// cut off by the domain — the same job the original's `ground` flag does
-	// for the bottom row of a landscape.
+	/*
+	 * The rim is pinned by refusing every pattern whose own cell is floor.
+	 *
+	 * Refusing all but the fully solid pattern would be the obvious thing and is
+	 * far too strong: at reach 1 that also forbids the rim's NEIGHBOURS from
+	 * being floor, so a two-ring rim silently becomes four and the level shrinks
+	 * away from its own edge. What the boundary needs to say is only that
+	 * nothing is walkable out there.
+	 */
 	const edge = settings.radius - rim;
-	const pin = (cell: Axial): string | null =>
-		(Math.abs(cell.q) + Math.abs(cell.r) + Math.abs(cell.q + cell.r)) / 2 > edge ? 'rock' : null;
+	const outside = (cell: Axial): boolean =>
+		(Math.abs(cell.q) + Math.abs(cell.r) + Math.abs(cell.q + cell.r)) / 2 > edge;
+	const allow = (cell: Axial, pattern: number): boolean =>
+		outside(cell) ? set.isFloor[pattern] === 0 : true;
 
 	let attempts = 0;
 	let result = null as ReturnType<HexWave['run']> | null;
@@ -147,13 +170,14 @@ function collapse(settings: LevelSettings): Level {
 	while (attempts < maxAttempts) {
 		const wave = new HexWave({
 			radius: settings.radius,
-			tiles,
-			propagator,
+			weights: set.weights,
+			propagator: set.propagator,
 			// A fresh seed per attempt, derived rather than random, so a level
-			// that took four goes takes the same four goes next time.
+			// that took four goes takes the same four next time.
 			seed: (settings.seed + attempts * 0x9e3779b1) | 0,
 			heuristic,
-			pin,
+			allow,
+			fallback: set.solid,
 		});
 		attempts++;
 		result = wave.run();
@@ -162,18 +186,21 @@ function collapse(settings: LevelSettings): Level {
 
 	const cells = solidDraft(settings.radius);
 	for (const cell of cells.values()) {
-		// The same rim, marked so the stitcher goes round it rather than
-		// through it. Pinning it to rock is what the solver was told; sealing it
-		// is what everything after the solver is told.
-		if (pin(cell) === 'rock') cell.sealed = true;
+		if (outside(cell)) cell.sealed = true;
 	}
+
 	const settled = result;
 	if (settled) {
 		settled.cells.forEach((cell, i) => {
+			// The centre of the pattern a cell settled on IS that cell's value.
+			// Every neighbour's pattern asserts the same thing — that is what
+			// the overlap rule says — so there is nothing here to reconcile.
+			if (set.isFloor[settled.observed[i]!] === 0) return;
 			const draft = cells.get(axialKey(cell.q, cell.r));
-			if (!draft) return;
-			const tile = tiles[settled.observed[i]!]!;
-			paint(draft, tile.name, tile.spec, openMask(tile));
+			if (!draft || draft.sealed) return;
+			draft.kind = 'floor';
+			draft.tile = 'floor';
+			draft.color = FLOOR_COLOR;
 		});
 	}
 
@@ -181,15 +208,7 @@ function collapse(settings: LevelSettings): Level {
 	return finishLevel(WFC_STACK, settings, carved, startedAt);
 }
 
-function weightScale(spec: TileSpec, rockWeight: number, roomWeight: number): number {
-	if (spec.name === 'rock') return rockWeight;
-	if (ROOM_FAMILY.has(spec.name)) return roomWeight;
-	return 1;
-}
-
-function paint(draft: DraftCell, name: string, spec: TileSpec, open: number): void {
-	draft.kind = spec.kind;
-	draft.tile = name;
-	draft.color = spec.color;
-	draft.open = spec.kind === 'floor' ? open : 0;
+/** The pattern set the panel draws, so the bench can show what was learned. */
+export function wfcPatterns(reach: Reach = 1, symmetry: Symmetry = 'rotations'): PatternSet {
+	return patternsFor(reach, symmetry);
 }

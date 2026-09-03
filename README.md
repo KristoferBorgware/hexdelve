@@ -219,13 +219,14 @@ and read on the ground plane. chamfer's note on that function says the band roun
 a zero set in three dimensions is a slab, which is why its caves are one wide
 folded sheet; on a plane the zero set is a set of curves and the band round one
 is a ribbon, which is a corridor — the thing that world works around is the thing
-this wants. The **WFC** stack is mxgmn's simple tiled model on six neighbours,
-over a tileset of our own: thirteen specs of a hex cell whose six edges carry a
-wall, a corridor or a room socket, expanded to 61 rotations, with adjacency
-derived from the sockets rather than listed as neighbour pairs. Three socket
-kinds rather than two is the whole design — corridors and rooms may not meet
-except through a tile that has both — so rooms, corridors and doors all fall out
-of one rule.
+this wants. The **WFC** stack is mxgmn's overlapping model on six
+neighbours: a pattern is a hex and its neighbours read out of a drawn sample,
+and two adjacent cells' patterns must agree about the four cells they both
+cover. Nothing is authored but the picture. It replaced a tiled model whose
+tiles carried sockets on their *edges*, which was wrong for a reason no tuning
+would have found — an edge is not somewhere a character can stand, walk round
+or be stopped by. **A hexagon is the atom**: a wall is a rock cell, and there
+is nothing else a wall can be.
 
 The tileset is drawn in the panel beside the level — every spec as the hexagon
 it is, once per distinct rotation, with each socket on the edge it belongs to,

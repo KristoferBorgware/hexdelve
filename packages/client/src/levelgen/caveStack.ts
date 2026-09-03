@@ -30,7 +30,7 @@
 
 import { axialToWorld, makeRandom, type Axial } from '@hexdelve/shared';
 
-import { ALL_EDGES, finishLevel, solidDraft, type Carved } from './build.js';
+import { finishLevel, solidDraft, type Carved } from './build.js';
 import { fbm } from './noise.js';
 import { readParam, type Level, type LevelSettings, type LevelStack } from './types.js';
 
@@ -133,9 +133,6 @@ function carve(settings: LevelSettings): Level {
 		if (n <= -threshold || n >= threshold) continue;
 
 		cell.kind = 'floor';
-		// Every edge, because this carve has no notion of a wall between two
-		// open tiles. `finishLevel` drops the ones facing rock.
-		cell.open = ALL_EDGES;
 		cell.tile = 'cave';
 		cell.color = FLOOR_SHADES[Math.floor(shade() * FLOOR_SHADES.length)]!;
 	}

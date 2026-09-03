@@ -55,14 +55,7 @@ import {
 	type Random,
 } from '@hexdelve/shared';
 
-import {
-	ALL_EDGES,
-	finishLevel,
-	ROCK_COLOR,
-	solidDraft,
-	type Carved,
-	type DraftCell,
-} from './build.js';
+import { finishLevel, ROCK_COLOR, solidDraft, type Carved, type DraftCell } from './build.js';
 import { fbm } from './noise.js';
 import {
 	readChoice,
@@ -119,7 +112,7 @@ export const ROOM_STACK: LevelStack = {
 			label: 'Rooms',
 			hint: 'How many to try to place. The disc may not hold them all.',
 			min: 3,
-			max: 40,
+			max: 500,
 			step: 1,
 			value: 14,
 			integer: true,
@@ -318,6 +311,14 @@ function randomCell(random: Random, radius: number): Axial {
  * way rather than independently — which is what makes a level look eroded out
  * of one rock rather than assembled from parts. It costs nothing: it is the
  * same field sampled at the same place either way.
+ *
+ * Walked per ROOM over its own neighbourhood rather than per cell over every
+ * room. The two are the same picture and not the same cost: a level is mostly
+ * not room, so the second asks every cell of the disc about every room in it,
+ * and at three hundred rooms on a disc of a hundred thousand cells that is
+ * thirty million questions to which the answer is almost always no. This asks
+ * only about the cells a room could possibly reach, so the work is the area of
+ * the rooms rather than the area of the level.
  */
 function growRooms(
 	cells: Map<string, DraftCell>,
@@ -328,27 +329,29 @@ function growRooms(
 ): void {
 	const shapeSeed = (seed + SHAPE_SEED_OFFSET) | 0;
 
-	for (const cell of cells.values()) {
-		if (ring(cell) > interior) continue;
+	for (const room of rooms) {
+		const span = Math.ceil(room.reach * (1 + ragged));
 
-		const { x, z } = axialToWorld(cell.q, cell.r);
-		const noise =
-			ragged === 0
-				? 0
-				: fbm(x / SHAPE_SCALE, 0, z / SHAPE_SCALE, 1, SHAPE_OCTAVES, shapeSeed);
+		for (let dq = -span; dq <= span; dq++) {
+			for (let dr = -span; dr <= span; dr++) {
+				const q = room.site.q + dq;
+				const r = room.site.r + dr;
+				if (axialDistance({ q, r }, room.site) > span) continue;
 
-		for (const room of rooms) {
-			const reach = room.reach * (1 + ragged * noise);
-			if (axialDistance(cell, room.site) > reach) continue;
-			cell.kind = 'floor';
-			// Every edge, because in this stack a wall is a ROCK HEXAGON and
-			// nothing else. There is no such thing here as two floor cells with
-			// something between them, so the finish's symmetrise has only to
-			// drop the edges facing rock.
-			cell.open = ALL_EDGES;
-			cell.tile = 'room';
-			cell.color = room.color;
-			break;
+				const cell = cells.get(axialKey(q, r));
+				if (!cell || cell.kind === 'floor' || ring(cell) > interior) continue;
+
+				const { x, z } = axialToWorld(q, r);
+				const noise =
+					ragged === 0
+						? 0
+						: fbm(x / SHAPE_SCALE, 0, z / SHAPE_SCALE, 1, SHAPE_OCTAVES, shapeSeed);
+
+				if (axialDistance({ q, r }, room.site) > room.reach * (1 + ragged * noise)) continue;
+				cell.kind = 'floor';
+				cell.tile = 'room';
+				cell.color = room.color;
+			}
 		}
 	}
 }
@@ -386,7 +389,6 @@ function shedSpecks(cells: Map<string, DraftCell>): void {
 	// iteration order rather than on the shape.
 	for (const cell of lonely) {
 		cell.kind = 'rock';
-		cell.open = 0;
 		cell.tile = '';
 		cell.color = ROCK_COLOR;
 	}
@@ -582,7 +584,6 @@ function dig(
 		const cell = cells.get(axialKey(at.q, at.r))!;
 		if (cell.kind === 'rock') {
 			cell.kind = 'floor';
-			cell.open = ALL_EDGES;
 			cell.tile = 'corridor';
 			cell.color = CORRIDOR_COLOR;
 		}

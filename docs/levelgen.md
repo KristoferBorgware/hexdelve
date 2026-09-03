@@ -21,13 +21,22 @@ every one of them:
 
 ```
 carve            the stack's own business
-symmetrise       an edge is open only if both sides say so
 flood            label the connected components
 stitch           dig tunnels until the level is one piece
 prune            fill in anything the stitch could not reach
 farthest pair    two breadth-first sweeps; the ends are the entry and the exit
 route            breadth-first again, entry to exit
 ```
+
+**A hexagon is the atom.** Two floor cells side by side are joined, full stop;
+a wall is a rock cell and there is nothing else a wall can be. There used to be
+a six-bit mask per cell so a tile could carry a wall on an *edge*, which is how
+the old socket tileset drew a room's back — and it was wrong for a reason no
+amount of tuning would have found: an edge is not somewhere a character can
+stand, or path around, or be stopped by. Nothing else in the project believed in
+it; the yard's `passable` asks about a cell and Angband's doors are grids. The
+mask, the symmetry pass that repaired it, and the wall slabs the bench drew for
+it all went with the tileset that wanted them.
 
 The finish is shared on purpose. If the cave carve had its own idea of
 "connected", the region count on screen would not mean the same thing for both,
@@ -43,19 +52,28 @@ dungeons. **Connectivity is not a property either algorithm is able to state**,
 which is exactly why it belongs in the finish — after the carve has had its say,
 applying to whatever the carve was.
 
-The shape of it is Prim's algorithm on the graph of pieces, with the length of
-the tunnel between two pieces as the edge weight. Start with the largest piece;
-breadth-first outward from *everything joined so far at once*, through rock,
-until the search first touches a piece that is not; dig back along the way it
-came; repeat. Leaving from every joined cell simultaneously is what makes each
-round find the shortest join available, and a short join is what stops the
-result looking like somebody ruled lines across the map.
+**One flood, not one per join.** The obvious shape is Prim's on the graph of
+pieces: breadth-first from everything joined so far, dig to the nearest piece
+that is not, repeat. It is correct, it reads well, and it is quadratic — one
+flood of the whole disc per join. Invisible at radius 14 with eight pieces, and
+fatal at radius 200 with seven hundred: **158 seconds**, measured, against about
+a tenth of a second for everything else the level needed.
 
-Two things it is deliberately allowed to do. **It breaches walls** — a floor
-cell's edge to rock is shut by definition, so every tunnel opens one the carve
-closed. **It digs exactly one tile wide**, opening only the two edges along the
-path, so a tunnel arrives with walls down both sides and reads on screen as
-something cut rather than something found.
+So the flood happens once. A single breadth-first search leaves every floor cell
+at the same time and spreads through the rock; each rock cell records which
+piece reached it first and which way that piece lies. That is a **Voronoi
+diagram of the pieces, drawn in rock**, and the moment two territories touch is
+a candidate tunnel between them whose length is how far each had come plus the
+step across. Every candidate any join could want is found in that one pass.
+What remains is Kruskal's over a few hundred pieces rather than a few hundred
+thousand cells, and digging the chosen tunnels costs their own length and
+nothing more, because the way back to each piece is already recorded.
+
+Same output, 120× faster: radius 200 went from 158 s to 1.1 s, still 699 pieces
+joined into one by 698 tunnels.
+
+**It digs exactly one tile wide** — the minimum that connects, and it reads on
+screen as something cut rather than something found.
 
 What it will not touch is `sealed` rock: the rim both stacks keep so a passage
 cannot run off the boundary. A stitcher free to route round the outside would
@@ -121,9 +139,52 @@ What it cannot do: a room. Every space is a widening of a passage, no wall is
 straight, and there is no vocabulary in the algorithm for "a chamber with four
 exits" — the field does not know what a chamber is.
 
-## Stack two — wave function collapse, hex tiles
+## Scale
 
-The solver is mxgmn's `Model.cs` on six neighbours (`levelgen/wfc/model.ts`).
+| | radius 100 | radius 200 | radius 300 |
+| --- | --- | --- | --- |
+| cells | 30,301 | 120,601 | 270,901 |
+| cave | 0.19 s | 1.1 s | ~2.5 s |
+| rooms | 0.17 s | 1.2 s | 2.1 s |
+| WFC | — | — | — |
+
+The rooms stack grows each room over **its own neighbourhood** rather than
+asking every cell about every room: a level is mostly not room, so the second
+way asks thirty million questions to which the answer is almost always no.
+
+**The wave function does not scale and this is not a tuning problem.** Its
+working set is one supporter count per cell, per pattern, per direction — at
+radius 300 with 121 patterns that is 787 MB, before any time is spent. It runs
+comfortably to about radius 80 (19,441 cells, 1.9 s) and should be given a
+level of its own size rather than a shared slider. The fix is not a bigger
+budget: it is **model synthesis** (item 6 below), which solves in overlapping
+blocks and keeps the working set the size of a block.
+
+## Stack two — wave function collapse, overlapping
+
+The solver is still mxgmn's `Model.cs` on six neighbours
+(`levelgen/wfc/model.ts`) — but what it solves changed completely, because the
+tileset it used to solve was wrong.
+
+### Why the tiled model went
+
+It was thirteen hand-written tiles whose six edges each carried a wall,
+corridor or room socket. It produced dungeons and it was wrong for a reason
+that had nothing to do with the solver: a *wall between two floor tiles* was a
+socket on an **edge**, and an edge is not something a character can stand on,
+walk round or be stopped by. There is no such thing as half a hexagon.
+
+The obvious repair — make a wave cell hold several hexagons, so a wall can be a
+rock cell inside a patch — does not work either, and it is worth writing down
+why. Take the natural patch, a hex and its six neighbours. Its six ring cells
+each serve **two** of its six borders, so a socket declared on border *k* and
+one declared on border *k+1* constrain the same cell; chase that round the ring
+and every border is forced to carry the same socket. A seven-cell patch cannot
+carry independent per-border sockets at all.
+
+Which leaves the model that needs no declared adjacency: the overlapping one.
+
+### The solver
 Three things change and nothing else does: six directions rather than four with
 `opposite(d) = d + 3`; a hex disc held as a flat array with an explicit
 neighbour table rather than `i % MX`; and pattern size `N` gone, since it only
