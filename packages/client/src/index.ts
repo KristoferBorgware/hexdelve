@@ -24,6 +24,37 @@ export { Actor, turnTowards, wrapAngle } from './game/actor.js';
 export { Item, type ItemOptions } from './game/items.js';
 
 export { buildWorld, type World, type Tile, type WorldOptions } from './scene/world.js';
+
+/*
+ * Level generation, exported for the same reason the rigs are: the editor's
+ * level bench previews the generators the game will build its dungeons from,
+ * and it should get them from the package that owns them rather than keep a
+ * second copy that drifts.
+ */
+export {
+	LEVEL_STACKS,
+	findStack,
+	defaultParams,
+	readParam,
+	readChoice,
+	CAVE_STACK,
+	WFC_STACK,
+	DUNGEON_TILES,
+	expandTiles,
+	buildPropagator,
+	openMask,
+	HexWave,
+	type CellKind,
+	type Level,
+	type LevelCell,
+	type LevelParam,
+	type LevelSettings,
+	type LevelStack,
+	type LevelStats,
+	type Heuristic,
+	type Tile as LevelTile,
+	type TileSpec,
+} from './levelgen/index.js';
 export { SKELETON, BONES, TIPS, HIPS_Y, UPPER_BODY } from './game/skeleton.js';
 export { BAT_SKELETON, BAT_BONES, BAT_TIPS, HOVER_Y, PERCH_Y } from './game/batrig.js';
 

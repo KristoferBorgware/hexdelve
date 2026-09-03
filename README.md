@@ -47,8 +47,11 @@ packages/
   shared/       maths, hex coordinates, seeded random — no dependencies at all
   engine/       WebGPU and WebGL2 rendering, camera, frame loop
   client/       the game itself; the package built for external distribution
-  editor/       React and Material UI shell: the client in a viewport, and a
-                character bench for looking at one rig on its own
+  editor/       React and Material UI shell: the client in a viewport, and two
+                benches — one rig on its own, and one generated level
+docs/
+  angband/      notes on Angband's rules, as a reference for the game's own
+  levelgen.md   the level generation stacks, what they measured, what is next
   desktop/      Electron wrapper around the client's build
 labs/           one folder per lab, each a standalone page
   shared/       the code the labs are built from
@@ -68,7 +71,7 @@ node assets/audio/dungeon-crawl.js
 
 ```
 npm install
-npm run dev:editor      # the editor: the yard, and the character bench
+npm run dev:editor      # the editor: the yard, and the two benches
 npm run dev:client      # the client on its own
 npm run build           # every package
 npm run typecheck       # every package, no output
@@ -104,23 +107,44 @@ renderer toggle is in the toolbar rather than a settings dialog, because two
 backends meant to draw the same picture only stay that way if switching is one
 click during ordinary work.
 
-It has two views. The **yard** is the client, in a box: no editor renderer and
+It has three views. The **yard** is the client, in a box: no editor renderer and
 no editor scene, so whatever the editor can do to the world an embedder can do
-too. The **character bench** is the exception, and says why in its own name — it
-puts one rig on a stand with a clock, which is exactly what a running world will
-not do. It has a scene of its own for that reason and no other, and it still
-builds no character of its own: the skeleton, the body and the clips all come
-out of the client, so a pose that reads well on the bench is the pose the game
-will play.
+too. The other two are *benches*, and a bench is this editor's word for a view
+that holds one thing still while it is judged, because a running world will not.
 
-The bench is deliberately a *preview*, not an editor. Pick a subject, pick an
-animation, play it, scrub it, slow it down, ghost the body to see the rig
-through it, mark a bone and read where the pose put it. What it is built around
-is the smallest thing every animation in this project has in common — a
-duration, and a function from a time to a pose. A keyframed clip is one of
-those, and so is the procedural stride, which has no keys at all; a blend tree
-will be another, and when it arrives it becomes one more entry in the list with
-parameters of its own, and the transport does not change.
+The **character bench** puts one rig on a stand with a clock. It has a scene of
+its own for that reason and no other, and it still builds no character of its
+own: the skeleton, the body and the clips all come out of the client, so a pose
+that reads well on the bench is the pose the game will play. It is deliberately a
+*preview*, not an editor. Pick a subject, pick an animation, play it, scrub it,
+slow it down, ghost the body to see the rig through it, mark a bone and read
+where the pose put it. What it is built around is the smallest thing every
+animation in this project has in common — a duration, and a function from a time
+to a pose. A keyframed clip is one of those, and so is the procedural stride,
+which has no keys at all; a blend tree will be another, and when it arrives it
+becomes one more entry in the list with parameters of its own, and the transport
+does not change.
+
+The **level bench** does the same for level generation, against a different
+problem: a generator is a function from a seed to a shape, and the only way to
+know whether the shape is any good is to look at a lot of them quickly with the
+knobs in reach. It has no clock at all, so the transport is disabled while it is
+up — a level does not move, it is redrawn when something about it changes. It
+draws a `Level` and knows nothing about how one is made, which is what makes the
+comparison worth trusting: two algorithms cannot look different because one of
+them got nicer drawing code.
+
+Two stacks are in it so far, from opposite ends of the field. The **cave** stack
+is chamfer's own noise-band carve, read on the ground plane — the algorithm that
+could only make one wide folded sheet in three dimensions makes winding
+corridors in two, because the band round a contour on a plane is a ribbon. The
+**WFC** stack is mxgmn's simple tiled model on six neighbours, over a tileset of
+hex cells whose six edges carry a wall, a corridor or a room socket; rooms,
+corridors and doors all fall out of one rule, that corridors and rooms may not
+meet except through a tile that has both. They fail in opposite directions — the
+cave has no concept of a room, the wave function has no idea whether the level is
+one piece — and the bench shows both failures as numbers rather than opinions.
+`docs/levelgen.md` has the measurements and the list of what to try next.
 
 **`@hexdelve/desktop`** opens an Electron window on the client's own web build.
 No desktop-only rendering path and no desktop-only game code, so what ships on

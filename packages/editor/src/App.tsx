@@ -1,11 +1,16 @@
 /*
- * The editor shell: a toolbar, and one of two views under it.
+ * The editor shell: a toolbar, and one of three views under it.
  *
- * The views are the two things this editor is for. The YARD is the game, in a
- * box — the client, unchanged, doing what a player would see. The BENCH is one
- * character on a stand with a clock, which is where a mesh, a rig and a clip
- * get looked at on their own; it is the only view here with a scene of its own,
- * and it has one because a running world will not hold a frame still.
+ * The YARD is the game, in a box — the client, unchanged, doing what a player
+ * would see. The other two are benches, and a bench is this editor's word for a
+ * view that holds one thing still while it is judged, because a running world
+ * will not. The CHARACTER bench holds a rig at a frame you choose; the LEVEL
+ * bench holds a generated dungeon while its algorithm is compared against
+ * another one's.
+ *
+ * The level bench has no clock, which is why the transport is disabled while it
+ * is up rather than left there doing nothing: a level does not move, it is
+ * redrawn when something about it changes.
  *
  * The backend selector and the transport are shared, and sit here rather than
  * being buried in a settings dialog on purpose. Two renderers that are meant to
@@ -29,10 +34,11 @@ import type { BackendPreference } from '@hexdelve/engine';
 
 import { Bench } from './components/Bench.js';
 import { Inspector } from './components/Inspector.js';
+import { Levels } from './components/Levels.js';
 import { SceneOutline } from './components/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
 
-type View = 'yard' | 'bench';
+type View = 'yard' | 'bench' | 'levels';
 
 export function App() {
 	const [client, setClient] = useState<HexdelveClient | null>(null);
@@ -63,6 +69,7 @@ export function App() {
 					>
 						<ToggleButton value="yard">Yard</ToggleButton>
 						<ToggleButton value="bench">Character</ToggleButton>
+						<ToggleButton value="levels">Level</ToggleButton>
 					</ToggleButtonGroup>
 
 					<Box sx={{ flexGrow: 1 }} />
@@ -78,29 +85,40 @@ export function App() {
 						<ToggleButton value="webgl2">WebGL2</ToggleButton>
 					</ToggleButtonGroup>
 
-					<Tooltip title={running ? 'Pause the frame loop' : 'Run the frame loop'}>
-						<Button
-							size="small"
-							variant="outlined"
-							startIcon={running ? <PauseIcon /> : <PlayArrowIcon />}
-							onClick={() => setRunning((value) => !value)}
-						>
-							{running ? 'Pause' : 'Play'}
-						</Button>
+					<Tooltip
+						title={
+							view === 'levels'
+								? 'A level has no frame loop to run'
+								: running
+									? 'Pause the frame loop'
+									: 'Run the frame loop'
+						}
+					>
+						<span>
+							<Button
+								size="small"
+								variant="outlined"
+								disabled={view === 'levels'}
+								startIcon={running ? <PauseIcon /> : <PlayArrowIcon />}
+								onClick={() => setRunning((value) => !value)}
+							>
+								{running ? 'Pause' : 'Play'}
+							</Button>
+						</span>
 					</Tooltip>
 				</Toolbar>
 			</AppBar>
 
 			<Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-				{view === 'yard' ? (
+				{view === 'yard' && (
 					<>
 						<SceneOutline />
 						<Viewport backend={backend} running={running} onClientReady={onClientReady} />
 						<Inspector client={client} />
 					</>
-				) : (
-					<Bench backend={backend} running={running} />
 				)}
+				{view === 'bench' && <Bench backend={backend} running={running} />}
+				{view === 'levels' && <Levels backend={backend} />}
 			</Box>
 		</Box>
 	);
