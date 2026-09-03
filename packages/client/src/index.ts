@@ -67,6 +67,7 @@ export { BAT_SKELETON, BAT_BONES, BAT_TIPS, HOVER_Y, PERCH_Y } from './game/batr
  * them rather than build a second wanderer of its own.
  */
 export { buildWanderer, WANDERER_PALETTE } from './models/wanderer.js';
+export { buildGhoul, GHOUL_PALETTE } from './models/ghoul.js';
 export { buildBat, BAT_PALETTE } from './models/bat.js';
 
 /*
