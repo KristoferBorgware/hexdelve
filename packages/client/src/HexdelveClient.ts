@@ -23,7 +23,12 @@ import {
 import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
 import { Controls } from './input/Controls.js';
-import { Simulation, type SimulationToggles, type YardStats } from './game/simulation.js';
+import {
+	Simulation,
+	type SimulationOptions,
+	type SimulationToggles,
+	type YardStats,
+} from './game/simulation.js';
 
 /** Half the world height the viewport spans at zoom 1, matching the labs. */
 const VIEW_HEIGHT = 5.5;
@@ -54,6 +59,14 @@ export interface ClientOptions {
 	/** Seed for the yard's scenery, so a given seed is a given yard. */
 	seed?: number;
 	toggles?: Partial<SimulationToggles>;
+	/**
+	 * The man's place in the energy table, 110 being normal. At 120 he has to
+	 * cross a hexagon in half the time, so the stride solver puts him into a
+	 * run — which is what a row of that table looks like.
+	 */
+	playerSpeed?: number;
+	/** The bat's. +10 by default, which is exactly twice normal. */
+	batSpeed?: number;
 	/**
 	 * Called if the GPU takes the renderer's device away. The client stops its
 	 * loop when this happens; recovering means disposing it and creating a new
@@ -88,6 +101,7 @@ export class HexdelveClient {
 	};
 
 	private readonly canvas: HTMLCanvasElement;
+	private readonly simulationOptions: SimulationOptions;
 	private readonly controls: Controls | null;
 	private readonly resizeObserver: ResizeObserver | null;
 	private instanceCount = 0;
@@ -139,10 +153,13 @@ export class HexdelveClient {
 			far: 200,
 		});
 
-		this.simulation = new Simulation({
+		this.simulationOptions = {
 			...(options.seed !== undefined ? { seed: options.seed } : {}),
 			...(options.toggles ? { toggles: options.toggles } : {}),
-		});
+			...(options.playerSpeed !== undefined ? { playerSpeed: options.playerSpeed } : {}),
+			...(options.batSpeed !== undefined ? { batSpeed: options.batSpeed } : {}),
+		};
+		this.simulation = new Simulation(this.simulationOptions);
 
 		this.camera.target[0] = this.simulation.focus.x;
 		this.camera.target[1] = this.simulation.focus.y;
@@ -155,7 +172,9 @@ export class HexdelveClient {
 			options.controls === false
 				? null
 				: new Controls(this.canvas, this.camera, {
-						onStrike: () => this.simulation.strike(),
+						onPick: () => this.order(),
+						onHold: () => this.simulation.hold(),
+						onCancel: () => this.simulation.cancel(),
 					});
 
 		if (options.autoResize === false) {
@@ -186,7 +205,7 @@ export class HexdelveClient {
 		};
 	}
 
-	/** The lab's readout: speed, bearing, foot slip, what the bat is doing. */
+	/** The readout: the clock, whose turn it is, and what the bat is doing. */
 	get state(): YardStats {
 		return this.simulation.stats;
 	}
@@ -203,10 +222,20 @@ export class HexdelveClient {
 		this.ticker.stop();
 	}
 
-	/** Rebuilds the world from a new seed. */
+	/**
+	 * Rebuilds the world from a new seed.
+	 *
+	 * The simulation's own options come along, so a client opened with a hasted
+	 * man or an evenly-matched bat is still that after a reseed — dropping them
+	 * here would make the editor's seed box quietly undo the query string.
+	 */
 	setSeed(seed: number): void {
 		const toggles = { ...this.simulation.toggles };
-		(this as { simulation: Simulation }).simulation = new Simulation({ seed, toggles });
+		(this as { simulation: Simulation }).simulation = new Simulation({
+			...this.simulationOptions,
+			seed,
+			toggles,
+		});
 	}
 
 	/** Matches the drawing buffer to the canvas's laid-out size. */
@@ -257,23 +286,31 @@ export class HexdelveClient {
 		this.draw();
 	};
 
+	/**
+	 * Turn wherever the pointer is into an order for the man.
+	 *
+	 * Public because it is the whole of the game's input, and an embedder with
+	 * its own buttons — or a test driving the yard without a mouse — should be
+	 * able to give an order without synthesising a pointer event. Returns false
+	 * if there is no way to the hexagon under the cursor.
+	 */
+	order(): boolean {
+		const point = this.controls?.aimOnPlane(this.hoverPlane) ?? null;
+		return point ? this.simulation.pick(point) : false;
+	}
+
+	/**
+	 * The plane the cursor is intersected with: just above the terrace he is
+	 * standing on, so the hexagon under the pointer is the one it looks like.
+	 */
+	private get hoverPlane(): number {
+		return this.simulation.player.y + 0.02;
+	}
+
 	private advance(dt: number): void {
-		const controls = this.controls;
+		const hover = this.controls?.aimOnPlane(this.hoverPlane) ?? null;
 
-		// The aim plane sits a little above his feet, so the cursor lands where
-		// his chest is rather than where the ground is behind him.
-		const aim = controls?.aimOnPlane(this.simulation.player.y + 0.15) ?? null;
-
-		this.simulation.update(dt, {
-			forward: controls?.keys.forward ?? 0,
-			back: controls?.keys.back ?? 0,
-			left: controls?.keys.left ?? 0,
-			right: controls?.keys.right ?? 0,
-			run: (controls?.keys.run ?? 0) > 0,
-			aim,
-			stick: controls?.stick ?? null,
-			cameraAzimuth: this.camera.yaw,
-		});
+		this.simulation.update(dt, { hover });
 
 		if (this.simulation.toggles.follow) {
 			this.camera.target[0] = this.simulation.focus.x;
@@ -281,7 +318,7 @@ export class HexdelveClient {
 			this.camera.target[2] = this.simulation.focus.z;
 		}
 
-		const built = this.simulation.build(controls?.stick.active ? null : aim);
+		const built = this.simulation.build();
 		this.instanceCount = built.ranges.opaque + built.ranges.blended + built.ranges.overlay;
 		this.renderer.setInstances(built.data, built.ranges);
 	}

@@ -121,6 +121,13 @@ and the shared maths — no framework, no bundler runtime, no CDN script — whi
 is what makes it distributable: `npm run build -w @hexdelve/client` emits an ES
 module and a UMD bundle of about 25 kB, engine included.
 
+It is **turn-based**, which is where it and the labs part company. Click a
+hexagon and he walks there one hexagon per turn; the bat hunts over the same
+grid on the same clock. The labs stay as they were — lab 09 is still the
+free-movement experiment, and rewriting it would falsify the record — but the
+game itself went back to the grid, and gained a clock made of the energy table
+rather than of frames. See *Turns are a table, not a timer* below.
+
 **`@hexdelve/editor`** is React and Material UI around `createClient`. The
 renderer toggle is in the toolbar rather than a settings dialog, because two
 backends meant to draw the same picture only stay that way if switching is one
@@ -494,6 +501,87 @@ impact key and asking where the hammer head ends up — so the spot he steps to
 is a property of the animation, not a tuned constant, and re-timing the swing
 moves it automatically.
 
+The client cannot borrow that answer, and the reason is worth stating: it is
+turn-based, so the hexagon *is* the position, and a fighter standing halfway
+between two of them is not on the board. So the difference comes out of the
+body instead. The sword's reach is measured off the clip as before — 1.49 m
+across 115° of his front — and the shortfall against the grid, 24 cm, goes in
+as root translation along his facing, out and back across the blow. He leans
+into it and never leaves his hexagon. The bat does the same with 17 cm, since
+its lunge measures 1.56 m.
+
+Both numbers are measured, so `REACH.distance + LEAN_IN` is exactly the hex
+spacing by construction rather than by coincidence, and `turns.test.ts` asserts
+it — re-time either attack and the two halves move together.
+
+## Turns are a table, not a timer
+
+Every lab in this project runs on real time: a frame arrives, everything gets a
+slice of it, and how far anything moves is its speed times that slice. That is
+the only clock a game needs right up until two creatures have to take turns,
+and then it is the wrong one — because "twice as fast" has to mean "acts twice
+as often", not "slides twice as far per frame".
+
+So the client keeps Angband's clock instead, from
+[the energy chapter](docs/angband/02-time-energy-speed.md): a game-turn
+counter, and every game turn each creature gains energy at a rate set by its
+speed, acting when its reservoir reaches 100 and paying 100 to do it. Speed is
+a **rate**, not a turn order. The bat is +10, which in `extract_energy` is
+exactly 20 against a man's 10, and it takes two hexagons for every one of yours
+because of that row and nothing else. Three tuned constants went with it:
+
+| lab 08–09 | the client |
+|---|---|
+| a cruise speed in m/s | one row of the energy table |
+| a bite cooldown in seconds | the 100 energy a bite costs, like anything else |
+| a waypoint advance radius | nothing — a step is one hexagon, so there is no line between waypoints to be circled |
+
+That last one is the interesting deletion. Lab 09 needed a keep-apart radius
+because A\* would not route the bat *through* the man's hexagon, but the flight
+between two corners of the path went clean through him anyway. On a turn clock
+there is no between: a move ends on a cell or does not happen, one creature is
+ever mid-action, and two cannot occupy one cell. The whole class of problem is
+gone, and so is the constant that patched it.
+
+### The world waits for you
+
+One getter does that — `player.hasOrders`. The simulation hands out turns only
+while nobody is mid-action *and* the man has asked for something, so with no
+order standing nothing gains energy, the bat is frozen mid-hunt with its wings
+out, and the yard holds still until you decide. It is a question about his
+orders rather than a pause flag, so there is no state to get out of step with
+what he is actually doing. `turns.test.ts` runs four seconds of frames and
+asserts the game-turn counter is still zero.
+
+The wings still beat, though, and the smoke still rises. Those run on the wall
+clock, because a world that stops *drawing* between turns looks broken rather
+than patient.
+
+### The energy table becomes a gait
+
+A turn has no length, but a step has to be watched, and how long it takes on
+screen cannot be a number somebody liked the feel of — then a creature's speed
+and the speed it appears to move at would be two unrelated facts, and the
+readout would be lying about the fight. So one game turn is given a length, and
+it is taken from the walk: a normal-speed step is ten game turns, and those ten
+turns are set to exactly as long as his legs take to walk 1.73 m. Everything
+else falls out. The bat's step is five game turns, so it crosses a hexagon in
+half the time, and it looks twice as fast because it is.
+
+Which leaves the calibration running backwards from lab 09. There the pose was
+asked how fast a throttle and a gait were worth; here the speed is not his to
+choose — one action is one hexagon in a time the table fixes — so what has to
+be solved for is the walk that covers exactly that ground. `strideFor` bisects
+one monotone line: below a walk it shortens the stride, above one it blends
+towards the run, because that is what anybody does. You do not walk to the
+shops in slow motion, you take smaller steps.
+
+At normal speed it solves to `gait 0, amp 1` — a plain full-length walk, zero
+foot slip, which is the honest answer and also the reassuring one. Its point is
+what happens when the table changes: open the client with `?speed=120` and he
+must cover a hexagon in half the time, so the solver puts him into a run. A row
+of `extract_energy` is visible as a gait, and nothing tabulated the connection.
+
 ## One rig, two characters, and a prop
 
 `blacksmith.js` and `wanderer.js` are the same exercise twice: forty-odd hex
@@ -624,6 +712,14 @@ down the screen's own left-right line and `W` and `A` pull opposite ways on it.
 The `Screen strafe` toggle puts all four keys back on his hips for anyone who
 would rather have that.
 
+That whole argument is a lab result, and it is worth being clear that the game
+did not keep it. The client went back to the grid, where he walks where he
+faces and the two numbers are one again — so `stride.ts` there is asked for one
+direction, forward, and the machinery that turned it is left standing for
+whatever wants it next. What the client took instead was the measurement: how
+fast a stride carries him, read off the pose, which is the part the turn clock
+is built on.
+
 The bat came across from lab 08 whole, and that is the other half of the point.
 It still paths over the hexagons, still bites from whichever one it is standing
 on, still wakes at three tiles and loses you at six — while the man it is hunting
@@ -687,3 +783,22 @@ contact schedule rather than hunting for contact by height, which is what the
 stride's own velocity has always done and now the only copy of that argument.
 Blend-tree thresholds are read off it, so a threshold in the editor's bench is a
 real metre per second.
+
+The turn clock has two limits of its own, and both are the honest kind — the
+code reports them rather than hiding them.
+
+A hasted man outruns his own legs. A full run measures 2.94 m/s, and a hexagon
+in half a normal step is 3.12 m/s, so anything above about +9 in the energy
+table asks for ground the rig has not got. `strideFor` returns the shortfall as
+`slip` instead of pretending, and the readout shows it in cm/s — so `?speed=120`
+is a real demonstration of a run with 18 cm/s of foot slide, not a clean one.
+Above +9 the honest fix is a longer stride or a third gait, not a faster cycle.
+
+And melee on a grid always connects. Adjacency is the whole of reach, nothing
+moves while anything is mid-action, and there is no to-hit roll yet — so a cut
+at an occupied neighbouring hexagon lands, every time. Lab 09's whiff, where a
+blade thrown at where the bat *was* cut air, is gone on purpose: aiming stopped
+being the player's job when the grid came back. What is counted as a miss is the
+one case left, a blow at a hexagon that turns out to be empty. Hit points, to-hit
+rolls and damage are the next thing this wants, and the energy chapter's melee
+section is already the plan for them.

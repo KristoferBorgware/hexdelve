@@ -1,66 +1,67 @@
 /*
- * Two devices, one intention.
+ * One gesture, one order.
  *
- * A keyboard says which way to travel relative to where he is looking and a
- * mouse says where that is; a thumb has to say both at once, so on a touch
- * screen the stick sets the facing as well and the two come back together.
- * Nothing downstream knows which of them is driving: both end up as a heading
- * and a throttle, and the game reads only that.
+ * Lab 09 spent the mouse on aiming — it owned his facing every frame, which is
+ * why the camera had to be driven from somewhere else entirely and `WASD`
+ * carried the walking. On a turn clock none of that is true. Facing follows
+ * the hexagon he steps into, so the mouse has exactly one job left: say which
+ * hexagon. That frees the drag, and the drag goes back to the camera, where
+ * every lab in this project had it.
  *
- * Nothing here moves the camera. The mouse aims and cuts, the keys walk him,
- * and that is the whole of it — because the mouse is already doing the most
- * important job on the screen, and a drag that both aimed him and swung the
- * world round him would be two meanings on one gesture. The camera follows
- * him, always, and its angle belongs to whoever is embedding this: the editor
- * drives it through `client.camera`, and so would anyone else.
+ * So a press that does not move is an order and a press that moves is a look:
  *
- * The camera is still read here, because its azimuth changes what A and D mean
- * — they are the screen's axes, and the screen is wherever it is looking.
+ *   click / tap        the hexagon under it — walk there, pick that up, cut that
+ *   drag               orbit
+ *   wheel / pinch      zoom
+ *   space              spend a turn standing still
+ *   escape             forget where he was going
+ *
+ * Nothing here knows what a hexagon is, or that there is a grid at all. It
+ * reports a press at a place on the screen; turning that into a cell is the
+ * game's business, and the point on the ground under the cursor is asked for
+ * by the caller rather than pushed at it — because orbiting the camera under a
+ * still mouse moves the place it is over, so the question has to be re-asked
+ * every frame rather than answered once on movement.
+ *
+ * Only the azimuth is draggable. The pitch is the isometric one and stays
+ * there: a hexagon at that angle is the same hexagon wherever it sits on the
+ * screen, which is the whole reason the labs chose it, and a drag that could
+ * tilt out of it would let you lose that for nothing in return.
  */
 
 import { ISO_PITCH, type OrbitCamera } from '@hexdelve/engine';
 
-const STICK_DEAD = 9;
-const STICK_FULL = 62;
+/**
+ * How far a press may travel and still be a click, in CSS pixels. Small enough
+ * that a deliberate drag is never an order, large enough that a shaky hand on a
+ * trackpad is never a camera move.
+ */
+const DRAG_SLOP = 5;
+
+/** Radians of azimuth per pixel dragged. */
+const ORBIT_RATE = 0.008;
 
 export interface ControlsOptions {
-	/** Called on a click, a tap, or space. */
-	onStrike?: () => void;
-}
-
-const BINDINGS: Record<string, keyof KeyState> = {
-	KeyW: 'forward',
-	ArrowUp: 'forward',
-	KeyS: 'back',
-	ArrowDown: 'back',
-	KeyA: 'left',
-	ArrowLeft: 'left',
-	KeyD: 'right',
-	ArrowRight: 'right',
-	ShiftLeft: 'run',
-	ShiftRight: 'run',
-};
-
-interface KeyState {
-	forward: number;
-	back: number;
-	left: number;
-	right: number;
-	run: number;
+	/**
+	 * A click or tap. The caller resolves what was under it, because the plane
+	 * to intersect is a fact about the world and not about the pointer.
+	 */
+	onPick?: () => void;
+	/** Space, or a tap with a second finger down: spend a turn doing nothing. */
+	onHold?: () => void;
+	/** Escape: drop the standing order. */
+	onCancel?: () => void;
 }
 
 export class Controls {
-	readonly keys: KeyState = { forward: 0, back: 0, left: 0, right: 0, run: 0 };
-
 	/** Where the mouse is, in client pixels, and whether it is over the canvas. */
 	readonly pointer = { x: 0, y: 0, has: false };
 
-	readonly stick = { active: false, id: -1, ox: 0, oy: 0, x: 0, z: 0, throttle: 0 };
-
-	/** Whether the finger currently down has ever pushed the stick off centre. */
-	private stickMoved = false;
-
 	private readonly listeners: (() => void)[] = [];
+
+	/** The press in progress, and whether it has travelled far enough to be a drag. */
+	private readonly press = { id: -1, down: false, x: 0, y: 0, lastX: 0, lastY: 0, dragged: false };
+
 	private readonly pinch = new Map<number, { x: number; y: number }>();
 	private pinchDistance = 0;
 
@@ -87,23 +88,12 @@ export class Controls {
 		this.on(window, 'keydown', (event) => {
 			if (event.code === 'Space') {
 				event.preventDefault();
-				if (!event.repeat) this.options.onStrike?.();
+				if (!event.repeat) this.options.onHold?.();
 				return;
 			}
-			const bind = BINDINGS[event.code];
-			if (!bind) return;
-			event.preventDefault();
-			this.keys[bind] = 1;
-		});
-
-		this.on(window, 'keyup', (event) => {
-			const bind = BINDINGS[event.code];
-			if (bind) this.keys[bind] = 0;
-		});
-
-		// A key held while the window loses focus is a key that never comes up.
-		this.on(window, 'blur', () => {
-			for (const key of Object.keys(this.keys) as (keyof KeyState)[]) this.keys[key] = 0;
+			if (event.code === 'Escape') {
+				this.options.onCancel?.();
+			}
 		});
 
 		this.on(this.canvas, 'contextmenu', (event) => event.preventDefault());
@@ -113,24 +103,28 @@ export class Controls {
 
 			if (event.pointerType !== 'mouse') {
 				this.pinch.set(event.pointerId, { x: event.clientX, y: event.clientY });
-				// A second finger belongs to the camera, so it takes the stick
-				// away rather than fighting it.
-				if (this.stick.active) {
-					this.endStick();
+				// A second finger belongs to the camera, so it takes the press
+				// away rather than fighting it — a pinch is never also a tap.
+				if (this.press.down) {
+					this.press.down = false;
+					this.press.dragged = true;
 					return;
 				}
-				this.stick.active = true;
-				this.stick.id = event.pointerId;
-				this.stick.ox = event.clientX;
-				this.stick.oy = event.clientY;
-				this.stick.throttle = 0;
-				this.stickMoved = false;
+			} else if (event.button !== 0) {
 				return;
 			}
 
-			// On press rather than on release. There is no drag to tell a cut
-			// apart from any more, and a blow should land when you ask for it.
-			if (event.button === 0) this.options.onStrike?.();
+			this.pointer.x = event.clientX;
+			this.pointer.y = event.clientY;
+			this.pointer.has = true;
+
+			this.press.id = event.pointerId;
+			this.press.down = true;
+			this.press.dragged = false;
+			this.press.x = event.clientX;
+			this.press.y = event.clientY;
+			this.press.lastX = event.clientX;
+			this.press.lastY = event.clientY;
 		});
 
 		this.on(this.canvas, 'pointermove', (event) => {
@@ -138,14 +132,13 @@ export class Controls {
 				this.pointer.x = event.clientX;
 				this.pointer.y = event.clientY;
 				this.pointer.has = true;
-				return;
 			}
 
 			if (this.pinch.has(event.pointerId)) {
 				this.pinch.set(event.pointerId, { x: event.clientX, y: event.clientY });
 			}
 
-			// Two fingers: pinch to zoom rather than steer.
+			// Two fingers: pinch to zoom rather than orbit.
 			if (this.pinch.size >= 2) {
 				const [a, b] = [...this.pinch.values()];
 				const distance = Math.hypot(a!.x - b!.x, a!.y - b!.y);
@@ -156,41 +149,32 @@ export class Controls {
 				return;
 			}
 
-			if (!this.stick.active || event.pointerId !== this.stick.id) return;
+			if (!this.press.down || event.pointerId !== this.press.id) return;
 
-			const dx = event.clientX - this.stick.ox;
-			const dy = event.clientY - this.stick.oy;
-			const len = Math.hypot(dx, dy);
-			this.stick.throttle = clamp((len - STICK_DEAD) / (STICK_FULL - STICK_DEAD), 0, 1);
-			if (this.stick.throttle > 0) this.stickMoved = true;
-			if (this.stick.throttle > 0) {
-				// Screen to ground, through the camera: up the screen is away
-				// from it, and right is the camera's own X axis, (sin, -cos) of
-				// the azimuth.
-				const ux = dx / len;
-				const uy = dy / len;
-				const rx = Math.sin(this.camera.yaw);
-				const rz = -Math.cos(this.camera.yaw);
-				const fx = -Math.cos(this.camera.yaw);
-				const fz = -Math.sin(this.camera.yaw);
-				this.stick.x = rx * ux - fx * uy;
-				this.stick.z = rz * ux - fz * uy;
+			if (
+				!this.press.dragged &&
+				Math.hypot(event.clientX - this.press.x, event.clientY - this.press.y) > DRAG_SLOP
+			) {
+				this.press.dragged = true;
 			}
+			if (this.press.dragged) {
+				// Azimuth only. See the note at the top of the file.
+				this.camera.orbit(-(event.clientX - this.press.lastX) * ORBIT_RATE, 0);
+			}
+			this.press.lastX = event.clientX;
+			this.press.lastY = event.clientY;
 		});
 
 		const release = (event: PointerEvent): void => {
 			this.pinch.delete(event.pointerId);
 			if (this.pinch.size < 2) this.pinchDistance = 0;
 
-			if (event.pointerType === 'mouse') return;
-			if (event.pointerId === this.stick.id) {
-				// A finger put down and lifted without ever pushing the stick
-				// off centre is a tap, and a tap is a cut. Without this there
-				// is no way to swing on a touch screen at all: the stick
-				// swallows every press.
-				if (!this.stickMoved) this.options.onStrike?.();
-				this.endStick();
-			}
+			if (!this.press.down || event.pointerId !== this.press.id) return;
+			this.press.down = false;
+			// A press that never travelled is an order. On release rather than
+			// on press, because until it comes up there is no telling it from
+			// the beginning of a camera drag.
+			if (!this.press.dragged) this.options.onPick?.();
 		};
 
 		this.on(this.canvas, 'pointerup', release);
@@ -209,12 +193,6 @@ export class Controls {
 			},
 			{ passive: false },
 		);
-	}
-
-	private endStick(): void {
-		this.stick.active = false;
-		this.stick.id = -1;
-		this.stick.throttle = 0;
 	}
 
 	/**
@@ -248,7 +226,3 @@ export class Controls {
 }
 
 export { ISO_PITCH };
-
-function clamp(v: number, lo: number, hi: number): number {
-	return v < lo ? lo : v > hi ? hi : v;
-}

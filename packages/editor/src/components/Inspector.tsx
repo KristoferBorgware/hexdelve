@@ -1,6 +1,6 @@
 /*
  * The right-hand panel: what the renderer is, what the world is doing, and the
- * toggles lab 09 carried in its own panel.
+ * toggles the client's own page carries beside it.
  *
  * The toggles are the demonstration that matters here. They are not editor
  * features — they are fields on the running client, and flipping one from
@@ -29,27 +29,14 @@ export interface InspectorProps {
 
 const TOGGLES: { key: keyof SimulationToggles; label: string; hint: string }[] = [
 	{ key: 'ik', label: 'Foot IK', hint: 'Plant his feet on the terraces' },
-	{ key: 'vectors', label: 'Vectors', hint: 'Where he faces against where he is going' },
-	{ key: 'paths', label: 'Paths', hint: "The bat's route, its hexagon and its perch" },
-	{ key: 'screenStrafe', label: 'Screen strafe', hint: "A and D on the screen's axes, not his hips" },
+	{ key: 'routes', label: 'Routes', hint: "His route, the bat's path, its hexagon and its perch" },
 	{ key: 'skeleton', label: 'Skeleton', hint: 'Ghost the bodies and show the rigs' },
 	{ key: 'follow', label: 'Follow', hint: 'The camera tracks him' },
 ];
 
-const BEARINGS: { to: number; name: string }[] = [
-	{ to: 0.4, name: 'forward' },
-	{ to: 1.2, name: 'half left' },
-	{ to: 2.0, name: 'left' },
-	{ to: 2.75, name: 'back left' },
-	{ to: Math.PI + 0.01, name: 'backwards' },
-];
-
-function bearingName(angle: number): string {
-	const a = Math.abs(angle);
-	for (const band of BEARINGS) {
-		if (a <= band.to) return angle < 0 ? band.name.replace('left', 'right') : band.name;
-	}
-	return 'backwards';
+/** Angband writes a speed as its distance from 110, and so does the readout. */
+function rating(value: number): string {
+	return `${value} (${value >= 110 ? '+' : ''}${value - 110})`;
 }
 
 export function Inspector({ client }: InspectorProps) {
@@ -61,8 +48,9 @@ export function Inspector({ client }: InspectorProps) {
 	/*
 	 * The camera's own numbers, polled.
 	 *
-	 * These sliders are the only thing that aims the camera now: the mouse aims
-	 * him and cuts, the keys walk him, and neither touches it. They are still
+	 * These sliders are one of two ways to aim the camera now — the other is a
+	 * drag on the canvas, which the mouse got back when it stopped aiming him.
+	 * They are still
 	 * controlled and still polled rather than merely defaulted, because the
 	 * client owns the camera and anything else holding a reference to it —
 	 * another embedder, a later feature, a console — can move it underneath.
@@ -138,28 +126,39 @@ export function Inspector({ client }: InspectorProps) {
 			<Divider sx={{ my: 1.5 }} />
 
 			<Typography variant="subtitle2" color="text.secondary" gutterBottom>
-				Free movement
+				Turn clock
 			</Typography>
 
 			{stats ? (
 				<Box sx={{ mb: 1 }}>
 					{row('You', stats.message)}
-					{row('Speed', `${stats.speed.toFixed(2)} m/s · ${stats.gait > 0.5 ? 'run' : 'walk'}`)}
-					{row(
-						'Going',
-						stats.amp > 0.05
-							? `${bearingName(stats.heading)} · ${Math.round(Math.abs((stats.heading * 180) / Math.PI))}°`
-							: '—',
-					)}
-					{row('Foot slip', `${Math.abs(stats.slip * 100).toFixed(0)} cm/s`)}
+					{row('Clock', stats.waitingForYou ? 'waiting for you' : 'running')}
+					{row('Turn', `${stats.gameTurn} game · ${stats.actions} actions`)}
+					{row('Last', stats.lastAction)}
 					{row('Cell', `${stats.cell.q}, ${stats.cell.r} · terrace ${stats.terrace ?? '–'}`)}
+					{row('Route', stats.stepsLeft ? `${stats.stepsLeft} hex to go` : '—')}
+					{row('Your speed', `${rating(stats.speedRating)} · ${stats.energy | 0} energy`)}
+					{row(
+						'Gait',
+						stats.amp > 0.05
+							? `${stats.gait > 0.5 ? 'run' : 'walk'} · ${stats.speed.toFixed(2)} m/s`
+							: 'standing',
+					)}
 					{row('Carrying', stats.carrying.length ? stats.carrying.join(', ') : 'nothing')}
 					{row('Pelvis drop', `${(stats.pelvisDrop * 100).toFixed(1)} cm`)}
 					<Divider sx={{ my: 0.75 }} />
-					{row('Bat', `${stats.batMessage} · ${stats.batSpeed.toFixed(2)} m/s`)}
-					{row('Range', `${stats.batRange} tiles · wakes at ${stats.wakeRange}`)}
+					{row('Bat', `${stats.batMessage} · ${stats.batState}`)}
+					{row(
+						'Its speed',
+						`${rating(stats.batSpeedRating)} · ×${stats.batSpeedFactor.toFixed(1)} · ${stats.batEnergy | 0} energy`,
+					)}
+					{row(
+						'Range',
+						`${stats.batRange} tiles · wakes at ${stats.wakeRange}, loses you at ${stats.loseRange}`,
+					)}
 					{row('Bites / missed', `${stats.bites} · ${stats.batMissed}`)}
 					{stats.cuts > 0 && row('Cuts / hits', `${stats.cuts} · ${stats.hits}`)}
+					{row('Reach', `${stats.reach.toFixed(2)} m + ${(stats.lean * 100).toFixed(0)} cm lean`)}
 				</Box>
 			) : (
 				<Typography variant="caption" color="text.secondary">
