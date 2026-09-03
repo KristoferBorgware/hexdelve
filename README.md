@@ -47,8 +47,9 @@ packages/
   shared/       maths, hex coordinates, seeded random — no dependencies at all
   engine/       WebGPU and WebGL2 rendering, camera, frame loop
   client/       the game itself; the package built for external distribution
-  editor/       React and Material UI shell: the client in a viewport, and a
-                character bench for looking at one rig on its own
+  editor/       React and Material UI shell: the client in a viewport, plus a
+                character bench for one rig and a prop bench for one piece of
+                gear, each on its own
   desktop/      Electron wrapper around the client's build
 labs/           one folder per lab, each a standalone page
   shared/       the code the labs are built from
@@ -68,7 +69,7 @@ node assets/audio/dungeon-crawl.js
 
 ```
 npm install
-npm run dev:editor      # the editor: the yard, and the character bench
+npm run dev:editor      # the editor: the yard, and the two benches
 npm run dev:client      # the client on its own
 npm run build           # every package
 npm run typecheck       # every package, no output
@@ -104,23 +105,40 @@ renderer toggle is in the toolbar rather than a settings dialog, because two
 backends meant to draw the same picture only stay that way if switching is one
 click during ordinary work.
 
-It has two views. The **yard** is the client, in a box: no editor renderer and
+It has three views. The **yard** is the client, in a box: no editor renderer and
 no editor scene, so whatever the editor can do to the world an embedder can do
-too. The **character bench** is the exception, and says why in its own name — it
-puts one rig on a stand with a clock, which is exactly what a running world will
-not do. It has a scene of its own for that reason and no other, and it still
-builds no character of its own: the skeleton, the body and the clips all come
-out of the client, so a pose that reads well on the bench is the pose the game
-will play.
+too. The two **benches** are the exception, and say why in their own name — a
+bench is one subject, alone, held still, which is exactly what a running world
+will not give you. They have scenes of their own for that reason and no other,
+and they build nothing of their own: the skeletons, the bodies, the clips and
+the gear all come out of the client, so what reads well on a bench is what the
+game draws.
 
-The bench is deliberately a *preview*, not an editor. Pick a subject, pick an
-animation, play it, scrub it, slow it down, ghost the body to see the rig
+The **character bench** puts a rig on a stand with a clock. Pick a subject, pick
+an animation, play it, scrub it, slow it down, ghost the body to see the rig
 through it, mark a bone and read where the pose put it. What it is built around
 is the smallest thing every animation in this project has in common — a
 duration, and a function from a time to a pose. A keyframed clip is one of
 those, and so is the procedural stride, which has no keys at all; a blend tree
 will be another, and when it arrives it becomes one more entry in the list with
 parameters of its own, and the transport does not change.
+
+The **prop bench** is the catalogue: every piece of gear in the game in one
+list, and three ways of looking at the one you pick, which are the three
+transforms a prop is ever drawn through. *Stand* is the model as authored,
+centred on the pad. *Ground* is its own lift and tilt — how it lies in the
+grass. *Worn* hangs it on its bone on a ghosted wanderer, which is the view that
+catches mistakes: a prop is modelled around the origin of the bone it belongs
+to, so equipping it is a change of parent and nothing else, and the only way to
+know the modelling is right is to see it on the man it was measured against.
+Alongside those are the numbers. The measured ones are read off the mesh — every
+corner of every prism through the transform it is drawn under, so a dimension is
+a dimension. The rest are a **mock**: props in this game are meshes and have no
+stats at all yet, and the panel says so. It is a form, generated from a table of
+field descriptions rather than written out, so adding a stat is one line and
+adding an item system later replaces the table and not the panel. Nothing is
+saved; edits survive a renderer switch and a walk through the catalogue, and a
+reload starts over.
 
 **`@hexdelve/desktop`** opens an Electron window on the client's own web build.
 No desktop-only rendering path and no desktop-only game code, so what ships on

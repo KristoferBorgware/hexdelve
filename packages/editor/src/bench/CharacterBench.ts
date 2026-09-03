@@ -35,27 +35,11 @@ import {
 	type SparsePose,
 	type WorldPose,
 } from '@hexdelve/engine';
-import { axialDisc, axialToWorld, mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
+import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
 import { BenchControls } from './BenchControls.js';
 import { BENCH_RIGS, type BenchAnimation, type BenchRig } from './rigs.js';
-
-/*
- * The stand: a hex disc of this radius in tiles, on a plinth.
- *
- * Three shades rather than two, because a hex grid cannot be two-coloured —
- * every cell has six neighbours in a ring of odd parity. `(q - r) mod 3` is
- * the three-colouring, and it is what makes the turntable read as turning.
- */
-const PAD_RADIUS = 1;
-const PAD_DEPTH = 0.3;
-const PAD_SHADES = [0x5f7053, 0x6d7f60, 0x4e5c45];
-const PAD_EDGE = 0x3c4636;
-/** Circumradius of the plinth, chosen to sit just outside the disc. */
-const PLINTH_RADIUS = 3.05;
-
-/** What the shadow map has to cover: the pad, and a creature standing on it. */
-const SHADOW_FIT = { center: vec3.vec3(0, 0.8, 0), radius: 3.4 };
+import { emitStand, SHADOW_FIT } from './stand.js';
 
 export interface BenchOptions {
 	canvas: HTMLCanvasElement;
@@ -363,7 +347,7 @@ export class CharacterBench {
 		blended.clear();
 		overlay.clear();
 
-		if (this.show.ground) this.emitStand(opaque);
+		if (this.show.ground) emitStand(opaque);
 
 		this.animation.sample(this.time, this.pose);
 		this.world = solveWorld(this.rigOnStand.skeleton, this.pose, this.world);
@@ -395,21 +379,6 @@ export class CharacterBench {
 			blended: blended.count,
 			overlay: overlay.count,
 		});
-	}
-
-	/**
-	 * The stand: a hex pad, checkered, on a plinth.
-	 *
-	 * Checkered because a turntable with no texture on it does not read as
-	 * turning, and the whole value of spinning the stand is seeing that it did.
-	 */
-	private emitStand(out: HexInstances): void {
-		out.push(0, -PAD_DEPTH - 0.09, 0, PLINTH_RADIUS, 0.18, PLINTH_RADIUS, PAD_EDGE);
-		for (const cell of axialDisc(PAD_RADIUS)) {
-			const { x, z } = axialToWorld(cell.q, cell.r);
-			const shade = PAD_SHADES[(((cell.q - cell.r) % 3) + 3) % 3]!;
-			out.push(x, -PAD_DEPTH / 2, z, 0.985, PAD_DEPTH, 0.985, shade);
-		}
 	}
 
 	/** A marker on the selected bone, drawn without a depth test so it is findable. */
