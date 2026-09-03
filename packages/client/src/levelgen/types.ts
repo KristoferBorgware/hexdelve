@@ -11,14 +11,14 @@
  * DISC and a rectangular array of it is a third empty. Lookup is by key
  * throughout for the same reason.
  *
- * Connectivity is per EDGE rather than per cell. Two floor tiles can sit side
- * by side with a wall between them — that is a room's back wall against a
- * corridor, and it is most of what makes a dungeon read as built rather than
- * eroded. A generator that has no such notion (the cave carve does not) simply
- * opens every edge between two floors and the rest of the code cannot tell.
+ * A hexagon is the atom. Two floor cells side by side are joined, and a wall
+ * is a rock cell — there is no such thing here as half a tile, and nothing
+ * lives on an edge.
  */
 
 import type { Axial } from '@hexdelve/shared';
+
+import type { PlacedVault } from './vault/types.js';
 
 /** Rock is the negative space; floor is everything a body can stand on. */
 export type CellKind = 'rock' | 'floor';
@@ -27,17 +27,23 @@ export interface LevelCell {
 	readonly q: number;
 	readonly r: number;
 	readonly kind: CellKind;
-	/**
-	 * Which of the six edges this cell opens across, as a bit per direction of
-	 * `AXIAL_DIRECTIONS`. Always symmetric with the neighbour's own mask — the
-	 * generators are responsible for that, and {@link analyseLevel} would find
-	 * a one-way door as an asymmetry it cannot walk back through.
-	 */
-	readonly open: number;
 	/** The tile that produced it, for a readout. Empty where a stack has no tiles. */
 	readonly tile: string;
 	/** Connected component of the floor graph, or -1 for rock. */
 	region: number;
+	/**
+	 * Rock the carve declared inviolable — the rim that gives the level an
+	 * edge. Exposed rather than kept private because it is a real property of
+	 * the place: anything that later wants to dig, place stairs or drop a vault
+	 * needs to know which rock is structural.
+	 */
+	readonly sealed: boolean;
+	/**
+	 * Settled before the carve ran, and not to be changed by anything: a vault
+	 * cell. Exposed because "may I dig here" is a question the game will ask
+	 * too, not only the generator.
+	 */
+	readonly fixed: boolean;
 	/** 0xRRGGBB, chosen by the stack that made it. */
 	readonly color: number;
 }
@@ -46,10 +52,22 @@ export interface LevelStats {
 	readonly cells: number;
 	readonly floor: number;
 	readonly rock: number;
-	/** Separate walkable components before pruning. One is the good answer. */
+	/**
+	 * Walkable components the CARVE produced, before anything downstream
+	 * joined or filled them in. This is the algorithm's own honest output and
+	 * the number a tileset gets tuned against.
+	 */
 	readonly regions: number;
+	/** And how many the finished level came out in. One is the good answer. */
+	readonly pieces: number;
 	/** Floor cells in the largest of them. */
 	readonly largest: number;
+	/** Tunnels the stitcher dug to join the pieces up. */
+	readonly joins: number;
+	/** Cells those tunnels cost. */
+	readonly tunnelled: number;
+	/** Hand-drawn rooms that went in before anything carved. */
+	readonly vaults: number;
 	/** Steps from entry to exit, or 0 if there is no route. */
 	readonly route: number;
 	/** How many seeds the stack burned before one produced a level. */
@@ -65,9 +83,11 @@ export interface Level {
 	/** Where a party comes in, and where the stairs down are. Null if unwalkable. */
 	readonly entry: Axial | null;
 	readonly exit: Axial | null;
-	/** Entry to exit through open edges, inclusive of both ends. */
+	/** Entry to exit, inclusive of both ends. */
 	readonly route: readonly Axial[];
 	readonly stats: LevelStats;
+	/** The vaults in this level, and where they landed. */
+	readonly vaults: readonly PlacedVault[];
 	/** A line per pipeline step, shown beside the level so the stack is legible. */
 	readonly steps: readonly string[];
 }
@@ -102,7 +122,19 @@ export interface LevelSettings {
 	readonly radius: number;
 	/** Keyed by `LevelParam.key`, already defaulted by `settingsFor`. */
 	readonly params: Readonly<Record<string, number>>;
-	/** Throw away everything but the biggest connected component. */
+	/**
+	 * How deep this level is.
+	 *
+	 * Nothing but vault eligibility reads it yet, which is the honest state of
+	 * affairs: depth is the axis a roguelike scales everything along, and this
+	 * project has one thing that scales along it so far.
+	 */
+	readonly depth: number;
+	/** How many vaults to try to place, before anything carves. */
+	readonly vaults: number;
+	/** Dig tunnels between the pieces, so the level comes out walkable end to end. */
+	readonly stitch: boolean;
+	/** Throw away everything the stitch could not reach. */
 	readonly prune: boolean;
 }
 

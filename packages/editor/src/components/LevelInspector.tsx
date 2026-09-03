@@ -42,6 +42,12 @@ export interface LevelInspectorProps {
 	onSeedChange(seed: number): void;
 	radius: number;
 	onRadiusChange(radius: number): void;
+	depth: number;
+	onDepthChange(depth: number): void;
+	vaults: number;
+	onVaultsChange(vaults: number): void;
+	stitch: boolean;
+	onStitchChange(stitch: boolean): void;
 	prune: boolean;
 	onPruneChange(prune: boolean): void;
 	params: Readonly<Record<string, number>>;
@@ -52,9 +58,10 @@ export interface LevelInspectorProps {
 
 const SHOW: { key: keyof LevelShow; label: string; hint: string }[] = [
 	{ key: 'rock', label: 'Rock', hint: 'The solid the level is cut out of' },
-	{ key: 'walls', label: 'Edge walls', hint: 'Shut edges between two floor tiles' },
 	{ key: 'route', label: 'Entry & exit', hint: 'The two ends, and the way between them' },
+	{ key: 'entities', label: 'Entities', hint: 'What the vaults put in their rooms' },
 	{ key: 'regions', label: 'Regions', hint: 'Colour the floor by connected component' },
+	{ key: 'stitching', label: 'Stitching', hint: 'Pick out the tunnels the stitcher dug' },
 ];
 
 export function LevelInspector({
@@ -65,6 +72,12 @@ export function LevelInspector({
 	onSeedChange,
 	radius,
 	onRadiusChange,
+	depth,
+	onDepthChange,
+	vaults,
+	onVaultsChange,
+	stitch,
+	onStitchChange,
 	prune,
 	onPruneChange,
 	params,
@@ -168,21 +181,58 @@ export function LevelInspector({
 			</Stack>
 
 			<Typography variant="caption" color="text.secondary">
-				Radius — {radius} rings
+				Radius — {radius} rings, {(3 * radius * (radius + 1) + 1).toLocaleString()} cells
 			</Typography>
 			<Slider
 				size="small"
 				min={4}
-				max={24}
-				step={1}
-				marks
+				max={300}
+				step={2}
 				value={radius}
 				onChange={(_, value) => onRadiusChange(value as number)}
 			/>
 
+			<Typography variant="caption" color="text.secondary">
+				Depth — level {depth}
+			</Typography>
+			<Slider
+				size="small"
+				min={1}
+				max={99}
+				step={1}
+				value={depth}
+				onChange={(_, value) => onDepthChange(value as number)}
+			/>
+
+			<Typography variant="caption" color="text.secondary">
+				Vaults — {vaults}
+			</Typography>
+			<Slider
+				size="small"
+				min={0}
+				max={8}
+				step={1}
+				marks
+				value={vaults}
+				onChange={(_, value) => onVaultsChange(value as number)}
+			/>
+
 			<FormControlLabel
-				sx={{ m: 0, mt: 0.5 }}
-				title="Fill in everything but the biggest connected piece"
+				sx={{ m: 0, mt: 0.5, display: 'flex' }}
+				title="Dig tunnels between the pieces, so the level is walkable end to end"
+				control={
+					<Checkbox
+						size="small"
+						checked={stitch}
+						onChange={(event) => onStitchChange(event.target.checked)}
+					/>
+				}
+				label={<Typography variant="caption">Stitch the pieces together</Typography>}
+			/>
+
+			<FormControlLabel
+				sx={{ m: 0, display: 'flex' }}
+				title="Fill in anything the stitch could not reach"
 				control={
 					<Checkbox
 						size="small"
@@ -190,7 +240,7 @@ export function LevelInspector({
 						onChange={(event) => onPruneChange(event.target.checked)}
 					/>
 				}
-				label={<Typography variant="caption">Keep only the largest region</Typography>}
+				label={<Typography variant="caption">Fill in what is left over</Typography>}
 			/>
 
 			<Divider sx={{ my: 1.5 }} />
@@ -279,8 +329,20 @@ export function LevelInspector({
 				<Box sx={{ mb: 1 }}>
 					{row('Cells', `${stats.cells}`)}
 					{row('Floor', `${stats.floor}  (${((100 * stats.floor) / stats.cells).toFixed(0)} %)`)}
-					{row('Regions', `${stats.regions}`, stats.regions > 1)}
+					{row('Carved in', `${stats.regions} piece${stats.regions === 1 ? '' : 's'}`)}
+					{row(
+						'Ended up',
+						`${stats.pieces} piece${stats.pieces === 1 ? '' : 's'}`,
+						stats.pieces > 1,
+					)}
+					{stats.joins > 0 &&
+						row('Stitched', `${stats.joins} tunnels, ${stats.tunnelled} cells`)}
 					{row('Largest', `${stats.largest}`)}
+					{stats.vaults > 0 &&
+						row(
+							'Vaults',
+							level!.vaults.map((placed) => placed.vault.name).join(', '),
+						)}
 					{row('Entry to exit', stats.route > 0 ? `${stats.route} steps` : 'no route', stats.route === 0)}
 					{row('Attempts', `${stats.attempts}`, stats.attempts > 1)}
 					{row('Generated in', `${stats.ms.toFixed(1)} ms`)}

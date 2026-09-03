@@ -8,38 +8,25 @@
  * other one has no equivalent of". A stack that grows a step grows a line here
  * and nothing is touched.
  *
- * Under it, for a tiled stack, the tileset itself — every spec, its six sockets
- * and its weight. Tuning a tileset is tuning those numbers, and reading them
- * off a source file while looking at a level in another window is exactly the
- * loop a bench exists to close.
+ * Under it, whatever the stack itself wants to show. Nothing does at the
+ * moment: a wave function used to put its sample and its learned patterns here,
+ * and went with the stack. The hook is worth keeping — a stack that grows a
+ * thing worth looking at grows a section here and nothing else changes.
  */
 
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import { DUNGEON_TILES, LEVEL_STACKS, type LevelStack } from '@hexdelve/client';
+import { LEVEL_STACKS, type LevelStack } from '@hexdelve/client';
 
 export interface StackOutlineProps {
 	stack: LevelStack;
 	onStackChange(stack: LevelStack): void;
 }
 
-const SOCKET_LABEL: Record<string, string> = {
-	'.': 'wall',
-	c: 'corridor',
-	r: 'room',
-};
-
-const SOCKET_COLOR: Record<string, string> = {
-	'.': '#4a453d',
-	c: '#8a7f5e',
-	r: '#b39a6a',
-};
 
 export function StackOutline({ stack, onStackChange }: StackOutlineProps) {
 	return (
@@ -99,52 +86,6 @@ export function StackOutline({ stack, onStackChange }: StackOutlineProps) {
 				))}
 			</Box>
 
-			{stack.id === 'wfc-hex' && (
-				<>
-					<Divider sx={{ my: 1.5 }} />
-
-					<Typography variant="subtitle2" color="text.secondary" sx={{ px: 2 }}>
-						Tileset
-					</Typography>
-					<Typography variant="caption" color="text.secondary" sx={{ px: 2, display: 'block' }}>
-						Six sockets per tile, east first then anticlockwise. Rotations are expanded
-						by the solver, so a straight hall is three tiles and a chamber is one.
-					</Typography>
-
-					<Box sx={{ px: 2, mt: 1 }}>
-						{DUNGEON_TILES.map((spec) => (
-							<Box
-								key={spec.name}
-								sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.35 }}
-							>
-								<Box sx={{ display: 'flex', gap: 0.3 }}>
-									{[...spec.edges].map((socket, index) => (
-										<Tooltip key={index} title={`edge ${index}: ${SOCKET_LABEL[socket]}`}>
-											<Box
-												sx={{
-													width: 8,
-													height: 8,
-													borderRadius: '2px',
-													bgcolor: SOCKET_COLOR[socket],
-												}}
-											/>
-										</Tooltip>
-									))}
-								</Box>
-								<Typography variant="caption" sx={{ flexGrow: 1 }}>
-									{spec.name}
-								</Typography>
-								<Chip
-									size="small"
-									variant="outlined"
-									label={spec.weight}
-									sx={{ height: 18, '& .MuiChip-label': { px: 0.7, fontSize: 11 } }}
-								/>
-							</Box>
-						))}
-					</Box>
-				</>
-			)}
 		</Box>
 	);
 }

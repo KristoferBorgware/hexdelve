@@ -36,7 +36,7 @@ jobs:
 
       - name: Test
         # Everything the project can assert without somebody looking at a
-        # screen, in one runner. Three of the five drive a browser, and skip
+        # screen, in one runner. Three of the six drive a browser, and skip
         # rather than fail when there is none to drive:
         #
         #   picking     a screen point has to map back to the ground drawn
@@ -44,6 +44,11 @@ jobs:
         #               to be got wrong, and nothing throws when it is
         #   blend-tree  a tree that has drifted out of phase still produces a
         #               valid pose; the only symptom is a character who skates
+        #   tiles       every mistake available in a WFC tileset still produces
+        #               levels: a rotation that turns the wrong way bends
+        #               corridors the wrong way, an asymmetric propagator
+        #               drifts the solver's counts, an orphaned tile is simply
+        #               never placed
         #   shaders     WebGPU marks a bad pipeline invalid rather than
         #               throwing, so a broken shader reaches a browser looking
         #               healthy and fails on the first draw

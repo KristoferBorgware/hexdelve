@@ -19,6 +19,11 @@
  * far side of a room a different size from the near side. That is exactly the
  * distortion you must not have while judging whether a corridor is one tile
  * wide.
+ *
+ * There is nothing here that draws a wall on an edge, and there never will be
+ * again: a hexagon is the atom of this game, so a wall is a rock cell and is
+ * drawn as one. The slabs this used to put on the boundaries between floor
+ * tiles existed for a tileset that has since been replaced for the same reason.
  */
 
 import {
@@ -33,17 +38,8 @@ import {
 	type Renderer,
 	type RendererInfo,
 } from '@hexdelve/engine';
-import type { Level, LevelCell } from '@hexdelve/client';
-import {
-	AXIAL_DIRECTIONS,
-	axialKey,
-	axialToWorld,
-	mat4,
-	SQRT3,
-	vec3,
-	type Mat4,
-	type Vec3,
-} from '@hexdelve/shared';
+import { STITCH_TILE, type Level, type LevelCell } from '@hexdelve/client';
+import { axialToWorld, mat4, SQRT3, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
 import { BenchControls } from './BenchControls.js';
 
@@ -51,26 +47,19 @@ import { BenchControls } from './BenchControls.js';
 const TILE_RADIUS = 0.985;
 /** How thick the floor slab is, and therefore where everything stands. */
 const FLOOR_DEPTH = 0.14;
-/** How tall solid rock is above that floor. */
-const ROCK_HEIGHT = 0.95;
-/** A wall on the edge between two floor tiles the tileset left shut. */
-const EDGE_WALL_HEIGHT = 0.62;
-const EDGE_WALL_THICKNESS = 0.17;
 /**
- * Half the slab's length along the edge.
+ * How tall solid rock is above that floor.
  *
- * A hex side is exactly the hex's radius, so `TILE_RADIUS / 2` would meet the
- * corners and no more. A little past that, because the prism is a hexagon too
- * and tapers to a point at each end: sized to the side exactly, the wall stops
- * short of the corner it is supposed to reach and the room leaks light at every
- * junction.
+ * Lower than it wants to be, and the room stack is why. A corridor there is one
+ * tile wide with rock on both sides, and at the isometric pitch a trench that
+ * deep is a black slot: the level reads as rooms with nothing joining them,
+ * which is the opposite of what the picture is for. Tall enough to read as a
+ * wall, short enough to see the floor of a passage between two of them.
  */
-const EDGE_WALL_LENGTH = 0.62;
-
+const ROCK_HEIGHT = 0.62;
 const ENTRY_COLOR = 0x4fd47a;
 const EXIT_COLOR = 0xe8763a;
 const ROUTE_COLOR = 0x7fc4ff;
-const EDGE_WALL_COLOR = 0x2e2a24;
 
 /**
  * Colours for the region overlay.
@@ -81,6 +70,18 @@ const EDGE_WALL_COLOR = 0x2e2a24;
  * which is the single most useful thing to know about a wave function's output.
  */
 const REGION_COLORS = [0x6f9ad4, 0xd48f5a, 0x77b573, 0xb56fa8, 0xc7bb62, 0x63b4b0];
+
+/** What a dug tunnel goes when the stitching overlay is on. */
+const STITCH_HIGHLIGHT = 0x4ec9d6;
+
+/** One per vault entity kind. Distinct rather than pretty: they are a readout. */
+const ENTITY_COLORS: Record<string, number> = {
+	monster: 0xe05252,
+	loot: 0xf0c64a,
+	trap: 0xb060d0,
+	light: 0xfff0b0,
+	marker: 0x7ea6ff,
+};
 
 export interface LevelBenchOptions {
 	canvas: HTMLCanvasElement;
@@ -93,12 +94,14 @@ export interface LevelBenchOptions {
 export interface LevelShow {
 	/** The solid rock. Off leaves the walkable floor hanging in the dark. */
 	rock: boolean;
-	/** Walls on shut edges between two floor tiles — the tileset's own doing. */
-	walls: boolean;
 	/** The entry, the exit, and the way between them. */
 	route: boolean;
 	/** Colour the floor by connected component instead of by tile. */
 	regions: boolean;
+	/** Pick out the tunnels the stitcher dug, so its work can be judged. */
+	stitching: boolean;
+	/** The monsters, loot and traps the vaults put in their rooms. */
+	entities: boolean;
 }
 
 export interface LevelBenchStats {
@@ -118,7 +121,13 @@ export class LevelBench {
 		ambient: vec3.vec3(0.36, 0.38, 0.42),
 	};
 
-	readonly show: LevelShow = { rock: true, walls: true, route: true, regions: false };
+	readonly show: LevelShow = {
+		rock: true,
+		route: true,
+		regions: false,
+		stitching: false,
+		entities: true,
+	};
 
 	private level: Level | null = null;
 
@@ -164,6 +173,10 @@ export class LevelBench {
 			yaw: Math.PI * 0.25,
 			pitch: ISO_PITCH,
 			viewHeight: 18,
+			// Set per level in `frameLevel`: an orthographic frustum has to hold
+			// the whole disc along the view direction, and a disc of three
+			// hundred rings is a thousand units across. Fixed planes clipped
+			// away most of it.
 			near: -200,
 			far: 200,
 		});
@@ -226,6 +239,12 @@ export class LevelBench {
 		// pitch the taller of the two is what the frustum has to hold, plus a
 		// tile of margin so the rim is not flush with the edge of the viewport.
 		this.camera.viewHeight = SQRT3 * radius * 0.82 + 2;
+		// Generous, and symmetric about the target: the camera sits at the
+		// middle of an orthographic box rather than at its near face, so half
+		// the depth has to be behind it.
+		const span = SQRT3 * radius + 20;
+		this.camera.near = -span * 2;
+		this.camera.far = span * 2;
 		this.draw();
 	}
 
@@ -261,8 +280,8 @@ export class LevelBench {
 		const level = this.level;
 		if (level) {
 			for (const cell of level.cells.values()) this.emitCell(opaque, cell);
-			if (this.show.walls) this.emitEdgeWalls(opaque, level);
 			if (this.show.route) this.emitRoute(overlay, level);
+			if (this.show.entities) this.emitEntities(overlay, level);
 		}
 
 		frame.clear();
@@ -290,53 +309,15 @@ export class LevelBench {
 			return;
 		}
 
-		const color =
-			this.show.regions && cell.region >= 0
+		// Stitching wins over regions on purpose: with the stitch on there is
+		// only one region to colour by, so the question the two toggles answer
+		// together is "was it one piece already, and if not what joined it".
+		const color = this.show.stitching && cell.tile === STITCH_TILE
+			? STITCH_HIGHLIGHT
+			: this.show.regions && cell.region >= 0
 				? REGION_COLORS[cell.region % REGION_COLORS.length]!
 				: cell.color;
 		out.pushUpright(x, 0, z, TILE_RADIUS, FLOOR_DEPTH, color);
-	}
-
-	/**
-	 * A wall on every shut edge between two floor tiles.
-	 *
-	 * This is the only thing on screen the noise carve can never produce, and
-	 * drawing it is most of what makes the two stacks distinguishable: the wave
-	 * function's rooms have BACKS, and without these the level would look like a
-	 * cave with tidier corners.
-	 *
-	 * Only the first three directions are walked. Every edge has two sides and
-	 * the other three would draw each one a second time, in the same place, at
-	 * the same depth — which costs the instances and buys a z-fight.
-	 */
-	private emitEdgeWalls(out: HexInstances, level: Level): void {
-		for (const cell of level.cells.values()) {
-			if (cell.kind !== 'floor') continue;
-			const { x, z } = axialToWorld(cell.q, cell.r);
-
-			for (let d = 0; d < 3; d++) {
-				if (cell.open & (1 << d)) continue;
-				const step = AXIAL_DIRECTIONS[d]!;
-				const other = level.cells.get(axialKey(cell.q + step.q, cell.r + step.r));
-				// Against rock there is already a metre of stone standing there.
-				if (!other || other.kind !== 'floor') continue;
-
-				const towards = axialToWorld(cell.q + step.q, cell.r + step.r);
-				// Direction d points at (pi/2 + d*pi/3) from +Z; the edge itself
-				// runs across that, so the slab is turned a further quarter.
-				const yaw = Math.PI + (d * Math.PI) / 3;
-				out.push(
-					(x + towards.x) / 2,
-					FLOOR_DEPTH + EDGE_WALL_HEIGHT / 2,
-					(z + towards.z) / 2,
-					EDGE_WALL_THICKNESS,
-					EDGE_WALL_HEIGHT,
-					EDGE_WALL_LENGTH,
-					EDGE_WALL_COLOR,
-					{ yaw },
-				);
-			}
-		}
 	}
 
 	/**
@@ -359,6 +340,27 @@ export class LevelBench {
 
 		if (level.entry) this.emitMarker(out, level.entry.q, level.entry.r, ENTRY_COLOR);
 		if (level.exit) this.emitMarker(out, level.exit.q, level.exit.r, EXIT_COLOR);
+	}
+
+	/**
+	 * What the vaults put in their rooms, as a pip per entity.
+	 *
+	 * Unlit and in the overlay, like the route markers and for the same reason:
+	 * these are a readout of a decision somebody made while drawing the vault,
+	 * and a readout that goes dark on the shaded side of the level is one you
+	 * cannot use. Small, because there can be a dozen in one room and the shape
+	 * of the room is still the thing being judged.
+	 */
+	private emitEntities(out: HexInstances, level: Level): void {
+		for (const placed of level.vaults) {
+			for (const entity of placed.entities) {
+				const q = entity.col - ((entity.row - (entity.row & 1)) >> 1);
+				const { x, z } = axialToWorld(q, entity.row);
+				out.pushRadial(x, FLOOR_DEPTH + 0.16, z, 0.26, 0.22, ENTITY_COLORS[entity.kind], {
+					flags: HEX_FLAG_UNLIT,
+				});
+			}
+		}
 	}
 
 	private emitMarker(out: HexInstances, q: number, r: number, color: number): void {
@@ -388,7 +390,13 @@ export class LevelBench {
 		this.renderer.render({
 			viewProjection: this.camera.matrix(width / height, this.renderer.depthRange),
 			light: this.light,
-			shadow: { viewProjection: this.shadowMatrix, bias: 0.002 },
+			// The bias scales with what the map has to cover: one shadow map
+			// over a disc of three hundred rings has texels a metre wide, and a
+			// bias tuned for a small level is acne at that size.
+			shadow: {
+				viewProjection: this.shadowMatrix,
+				bias: 0.002 * Math.max(1, this.shadowRadius / 25),
+			},
 		});
 
 		this.drawMs = performance.now() - startedAt;

@@ -56,8 +56,8 @@ packages/
   engine/       WebGPU and WebGL2 rendering, camera, frame loop
   client/       the game itself; the package built for external distribution
   editor/       React and Material UI shell: the client in a viewport, plus a
-                character bench for one rig, a prop bench for one piece of gear
-                and a level bench for one generated dungeon, each on its own
+                benches for one rig, one piece of gear, one generated level
+                and one hand-drawn vault
   desktop/      Electron wrapper around the client's build
 labs/           one folder per lab, each a standalone page
   shared/       the code the labs are built from
@@ -118,11 +118,12 @@ renderer toggle is in the toolbar rather than a settings dialog, because two
 backends meant to draw the same picture only stay that way if switching is one
 click during ordinary work.
 
-It has four views. The **yard** is the client, in a box: no editor renderer and
+It has five views. The **yard** is the client, in a box: no editor renderer and
 no editor scene, so whatever the editor can do to the world an embedder can do
-too. The three **benches** are the exception, and say why in their own name — a
+too. The four **benches** are the exception, and say why in their own name — a
 bench is one subject, alone, held still, which is exactly what a running world
-will not give you. They have scenes of their own for that reason and no other,
+will not give you. Three of them preview; the vault bench authors, which is why
+it is the one with no viewport in it. They have scenes of their own for that reason and no other,
 and they build nothing of their own: the skeletons, the bodies, the clips and
 the gear all come out of the client, so what reads well on a bench is what the
 game draws.
@@ -213,25 +214,52 @@ knows nothing about how one is made, which is what makes the comparison worth
 trusting — two algorithms cannot look different because one of them got nicer
 drawing code.
 
-Two stacks are in it so far, from opposite ends of the field. The **cave** stack
-is chamfer's own noise-band carve, ported down to the hash and the octave order
-and read on the ground plane. chamfer's note on that function says the band round
-a zero set in three dimensions is a slab, which is why its caves are one wide
-folded sheet; on a plane the zero set is a set of curves and the band round one
-is a ribbon, which is a corridor — the thing that world works around is the thing
-this wants. The **WFC** stack is mxgmn's simple tiled model on six neighbours,
-over a tileset of our own: thirteen specs of a hex cell whose six edges carry a
-wall, a corridor or a room socket, expanded to 61 rotations, with adjacency
-derived from the sockets rather than listed as neighbour pairs. Three socket
-kinds rather than two is the whole design — corridors and rooms may not meet
-except through a tile that has both — so rooms, corridors and doors all fall out
-of one rule.
+Three stacks are in it so far. The **cave** stack is chamfer's own noise-band
+carve, ported down to the hash and the octave order and read on the ground
+plane. chamfer's note on that function says the band round a zero set in three
+dimensions is a slab, which is why its caves are one wide folded sheet; on a
+plane the zero set is a set of curves and the band round one is a ribbon, which
+is a corridor — the thing that world works around is the thing this wants.
 
-They fail in opposite directions, which is the useful result: the cave has no
-concept of a room and never will, and the wave function has no idea whether the
-level is one piece and can fail outright. The bench reports both as numbers
-rather than opinions — a region count, a colour per component, and how many seeds
-the solver burned. `docs/levelgen.md` has the measurements and eight algorithms
+The **rooms** stack builds a level out of *places*: it scatters room sites,
+grows each into a blob of whole hexes with a noise-pushed edge, then decides
+which rooms are joined with a minimum spanning tree for the guarantee and a
+Gabriel or relative-neighbourhood graph for the loops on top, and digs one-hex
+corridors along the result.
+
+The **boxes** stack builds rather than carves. Room sites get a random box each,
+the boxes are allowed to overlap, and then a room is not the box it was given —
+it is the largest rectangle that actually fits inside it given everything placed
+so far, asked twice, which is where the L and cross shapes come from. Rooms are
+joined by straight runs between edges that face each other, and any run that
+would cross a third room is rejected: that one rule is why the output reads as
+rooms with doors rather than as connected space, because a pathfinder that
+enters a third room on the way has just merged two rooms into one.
+
+A fourth lived here — a wave function collapse, first tiled and then
+overlapping. Both worked; both were removed. A local constraint system has no
+way to say anything about a level above the scale of a few cells, so everything
+it produced was structure that *happened* rather than structure that was
+decided, which is fine for a texture and is not what a dungeon is.
+
+**Vaults** are the part of a level that is deliberate: rooms drawn by hand and
+stamped in *before* anything carves, so a carve finds one as terrain it has to
+respect rather than something to draw over. One flag carries it — a cell marked
+`fixed` is finished, and no stack may write to it and no tunnel may be cut
+through it — which is why vaults work in all three stacks without any of them
+knowing what a vault is. They are not an Angband file: terrain is a named union
+and entities are typed, so adding either is a change the compiler reports rather
+than a symbol that silently means nothing. They are drawn in the editor's
+**vault bench**, checked against the same rules the placer uses, and copied out
+as source — the browser keeps the working copy, the repository keeps the vaults.
+
+**Connectivity is not a property the cave or the rooms carve can state**, so it is not
+asked of them. The finish every stack shares runs Prim's algorithm over the
+graph of pieces, digging the shortest tunnel it can find from everything joined
+so far to anything that is not, until the level is one piece — which it always
+is, over 240 levels of both carving stacks. It will not dig through the rim, because a
+stitcher free to route round the outside joins the level up by removing the
+thing that made it a place. `docs/levelgen.md` has the measurements and what is
 worth trying next.
 
 **`@hexdelve/desktop`** opens an Electron window on the client's own web build.
@@ -285,6 +313,7 @@ there, or when there is no browser driver installed.
 |---|---|
 | `picking` | A screen point has to map back to the ground drawn there. A camera basis derived twice is a sign waiting to be got wrong, and nothing throws when it is — the original bug tracked the cursor correctly sideways and moved the aim a third as far up and down. |
 | `blend-tree` | A tree out of phase still produces sensible weights and a valid pose; the only symptom is a character who skates. Pins the thresholds, the calibration, the sync, the additive gain and the mask. |
+| `tiles` | Every mistake available in a WFC tileset still produces levels. A rotation that turns the wrong way bends corridors the wrong way; an asymmetric propagator drifts the solver's supporter counts and makes it ban tiles for no reason; a tile with no legal neighbour is never placed and its weight is a lie. Pins the edge mapping, the rotation cardinalities *and their direction* — turning the wrong way gives the same counts — the propagator's symmetry, and the open mask. |
 | `shaders` | WebGPU marks a bad pipeline invalid rather than throwing, so a broken shader reaches a browser looking healthy and only fails on the first draw. |
 | `render` | None of the above would notice a sign flip that put every shadow on the wrong side of every building, so a picture lives in `test/reference/` and is compared against. |
 | `backends` | The two shader sets are written twice on purpose; this is what stops them drifting apart. Needs a working WebGPU device and usually skips for want of one. |

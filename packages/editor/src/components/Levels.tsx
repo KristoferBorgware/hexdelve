@@ -28,7 +28,13 @@ import { LevelInspector } from './LevelInspector.js';
 import { LevelViewport } from './LevelViewport.js';
 import { StackOutline } from './StackOutline.js';
 
-const DEFAULT_SHOW: LevelShow = { rock: true, walls: true, route: true, regions: false };
+const DEFAULT_SHOW: LevelShow = {
+	rock: true,
+	route: true,
+	entities: true,
+	regions: false,
+	stitching: false,
+};
 
 /** Long enough to swallow a slider drag, short enough not to feel like lag. */
 const SETTLE_MS = 40;
@@ -42,6 +48,9 @@ export function Levels({ backend }: LevelsProps) {
 	const [stack, setStack] = useState<LevelStack>(LEVEL_STACKS[0]!);
 	const [seed, setSeed] = useState(1);
 	const [radius, setRadius] = useState(14);
+	const [depth, setDepth] = useState(20);
+	const [vaults, setVaults] = useState(2);
+	const [stitch, setStitch] = useState(true);
 	const [prune, setPrune] = useState(true);
 	const [show, setShow] = useState<LevelShow>(DEFAULT_SHOW);
 	const [level, setLevel] = useState<Level | null>(null);
@@ -64,10 +73,10 @@ export function Levels({ backend }: LevelsProps) {
 	/* Generate, off the event that asked for it. */
 	useEffect(() => {
 		const handle = window.setTimeout(() => {
-			setLevel(stack.generate({ seed, radius, params: current, prune }));
+			setLevel(stack.generate({ seed, radius, depth, vaults, params: current, stitch, prune }));
 		}, SETTLE_MS);
 		return () => window.clearTimeout(handle);
-	}, [stack, seed, radius, prune, current]);
+	}, [stack, seed, radius, depth, vaults, stitch, prune, current]);
 
 	/* Whatever bench is up — the old one, or the one a backend switch built. */
 	useEffect(() => {
@@ -91,6 +100,12 @@ export function Levels({ backend }: LevelsProps) {
 				onSeedChange={setSeed}
 				radius={radius}
 				onRadiusChange={setRadius}
+				depth={depth}
+				onDepthChange={setDepth}
+				vaults={vaults}
+				onVaultsChange={setVaults}
+				stitch={stitch}
+				onStitchChange={setStitch}
 				prune={prune}
 				onPruneChange={setPrune}
 				params={current}

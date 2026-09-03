@@ -1,43 +1,120 @@
 /*
  * The half of level generation that is the same whatever carved the rock.
  *
- * A stack's own algorithm decides one thing: which cells are floor, and which
- * edges between them are open. Everything after that — is it connected, what is
- * the largest piece, where are the two ends, how do you get from one to the
- * other — is the same question for a noise band and for a wave function, and
- * asking it in one place is what keeps the bench an honest comparison. If the
- * cave stack had its own idea of "connected" the two numbers on screen would
- * not mean the same thing.
+ * A stack's own algorithm decides one thing: which cells are floor. Everything
+ * after that — is it connected, what is the largest piece, where are the two
+ * ends, how do you get from one to the other — is the same question for a noise
+ * band, a wave function and a graph of rooms, and asking it in one place is what
+ * keeps the bench an honest comparison. If the cave stack had its own idea of
+ * "connected" the numbers on screen would not mean the same thing.
  *
- * The order matters and is worth stating: symmetrise, then flood, then prune,
- * then pick ends, then route. Pruning before flooding would have nothing to
- * prune by; picking ends before pruning would sometimes pick an end in a pocket
- * that is about to be filled in.
+ * **A hexagon is the atom.** Two floor cells side by side are joined, full
+ * stop; a wall is a rock cell and there is nothing else a wall can be. This
+ * used to carry a six-bit mask per cell so a tile could have a wall on an edge,
+ * which is how the old socket tileset drew a room's back — and it was wrong for
+ * a reason no amount of tuning would have found: an edge is not somewhere a
+ * character can stand, or path around, or be stopped by. Nothing else in the
+ * project believed in it. The mask, the symmetry pass that repaired it, and the
+ * slabs the bench drew for it are all gone with the tileset that wanted them.
+ *
+ * The order matters and is worth stating: flood, STITCH, prune, pick ends,
+ * route. Flooding before stitching is what gives the stitcher its list of
+ * pieces to join; pruning after it is what makes prune a fallback rather than
+ * the main event; and picking ends before either would sometimes put the exit
+ * in a pocket that is about to be joined or filled in.
  */
 
-import {
-	AXIAL_DIRECTIONS,
-	axialDisc,
-	axialKey,
-	type Axial,
-} from '@hexdelve/shared';
+import { AXIAL_DIRECTIONS, axialDisc, axialKey, type Axial, type Random } from '@hexdelve/shared';
 
 import type { Level, LevelCell, LevelSettings, LevelStack } from './types.js';
+import { placeVaults } from './vault/place.js';
+import type { PlacedVault, Vault } from './vault/types.js';
 
 /** A cell while it is still being carved. Same fields, all of them writable. */
 export interface DraftCell {
 	q: number;
 	r: number;
 	kind: 'rock' | 'floor';
-	open: number;
 	tile: string;
 	region: number;
 	color: number;
+	/**
+	 * Rock the carve says must STAY rock, whatever anyone downstream wants.
+	 *
+	 * There is exactly one use for it and it is the level's edge. Both stacks
+	 * keep a rim of solid rock so a passage cannot run off the boundary into
+	 * nothing, and a stitcher that is free to tunnel anywhere will happily route
+	 * two pieces together straight through that rim — joining the level and
+	 * removing the thing that made it a place rather than a fragment. So the
+	 * carve marks its rim and the stitch goes round.
+	 */
+	sealed: boolean;
+	/**
+	 * This cell is FINISHED and nothing downstream may change it.
+	 *
+	 * Set by the vault pass, which runs before any stack carves. It is what
+	 * makes a vault a vault: its walls are fixed rock, so no carve opens them
+	 * and no tunnel is cut through them, and its doors are fixed floor, so the
+	 * way in is the way that was drawn. Unlike `sealed` it says nothing about
+	 * what the cell IS — a fixed cell may be floor — only that it is settled.
+	 */
+	fixed: boolean;
 }
 
 export const ROCK_COLOR = 0x36322c;
 
-/** A hex disc of solid rock, which is where every stack starts. */
+/** What a stitched tunnel is made of. Cooler than either stack's own floor. */
+export const STITCH_COLOR = 0x565a5c;
+
+/** The tile name a stitched cell carries, so the readout can count them. */
+export const STITCH_TILE = 'stitch';
+
+/**
+ * A disc of solid rock with its rim sealed and its vaults already in it.
+ *
+ * Every stack starts here rather than with a bare draft, and that is what makes
+ * "vaults work in all three" true by construction rather than by three stacks
+ * each remembering to. The order is the point: a vault goes in BEFORE anything
+ * carves, so a carve finds it as terrain it has to respect. Stamped afterwards
+ * it would be deleting whatever the carve had put there, which is how a
+ * treasury ends up with a cave running through the middle of it.
+ */
+export function startDraft(options: DraftOptions): {
+	cells: Map<string, DraftCell>;
+	vaults: PlacedVault[];
+} {
+	const cells = solidDraft(options.radius);
+
+	const edge = options.radius - options.rim;
+	for (const cell of cells.values()) {
+		const ring = (Math.abs(cell.q) + Math.abs(cell.r) + Math.abs(cell.q + cell.r)) / 2;
+		if (ring > edge) cell.sealed = true;
+	}
+
+	const vaults = placeVaults({
+		cells,
+		radius: options.radius,
+		depth: options.depth,
+		wanted: options.vaults,
+		random: options.random,
+		...(options.catalogue !== undefined ? { catalogue: options.catalogue } : {}),
+	});
+
+	return { cells, vaults };
+}
+
+export interface DraftOptions {
+	readonly radius: number;
+	/** Rings of sealed rock kept round the edge, so nothing runs off it. */
+	readonly rim: number;
+	readonly depth: number;
+	/** How many vaults to try to place. */
+	readonly vaults: number;
+	readonly random: Random;
+	readonly catalogue?: readonly Vault[];
+}
+
+/** A hex disc of solid rock, before anything at all has happened to it. */
 export function solidDraft(radius: number): Map<string, DraftCell> {
 	const draft = new Map<string, DraftCell>();
 	for (const cell of axialDisc(radius)) {
@@ -45,17 +122,15 @@ export function solidDraft(radius: number): Map<string, DraftCell> {
 			q: cell.q,
 			r: cell.r,
 			kind: 'rock',
-			open: 0,
 			tile: '',
 			region: -1,
 			color: ROCK_COLOR,
+			sealed: false,
+			fixed: false,
 		});
 	}
 	return draft;
 }
-
-/** Every edge to a floor neighbour, for a carve with no notion of walls. */
-export const ALL_EDGES = 0b111111;
 
 /**
  * The result of a carve, before the finish.
@@ -69,6 +144,8 @@ export const ALL_EDGES = 0b111111;
 export interface Carved {
 	readonly cells: Map<string, DraftCell>;
 	readonly attempts: number;
+	/** Whatever `startDraft` put down before this stack ran. */
+	readonly vaults: readonly PlacedVault[];
 }
 
 /**
@@ -83,21 +160,30 @@ export function finishLevel(
 ): Level {
 	const cells = carved.cells;
 
-	symmetrise(cells);
-	let regions = flood(cells);
+	const carvedRegions = flood(cells);
+	let regions = carvedRegions;
+	let joined = { joins: 0, tunnelled: 0 };
+
+	if (settings.stitch && regions.count > 1) {
+		joined = stitch(cells, regions.count, regions.largest);
+		// The stitch turned rock into floor, so the labels above are stale in
+		// the one direction that matters: cells that were in different pieces
+		// are in one.
+		regions = flood(cells);
+	}
 
 	if (settings.prune && regions.count > 1) {
 		for (const cell of cells.values()) {
+			// A vault is never filled in, even when nothing reached it. Losing
+			// the one hand-made room on the level to tidy up an unreachable
+			// pocket is the worst trade the finish could make.
+			if (cell.fixed) continue;
 			if (cell.kind === 'floor' && cell.region !== regions.largest) {
 				cell.kind = 'rock';
-				cell.open = 0;
 				cell.tile = '';
 				cell.color = ROCK_COLOR;
 			}
 		}
-		// Sealing a pocket takes its neighbours' doors with it, so the masks
-		// have to agree again before anything counts them.
-		symmetrise(cells);
 		regions = flood(cells);
 	}
 
@@ -115,45 +201,27 @@ export function finishLevel(
 		entry: ends?.entry ?? null,
 		exit: ends?.exit ?? null,
 		route,
+		vaults: carved.vaults,
 		steps: stack.steps,
 		stats: {
 			cells: cells.size,
 			floor,
 			rock: cells.size - floor,
-			regions: regions.count,
+			// The carve's OWN count, before anything downstream tidied it. That
+			// is the number a tileset gets tuned against; what the finished
+			// level came out as is `pieces` below, and the two being different
+			// is the whole point of the stitch.
+			regions: carvedRegions.count,
+			pieces: regions.count,
 			largest: regions.size,
+			joins: joined.joins,
+			tunnelled: joined.tunnelled,
+			vaults: carved.vaults.length,
 			route: route.length > 0 ? route.length - 1 : 0,
 			attempts: carved.attempts,
 			ms: Math.round((performance.now() - startedAt) * 100) / 100,
 		},
 	};
-}
-
-/**
- * An edge is open only if BOTH sides say so.
- *
- * Every stack could be trusted to write symmetric masks and none of them should
- * have to be. A one-way door is not a feature this project has, and the way it
- * would show up is a route the player cannot walk back along — a bug that looks
- * exactly like a rendering mistake from the outside.
- */
-function symmetrise(cells: Map<string, DraftCell>): void {
-	for (const cell of cells.values()) {
-		if (cell.kind !== 'floor') {
-			cell.open = 0;
-			continue;
-		}
-		let open = 0;
-		for (let d = 0; d < 6; d++) {
-			if ((cell.open & (1 << d)) === 0) continue;
-			const step = AXIAL_DIRECTIONS[d]!;
-			const other = cells.get(axialKey(cell.q + step.q, cell.r + step.r));
-			if (!other || other.kind !== 'floor') continue;
-			if ((other.open & (1 << ((d + 3) % 6))) === 0) continue;
-			open |= 1 << d;
-		}
-		cell.open = open;
-	}
 }
 
 interface Regions {
@@ -165,7 +233,7 @@ interface Regions {
 	size: number;
 }
 
-/** Label every floor cell with its connected component, walking open edges only. */
+/** Label every floor cell with the connected component it belongs to. */
 function flood(cells: Map<string, DraftCell>): Regions {
 	for (const cell of cells.values()) cell.region = -1;
 
@@ -197,15 +265,224 @@ function flood(cells: Map<string, DraftCell>): Regions {
 	return { count, largest, size };
 }
 
+/** The floor cells a body could step to from here. */
 function openNeighbours(cells: Map<string, DraftCell>, cell: DraftCell): DraftCell[] {
 	const out: DraftCell[] = [];
-	for (let d = 0; d < 6; d++) {
-		if ((cell.open & (1 << d)) === 0) continue;
-		const step = AXIAL_DIRECTIONS[d]!;
+	for (const step of AXIAL_DIRECTIONS) {
 		const next = cells.get(axialKey(cell.q + step.q, cell.r + step.r));
 		if (next && next.kind === 'floor') out.push(next);
 	}
 	return out;
+}
+
+/**
+ * Join every piece of the level to the largest, by digging.
+ *
+ * Both stacks that need this cannot do it. The noise band opens a tile where a
+ * field crosses a band and has no way to ask whether the tile next door landed
+ * on the same side of it; the wave function enforces adjacency and nothing
+ * else, so every one of its levels is locally legal and globally a handful of
+ * separate dungeons. **Connectivity is not a property either algorithm is able
+ * to state**, which is why it belongs here — after the carve has had its say,
+ * applying to whatever the carve was.
+ *
+ * ## One flood, not one per join
+ *
+ * The obvious shape is Prim's on the graph of pieces: breadth-first from
+ * everything joined so far, dig to the nearest piece that is not, repeat. It is
+ * correct, it reads well, and it is quadratic — one flood of the whole disc per
+ * join. That is invisible at radius 14 with eight pieces and fatal at radius
+ * 200 with seven hundred: **158 seconds**, measured, against about a tenth of a
+ * second for everything else the level needed.
+ *
+ * So the flood happens once. A single breadth-first search leaves EVERY floor
+ * cell at the same time and spreads through the rock, and each rock cell
+ * records which piece reached it first and which way that piece lies. What that
+ * builds is a Voronoi diagram of the pieces, drawn in rock — and the moment two
+ * pieces' territories touch is a candidate tunnel between them, whose length is
+ * how far each had come plus the step across. Every candidate any join could
+ * want is found in that one pass.
+ *
+ * What remains is a minimum spanning tree over a few hundred pieces rather than
+ * a few hundred thousand cells, and then digging the chosen tunnels — which
+ * costs their own length and nothing more, because the way back to each piece
+ * is already recorded.
+ *
+ * ## What it is allowed to do
+ *
+ * It digs a passage exactly one tile wide: the minimum that connects, and it
+ * reads on screen as something cut rather than something found. It will not
+ * touch `sealed` rock — the rim every stack keeps so a passage cannot run off
+ * the boundary — nor `fixed` rock, which is a vault wall: a stitcher that may
+ * cut through either has joined the level up by destroying the thing it was
+ * routing around. A vault is reached through its doors, which are floor, so the
+ * flood leaves it the way a player would.
+ */
+function stitch(
+	cells: Map<string, DraftCell>,
+	regions: number,
+	largest: number,
+): { joins: number; tunnelled: number } {
+	if (largest < 0 || regions < 2) return { joins: 0, tunnelled: 0 };
+
+	const { from, candidates } = floodTerritories(cells);
+	const chosen = spanPieces(candidates, regions, largest);
+
+	let joins = 0;
+	let tunnelled = 0;
+	for (const link of chosen) {
+		joins++;
+		tunnelled += dig(cells, link, from);
+	}
+
+	return { joins, tunnelled };
+}
+
+/** One tunnel a join could use: where the two territories met, and how far. */
+interface Candidate {
+	readonly a: number;
+	readonly b: number;
+	readonly cost: number;
+	/** The two rock cells that touched, one in each piece's territory. */
+	readonly at: [string, string];
+}
+
+/**
+ * Spread every piece through the rock at once, and note where they meet.
+ *
+ * `owner` is which piece reached a rock cell first and `from` is the key of the
+ * cell it came from, so following `from` walks back to that piece. A cell
+ * already owned is never re-owned — breadth-first means the first arrival is
+ * the nearest one — but it is still *examined*, because that examination is
+ * exactly how two territories are found to be adjacent.
+ */
+function floodTerritories(cells: Map<string, DraftCell>): { from: Map<string, string>; candidates: Map<string, Candidate> } {
+	const owner = new Map<string, number>();
+	const from = new Map<string, string>();
+	const depth = new Map<string, number>();
+	const candidates = new Map<string, Candidate>();
+
+	let frontier: DraftCell[] = [];
+	for (const cell of cells.values()) {
+		if (cell.kind !== 'floor') continue;
+		const key = axialKey(cell.q, cell.r);
+		owner.set(key, cell.region);
+		depth.set(key, 0);
+		frontier.push(cell);
+	}
+
+	while (frontier.length > 0) {
+		const next: DraftCell[] = [];
+		for (const cell of frontier) {
+			const key = axialKey(cell.q, cell.r);
+			const mine = owner.get(key)!;
+			const here = depth.get(key)!;
+
+			for (const step of AXIAL_DIRECTIONS) {
+				const nextKey = axialKey(cell.q + step.q, cell.r + step.r);
+				const neighbour = cells.get(nextKey);
+				if (!neighbour || neighbour.sealed) continue;
+
+				const theirs = owner.get(nextKey);
+				if (theirs === undefined) {
+					// Unclaimed rock: this piece gets there first. Fixed rock is
+					// a vault wall and is not a route, however convenient.
+					if (neighbour.kind !== 'rock' || neighbour.fixed) continue;
+					owner.set(nextKey, mine);
+					from.set(nextKey, key);
+					depth.set(nextKey, here + 1);
+					next.push(neighbour);
+					continue;
+				}
+
+				if (theirs === mine) continue;
+				// Two territories touching. The tunnel is what each of them
+				// walked to get here, plus the step between them.
+				offer(candidates, {
+					a: mine,
+					b: theirs,
+					cost: here + depth.get(nextKey)! + 1,
+					at: [key, nextKey],
+				});
+			}
+		}
+		frontier = next;
+	}
+
+	return { from, candidates };
+}
+
+/** Keep only the cheapest tunnel found between any given pair of pieces. */
+function offer(candidates: Map<string, Candidate>, candidate: Candidate): void {
+	const key =
+		candidate.a < candidate.b ? `${candidate.a}-${candidate.b}` : `${candidate.b}-${candidate.a}`;
+	const held = candidates.get(key);
+	if (!held || candidate.cost < held.cost) candidates.set(key, candidate);
+}
+
+/**
+ * A minimum spanning tree over the pieces — Kruskal, on the candidates.
+ *
+ * Sorted cheapest first with a union-find behind it, which is the standard
+ * shape and the right one here because the candidate list is already an edge
+ * list rather than a matrix. Anything that would close a loop is skipped, so
+ * the result is exactly `pieces - 1` tunnels when the pieces can all be
+ * reached, and fewer when some are walled in behind sealed rock.
+ */
+function spanPieces(
+	candidates: Map<string, Candidate>,
+	regions: number,
+	largest: number,
+): Candidate[] {
+	const parent = Array.from({ length: regions }, (_, i) => i);
+	const find = (x: number): number => {
+		let root = x;
+		while (parent[root] !== root) root = parent[root]!;
+		while (parent[x] !== root) {
+			const up = parent[x]!;
+			parent[x] = root;
+			x = up;
+		}
+		return root;
+	};
+
+	const edges = [...candidates.values()].sort((a, b) => a.cost - b.cost);
+	const chosen: Candidate[] = [];
+	for (const edge of edges) {
+		const a = find(edge.a);
+		const b = find(edge.b);
+		if (a === b) continue;
+		parent[a] = b;
+		chosen.push(edge);
+	}
+
+	// `largest` is not special to the tree — a spanning tree reaches everything
+	// it can reach from anywhere — but it is what the caller means by "joined",
+	// and reading it here keeps that intent in one place rather than none.
+	void find(largest);
+	return chosen;
+}
+
+/** Cut the tunnel a candidate names, walking back from where the two met. */
+function dig(cells: Map<string, DraftCell>, link: Candidate, from: Map<string, string>): number {
+	let cut = 0;
+
+	for (const end of link.at) {
+		let key: string | undefined = end;
+		while (key !== undefined) {
+			const cell = cells.get(key)!;
+			// The walk back ends the moment it reaches the piece it started
+			// from, which is floor already and wants nothing done to it.
+			if (cell.kind === 'floor') break;
+			cell.kind = 'floor';
+			cell.tile = STITCH_TILE;
+			cell.color = STITCH_COLOR;
+			cut++;
+			key = from.get(key);
+		}
+	}
+
+	return cut;
 }
 
 /**
@@ -271,10 +548,9 @@ function furthestFrom(cells: Map<string, DraftCell>, start: DraftCell): DraftCel
 /**
  * The shortest way from one end to the other, through open edges.
  *
- * Breadth-first rather than the shared A*, because `findPath` reasons about
- * cells and this graph's obstacles live on the EDGES between them: a door the
- * tileset left shut is invisible to a predicate that is only ever asked about
- * the cell on the far side of it.
+ * Breadth-first rather than the shared A*, because the route is wanted for
+ * drawing rather than for walking: there is no climb rule to apply and no cost
+ * to weigh, and a queue is the whole algorithm.
  */
 function walk(cells: Map<string, DraftCell>, from: Axial, to: Axial): Axial[] {
 	const start = cells.get(axialKey(from.q, from.r));

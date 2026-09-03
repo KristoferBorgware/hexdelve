@@ -30,12 +30,18 @@
 
 import { axialToWorld, makeRandom, type Axial } from '@hexdelve/shared';
 
-import { ALL_EDGES, finishLevel, solidDraft, type Carved } from './build.js';
+import { finishLevel, startDraft, type Carved } from './build.js';
 import { fbm } from './noise.js';
 import { readParam, type Level, type LevelSettings, type LevelStack } from './types.js';
 
 /** The floor's own seed offset, so the shading is not the carve read twice. */
 const SHADE_SEED_OFFSET = 977;
+/** And the vault pass's, so moving a slider does not reshuffle the vaults. */
+const VAULT_SEED_OFFSET = 4231;
+
+function ring(cell: { q: number; r: number }): number {
+	return (Math.abs(cell.q) + Math.abs(cell.r) + Math.abs(cell.q + cell.r)) / 2;
+}
 
 const FLOOR_SHADES = [0x6e6455, 0x776c5c, 0x655c4e, 0x7f7462];
 
@@ -106,8 +112,14 @@ function carve(settings: LevelSettings): Level {
 	const octaves = readParam(CAVE_STACK, settings.params, 'octaves');
 	const rim = readParam(CAVE_STACK, settings.params, 'rim');
 
-	const cells = solidDraft(settings.radius);
 	const shade = makeRandom((settings.seed + SHADE_SEED_OFFSET) | 0);
+	const { cells, vaults } = startDraft({
+		radius: settings.radius,
+		rim,
+		depth: settings.depth,
+		vaults: settings.vaults,
+		random: makeRandom((settings.seed + VAULT_SEED_OFFSET) | 0),
+	});
 	const open = settings.radius - rim;
 
 	for (const cell of cells.values()) {
@@ -116,8 +128,11 @@ function carve(settings: LevelSettings): Level {
 		// daylight through a mouth in a hillside rather than by removing the
 		// ground under a player. Here it stops a corridor from running off the
 		// edge of the world into nothing.
-		const ring = (Math.abs(cell.q) + Math.abs(cell.r) + Math.abs(cell.q + cell.r)) / 2;
-		if (ring > open) continue;
+		if (ring(cell) > open) continue;
+
+		// A vault was put here before the carve ran, and the carve does not
+		// get to have an opinion about it.
+		if (cell.fixed) continue;
 
 		const { x, z } = axialToWorld(cell.q, cell.r);
 		// Sampled at the tile's own world position over the lattice scale —
@@ -127,14 +142,11 @@ function carve(settings: LevelSettings): Level {
 		if (n <= -threshold || n >= threshold) continue;
 
 		cell.kind = 'floor';
-		// Every edge, because this carve has no notion of a wall between two
-		// open tiles. `finishLevel` drops the ones facing rock.
-		cell.open = ALL_EDGES;
 		cell.tile = 'cave';
 		cell.color = FLOOR_SHADES[Math.floor(shade() * FLOOR_SHADES.length)]!;
 	}
 
-	const carved: Carved = { cells, attempts: 1 };
+	const carved: Carved = { cells, attempts: 1, vaults };
 	return finishLevel(CAVE_STACK, settings, carved, startedAt);
 }
 
