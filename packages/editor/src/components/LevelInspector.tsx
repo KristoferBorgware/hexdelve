@@ -30,7 +30,7 @@ import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import { useEffect, useState, type ReactElement } from 'react';
-import type { Level, LevelStack } from '@hexdelve/client';
+import type { ExitPlacement, Level, LevelStack } from '@hexdelve/client';
 
 import type { LevelBench, LevelShow } from '../bench/LevelBench.js';
 
@@ -46,6 +46,8 @@ export interface LevelInspectorProps {
 	onDepthChange(depth: number): void;
 	vaults: number;
 	onVaultsChange(vaults: number): void;
+	exitIn: ExitPlacement;
+	onExitInChange(exitIn: ExitPlacement): void;
 	stitch: boolean;
 	onStitchChange(stitch: boolean): void;
 	prune: boolean;
@@ -64,6 +66,24 @@ const SHOW: { key: keyof LevelShow; label: string; hint: string }[] = [
 	{ key: 'stitching', label: 'Stitching', hint: 'Pick out the tunnels the stitcher dug' },
 ];
 
+const EXITS: { value: ExitPlacement; label: string; hint: string }[] = [
+	{
+		value: 'anywhere',
+		label: 'anywhere',
+		hint: 'The far end of the level, wherever that lands. Angband\u2019s answer: a vault is a detour you choose to open.',
+	},
+	{
+		value: 'vault',
+		label: 'in a vault',
+		hint: 'At the back of the highest-rated vault on the level. The boss room, with the level as its approach.',
+	},
+	{
+		value: 'never',
+		label: 'never a vault',
+		hint: 'Keeps the two apart, so a vault is always a reward and never a checkpoint.',
+	},
+];
+
 export function LevelInspector({
 	bench,
 	stack,
@@ -76,6 +96,8 @@ export function LevelInspector({
 	onDepthChange,
 	vaults,
 	onVaultsChange,
+	exitIn,
+	onExitInChange,
 	stitch,
 	onStitchChange,
 	prune,
@@ -217,6 +239,26 @@ export function LevelInspector({
 				onChange={(_, value) => onVaultsChange(value as number)}
 			/>
 
+			<Tooltip title="Where the stairs down are allowed to be. A coin flip is worse than either rule, because the player cannot learn it.">
+				<Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+					Exit
+				</Typography>
+			</Tooltip>
+			<Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+				{EXITS.map(({ value, label, hint }) => (
+					<Tooltip key={value} title={hint}>
+						<Chip
+							size="small"
+							clickable
+							label={label}
+							variant={exitIn === value ? 'filled' : 'outlined'}
+							color={exitIn === value ? 'primary' : 'default'}
+							onClick={() => onExitInChange(value)}
+						/>
+					</Tooltip>
+				))}
+			</Stack>
+
 			<FormControlLabel
 				sx={{ m: 0, mt: 0.5, display: 'flex' }}
 				title="Dig tunnels between the pieces, so the level is walkable end to end"
@@ -339,9 +381,14 @@ export function LevelInspector({
 						row('Stitched', `${stats.joins} tunnels, ${stats.tunnelled} cells`)}
 					{row('Largest', `${stats.largest}`)}
 					{stats.vaults > 0 &&
+						row('Vaults', level!.vaults.map((placed) => placed.vault.name).join(', '))}
+					{exitIn !== 'anywhere' &&
 						row(
-							'Vaults',
-							level!.vaults.map((placed) => placed.vault.name).join(', '),
+							'Exit',
+							stats.exitInVault ? 'in a vault' : 'not in a vault',
+							// Asking is not getting: a depth with no eligible vault, or
+							// a disc with nowhere to put one, leaves the request unmet.
+							(exitIn === 'vault') !== stats.exitInVault,
 						)}
 					{row('Entry to exit', stats.route > 0 ? `${stats.route} steps` : 'no route', stats.route === 0)}
 					{row('Attempts', `${stats.attempts}`, stats.attempts > 1)}

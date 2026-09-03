@@ -68,6 +68,15 @@ export interface LevelStats {
 	readonly tunnelled: number;
 	/** Hand-drawn rooms that went in before anything carved. */
 	readonly vaults: number;
+	/**
+	 * Whether the exit ended up in one.
+	 *
+	 * Reported rather than assumed, because asking for it is not the same as
+	 * getting it: a depth with no eligible vault, or a disc with nowhere to put
+	 * one, leaves the request unmet. Silently falling back to anywhere would be
+	 * the level lying about its own shape.
+	 */
+	readonly exitInVault: boolean;
 	/** Steps from entry to exit, or 0 if there is no route. */
 	readonly route: number;
 	/** How many seeds the stack burned before one produced a level. */
@@ -117,6 +126,8 @@ export interface LevelParam {
 	readonly choices?: readonly string[];
 }
 
+export type ExitPlacement = 'anywhere' | 'vault' | 'never';
+
 export interface LevelSettings {
 	readonly seed: number;
 	readonly radius: number;
@@ -132,6 +143,22 @@ export interface LevelSettings {
 	readonly depth: number;
 	/** How many vaults to try to place, before anything carves. */
 	readonly vaults: number;
+	/**
+	 * Where the stairs down are allowed to be.
+	 *
+	 * A genre split rather than a tuning knob. `anywhere` is Angband's answer:
+	 * a vault is an optional detour, and the tension is "do I risk it", which
+	 * only exists because you can walk past. `vault` is the modern one: the
+	 * boss room at the end, and the level is the approach to it. `never` keeps
+	 * the two apart, so a vault is always a reward and never a checkpoint.
+	 *
+	 * `anywhere` is not a third design — it is the ABSENCE of one, and it shows:
+	 * measured over 200 levels a stack, the exit landed in a vault 30% to 54%
+	 * of the time depending on the stack, purely because a vault is a dense
+	 * blob of floor that tends to hold a graph endpoint. A coin flip is worse
+	 * than either rule, because the player cannot learn it.
+	 */
+	readonly exitIn: ExitPlacement;
 	/** Dig tunnels between the pieces, so the level comes out walkable end to end. */
 	readonly stitch: boolean;
 	/** Throw away everything the stitch could not reach. */

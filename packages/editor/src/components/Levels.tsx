@@ -20,7 +20,13 @@
 
 import Box from '@mui/material/Box';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { defaultParams, LEVEL_STACKS, type Level, type LevelStack } from '@hexdelve/client';
+import {
+	defaultParams,
+	LEVEL_STACKS,
+	type ExitPlacement,
+	type Level,
+	type LevelStack,
+} from '@hexdelve/client';
 import type { BackendPreference } from '@hexdelve/engine';
 
 import type { LevelBench, LevelShow } from '../bench/LevelBench.js';
@@ -50,6 +56,7 @@ export function Levels({ backend }: LevelsProps) {
 	const [radius, setRadius] = useState(14);
 	const [depth, setDepth] = useState(20);
 	const [vaults, setVaults] = useState(2);
+	const [exitIn, setExitIn] = useState<ExitPlacement>('anywhere');
 	const [stitch, setStitch] = useState(true);
 	const [prune, setPrune] = useState(true);
 	const [show, setShow] = useState<LevelShow>(DEFAULT_SHOW);
@@ -73,10 +80,10 @@ export function Levels({ backend }: LevelsProps) {
 	/* Generate, off the event that asked for it. */
 	useEffect(() => {
 		const handle = window.setTimeout(() => {
-			setLevel(stack.generate({ seed, radius, depth, vaults, params: current, stitch, prune }));
+			setLevel(stack.generate({ seed, radius, depth, vaults, exitIn, params: current, stitch, prune }));
 		}, SETTLE_MS);
 		return () => window.clearTimeout(handle);
-	}, [stack, seed, radius, depth, vaults, stitch, prune, current]);
+	}, [stack, seed, radius, depth, vaults, exitIn, stitch, prune, current]);
 
 	/* Whatever bench is up — the old one, or the one a backend switch built. */
 	useEffect(() => {
@@ -104,6 +111,8 @@ export function Levels({ backend }: LevelsProps) {
 				onDepthChange={setDepth}
 				vaults={vaults}
 				onVaultsChange={setVaults}
+				exitIn={exitIn}
+				onExitInChange={setExitIn}
 				stitch={stitch}
 				onStitchChange={setStitch}
 				prune={prune}

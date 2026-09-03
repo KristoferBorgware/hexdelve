@@ -34,6 +34,7 @@ function generate(
 		radius,
 		depth: 20,
 		vaults,
+		exitIn: 'anywhere',
 		params: defaultParams(stack),
 		stitch,
 		prune: false,
@@ -155,6 +156,51 @@ describe.each(LEVEL_STACKS.map((stack) => [stack.id, stack] as const))('%s', (_i
 				expect(doors, `${placed.vault.id} has no door`).toBeGreaterThan(0);
 				expect(reachable, `${placed.vault.id} is sealed in`).toBeGreaterThan(0);
 			}
+		}
+	});
+
+	it('puts the exit where it was told to', () => {
+		// Three policies, and the two that are rules have to be rules — a
+		// setting that works most of the time is worse than no setting, because
+		// the player learns it and is then wrong.
+		const vaultTiles = new Set(['vault', 'vault-door']);
+		const exitTile = (level: Level): string =>
+			level.cells.get(axialKey(level.exit!.q, level.exit!.r))?.tile ?? '';
+
+		for (const seed of SEEDS) {
+			const inVault = stack.generate({
+				seed,
+				radius: 26,
+				depth: 20,
+				// Asked for none on purpose: a level whose exit must be in a
+				// vault has to get one anyway, or the two settings contradict.
+				vaults: 0,
+				exitIn: 'vault',
+				params: defaultParams(stack),
+				stitch: true,
+				prune: true,
+			});
+			expect(inVault.stats.vaults, `seed ${seed}`).toBeGreaterThan(0);
+			expect(vaultTiles.has(exitTile(inVault)), `seed ${seed}`).toBe(true);
+			expect(inVault.stats.exitInVault).toBe(true);
+
+			const outside = stack.generate({
+				seed,
+				radius: 26,
+				depth: 20,
+				vaults: 2,
+				exitIn: 'never',
+				params: defaultParams(stack),
+				stitch: true,
+				prune: true,
+			});
+			expect(vaultTiles.has(exitTile(outside)), `seed ${seed}`).toBe(false);
+			expect(outside.stats.exitInVault).toBe(false);
+			// And the entry is kept out too: starting inside the treasure room
+			// is not what "never a vault" means.
+			expect(
+				vaultTiles.has(outside.cells.get(axialKey(outside.entry!.q, outside.entry!.r))?.tile ?? ''),
+			).toBe(false);
 		}
 	});
 

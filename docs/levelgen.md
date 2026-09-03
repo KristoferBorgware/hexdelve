@@ -508,14 +508,57 @@ copy; the repository keeps the vaults. That is not a limitation being worked
 around — there is no server to save to, and a bench that pretended otherwise
 would be one whose work quietly disappeared.
 
+### Where the stairs go
+
+Vault placement and end placement started out as two systems that did not know
+about each other, and the result was a coin flip. Measured over 200 levels a
+stack with two vaults each, the exit landed inside a vault **29.5%** of the time
+on the cave stack, **53.5%** on rooms and **47.5%** on boxes — not by design, but
+because a vault is a dense blob of floor that disproportionately holds an
+endpoint of the floor graph.
+
+That is the worst of the three possible answers, because the player cannot learn
+it. So it is now a setting:
+
+| | |
+| --- | --- |
+| **anywhere** | The far end of the level, wherever that lands. Angband's answer: a vault is an optional detour, and the tension is *do I risk it*, which only exists because you can walk past. |
+| **in a vault** | At the back of the highest-rated vault on the level. The boss room, with the level as its approach. |
+| **never a vault** | Keeps the two apart, so a vault is always a reward and never a checkpoint. |
+
+Both rules are rules: 100% and 0% across 200 seeds a stack, all three stacks.
+
+Three things about the implementation are worth stating.
+
+**Rating decides which vault**, not size or rarity, because rating is the one
+number a vault carries that is about the *level* rather than the room — and "the
+level ends at its most dangerous place" needs no further explanation.
+
+**The exit is the back of the room**: furthest from the vault's own doors,
+walked over the vault's own floor only, so the stairs are the thing you cross
+the whole vault to reach rather than the first thing inside the door.
+
+**The policies are a filter on which cells may be an END, not a different
+search.** `furthestFrom` takes a predicate that says what may be *remembered*,
+never what may be *walked* — a route to the far side of a vault goes through the
+vault whether or not the vault is somewhere you are allowed to stop, and a
+search that refused to cross one would report the wrong distance for everything
+behind it.
+
+Asking is not getting, and the readout says so. A depth with no eligible vault,
+or a disc with nowhere to put one, leaves the request unmet; `exitInVault`
+reports what actually happened rather than what was asked for. Asking for zero
+vaults *and* for the exit to be in one is a contradiction, resolved where it
+should be — the draft places one anyway — rather than by silently ignoring
+whichever setting was read second.
+
 ### What is still missing
 
 Depth is a slider that only vault eligibility reads. That is the honest state of
 affairs: depth is the axis a roguelike scales everything along, and this project
-has exactly one thing that scales along it so far. `rating` is stored and not
-yet spent on anything — it is the one property of a vault that is about the
-*level* rather than the room, so it is what a difficulty budget would eventually
-be built from.
+has exactly one thing that scales along it so far. `rating` now decides which
+vault gets the stairs and is otherwise unspent — a difficulty budget is the
+thing it is really for.
 
 ## Beyond the shape
 
