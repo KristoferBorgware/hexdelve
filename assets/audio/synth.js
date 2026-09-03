@@ -78,6 +78,14 @@ module.exports = function createSynth({ SR = 44100, LEN, TAIL, XF = 4 }) {
     if (st.low > 8) st.low = 8; else if (st.low < -8) st.low = -8;
     return st.band;
   }
+  // The same filter's lowpass output. A bandpass throws the fundamental away,
+  // which is right for colouring noise and wrong for a bowed string — anything
+  // that should keep its bottom wants this one.
+  function svfLP(st, input, fc, q) {
+    svf(st, input, fc, q);
+    return st.low;
+  }
+
   const svfState = () => ({ low: 0, band: 0 });
 
   // ----------------------------------------------------------- the rooms
@@ -185,7 +193,7 @@ module.exports = function createSynth({ SR = 44100, LEN, TAIL, XF = 4 }) {
   return {
     SR, LEN, TAIL, N, NT, XFN,
     mulberry32, mtof, loopq, clamp01, smooth, pan2,
-    crossfadeLoop, hpLoop, svf, svfState,
+    crossfadeLoop, hpLoop, svf, svfLP, svfState,
     reverb, predelay, pingpong,
     master, writeWav,
   };
