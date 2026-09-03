@@ -19,6 +19,7 @@
 
 export type {
 	CellKind,
+	ExitPlacement,
 	Level,
 	LevelCell,
 	LevelParam,

@@ -26,9 +26,9 @@
 
 import { AXIAL_DIRECTIONS, axialDisc, axialKey, type Axial, type Random } from '@hexdelve/shared';
 
-import type { Level, LevelCell, LevelSettings, LevelStack } from './types.js';
-import { placeVaults } from './vault/place.js';
-import type { PlacedVault, Vault } from './vault/types.js';
+import type { ExitPlacement, Level, LevelCell, LevelSettings, LevelStack } from './types.js';
+import { doorsOf, placeVaults } from './vault/place.js';
+import { terrainAt, type PlacedVault, type Vault } from './vault/types.js';
 
 /** A cell while it is still being carved. Same fields, all of them writable. */
 export interface DraftCell {
@@ -83,9 +83,10 @@ export function startDraft(options: DraftOptions): {
 	cells: Map<string, DraftCell>;
 	vaults: PlacedVault[];
 } {
-	const cells = solidDraft(options.radius);
+	const { settings } = options;
+	const cells = solidDraft(settings.radius);
 
-	const edge = options.radius - options.rim;
+	const edge = settings.radius - options.rim;
 	for (const cell of cells.values()) {
 		const ring = (Math.abs(cell.q) + Math.abs(cell.r) + Math.abs(cell.q + cell.r)) / 2;
 		if (ring > edge) cell.sealed = true;
@@ -93,9 +94,13 @@ export function startDraft(options: DraftOptions): {
 
 	const vaults = placeVaults({
 		cells,
-		radius: options.radius,
-		depth: options.depth,
-		wanted: options.vaults,
+		radius: settings.radius,
+		depth: settings.depth,
+		// A level whose exit is meant to be in a vault needs a vault, whatever
+		// the vault slider says. Asking for none and then for the stairs to be
+		// inside one is a contradiction, and the honest place to resolve it is
+		// here rather than by silently ignoring one of the two.
+		wanted: settings.exitIn === 'vault' ? Math.max(1, settings.vaults) : settings.vaults,
 		random: options.random,
 		...(options.catalogue !== undefined ? { catalogue: options.catalogue } : {}),
 	});
@@ -104,12 +109,16 @@ export function startDraft(options: DraftOptions): {
 }
 
 export interface DraftOptions {
-	readonly radius: number;
+	/**
+	 * Everything the level was asked for.
+	 *
+	 * Passed whole rather than unpacked into fields, because three stacks each
+	 * forwarding six values is three places to forget the seventh — which is
+	 * exactly what happened when `exitIn` arrived.
+	 */
+	readonly settings: LevelSettings;
 	/** Rings of sealed rock kept round the edge, so nothing runs off it. */
 	readonly rim: number;
-	readonly depth: number;
-	/** How many vaults to try to place. */
-	readonly vaults: number;
 	readonly random: Random;
 	readonly catalogue?: readonly Vault[];
 }
@@ -187,7 +196,7 @@ export function finishLevel(
 		regions = flood(cells);
 	}
 
-	const ends = farthestPair(cells, regions.largest);
+	const ends = pickEnds(cells, regions.largest, settings.exitIn, carved.vaults);
 	const route = ends ? walk(cells, ends.entry, ends.exit) : [];
 
 	let floor = 0;
@@ -217,6 +226,7 @@ export function finishLevel(
 			joins: joined.joins,
 			tunnelled: joined.tunnelled,
 			vaults: carved.vaults.length,
+			exitInVault: ends?.inVault ?? false,
 			route: route.length > 0 ? route.length - 1 : 0,
 			attempts: carved.attempts,
 			ms: Math.round((performance.now() - startedAt) * 100) / 100,
@@ -486,24 +496,33 @@ function dig(cells: Map<string, DraftCell>, link: Candidate, from: Map<string, s
 }
 
 /**
- * The two ends of the level, by the double sweep: breadth-first from anywhere
- * to the furthest cell, then breadth-first from THAT to the furthest again.
+ * The two ends of the level, according to what was asked for.
  *
- * On a tree the pair it finds is exactly the diameter; on a graph with loops it
- * can fall a step or two short, and a dungeon is somewhere between the two. It
- * is two flood fills either way, which is what makes it affordable to run on
- * every keystroke of a slider — the alternative, all-pairs, is not.
+ * The default is the double sweep: breadth-first from anywhere to the furthest
+ * cell, then breadth-first from THAT to the furthest again. On a tree the pair
+ * it finds is exactly the diameter; on a graph with loops it can fall a step or
+ * two short, and a dungeon is somewhere between the two. It is two flood fills
+ * either way, which is what makes it affordable on every keystroke of a slider
+ * — the alternative, all-pairs, is not.
  *
  * Which end is the entrance is then decided by distance from the middle, so a
- * party comes in near the rim and walks inwards to the stairs rather than the
- * other way round. It is cosmetic and it is consistent, which is the point:
- * two runs of the same seed put the entrance in the same place.
+ * party comes in near the rim and walks inwards. Cosmetic, and consistent,
+ * which is the point: the same seed puts the entrance in the same place.
+ *
+ * The two other policies are where the design lives, and both are expressed as
+ * a filter on which cells may be an END rather than as a different search. That
+ * is why `furthestFrom` takes a predicate: the walk still crosses everything —
+ * a route to the back of a vault necessarily goes through the vault — but only
+ * an acceptable cell is ever remembered as the furthest one reached.
  */
-function farthestPair(
+function pickEnds(
 	cells: Map<string, DraftCell>,
 	region: number,
-): { entry: Axial; exit: Axial } | null {
+	policy: ExitPlacement,
+	vaults: readonly PlacedVault[],
+): { entry: Axial; exit: Axial; inVault: boolean } | null {
 	if (region < 0) return null;
+
 	let seed: DraftCell | null = null;
 	for (const cell of cells.values()) {
 		if (cell.region === region) {
@@ -513,17 +532,172 @@ function farthestPair(
 	}
 	if (!seed) return null;
 
-	const a = furthestFrom(cells, seed);
-	const b = furthestFrom(cells, a);
+	const inAVault = vaultFloor(cells, vaults, region);
+
+	if (policy === 'vault') {
+		const chosen = bestVault(cells, vaults, region);
+		if (chosen) {
+			// The back of the room: furthest from its own doors, so the stairs
+			// are the thing you walk the whole vault to reach rather than the
+			// first thing inside the door.
+			const exit = deepestInside(cells, chosen);
+			if (exit) {
+				const entry = furthestFrom(cells, exit, (cell) => !inAVault.has(key(cell)));
+				return { entry: at(entry), exit: at(exit), inVault: true };
+			}
+		}
+		// Nothing eligible, nowhere to put one, or the one placed is walled off
+		// from the rest. Fall through to the default, and say so in the stats.
+	}
+
+	const accept =
+		policy === 'never' ? (cell: DraftCell): boolean => !inAVault.has(key(cell)) : undefined;
+
+	const a = furthestFrom(cells, seed, accept);
+	const b = furthestFrom(cells, a, accept);
 	const distA = Math.abs(a.q) + Math.abs(a.r) + Math.abs(a.q + a.r);
 	const distB = Math.abs(b.q) + Math.abs(b.r) + Math.abs(b.q + b.r);
 	const entry = distA >= distB ? a : b;
 	const exit = entry === a ? b : a;
-	return { entry: { q: entry.q, r: entry.r }, exit: { q: exit.q, r: exit.r } };
+
+	return { entry: at(entry), exit: at(exit), inVault: inAVault.has(key(exit)) };
 }
 
-/** Breadth-first over open edges; the last cell reached is a furthest one. */
-function furthestFrom(cells: Map<string, DraftCell>, start: DraftCell): DraftCell {
+const key = (cell: { q: number; r: number }): string => axialKey(cell.q, cell.r);
+const at = (cell: DraftCell): Axial => ({ q: cell.q, r: cell.r });
+
+/** Every walkable cell belonging to a placed vault, in the region that matters. */
+function vaultFloor(
+	cells: Map<string, DraftCell>,
+	vaults: readonly PlacedVault[],
+	region: number,
+): Set<string> {
+	const inside = new Set<string>();
+	for (const placed of vaults) {
+		for (const cell of vaultCells(cells, placed)) {
+			if (cell.kind === 'floor' && cell.region === region) inside.add(key(cell));
+		}
+	}
+	return inside;
+}
+
+/**
+ * A placed vault's own cells.
+ *
+ * `outside` is skipped, and that is not a tidiness: a vault's bounding box is
+ * not the vault. A cross-shaped vault leaves the four corners of its box to the
+ * level, and a carve is free to run a cave through them — so counting the whole
+ * rectangle means a cell the vault does not own can be reported as being inside
+ * it. Which is exactly what happened: the exit-in-a-vault figure computed from
+ * the box disagreed with the one computed from the tiles on a fifth of cave
+ * levels, and the box was the one that was wrong.
+ */
+function vaultCells(cells: Map<string, DraftCell>, placed: PlacedVault): DraftCell[] {
+	const out: DraftCell[] = [];
+	for (let y = 0; y < placed.vault.height; y++) {
+		for (let x = 0; x < placed.vault.width; x++) {
+			if (terrainAt(placed.vault, x, y) === 'outside') continue;
+			const col = placed.col + x;
+			const row = placed.row + y;
+			const cell = cells.get(axialKey(col - ((row - (row & 1)) >> 1), row));
+			if (cell) out.push(cell);
+		}
+	}
+	return out;
+}
+
+/**
+ * The vault the stairs should be in: the most dangerous one that can be reached.
+ *
+ * Rating rather than size or rarity, because rating is the one number a vault
+ * carries that is about the LEVEL rather than the room — it is what a danger
+ * feeling is built from — and "the level ends at its most dangerous place" is
+ * the rule that needs no further explanation. Ties go to the lower id so the
+ * same seed gives the same answer.
+ */
+function bestVault(
+	cells: Map<string, DraftCell>,
+	vaults: readonly PlacedVault[],
+	region: number,
+): PlacedVault | null {
+	let best: PlacedVault | null = null;
+
+	for (const placed of vaults) {
+		const reachable = vaultCells(cells, placed).some(
+			(cell) => cell.kind === 'floor' && cell.region === region,
+		);
+		if (!reachable) continue;
+
+		if (
+			!best ||
+			placed.vault.rating > best.vault.rating ||
+			(placed.vault.rating === best.vault.rating && placed.vault.id < best.vault.id)
+		) {
+			best = placed;
+		}
+	}
+
+	return best;
+}
+
+/**
+ * The cell inside a vault furthest from any of its doors.
+ *
+ * Walked over the vault's OWN floor only, so "deep" means deep in the room
+ * rather than deep in the level — a vault with a corridor running past it would
+ * otherwise put its stairs outside itself.
+ */
+function deepestInside(cells: Map<string, DraftCell>, placed: PlacedVault): DraftCell | null {
+	const own = new Map<string, DraftCell>();
+	for (const cell of vaultCells(cells, placed)) {
+		if (cell.kind === 'floor') own.set(key(cell), cell);
+	}
+	if (own.size === 0) return null;
+
+	const doors: DraftCell[] = [];
+	for (const door of doorsOf(placed)) {
+		const cell = cells.get(axialKey(door.col - ((door.row - (door.row & 1)) >> 1), door.row));
+		if (cell && cell.kind === 'floor') doors.push(cell);
+	}
+	// A vault whose doors were somehow lost still has an inside; take any of it
+	// rather than nothing.
+	if (doors.length === 0) return [...own.values()][0] ?? null;
+
+	const seen = new Set(doors.map(key));
+	let frontier = doors;
+	let deepest = doors[0]!;
+
+	while (frontier.length) {
+		const next: DraftCell[] = [];
+		for (const cell of frontier) {
+			deepest = cell;
+			for (const step of AXIAL_DIRECTIONS) {
+				const neighbourKey = axialKey(cell.q + step.q, cell.r + step.r);
+				const neighbour = own.get(neighbourKey);
+				if (!neighbour || seen.has(neighbourKey)) continue;
+				seen.add(neighbourKey);
+				next.push(neighbour);
+			}
+		}
+		frontier = next;
+	}
+
+	return deepest;
+}
+
+/**
+ * Breadth-first over the floor; the last ACCEPTED cell reached is a furthest one.
+ *
+ * The predicate filters what may be remembered, not what may be walked. A route
+ * to the far side of a vault goes through the vault whether or not the vault is
+ * an acceptable place to stop, and a search that refused to cross one would
+ * report the wrong distances for everything behind it.
+ */
+function furthestFrom(
+	cells: Map<string, DraftCell>,
+	start: DraftCell,
+	accept?: (cell: DraftCell) => boolean,
+): DraftCell {
 	const seen = new Set<string>([axialKey(start.q, start.r)]);
 	let frontier: DraftCell[] = [start];
 	let furthest = start;
@@ -531,7 +705,7 @@ function furthestFrom(cells: Map<string, DraftCell>, start: DraftCell): DraftCel
 	while (frontier.length) {
 		const next: DraftCell[] = [];
 		for (const cell of frontier) {
-			furthest = cell;
+			if (!accept || accept(cell)) furthest = cell;
 			for (const neighbour of openNeighbours(cells, cell)) {
 				const key = axialKey(neighbour.q, neighbour.r);
 				if (seen.has(key)) continue;

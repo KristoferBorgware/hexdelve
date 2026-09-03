@@ -253,6 +253,13 @@ than a symbol that silently means nothing. They are drawn in the editor's
 **vault bench**, checked against the same rules the placer uses, and copied out
 as source — the browser keeps the working copy, the repository keeps the vaults.
 
+Where the stairs go is a setting rather than an accident. Left alone, the exit
+is the far end of the floor graph and lands in a vault between 30% and 54% of
+the time depending on the stack — a coin flip, which is worse than either rule
+because the player cannot learn it. So the exit can be pinned to the back of the
+highest-rated vault on the level, or kept out of vaults entirely; both hold over
+200 seeds a stack.
+
 **Connectivity is not a property the cave or the rooms carve can state**, so it is not
 asked of them. The finish every stack shares runs Prim's algorithm over the
 graph of pieces, digging the shortest tunnel it can find from everything joined

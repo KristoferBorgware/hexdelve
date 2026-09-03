@@ -114,10 +114,8 @@ function carve(settings: LevelSettings): Level {
 
 	const shade = makeRandom((settings.seed + SHADE_SEED_OFFSET) | 0);
 	const { cells, vaults } = startDraft({
-		radius: settings.radius,
+		settings,
 		rim,
-		depth: settings.depth,
-		vaults: settings.vaults,
 		random: makeRandom((settings.seed + VAULT_SEED_OFFSET) | 0),
 	});
 	const open = settings.radius - rim;

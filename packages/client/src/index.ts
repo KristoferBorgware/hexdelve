@@ -60,6 +60,7 @@ export {
 	STITCH_COLOR,
 	ROCK_COLOR,
 	type CellKind,
+	type ExitPlacement,
 	type Level,
 	type LevelCell,
 	type LevelParam,

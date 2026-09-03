@@ -258,10 +258,8 @@ function build(settings: LevelSettings): Level {
 
 	const interior = settings.radius - 1;
 	const { cells, vaults } = startDraft({
-		radius: settings.radius,
+		settings,
 		rim: 1,
-		depth: settings.depth,
-		vaults: settings.vaults,
 		random: makeRandom((settings.seed + VAULT_SEED_OFFSET) | 0),
 	});
 
