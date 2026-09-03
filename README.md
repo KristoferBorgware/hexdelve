@@ -47,7 +47,8 @@ packages/
   shared/       maths, hex coordinates, seeded random — no dependencies at all
   engine/       WebGPU and WebGL2 rendering, camera, frame loop
   client/       the game itself; the package built for external distribution
-  editor/       React and Material UI shell that runs the client in a viewport
+  editor/       React and Material UI shell: the client in a viewport, and a
+                character bench for looking at one rig on its own
   desktop/      Electron wrapper around the client's build
 labs/           one folder per lab, each a standalone page
   shared/       the code the labs are built from
@@ -67,7 +68,7 @@ node assets/audio/dungeon-crawl.js
 
 ```
 npm install
-npm run dev:editor      # the editor, with the client live in its viewport
+npm run dev:editor      # the editor: the yard, and the character bench
 npm run dev:client      # the client on its own
 npm run build           # every package
 npm run typecheck       # every package, no output
@@ -98,12 +99,28 @@ and the shared maths — no framework, no bundler runtime, no CDN script — whi
 is what makes it distributable: `npm run build -w @hexdelve/client` emits an ES
 module and a UMD bundle of about 25 kB, engine included.
 
-**`@hexdelve/editor`** is React and Material UI around `createClient`. It has
-no renderer and no scene of its own; its viewport is the client, in a box, so
-whatever the editor can do to the world an embedder can do too. The renderer
-toggle is in the toolbar rather than a settings dialog, because two backends
-meant to draw the same picture only stay that way if switching is one click
-during ordinary work.
+**`@hexdelve/editor`** is React and Material UI around `createClient`. The
+renderer toggle is in the toolbar rather than a settings dialog, because two
+backends meant to draw the same picture only stay that way if switching is one
+click during ordinary work.
+
+It has two views. The **yard** is the client, in a box: no editor renderer and
+no editor scene, so whatever the editor can do to the world an embedder can do
+too. The **character bench** is the exception, and says why in its own name — it
+puts one rig on a stand with a clock, which is exactly what a running world will
+not do. It has a scene of its own for that reason and no other, and it still
+builds no character of its own: the skeleton, the body and the clips all come
+out of the client, so a pose that reads well on the bench is the pose the game
+will play.
+
+The bench is deliberately a *preview*, not an editor. Pick a subject, pick an
+animation, play it, scrub it, slow it down, ghost the body to see the rig
+through it, mark a bone and read where the pose put it. What it is built around
+is the smallest thing every animation in this project has in common — a
+duration, and a function from a time to a pose. A keyframed clip is one of
+those, and so is the procedural stride, which has no keys at all; a blend tree
+will be another, and when it arrives it becomes one more entry in the list with
+parameters of its own, and the transport does not change.
 
 **`@hexdelve/desktop`** opens an Electron window on the client's own web build.
 No desktop-only rendering path and no desktop-only game code, so what ships on
