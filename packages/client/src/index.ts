@@ -37,6 +37,30 @@ export { BAT_SKELETON, BAT_BONES, BAT_TIPS, HOVER_Y, PERCH_Y } from './game/batr
  */
 export { buildWanderer, WANDERER_PALETTE } from './models/wanderer.js';
 export { buildBat, BAT_PALETTE } from './models/bat.js';
+
+/*
+ * The gear, for the same reason as the bodies above.
+ *
+ * A prop is a model and the two numbers that put it down in the grass — the
+ * lift and the tilt — and the editor's prop bench previews all three together.
+ * The palettes come with them because a part's colour is the only name it has:
+ * a bench listing "steel" and "liner" is reading this table rather than
+ * guessing at hex codes.
+ */
+export {
+	buildHelmet,
+	buildShield,
+	buildSword,
+	HELMET_GROUND_LIFT,
+	HELMET_PALETTE,
+	SHIELD_GROUND_LIFT,
+	SHIELD_GROUND_TILT,
+	SHIELD_PALETTE,
+	SWORD_GROUND_LIFT,
+	SWORD_GROUND_TILT,
+	SWORD_PALETTE,
+	SWORD_TIP,
+} from './models/props.js';
 export {
 	perchPose,
 	flyPose,

@@ -1,11 +1,13 @@
 /*
- * The editor shell: a toolbar, and one of two views under it.
+ * The editor shell: a toolbar, and one of three views under it.
  *
- * The views are the two things this editor is for. The YARD is the game, in a
- * box — the client, unchanged, doing what a player would see. The BENCH is one
- * character on a stand with a clock, which is where a mesh, a rig and a clip
- * get looked at on their own; it is the only view here with a scene of its own,
- * and it has one because a running world will not hold a frame still.
+ * The YARD is the game, in a box — the client, unchanged, doing what a player
+ * would see. The two BENCHES are the other thing an editor is for: one subject,
+ * alone, held still. The character bench puts a rig on a stand with a clock,
+ * because a running world will not hold a frame still; the prop bench puts one
+ * piece of gear on the same stand, because a running world will not show you a
+ * helmet at all — the three in the yard are lying in the grass at the far end
+ * of it. Both have scenes of their own for that reason and no other.
  *
  * The backend selector and the transport are shared, and sit here rather than
  * being buried in a settings dialog on purpose. Two renderers that are meant to
@@ -28,11 +30,12 @@ import type { HexdelveClient } from '@hexdelve/client';
 import type { BackendPreference } from '@hexdelve/engine';
 
 import { Bench } from './components/Bench.js';
+import { PropBenchView } from './components/PropBenchView.js';
 import { Inspector } from './components/Inspector.js';
 import { SceneOutline } from './components/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
 
-type View = 'yard' | 'bench';
+type View = 'yard' | 'bench' | 'props';
 
 export function App() {
 	const [client, setClient] = useState<HexdelveClient | null>(null);
@@ -63,6 +66,7 @@ export function App() {
 					>
 						<ToggleButton value="yard">Yard</ToggleButton>
 						<ToggleButton value="bench">Character</ToggleButton>
+						<ToggleButton value="props">Props</ToggleButton>
 					</ToggleButtonGroup>
 
 					<Box sx={{ flexGrow: 1 }} />
@@ -92,15 +96,15 @@ export function App() {
 			</AppBar>
 
 			<Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-				{view === 'yard' ? (
+				{view === 'yard' && (
 					<>
 						<SceneOutline />
 						<Viewport backend={backend} running={running} onClientReady={onClientReady} />
 						<Inspector client={client} />
 					</>
-				) : (
-					<Bench backend={backend} running={running} />
 				)}
+				{view === 'bench' && <Bench backend={backend} running={running} />}
+				{view === 'props' && <PropBenchView backend={backend} running={running} />}
 			</Box>
 		</Box>
 	);
