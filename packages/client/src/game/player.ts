@@ -1,17 +1,32 @@
 /*
- * The man, and the thing this lab exists to show.
+ * The man, back on the grid.
  *
- * Labs 06-08 moved him by asking the grid: click a hexagon, A* answers with a
- * list of tiles, and he walks down it facing whichever one is next. Here there
- * is no path and nothing to click. The keys give a heading and a throttle, the
- * mouse gives a facing, and the two are not the same number.
+ * Lab 09 took him off it: the keys gave a heading, the mouse gave a facing,
+ * and the two were different numbers travelling in real time. This is the
+ * other side of that experiment. He stands on a hexagon, you click a hexagon,
+ * and he walks there one hexagon per turn — so facing and travel are one
+ * number again, and the interesting question moves from "which way is he
+ * going" to "who acts next".
  *
- * That last part is everything. Every character before this walked where it
- * was looking, which is why a forward cycle was all any of them needed. Once
- * the mouse owns the facing he has to travel along a line his chest is not
- * pointing down — backing away from something he is watching, or side-stepping
- * round it — and a blend tree of forward clips has nothing to say about that.
- * The answer is in stride.ts.
+ * What that buys is worth naming, because it is most of why the grid is back:
+ *
+ *   nothing is ever between two cells        so "can I stand there" and "am I
+ *                                           standing there" are the same test,
+ *                                           and no body radius is needed to
+ *                                           keep him out of a wall
+ *   nothing acts while he is acting          so a blow cannot be thrown at a
+ *                                           thing that moves out of the way
+ *                                           mid-swing
+ *   the world stands still while he thinks   the clock only turns when he has
+ *                                           asked for something
+ *
+ * What it costs is the whiff. In lab 09 a cut thrown at where the bat *was*
+ * missed, because nothing aimed for you; here adjacency is the whole of reach,
+ * and a blow at the next hexagon lands. That is not a shortcut — it is what
+ * melee on a grid means — but it is a thing the lab had and this does not.
+ *
+ * The reach is still measured off the clip, and now it is measured for a
+ * different reason: see `LEAN_IN`.
  */
 
 import {
@@ -32,15 +47,23 @@ import {
 	type DensePose,
 	type SparsePose,
 } from '@hexdelve/engine';
-import { worldToAxial, type Axial } from '@hexdelve/shared';
+import {
+	axialDistance,
+	axialNeighbours,
+	findPath,
+	HEX_SPACING,
+	type Axial,
+} from '@hexdelve/shared';
 
-import { Actor, clamp, wrapAngle } from './actor.js';
+import { Actor, clamp, wrapAngle, type ActorOptions } from './actor.js';
 import { DUCK, GUARD, SLASH, SWING_CONTACT } from './clips.js';
 import type { Item } from './items.js';
+import { actionSeconds, hexSpeed } from './pace.js';
 import { BONES, BONE_INDEX, SKELETON, UPPER_BODY } from './skeleton.js';
 import { SWORD_TIP } from '../models/props.js';
-import { stridePeriod, stridePose, strideVelocity, type Direction } from './stride.js';
-import type { World } from '../scene/world.js';
+import { stridePeriod, stridePose, strideFor, type Direction, type StrideSetting } from './stride.js';
+import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
+import type { Tile, World } from '../scene/world.js';
 
 const PI = Math.PI;
 const TAU = PI * 2;
@@ -49,61 +72,48 @@ const SOLE = 0.12;
 /** Terraces he can step up or down in one move. */
 export const MAX_CLIMB = 1;
 
-/**
- * How wide he is, for the purpose of not walking into the smithy. Off the grid
- * he is a point with a radius rather than a tile, so the tile test is made
- * half a metre ahead of him instead of underneath him.
- */
-const BODY = 0.44;
+/** On the grid he walks where he faces, so the stride only ever needs one direction. */
+const FORWARD: Direction = { x: 0, z: 1 };
 
 /**
- * How fast he comes round to the mouse. Fast enough that pointing feels
- * immediate, slow enough that a flick of the wrist is a turn and not a cut.
+ * How fast he comes round to the hexagon he is stepping into. Fast, because a
+ * step and the turn into it are one movement — he is not aiming at anything
+ * any more, so there is nothing for a slow turn to express.
  */
 const TURN_RATE = 11;
 
-/**
- * How fast the legs re-aim, which is a different thing again: the heading is
- * slewed as an angle rather than as a vector, so W to S swings the stride
- * round through a side-step instead of collapsing through zero.
- */
-const HEADING_RATE = 14;
-
-/** How close he has to pass a prop to pick it up. */
-const PICKUP = 0.72;
+/** Where in the stoop the thing actually leaves the ground, as a fraction of it. */
+const STOOP_GRAB = 0.42;
+/** Where in the cut the blade arrives, as a fraction of it. */
+const SWING_LAND = SWING_CONTACT / SLASH.duration;
 
 /** A body is not a point, so the cut's arc gets a little either side of it. */
 const ARC_PAD = 0.35;
 
-/** The stoop, used for picking something up. */
-const STOOP = { grab: 0.4, release: 0.56, end: 0.95, hold: 0.85 };
+const GUARD_AT_SPEED = 0.65;
 
-const GUARD_AT_RUN = 0.65;
-
-export interface Wish {
-	/** Unit direction of travel in his own frame, or zero. */
-	readonly x: number;
-	readonly z: number;
-	readonly throttle: number;
-	readonly run: boolean;
-	/** Where he should be looking, in world space, or null to leave it. */
-	readonly lookAt: { x: number; z: number } | null;
-}
+export type PlayerActionKind = 'move' | 'strike' | 'pickup' | 'wait';
 
 export interface PlayerStats {
+	/** How fast the current action is carrying him, in m/s. */
 	speed: number;
+	/** Metres per second the calibration could not deliver. Zero below a full run. */
 	slip: number;
 	amp: number;
 	gait: number;
-	heading: number;
 	pelvisDrop: number;
 	state: string;
 	message: string;
 	cuts: number;
 	hits: number;
+	missed: number;
 	carrying: string[];
 	cell: Axial;
 	terrace: number | null;
+	/** Hexagons still to walk, if he is on his way somewhere. */
+	stepsLeft: number;
+	energy: number;
+	speedRating: number;
 }
 
 /**
@@ -135,30 +145,93 @@ export const REACH = (() => {
 	return { distance, height, from, to };
 })();
 
+/**
+ * The shortfall between his reach and the grid, closed by leaning into the blow.
+ *
+ * This is the problem the README calls "the grid is for navigation, not for
+ * reach": tile centres are 1.73 m apart and his arm plus the blade spans about
+ * 1.5 m, so a man rooted to a tile centre swings at nothing. Lab 06 solved it
+ * by stepping off the grid into a stance derived from the swing. Turn-based
+ * melee cannot do that — the hexagon *is* the position, and a fighter halfway
+ * between two of them is not on the board — so the difference is taken out of
+ * his body instead: the root goes forward by exactly the shortfall at the
+ * moment of contact, and comes back.
+ *
+ * It is a lean, not a step. He never leaves his hexagon, the two numbers it is
+ * made of are both measured, and re-timing the swing moves it on its own.
+ */
+export const LEAN_IN = Math.max(0, HEX_SPACING - REACH.distance);
+
 export interface PlayerDeps {
 	world: World;
-	/** Where the bat is, so he cannot walk into its hexagon. */
-	batCell: () => Axial;
-	batPosition: () => { x: number; y: number; z: number };
-	/** Called on the frame a cut connects. */
+	/** The hexagon the enemy is on, which he may neither enter nor path through. */
+	enemyCell: () => Axial;
+	enemyPosition: () => { x: number; y: number; z: number };
+	/** Called on the turn a cut connects. */
 	onHit: (x: number, y: number, z: number) => void;
 	items: Item[];
 }
 
-export class Player extends Actor {
-	private readonly deps: PlayerDeps;
+/** Where the world is placed comes from the grid, so x, y and z are not given. */
+export interface PlayerOptions extends Omit<ActorOptions, 'x' | 'y' | 'z'> {
+	/** The hexagon he starts on. */
+	cell: Axial;
+	/** Angband-style, offset by 110. Normal unless something hastes him. */
+	speed?: number;
+}
 
-	/** His own frame: +z is where he is facing, +x is his left. */
-	private readonly travel: Direction & { x: number; z: number } = { x: 0, z: 1 };
-	/** The same thing as an angle, which is what gets slewed. */
-	heading = 0;
-	private theta = 0; // stride phase
-	amp = 0; // 0 standing, 1 full stride
-	gait = 0; // 0 walking, 1 running
-	speed = 0;
-	slip = 0;
+/** An order standing until it is finished or replaced. */
+interface Order {
+	readonly goal: Axial;
+	/** True when the goal is the enemy and the point of going there is to hit it. */
+	readonly attack: boolean;
+}
+
+/** The action in flight, and everything needed to draw it. */
+interface InFlight {
+	readonly kind: PlayerActionKind;
+	readonly seconds: number;
+	clock: number;
+	/** Where the step starts and ends. Equal for anything that is not a move. */
+	readonly from: Tile;
+	readonly to: Tile;
+	/** The hexagon he is on when this finishes. */
+	readonly cell: Axial;
+	/** The hexagon a cut is aimed at. */
+	readonly target: Axial | null;
+	readonly item: Item | null;
+	done: boolean;
+}
+
+export class Player extends Actor implements TurnTaker {
+	readonly name = 'you';
+	readonly speed: number;
+	energy = ACTION_ENERGY;
+
+	/** The hexagon he is on. Authoritative — x and z are drawn from it. */
+	cell: Axial;
+
+	/** Hexagons still to walk, nearest first. Never includes the one he is on. */
+	path: Axial[] = [];
+
+	private readonly deps: PlayerDeps;
+	private order: Order | null = null;
+	private holdOnce = false;
+	private flight: InFlight | null = null;
+
+	/**
+	 * The stride that covers a hexagon in the time his speed allows — solved
+	 * once, because his place in the energy table does not change per frame.
+	 */
+	private readonly stride: StrideSetting;
+
+	private theta = 0;
+	amp = 0;
+	gait = 0;
 	private yawRate = 0;
 	private bank = 0;
+	/** Forward offset from the lean into a blow, in metres. */
+	private lean = 0;
 
 	private readonly strideBuf: SparsePose = {};
 	private readonly basePose: DensePose;
@@ -183,26 +256,30 @@ export class Player extends Actor {
 		0,
 	);
 	private readonly ROOT_ONLY = makeMask(BONES, { root: 1 }, 0);
-
-	/*
-	 * The cut is a whole-body clip — the hips and spine turn first and drag the
-	 * arm round after them — and that is fine for a man standing still. Cutting
-	 * on the move it has to give the legs back: they are carrying him
-	 * somewhere. So the mask it plays through is itself blended, from every
-	 * bone when he is standing to the upper body alone when he is not.
-	 */
-	private readonly SWING_ALL = makeMask(BONES, {}, 1);
-	private readonly SWING_UPPER = makeMask(BONES, UPPER_BODY, 0);
-	private readonly swingMask = new Float32Array(BONES.length);
+	private readonly UPPER = makeMask(BONES, UPPER_BODY, 0);
 
 	private guardWeight = 0;
-	private readonly stoop = { clock: 0, blend: 0, done: false, item: null as Item | null };
-	readonly swing = { active: false, clock: 0, blend: 0, hit: false, cuts: 0, hits: 0, missed: 0 };
-	readonly control = { state: 'idle' as 'idle' | 'stoop' | 'swinging', message: 'waiting' };
+	private stoopBlend = 0;
+	private swingBlend = 0;
+	readonly swing = { cuts: 0, hits: 0, missed: 0 };
+	readonly control = { state: 'idle' as PlayerActionKind | 'idle', message: 'waiting' };
 
-	constructor(options: ConstructorParameters<typeof Actor>[0], deps: PlayerDeps) {
-		super(options);
+	constructor(options: PlayerOptions, deps: PlayerDeps) {
+		const tile = deps.world.tileAt(options.cell.q, options.cell.r);
+		if (!tile) throw new Error(`the player cannot start on ${options.cell.q},${options.cell.r}`);
+		super({
+			skeleton: options.skeleton,
+			model: options.model,
+			skeletonView: options.skeletonView,
+			x: tile.x,
+			z: tile.z,
+			y: tile.top,
+			...(options.yaw !== undefined ? { yaw: options.yaw } : {}),
+		});
 		this.deps = deps;
+		this.cell = { q: options.cell.q, r: options.cell.r };
+		this.speed = options.speed ?? NORMAL_SPEED;
+		this.stride = strideFor(hexSpeed(this.speed));
 
 		this.basePose = createPose(BONES.length);
 		this.guardPose = createPose(BONES.length);
@@ -223,45 +300,310 @@ export class Player extends Actor {
 		return this.deps.items.some((i) => i.label === 'shield' && i.worn);
 	}
 
-	/** Begin a cut, if he is holding something to cut with and is not busy. */
-	strike(): void {
-		if (this.control.state !== 'idle' || !this.armed) return;
-		this.swing.active = true;
-		this.swing.clock = 0;
-		this.swing.hit = false;
-		this.control.state = 'swinging';
-		this.control.message = 'cutting';
+	get busy(): boolean {
+		return this.flight !== null;
 	}
 
 	/**
-	 * One step, and every reason it might not happen.
+	 * Whether the clock should be turning.
 	 *
-	 * He is a point with a radius now, so what gets tested is a spot in front
-	 * of him rather than the tile he is on — and if that spot is a wall he
-	 * keeps whichever axis of the move is still free, which is what stops a
-	 * wall from being flypaper.
+	 * This one getter is what makes the world turn-based rather than merely
+	 * hex-based. Nothing anywhere gains energy while it is false, so the bat
+	 * mid-hunt is frozen with its wings out until he decides to do something —
+	 * and it is a *question about his orders*, not a pause flag, so there is no
+	 * state to get out of step with what he is actually doing.
 	 */
-	private moveBy(dx: number, dz: number): void {
-		const from = worldToAxial(this.x, this.z);
-		const len = Math.hypot(dx, dz);
-		if (len < 1e-6) return;
-
-		const px = (dx / len) * BODY;
-		const pz = (dz / len) * BODY;
-		if (this.standable(this.x + dx + px, this.z + dz + pz, from)) {
-			this.x += dx;
-			this.z += dz;
-			return;
-		}
-		if (this.standable(this.x + dx + Math.sign(dx) * BODY, this.z, from)) this.x += dx;
-		if (this.standable(this.x, this.z + dz + Math.sign(dz) * BODY, from)) this.z += dz;
+	get hasOrders(): boolean {
+		return this.order !== null || this.holdOnce || this.itemUnderfoot() !== null;
 	}
 
-	private standable(x: number, z: number, from: Axial): boolean {
-		const cell = worldToAxial(x, z);
-		const bat = this.deps.batCell();
-		if (cell.q === bat.q && cell.r === bat.r) return false;
+	/**
+	 * Where he is headed, for the readout and the route markers.
+	 *
+	 * A chase reports where the quarry *is*, not the hexagon it was on when you
+	 * clicked it — the marker is what he is going for, and by the time he gets
+	 * there the bat will have moved twice.
+	 */
+	get goal(): Axial | null {
+		if (!this.order) return null;
+		return this.order.attack ? this.deps.enemyCell() : this.order.goal;
+	}
+
+	get targetingEnemy(): boolean {
+		return this.order?.attack ?? false;
+	}
+
+	/* -------------------------------------------------------------- the grid -- */
+
+	/** May he stand on `cell`, having come from `from`? */
+	private readonly walkable = (cell: Axial, from: Axial | null): boolean => {
+		const enemy = this.deps.enemyCell();
+		if (cell.q === enemy.q && cell.r === enemy.r) return false;
 		return this.deps.world.passable(cell, from, MAX_CLIMB);
+	};
+
+	/** Whether a hexagon can be walked to at all, for the hover marker. */
+	reachable(cell: Axial): boolean {
+		if (this.walkable(cell, null)) return findPath(this.cell, cell, { passable: this.walkable }) !== null;
+		return this.approach(cell) !== null;
+	}
+
+	/**
+	 * The best hexagon to stand on to deal with something on `cell`.
+	 *
+	 * Used for the two cases where the click is not a place to walk: the anvil,
+	 * which is solid, and the bat, which is occupied. Both come out the same
+	 * way — the nearest neighbour he can stand on — which is lab 06's answer to
+	 * clicking the anvil, reused rather than re-derived.
+	 */
+	private approach(cell: Axial): Axial | null {
+		let best: Axial | null = null;
+		let bestScore = Infinity;
+		for (const n of axialNeighbours(cell)) {
+			if (!this.walkable(n, null)) continue;
+			const score = axialDistance(this.cell, n);
+			if (score < bestScore) {
+				bestScore = score;
+				best = n;
+			}
+		}
+		return best;
+	}
+
+	private itemUnderfoot(): Item | null {
+		for (const item of this.deps.items) {
+			if (item.worn) continue;
+			if (item.cell.q === this.cell.q && item.cell.r === this.cell.r) return item;
+		}
+		return null;
+	}
+
+	/** Lay a route to a goal. False if there is no way to it at all. */
+	private plan(order: Order): boolean {
+		const stand = this.walkable(order.goal, null) && !order.attack
+			? order.goal
+			: this.approach(order.goal);
+		if (!stand) return false;
+		if (stand.q === this.cell.q && stand.r === this.cell.r) {
+			this.path = [];
+			return true;
+		}
+		const route = findPath(this.cell, stand, { passable: this.walkable });
+		if (!route) return false;
+		this.path = route.slice(1);
+		return true;
+	}
+
+	/* ------------------------------------------------------------- the orders -- */
+
+	/**
+	 * A click on a hexagon.
+	 *
+	 * One entry point for every meaning a click has, because on a grid they are
+	 * the same request with different endings: walk to that hexagon, walk to
+	 * the thing lying on it and stoop, walk up to the bat and cut it. What
+	 * decides which is what is standing there, not which mouse button.
+	 *
+	 * Returns false if there is no route, so the marker can say so rather than
+	 * having him set off and stop.
+	 */
+	orderTo(cell: Axial): boolean {
+		const enemy = this.deps.enemyCell();
+		const attack = cell.q === enemy.q && cell.r === enemy.r;
+
+		// Clicking where he already stands is how you wait a turn with a mouse.
+		if (!attack && cell.q === this.cell.q && cell.r === this.cell.r) {
+			this.hold();
+			return true;
+		}
+
+		const order: Order = { goal: { q: cell.q, r: cell.r }, attack };
+		if (attack && axialDistance(this.cell, enemy) <= 1) {
+			this.order = order;
+			this.path = [];
+			this.holdOnce = false;
+			return true;
+		}
+		if (!this.plan(order)) return false;
+		this.order = order;
+		this.holdOnce = false;
+		return true;
+	}
+
+	/** Spend one turn doing nothing. */
+	hold(): void {
+		this.holdOnce = true;
+	}
+
+	/** Forget where he was going. */
+	cancel(): void {
+		this.order = null;
+		this.path = [];
+		this.holdOnce = false;
+	}
+
+	/* --------------------------------------------------------------- the turn -- */
+
+	/**
+	 * One turn: decide, start it, and say what it cost.
+	 *
+	 * The order of the tests is the priority: a blow he is in position to
+	 * throw, then a thing under his feet, then the next hexagon of the route.
+	 * Nothing here animates and nothing here waits — by the time this returns,
+	 * the action is running and the schedule has been paid.
+	 */
+	beginTurn(): Action {
+		const enemy = this.deps.enemyCell();
+
+		if (this.order?.attack && axialDistance(this.cell, enemy) <= 1) {
+			return this.startStrike(enemy);
+		}
+
+		const item = this.itemUnderfoot();
+		if (item) return this.startPickup(item);
+
+		const order = this.order;
+		if (order) {
+			// The route is re-laid when it is chasing something that moves, and
+			// when the next hexagon has become someone else's since it was laid.
+			const next = this.path[0];
+			if (order.attack || !next || !this.walkable(next, this.cell)) {
+				if (!this.plan(order)) {
+					this.order = null;
+					return this.startWait('there is no way through');
+				}
+			}
+			const step = this.path[0];
+			if (step) {
+				this.path.shift();
+				if (this.path.length === 0 && !order.attack) this.order = null;
+				return this.startStep(step);
+			}
+			/*
+			 * Standing where he meant to stand with nothing left to do there.
+			 * For a walk that is arrival; for a chase it cannot happen, because
+			 * every hexagon `approach` offers is a neighbour of the quarry and
+			 * standing on one of those is caught by the strike test above.
+			 */
+			this.order = null;
+			return this.startWait('waiting');
+		}
+
+		this.holdOnce = false;
+		return this.startWait('waiting');
+	}
+
+	private begin(
+		kind: PlayerActionKind,
+		message: string,
+		to: Tile,
+		cell: Axial,
+		target: Axial | null,
+		item: Item | null,
+	): Action {
+		const from = this.tile();
+		const seconds = actionSeconds(ACTION_ENERGY, this.speed);
+		this.flight = { kind, seconds, clock: 0, from, to, cell, target, item, done: false };
+		this.control.state = kind;
+		this.control.message = message;
+		this.holdOnce = false;
+		return { kind, cost: ACTION_ENERGY, seconds };
+	}
+
+	private startStep(to: Axial): Action {
+		const tile = this.deps.world.tileAt(to.q, to.r)!;
+		return this.begin('move', 'walking', tile, { q: to.q, r: to.r }, null, null);
+	}
+
+	private startStrike(target: Axial): Action {
+		this.swing.cuts++;
+		return this.begin(
+			'strike',
+			this.armed ? 'cutting' : 'swinging bare-handed',
+			this.tile(),
+			this.cell,
+			{ q: target.q, r: target.r },
+			null,
+		);
+	}
+
+	private startPickup(item: Item): Action {
+		return this.begin('pickup', `picking up the ${item.label}`, this.tile(), this.cell, null, item);
+	}
+
+	private startWait(message: string): Action {
+		const action = this.begin('wait', message, this.tile(), this.cell, null, null);
+		// Nothing to watch, so it is over the moment it began — otherwise a man
+		// standing still would hold the whole world up for a second a turn.
+		this.flight = null;
+		this.control.state = 'idle';
+		return { ...action, seconds: 0 };
+	}
+
+	private tile(): Tile {
+		return this.deps.world.tileAt(this.cell.q, this.cell.r)!;
+	}
+
+	/* ------------------------------------------------------------ the drawing -- */
+
+	update(dt: number, elapsed: number): void {
+		const flight = this.flight;
+		let moving = false;
+
+		if (flight) {
+			flight.clock += dt;
+			const u = flight.seconds > 0 ? Math.min(1, flight.clock / flight.seconds) : 1;
+
+			if (flight.kind === 'move') {
+				moving = true;
+				/*
+				 * A straight line at a constant rate, deliberately: the stride
+				 * was solved for exactly this speed, and easing the ends would
+				 * put the feet back to sliding at both of them.
+				 */
+				this.x = flight.from.x + (flight.to.x - flight.from.x) * u;
+				this.z = flight.from.z + (flight.to.z - flight.from.z) * u;
+				this.y = flight.from.top + (flight.to.top - flight.from.top) * u;
+				this.faceTowards(flight.to.x, flight.to.z, dt);
+			} else if (flight.kind === 'strike' && flight.target) {
+				const spot = this.deps.world.tileAt(flight.target.q, flight.target.r);
+				if (spot) this.faceTowards(spot.x, spot.z, dt);
+				if (!flight.done && u >= SWING_LAND) {
+					flight.done = true;
+					this.landBlow(flight.target);
+				}
+			} else if (flight.kind === 'pickup' && flight.item) {
+				if (!flight.done && u >= STOOP_GRAB) {
+					flight.done = true;
+					// The whole of picking it up.
+					flight.item.equip();
+				}
+			}
+
+			if (flight.clock >= flight.seconds) {
+				this.cell = flight.cell;
+				const settled = this.tile();
+				this.x = settled.x;
+				this.z = settled.z;
+				this.y = settled.top;
+				this.flight = null;
+				this.control.state = 'idle';
+				this.control.message = this.armed ? 'armed' : 'waiting';
+			}
+		} else {
+			this.yawRate = 0;
+		}
+
+		/* --------------------------------------------------------------- gait */
+		const wantAmp = moving ? this.stride.amp : 0;
+		const wantGait = moving ? this.stride.gait : 0;
+		this.amp += (wantAmp - this.amp) * Math.min(1, dt * 14);
+		this.gait += (wantGait - this.gait) * Math.min(1, dt * 6);
+		if (this.amp > 0.03) {
+			this.theta = (this.theta + (TAU / stridePeriod(this.gait)) * dt) % TAU;
+		}
+
+		this.buildPose(dt, elapsed);
 	}
 
 	private faceTowards(targetX: number, targetZ: number, dt: number): void {
@@ -272,170 +614,78 @@ export class Player extends Actor {
 		this.yawRate = turn;
 	}
 
-	private nearestItem(): Item | null {
-		let best: Item | null = null;
-		let bestGap = PICKUP;
-		for (const item of this.deps.items) {
-			if (item.worn) continue;
-			const gap = Math.hypot(item.x - this.x, item.z - this.z);
-			if (gap < bestGap) {
-				bestGap = gap;
-				best = item;
-			}
-		}
-		return best;
-	}
-
 	/**
 	 * The moment the blade arrives.
 	 *
-	 * Everything that decides whether it connects is here: close enough,
-	 * inside the arc the clip actually sweeps, and roughly level with the
-	 * thing. In lab 08 he was turned to face the bat for the whole approach;
-	 * here nothing aims for you, so a cut thrown at where it *was* misses
-	 * exactly as it should.
+	 * On the grid this is a much shorter list than it was in lab 09, and the
+	 * reason is the point: the thing is either on the hexagon he aimed at or it
+	 * is not, and nothing could have moved since he committed. The geometry is
+	 * still checked — reach and arc, both measured off the clip — because they
+	 * are what `LEAN_IN` is built from, and a swing that stopped reaching
+	 * should say so rather than connect anyway.
 	 */
-	private landSwing(): void {
-		const bat = this.deps.batPosition();
-		const dx = bat.x - this.x;
-		const dz = bat.z - this.z;
-		const gap = Math.hypot(dx, dz) || 1e-6;
+	private landBlow(target: Axial): void {
+		const enemy = this.deps.enemyCell();
+		if (enemy.q !== target.q || enemy.r !== target.r) {
+			this.swing.missed++;
+			this.control.message = 'cut air';
+			return;
+		}
+
+		const at = this.deps.enemyPosition();
+		const dx = at.x - this.x;
+		const dz = at.z - this.z;
+		const gap = Math.hypot(dx, dz);
 		const off = wrapAngle(Math.atan2(dx, dz) - this.yaw);
 		const bladeY = this.y + REACH.height;
-		const bodyY = bat.y;
 
 		const inArc = off >= REACH.from - ARC_PAD && off <= REACH.to + ARC_PAD;
-		if (gap > REACH.distance + 0.35 || !inArc || Math.abs(bodyY - bladeY) > 1.0) {
+		if (!inArc || gap > REACH.distance + LEAN_IN + 0.2 || Math.abs(at.y - bladeY) > 1.2) {
 			this.swing.missed++;
+			this.control.message = 'the blow fell short';
 			return;
 		}
 
 		this.swing.hits++;
-		this.deps.onHit(bat.x, bodyY, bat.z);
-	}
-
-	update(dt: number, elapsed: number, wish: Wish): void {
-		const busy = this.control.state === 'stoop';
-
-		/* ----------------------------------------------------- where he looks */
-		if (wish.lookAt) {
-			this.faceTowards(wish.lookAt.x, wish.lookAt.z, dt);
-		} else if (this.control.state === 'stoop' && this.stoop.item) {
-			this.faceTowards(this.stoop.item.x, this.stoop.item.z, dt);
-		} else {
-			this.yawRate = 0;
-		}
-
-		/* ------------------------------------------------------ where he goes */
-		const throttle = busy ? 0 : wish.throttle;
-		if (throttle > 0) {
-			const want = Math.atan2(wish.x, wish.z);
-			this.heading += clamp(
-				wrapAngle(want - this.heading),
-				-HEADING_RATE * dt,
-				HEADING_RATE * dt,
-			);
-			this.travel.x = Math.sin(this.heading);
-			this.travel.z = Math.cos(this.heading);
-		}
-		this.amp += (throttle - this.amp) * Math.min(1, dt * 9);
-		this.gait += ((wish.run && throttle > 0.5 ? 1 : 0) - this.gait) * Math.min(1, dt * 3.5);
-
-		/*
-		 * How fast that is — asked of the pose rather than of a table. Two
-		 * solves of a 17-bone rig per frame buys a speed that is right for this
-		 * heading at this stride length, so the feet do not slide at any
-		 * bearing or any throttle, including the fifth of a second it takes him
-		 * to get going.
-		 */
-		const velocity = strideVelocity(this.travel, this.amp, this.gait);
-		this.speed = velocity.x * this.travel.x + velocity.z * this.travel.z;
-		this.slip = velocity.x * this.travel.z - velocity.z * this.travel.x;
-
-		if (this.amp > 0.03) {
-			this.theta = (this.theta + (TAU / stridePeriod(this.gait)) * dt) % TAU;
-		}
-
-		if (this.speed > 1e-4 && this.amp > 0.01) {
-			const sin = Math.sin(this.yaw);
-			const cos = Math.cos(this.yaw);
-			// His heading, out into the world.
-			const wx = this.travel.z * sin + this.travel.x * cos;
-			const wz = this.travel.z * cos - this.travel.x * sin;
-			this.moveBy(wx * this.speed * dt, wz * this.speed * dt);
-		}
-
-		const under = this.deps.world.groundAt(this.x, this.z);
-		this.y += (under - this.y) * Math.min(1, dt * 7);
-
-		/* --------------------------------------------------------- what he does */
-		if (this.control.state === 'idle') {
-			const item = this.nearestItem();
-			if (item) {
-				this.stoop.clock = 0;
-				this.stoop.done = false;
-				this.stoop.item = item;
-				this.control.state = 'stoop';
-				this.control.message = `picking up the ${item.label}`;
-			} else {
-				this.control.message =
-					this.amp > 0.05
-						? this.gait > 0.5
-							? 'running'
-							: 'walking'
-						: this.armed
-							? 'armed'
-							: 'waiting';
-			}
-		} else if (this.control.state === 'stoop') {
-			this.stoop.clock += dt;
-			if (!this.stoop.done && this.stoop.clock >= STOOP.grab) {
-				this.stoop.done = true;
-				// The whole of picking it up.
-				this.stoop.item?.equip();
-			}
-			if (this.stoop.clock >= STOOP.end) {
-				this.control.state = 'idle';
-				this.control.message = this.armed ? 'armed' : 'waiting';
-			}
-		} else if (this.control.state === 'swinging') {
-			this.swing.clock += dt;
-			if (!this.swing.hit && this.swing.clock >= SWING_CONTACT) {
-				this.swing.hit = true;
-				this.landSwing();
-			}
-			if (this.swing.clock >= SLASH.duration) {
-				this.swing.active = false;
-				this.swing.cuts++;
-				this.control.state = 'idle';
-				this.control.message = 'armed';
-			}
-		}
-
-		this.buildPose(dt, elapsed);
+		this.control.message = 'hit it';
+		this.deps.onHit(at.x, at.y, at.z);
 	}
 
 	private buildPose(dt: number, elapsed: number): void {
-		stridePose(this.theta, this.amp, this.travel, this.gait, elapsed, this.strideBuf);
+		stridePose(this.theta, this.amp, FORWARD, this.gait, elapsed, this.strideBuf);
 
 		// A lean into the turn, which is the one thing the stride cannot know:
 		// it is handed a heading, not the fact that the whole man is coming
 		// round.
-		const wantBank = -clamp(this.yawRate * 0.05, -0.2, 0.2) * Math.min(1, this.speed / 1.2);
+		const wantBank = -clamp(this.yawRate * 0.05, -0.2, 0.2) * this.amp;
 		this.bank += (wantBank - this.bank) * Math.min(1, dt * 6);
 		this.strideBuf.root!.rot![2]! += this.bank;
 
+		/*
+		 * The lean into a blow: the shortfall between his reach and the grid,
+		 * out and back across the swing. It goes in as root translation along
+		 * his own +Z, which is where he is facing, which is what he is cutting.
+		 */
+		const flight = this.flight;
+		const wantLean =
+			flight?.kind === 'strike' && flight.seconds > 0
+				? LEAN_IN * Math.sin(PI * Math.min(1, flight.clock / flight.seconds))
+				: 0;
+		this.lean += (wantLean - this.lean) * Math.min(1, dt * 12);
+		if (this.lean > 1e-4) this.strideBuf.root!.pos![2]! += this.lean;
+
 		sparseToDense(BONES, this.strideBuf, this.basePose);
 
-		const wantStoop = this.control.state === 'stoop' && this.stoop.clock < STOOP.release ? 1 : 0;
-		this.stoop.blend += (wantStoop - this.stoop.blend) * Math.min(1, dt * 9);
-		this.swing.blend = this.swing.active
-			? Math.min(1, Math.min(this.swing.clock / 0.1, (SLASH.duration - this.swing.clock) / 0.2))
-			: Math.max(0, this.swing.blend - dt * 6);
+		const stooping = flight?.kind === 'pickup';
+		const striking = flight?.kind === 'strike';
+		const wantStoop = stooping && !flight.done ? 1 : 0;
+		this.stoopBlend += (wantStoop - this.stoopBlend) * Math.min(1, dt * 9);
+		const wantSwing = striking ? 1 : 0;
+		this.swingBlend += (wantSwing - this.swingBlend) * Math.min(1, dt * 14);
 
 		// The guard, over the top, masked to the arms so the legs keep the gait.
 		const carrying = this.armed || this.shielded;
-		const wantGuard = carrying && this.control.state !== 'stoop' ? 1 : 0;
+		const wantGuard = carrying && !stooping ? 1 : 0;
 		this.guardWeight += (wantGuard - this.guardWeight) * Math.min(1, dt * 4);
 
 		let base = this.basePose;
@@ -447,11 +697,11 @@ export class Player extends Actor {
 				src = this.stancePose;
 			}
 			if (this.armed) {
-				const hold = 1 - (1 - GUARD_AT_RUN) * Math.min(1, this.speed / 2.4);
+				const hold = 1 - (1 - GUARD_AT_SPEED) * this.amp;
 				lerpPoseMasked(this.stancePose, src, this.guardPose, this.guardWeight * hold, this.GUARD_SWORD);
 				src = this.stancePose;
 			}
-			const settled = 1 - Math.min(1, this.speed / 1.2);
+			const settled = 1 - this.amp;
 			if (settled > 0.01) {
 				lerpPoseMasked(this.stancePose, src, this.guardPose, this.guardWeight * settled, this.ROOT_ONLY);
 				src = this.stancePose;
@@ -459,19 +709,28 @@ export class Player extends Actor {
 			base = src;
 		}
 
-		// Then the one thing his whole body is doing, if it is doing one.
-		if (this.stoop.blend > 0.002) {
-			sampleBound(this.duckClip, Math.min(this.stoop.clock, STOOP.hold), this.overlayPose);
-			lerpPose(this.playerPose, base, this.overlayPose, this.stoop.blend);
-		} else if (this.swing.blend > 0.002) {
-			sampleBound(this.slashClip, Math.min(this.swing.clock, SLASH.duration), this.overlayPose);
-			// Standing, it gets all of him; moving, it gets his arms and gives
-			// the legs back to the stride.
-			const moving = Math.min(1, this.amp * 1.4);
-			for (let i = 0; i < this.swingMask.length; i++) {
-				this.swingMask[i] = this.SWING_ALL[i]! + (this.SWING_UPPER[i]! - this.SWING_ALL[i]!) * moving;
-			}
-			lerpPoseMasked(this.playerPose, base, this.overlayPose, this.swing.blend, this.swingMask);
+		/*
+		 * Then the one thing his whole body is doing, if it is doing one.
+		 *
+		 * Both clips are played *over the action*, not at their authored rate:
+		 * the phase is a fraction of the turn rather than a time in seconds. So
+		 * a faster creature's cut is a faster cut, by the same table that gives
+		 * it the extra turn — and the contact key lands at the same fraction of
+		 * the blow however long the blow is.
+		 */
+		const phase = flight && flight.seconds > 0 ? Math.min(1, flight.clock / flight.seconds) : 1;
+		if (this.stoopBlend > 0.002) {
+			sampleBound(this.duckClip, phase * DUCK.duration, this.overlayPose);
+			lerpPose(this.playerPose, base, this.overlayPose, this.stoopBlend);
+		} else if (this.swingBlend > 0.002) {
+			sampleBound(this.slashClip, phase * SLASH.duration, this.overlayPose);
+			// Standing, the cut gets all of him; mid-stride it gets his arms and
+			// leaves the legs to the walk. He cannot do both on the grid, but
+			// the mask is what makes that a rule of the game rather than of the
+			// animation.
+			const mask = this.amp > 0.05 ? this.UPPER : null;
+			if (mask) lerpPoseMasked(this.playerPose, base, this.overlayPose, this.swingBlend, mask);
+			else lerpPose(this.playerPose, base, this.overlayPose, this.swingBlend);
 		} else {
 			this.playerPose.rot.set(base.rot);
 			this.playerPose.pos.set(base.pos);
@@ -533,8 +792,25 @@ export class Player extends Actor {
 		}
 	}
 
-	/** How long a step is at the current gait, in metres. */
-	get stepLength(): number {
-		return (this.speed * stridePeriod(this.gait)) / 2;
+	get stats(): PlayerStats {
+		const tile = this.deps.world.tileAt(this.cell.q, this.cell.r);
+		return {
+			speed: this.flight?.kind === 'move' ? this.stride.speed : 0,
+			slip: this.stride.slip,
+			amp: this.amp,
+			gait: this.gait,
+			pelvisDrop: this.pelvisDrop,
+			state: this.control.state,
+			message: this.control.message,
+			cuts: this.swing.cuts,
+			hits: this.swing.hits,
+			missed: this.swing.missed,
+			carrying: this.deps.items.filter((i) => i.worn).map((i) => i.label),
+			cell: this.cell,
+			terrace: tile?.level ?? null,
+			stepsLeft: this.path.length,
+			energy: this.energy,
+			speedRating: this.speed,
+		};
 	}
 }

@@ -18,8 +18,45 @@ export {
 	type YardStats,
 } from './game/simulation.js';
 
-export { Player, REACH, MAX_CLIMB, type PlayerStats } from './game/player.js';
-export { BatHunt, WAKE_RANGE, LOSE_RANGE, KEEP_APART, type HuntState } from './game/bathunt.js';
+export {
+	Player,
+	REACH,
+	LEAN_IN,
+	MAX_CLIMB,
+	type PlayerActionKind,
+	type PlayerOptions,
+	type PlayerStats,
+} from './game/player.js';
+export {
+	BatHunt,
+	BAT_CLIMB,
+	BAT_LEAN,
+	BAT_REACH,
+	BAT_SPEED,
+	WAKE_RANGE,
+	LOSE_RANGE,
+	type BatOptions,
+	type HuntState,
+} from './game/bathunt.js';
+
+/*
+ * The turn system, exported because it is the part of this package with the
+ * least to do with drawing and the most to do with the game: the energy table
+ * and the schedule are plain arithmetic over speeds, testable without a canvas
+ * and reusable by anything that wants Angband's clock.
+ */
+export {
+	ACTION_ENERGY,
+	NORMAL_SPEED,
+	Schedule,
+	energyPerTurn,
+	gameTurnsPerAction,
+	speedFactor,
+	type Action,
+	type TurnMember,
+	type TurnTaker,
+} from './game/turns.js';
+export { SECONDS_PER_GAME_TURN, actionSeconds, hexSpeed } from './game/pace.js';
 export { Actor, turnTowards, wrapAngle } from './game/actor.js';
 export { Item, type ItemOptions } from './game/items.js';
 
@@ -133,10 +170,14 @@ export {
 	stridePose,
 	stridePeriod,
 	strideVelocity,
+	strideFor,
 	STRIDE_CONTACTS,
 	WALK_PERIOD,
 	RUN_PERIOD,
+	WALK_SPEED,
+	RUN_SPEED,
 	type Direction,
+	type StrideSetting,
 } from './game/stride.js';
 export {
 	DUCK,
