@@ -53,8 +53,10 @@
 
 import { axialKey, axialToWorld, makeRandom, type Axial, type Random } from '@hexdelve/shared';
 
-import { finishLevel, solidDraft, type Carved, type DraftCell } from './build.js';
+import { finishLevel, startDraft, type Carved, type DraftCell } from './build.js';
 import { linkNodes, shuffle, type ProximityGraph } from './graph.js';
+import { doorsOf, VAULT_FLOOR_COLOR } from './vault/place.js';
+import type { PlacedVault } from './vault/types.js';
 import { largestRectangle, type Rect } from './rect/largestRectangle.js';
 import {
 	readChoice,
@@ -67,6 +69,7 @@ import {
 const ROOM_SHADES = [0x8b7d63, 0x94866b, 0x82765d, 0x9c8d70];
 const CORRIDOR_COLOR = 0x6d6455;
 const DOOR_COLOR = 0xc09a4e;
+const VAULT_SEED_OFFSET = 4231;
 
 export const HALL_STACK: LevelStack = {
 	id: 'boxes-doors',
@@ -230,6 +233,16 @@ interface Room {
 	/** One or two rectangles, in field coordinates. */
 	readonly parts: Rect[];
 	readonly color: number;
+	/**
+	 * Where a corridor may arrive, in field coordinates, or null for "anywhere
+	 * along the edge".
+	 *
+	 * A generated room can be entered wherever a run happens to reach it — the
+	 * hole the corridor makes IS the door, and one wall is as good as another.
+	 * A vault cannot: it was drawn with its doors where its author wanted them,
+	 * and a corridor that broke in somewhere else would have unmade the room.
+	 */
+	readonly entrances: { col: number; row: number }[] | null;
 }
 
 function build(settings: LevelSettings): Level {
@@ -243,22 +256,32 @@ function build(settings: LevelSettings): Level {
 	const loops = readParam(HALL_STACK, settings.params, 'loops');
 	const graph = readChoice(HALL_STACK, settings.params, 'graph') as ProximityGraph;
 
-	const cells = solidDraft(settings.radius);
 	const interior = settings.radius - 1;
-	for (const cell of cells.values()) {
-		if (ring(cell) > interior) cell.sealed = true;
-	}
+	const { cells, vaults } = startDraft({
+		radius: settings.radius,
+		rim: 1,
+		depth: settings.depth,
+		vaults: settings.vaults,
+		random: makeRandom((settings.seed + VAULT_SEED_OFFSET) | 0),
+	});
 
 	const field = buildField(cells, interior);
 	const random = makeRandom(settings.seed | 0);
-	const rooms = placeRooms(field, random, wanted, size, variety, spacing, alcoves);
+
+	// Vaults go into the room list FIRST, as rooms that are already built. That
+	// is what puts them in the proximity graph and therefore on the end of a
+	// real corridor, rather than left for the stitcher to find a way into. Their
+	// cells are claimed and blocked, so no generated room can overlap one and no
+	// corridor can cross one.
+	const rooms = adoptVaults(field, vaults, spacing);
+	placeRooms(field, random, wanted, size, variety, spacing, alcoves, rooms);
 
 	const links = linkNodes(rooms, graph, loops, random);
 	const corridors = joinRooms(field, rooms, links);
 
 	paint(cells, field, rooms, corridors);
 
-	const carved: Carved = { cells, attempts: 1 };
+	const carved: Carved = { cells, attempts: 1, vaults };
 	return finishLevel(HALL_STACK, settings, carved, startedAt);
 }
 
@@ -279,8 +302,8 @@ function placeRooms(
 	variety: number,
 	spacing: number,
 	alcoves: boolean,
-): Room[] {
-	const rooms: Room[] = [];
+	rooms: Room[],
+): void {
 	// A box's half-extent, varied per side so rooms are not all square.
 	const boxes: { col: number; row: number; halfCol: number; halfRow: number }[] = [];
 	const budget = wanted * 30;
@@ -364,6 +387,49 @@ function placeRooms(
 			z: world.z,
 			parts,
 			color: ROOM_SHADES[Math.floor(random() * ROOM_SHADES.length)]!,
+			entrances: null,
+		});
+	}
+}
+
+/**
+ * Take the vaults already in the draft into the room list.
+ *
+ * They are rooms as far as this stack is concerned — they have a rectangle, a
+ * centre and edges — with one difference that matters: their entrances are
+ * their drawn doors and nowhere else. Adding them before the generated rooms
+ * means the generated rooms have to work round them rather than the other way
+ * about, which is right: the vault is the deliberate thing.
+ */
+function adoptVaults(field: Field, vaults: readonly PlacedVault[], spacing: number): Room[] {
+	const rooms: Room[] = [];
+
+	for (const placed of vaults) {
+		const rect: Rect = {
+			x: placed.col - field.minCol,
+			y: placed.row - field.minRow,
+			width: placed.vault.width,
+			height: placed.vault.height,
+		};
+		const index = rooms.length;
+		claim(field, rect, index);
+		blockAround(field, rect, spacing);
+
+		const centre = axialOf(
+			placed.col + (placed.vault.width - 1) / 2,
+			placed.row + (placed.vault.height - 1) / 2,
+		);
+		const world = axialToWorld(centre.q, centre.r);
+		rooms.push({
+			index,
+			x: world.x,
+			z: world.z,
+			parts: [rect],
+			color: VAULT_FLOOR_COLOR,
+			entrances: doorsOf(placed).map((door) => ({
+				col: door.col - field.minCol,
+				row: door.row - field.minRow,
+			})),
 		});
 	}
 
@@ -471,6 +537,18 @@ interface Extents {
 function extents(room: Room): Extents {
 	const cols = new Map<number, { min: number; max: number }>();
 	const rows = new Map<number, { min: number; max: number }>();
+
+	// A vault offers only its doors, so a run can only be built to one of them.
+	// Everything else about the search is unchanged — which is the point of
+	// expressing "where may this be entered" as a set of cells rather than as a
+	// special case in the corridor code.
+	if (room.entrances) {
+		for (const door of room.entrances) {
+			cols.set(door.col, { min: door.row, max: door.row });
+			rows.set(door.row, { min: door.col, max: door.col });
+		}
+		return { cols, rows };
+	}
 
 	for (const part of room.parts) {
 		for (let x = part.x; x < part.x + part.width; x++) {
@@ -650,6 +728,9 @@ function paint(
 	};
 
 	for (const room of rooms) {
+		// A vault painted itself when it was stamped, and repainting it would
+		// flatten its walls into floor.
+		if (room.entrances) continue;
 		for (const part of room.parts) {
 			for (let y = part.y; y < part.y + part.height; y++) {
 				for (let x = part.x; x < part.x + part.width; x++) {

@@ -55,7 +55,7 @@ import {
 	type Random,
 } from '@hexdelve/shared';
 
-import { finishLevel, ROCK_COLOR, solidDraft, type Carved, type DraftCell } from './build.js';
+import { finishLevel, ROCK_COLOR, startDraft, type Carved, type DraftCell } from './build.js';
 import { linkNodes, type ProximityGraph } from './graph.js';
 import { fbm } from './noise.js';
 import {
@@ -69,6 +69,7 @@ import {
 /** Offsets so the room shapes, the site scatter and the walk do not correlate. */
 const SHAPE_SEED_OFFSET = 5501;
 const WALK_SEED_OFFSET = 7717;
+const VAULT_SEED_OFFSET = 4231;
 
 /** How many rock cells normally sit between two rooms, so a corridor fits. */
 const ROOM_GAP = 2;
@@ -186,16 +187,19 @@ function build(settings: LevelSettings): Level {
 	const wiggle = readParam(ROOM_STACK, settings.params, 'wiggle');
 	const graph = readChoice(ROOM_STACK, settings.params, 'graph');
 
-	const cells = solidDraft(settings.radius);
 	const random = makeRandom(settings.seed | 0);
 
-	// One ring of rim, sealed: the same edge the other two stacks keep, and the
-	// same reason — a corridor may not run off the boundary into nothing, and
-	// the stitcher in the finish may not route round the outside.
+	// One ring of rim, and whatever vaults the depth allows, both before the
+	// carve: a corridor may not run off the boundary into nothing, and a vault
+	// is terrain this stack has to grow around rather than over.
 	const interior = settings.radius - 1;
-	for (const cell of cells.values()) {
-		if (ring(cell) > interior) cell.sealed = true;
-	}
+	const { cells, vaults } = startDraft({
+		radius: settings.radius,
+		rim: 1,
+		depth: settings.depth,
+		vaults: settings.vaults,
+		random: makeRandom((settings.seed + VAULT_SEED_OFFSET) | 0),
+	});
 
 	const rooms = scatterRooms(random, interior, wanted, size, ragged);
 	growRooms(cells, rooms, settings.seed, ragged, interior);
@@ -205,7 +209,7 @@ function build(settings: LevelSettings): Level {
 	const walk = makeRandom((settings.seed + WALK_SEED_OFFSET) | 0);
 	for (const [a, b] of links) dig(cells, rooms[a]!.site, rooms[b]!.site, wiggle, walk);
 
-	const carved: Carved = { cells, attempts: 1 };
+	const carved: Carved = { cells, attempts: 1, vaults };
 	return finishLevel(ROOM_STACK, settings, carved, startedAt);
 }
 
@@ -340,7 +344,7 @@ function growRooms(
 				if (axialDistance({ q, r }, room.site) > span) continue;
 
 				const cell = cells.get(axialKey(q, r));
-				if (!cell || cell.kind === 'floor' || ring(cell) > interior) continue;
+				if (!cell || cell.fixed || cell.kind === 'floor' || ring(cell) > interior) continue;
 
 				const { x, z } = axialToWorld(q, r);
 				const noise =
@@ -389,6 +393,7 @@ function shedSpecks(cells: Map<string, DraftCell>): void {
 	// strand its neighbour, and whether it did would depend on the map's
 	// iteration order rather than on the shape.
 	for (const cell of lonely) {
+		if (cell.fixed) continue;
 		cell.kind = 'rock';
 		cell.tile = '';
 		cell.color = ROCK_COLOR;
@@ -445,7 +450,7 @@ function dig(
 
 		at = choices[Math.floor(random() * choices.length)]!;
 		const cell = cells.get(axialKey(at.q, at.r))!;
-		if (cell.kind === 'rock') {
+		if (cell.kind === 'rock' && !cell.fixed) {
 			cell.kind = 'floor';
 			cell.tile = 'corridor';
 			cell.color = CORRIDOR_COLOR;

@@ -146,143 +146,13 @@ exits" — the field does not know what a chamber is.
 | cells | 30,301 | 120,601 | 270,901 |
 | cave | 0.19 s | 1.1 s | ~2.5 s |
 | rooms | 0.17 s | 1.2 s | 2.1 s |
-| WFC | — | — | — |
+| boxes | 0.19 s | 0.78 s | ~1.8 s |
 
 The rooms stack grows each room over **its own neighbourhood** rather than
 asking every cell about every room: a level is mostly not room, so the second
 way asks thirty million questions to which the answer is almost always no.
 
-**The wave function does not scale and this is not a tuning problem.** Its
-working set is one supporter count per cell, per pattern, per direction — at
-radius 300 with 121 patterns that is 787 MB, before any time is spent. It runs
-comfortably to about radius 80 (19,441 cells, 1.9 s) and should be given a
-level of its own size rather than a shared slider. The fix is not a bigger
-budget: it is **model synthesis** (item 6 below), which solves in overlapping
-blocks and keeps the working set the size of a block.
-
-## Stack two — wave function collapse, overlapping
-
-The solver is still mxgmn's `Model.cs` on six neighbours
-(`levelgen/wfc/model.ts`) — but what it solves changed completely, because the
-tileset it used to solve was wrong.
-
-### Why the tiled model went
-
-It was thirteen hand-written tiles whose six edges each carried a wall,
-corridor or room socket. It produced dungeons and it was wrong for a reason
-that had nothing to do with the solver: a *wall between two floor tiles* was a
-socket on an **edge**, and an edge is not something a character can stand on,
-walk round or be stopped by. There is no such thing as half a hexagon.
-
-The obvious repair — make a wave cell hold several hexagons, so a wall can be a
-rock cell inside a patch — does not work either, and it is worth writing down
-why. Take the natural patch, a hex and its six neighbours. Its six ring cells
-each serve **two** of its six borders, so a socket declared on border *k* and
-one declared on border *k+1* constrain the same cell; chase that round the ring
-and every border is forced to carry the same socket. A seven-cell patch cannot
-carry independent per-border sockets at all.
-
-Which leaves the model that needs no declared adjacency: the overlapping one.
-
-### The solver
-Three things change and nothing else does: six directions rather than four with
-`opposite(d) = d + 3`; a hex disc held as a flat array with an explicit
-neighbour table rather than `i % MX`; and pattern size `N` gone, since it only
-ever existed for the overlapping model.
-
-Two deliberate departures, both marked in the source:
-
-- **Contradictions are detected wherever they occur.** `Model.Propagate` ends
-  `return sumsOfOnes[0] > 0`, which only notices a wave emptied at node zero. On
-  a rectangle that is a corner and mostly harmless; on a disc it is one
-  arbitrary cell. A flag set in `ban` costs nothing and is right.
-- The random source is this project's mulberry32 rather than .NET's `Random`,
-  so a seed means the same level in a browser as in a test.
-
-The tileset (`levelgen/wfc/tileset.ts`) is ours. mxgmn's `SimpleTiledModel`
-reads adjacency as an explicit list of legal neighbour pairs — hundreds of
-`<neighbor left="corner 1" right="empty"/>` lines — which is right when the tiles
-are bitmaps and adjacency is whatever the artist thought looked continuous.
-These tiles are not bitmaps: every one is a hex cell with six edges, so
-adjacency is a **rule**, not a list. Thirteen tile specs with six sockets each
-expand to 61 rotations and about two thousand legal pairs with nobody typing
-them, and the symmetry the solver depends on —
-`t2 ∈ allowed[d][t1] ⟺ t1 ∈ allowed[d+3][t2]` — is structural rather than
-asserted, because both questions come out of the same equality between the same
-two sockets.
-
-The panel draws them. Every spec appears as the hexagon it is, once per
-distinct rotation, with each socket on the edge it belongs to — which is how you
-see that `hall` opens east and west rather than being told it, and that it comes
-out as three tiles rather than six. Those glyphs are the solver's own
-`expandTiles` output, not a redrawing of the spec, so a rotation that turned the
-wrong way would show up in the panel as six halls.
-
-`npm test` asserts the rest without a browser, because a tileset is
-the other part of this that fails without telling anyone: every mistake
-available in one still produces levels. A rotation that turns the wrong way
-bends corridors the wrong way, an asymmetric propagator drifts the solver's
-supporter counts and makes it ban tiles it had no reason to, and a tile with no
-legal neighbour in some direction is simply never placed — its weight is a lie
-and nothing says so. None of them throws; all of them look like a dungeon. So
-the check pins the edge mapping (edge `d` faces the neighbour the grid puts in
-direction `d`, which the bench's edge walls stand on too), the rotation
-cardinalities, that a rotation carries edge `d - k` onto edge `d`, the
-propagator's symmetry, that all 61 tiles are placeable, and that the open mask
-the level is built from is the sockets it came from. Flip the sign in the
-rotation and it reports 132 sockets that did not survive it — the tile counts
-alone do not notice, which is why that assertion is separate.
-
-Three socket kinds, and three rather than two is the whole design:
-
-```
-.  wall       solid between the two cells
-c  corridor   a passage one tile wide
-r  room       open floor continuing into the next tile
-```
-
-With only *open* and *shut*, the model cannot tell a corridor from a room and
-produces a random open subgraph of the hex grid — the same undifferentiated
-sponge the noise carve gives, with more machinery. Making `c` and `r` refuse to
-meet forces the two vocabularies apart: rooms grow only into rooms, corridors
-continue only as corridors, and the only way between them is a tile with one of
-each, which is a **door**. Rooms, corridors and doors are all consequences of
-that one rule.
-
-Measured over ten seeds at radius 14, before pruning:
-
-| rock weight | floor | components | largest | attempts |
-| --- | --- | --- | --- | --- |
-| 1 | 472 | 3.9 | 452 | 1.6 |
-| 2 | 402 | 6.6 | 369 | 2.1 |
-| 4 | 285 | 10.0 | 195 | 1.8 |
-| 6 | 192 | 12.5 | 114 | 1.4 |
-| 8 | 152 | 15.3 | 54 | 1.2 |
-
-The shipped default is 4.5, which lands around 34% floor.
-
-What it is good at: rooms with backs, corridors exactly one tile wide, doors,
-and a tileset that is thirteen lines of data — the character of the output is
-tuned by editing numbers, not code.
-
-What it is bad at, and this is the important row in the table: **the wave is a
-purely local constraint system.** Every adjacency is legal and nothing anywhere
-says the level is one piece. At the default weights a 631-cell disc comes out in
-seven to ten components with two-thirds of the floor in the largest. The bench
-draws that directly — the *Regions* toggle colours each component — because it
-is the number a tileset gets tuned against.
-
-It is also the only stack here that can **fail**. WFC has no backtracking: an
-observation is never taken back, so a run that paints itself into a corner has
-no move except to start over, exactly as mxgmn's `Program.cs` does. The attempt
-count is in the readout for that reason. A tileset whose weights are wrong does
-not look wrong on screen; it looks like twenty attempts.
-
-At radius 24 (1,801 cells) a run costs roughly 90 ms and typically wants two to
-four seeds, so 350 ms in the bad case. That is fine for a bench and would need
-moving off the main thread for a game.
-
-## Stack three — rooms, sites and a graph
+## Stack two — rooms, sites and a graph
 
 The other two stacks each make **one kind of space** and vary it. The noise band
 makes passage everywhere and widens it; the wave function makes tiles that
@@ -359,7 +229,7 @@ At radius 20 it produces ~26% floor in about 10 ms, and it is the only stack
 here that comes out in one piece before the stitcher touches it — the spanning
 tree is that guarantee, made in the algorithm rather than after it.
 
-## Stack four — boxes and doors
+## Stack three — boxes and doors
 
 The other three all **carve**. The noise band opens tiles where a field crosses
 a band; the wave function paints patterns; even the rooms stack grows blobs and
@@ -460,15 +330,26 @@ purpose rather than missed.
 | floor | 49% | 46% | 24% |
 | time | 8 ms | 185 ms | 781 ms |
 
-## Where this leaves the four
+## Where this leaves the three
 
-|  | cave | WFC | rooms | boxes |
-| --- | --- | --- | --- | --- |
-| rooms | none, ever | emergent | organic blobs | **discrete, with walls** |
-| doors | no concept | no concept | no concept | **yes, marked** |
-| connectivity | often one piece | rarely one piece | by construction | by construction |
-| scales to r300 | yes | **no** | yes | yes |
-| cost at r100 | 0.19 s | — | 0.17 s | 0.19 s |
+|  | cave | rooms | boxes |
+| --- | --- | --- | --- |
+| rooms | none, ever | organic blobs | **discrete, with walls** |
+| doors | no concept | no concept | **yes, marked** |
+| connectivity | often one piece | by construction | by construction |
+| cost at r100 | 0.19 s | 0.17 s | 0.19 s |
+
+### The one that was removed
+
+A wave function collapse lived here, first as a tiled model over hand-written
+socket tiles and then as mxgmn's overlapping model learning from a drawn
+sample. Both worked. Both were removed, and the reason is the same reason the
+tiled tileset was wrong before it: **a local constraint system has no way to say
+anything about a level above the scale of a few cells.** Every structure it
+produced was structure that *happened* rather than structure that was decided —
+which is fine for a texture and is not what a dungeon is. It also did not scale;
+its working set is one supporter count per cell per pattern per direction, which
+is 787 MB at radius 300.
 
 The two graph stacks both **decide where the places are before deciding what any
 hexagon is**, and that is the structural reason they beat the other two at
@@ -492,11 +373,12 @@ does the same thing and calls it `ensure_connectedness`
 mattered as much as the step, since running it after the generator rather than
 inside it is what lets every profile that game has inherit it.
 
-~~**2. Rectangular rooms.**~~ **Done** — see *Boxes and doors* above. What is
-still missing from it is Angband's **vaults**: a room whose layout is read from
-a file rather than generated, with a guarantee attached. The boxes stack is the
-one that could take them, because its rooms are rectangles with known extents.
-`docs/angband/16-dungeon-generation.md` §16.4;
+~~**2. Rectangular rooms, and vaults.**~~ **Done** — see *Boxes and doors* and
+*Vaults* above. What is still missing is Angband's **pits and nests**: a room
+whose contents are a designed encounter rather than a scatter — sixteen sleeping
+monsters of one theme, laid out symmetrically with the two deepest in the exact
+centre. Generated rather than drawn, so it is a different thing from a vault and
+wants the same placement pass. `docs/angband/16-dungeon-generation.md` §16.5;
 `docs/angband/16-dungeon-generation.md` is a chapter-length description of a
 shipped implementation and should be read before writing this stack. Place rooms
 from a weighted table of *builders* (§16.2.2), then connect their centres in a
@@ -545,23 +427,95 @@ above: it is how you get a level that is *about* something. Expensive to build,
 and it wants one of the space-filling algorithms above underneath it, so it is
 the right thing to want and the wrong thing to want first.
 
-**7. WFC, overlapping model.** The other half of mxgmn's repository: learn the
-adjacency from an example image rather than from a hand-written tileset. It
-would mean authoring dungeons by drawing one, which is appealing. Harder on a
-hex lattice than a square one — an `N x N` pattern window has no clean hex
-analogue, so it becomes "a cell and its six neighbours", which is close to what
-the tiled model already does with sockets. Probably not worth it before 1–5.
-
-**8. Model synthesis (Merrell).** WFC's predecessor, and the answer to WFC's
-scaling and failure problems: solve in overlapping blocks, keeping what worked,
-so a contradiction throws away one block rather than the whole level. If the
-wave function turns out to be the right approach and the retry count is the
-thing standing in its way, this is the fix rather than more retries.
+~~**7. WFC, overlapping model.**~~ **Built, and removed.** See *The one that was
+removed* above. It is not that it did not work — it is that a local constraint
+system cannot say anything about a level above the scale of a few cells, so what
+it produces is structure that happened rather than structure that was decided.
 
 Two things that are **not** worth the trouble here: answer-set programming and
 constraint solvers in general (the expressiveness is real, the dependency and
 the solve times are not), and anything learned from data (there is no corpus of
 Hexdelve levels to learn from, and there will not be one).
+
+## Vaults
+
+A vault is a room somebody **drew**, stamped into the level as-is. Everything
+else here is made up by an algorithm; a vault is the only part of a dungeon that
+is deliberate, and the reason a player recognises a place on their fifth run.
+
+### Not an Angband file
+
+Angband keeps these as ASCII in `vault.txt`, where `8` means "a monster forty
+levels out of depth and a great object". That is a wonderfully compact notation
+for a game whose content is finished and a bad one for a game whose content is
+not: every symbol is a decision about loot tables and monster depths baked into
+a character.
+
+So a vault here is **data**. Terrain is a named union — `wall`, `floor`, `door`,
+`outside` — and entities are a list of positions with a kind, so adding either
+is a change the compiler reports everywhere instead of a symbol that silently
+means nothing in half the vaults using it. The catalogue is *written* as
+character art because a drawing has to be readable, but those characters are a
+convenience of that one file: `parseVault` turns them into the typed data, and
+the vault bench never sees them.
+
+The five entity kinds — `monster`, `loot`, `trap`, `light`, `marker` — are
+deliberately provisional. The game has no monsters that fight, no loot tables
+and no traps, so anything more specific would be inventing a system to fit a
+file format, which is backwards. `tier` is *levels out of depth* rather than an
+absolute, so one vault reads sensibly across its whole depth range, and `tag` is
+the escape hatch until those systems exist.
+
+### Placed before anything carves
+
+The pass runs on the solid draft, **before** any stack touches it, and that
+ordering is the design. The alternative — each stack placing its own — is three
+implementations of one idea; two of the three have no rectangle to offer a vault
+by the time they have finished; and a vault stamped *over* a carve has just
+deleted whatever was there, which is how a treasury ends up with a cave running
+through the middle of it.
+
+Placed first, a vault is simply terrain the carve has to respect. The cave stack
+finds a built structure in its rock and flows around it. The boxes stack finds a
+region it cannot put a room in. Neither needed to know what a vault is.
+
+What makes that work is one flag: `DraftCell.fixed` means *this cell is
+finished, and nothing downstream may change it*. Every stack checks it before
+writing and the stitcher checks it before digging, so a vault's walls cannot be
+carved open or tunnelled through, and its doors are the way in that was drawn.
+Unlike `sealed` it says nothing about what the cell **is** — a fixed cell may be
+floor — only that it is settled.
+
+The boxes stack does one thing more, because it can: vaults go into its room
+list first, as rooms that are already built, so they end up on the end of a real
+corridor rather than left for the stitcher. Their `entrances` are their drawn
+doors and nowhere else — which is the whole difference between a vault and a
+generated room, expressed as a set of cells rather than a special case in the
+corridor code.
+
+### The bench
+
+The editor's fifth view. Unlike the other three benches it **authors** rather
+than previews, which is why it has no GPU viewport: a vault is a grid of cells
+and the truthful picture of a grid is a grid. What the room will look like
+standing in a dungeon is the level bench's job, one tab across.
+
+It paints terrain and entities with a brush, checks the vault against the same
+`vaultProblems` the placer runs (so what is red here is exactly what would have
+made the vault silently never appear), and copies the result out as a
+`VaultSpec` ready to paste into the catalogue. The browser keeps the working
+copy; the repository keeps the vaults. That is not a limitation being worked
+around — there is no server to save to, and a bench that pretended otherwise
+would be one whose work quietly disappeared.
+
+### What is still missing
+
+Depth is a slider that only vault eligibility reads. That is the honest state of
+affairs: depth is the axis a roguelike scales everything along, and this project
+has exactly one thing that scales along it so far. `rating` is stored and not
+yet spent on anything — it is the one property of a vault that is about the
+*level* rather than the room, so it is what a difficulty budget would eventually
+be built from.
 
 ## Beyond the shape
 

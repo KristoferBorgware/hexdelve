@@ -42,6 +42,10 @@ export interface LevelInspectorProps {
 	onSeedChange(seed: number): void;
 	radius: number;
 	onRadiusChange(radius: number): void;
+	depth: number;
+	onDepthChange(depth: number): void;
+	vaults: number;
+	onVaultsChange(vaults: number): void;
 	stitch: boolean;
 	onStitchChange(stitch: boolean): void;
 	prune: boolean;
@@ -55,6 +59,7 @@ export interface LevelInspectorProps {
 const SHOW: { key: keyof LevelShow; label: string; hint: string }[] = [
 	{ key: 'rock', label: 'Rock', hint: 'The solid the level is cut out of' },
 	{ key: 'route', label: 'Entry & exit', hint: 'The two ends, and the way between them' },
+	{ key: 'entities', label: 'Entities', hint: 'What the vaults put in their rooms' },
 	{ key: 'regions', label: 'Regions', hint: 'Colour the floor by connected component' },
 	{ key: 'stitching', label: 'Stitching', hint: 'Pick out the tunnels the stitcher dug' },
 ];
@@ -67,6 +72,10 @@ export function LevelInspector({
 	onSeedChange,
 	radius,
 	onRadiusChange,
+	depth,
+	onDepthChange,
+	vaults,
+	onVaultsChange,
 	stitch,
 	onStitchChange,
 	prune,
@@ -181,6 +190,31 @@ export function LevelInspector({
 				step={2}
 				value={radius}
 				onChange={(_, value) => onRadiusChange(value as number)}
+			/>
+
+			<Typography variant="caption" color="text.secondary">
+				Depth — level {depth}
+			</Typography>
+			<Slider
+				size="small"
+				min={1}
+				max={99}
+				step={1}
+				value={depth}
+				onChange={(_, value) => onDepthChange(value as number)}
+			/>
+
+			<Typography variant="caption" color="text.secondary">
+				Vaults — {vaults}
+			</Typography>
+			<Slider
+				size="small"
+				min={0}
+				max={8}
+				step={1}
+				marks
+				value={vaults}
+				onChange={(_, value) => onVaultsChange(value as number)}
 			/>
 
 			<FormControlLabel
@@ -304,6 +338,11 @@ export function LevelInspector({
 					{stats.joins > 0 &&
 						row('Stitched', `${stats.joins} tunnels, ${stats.tunnelled} cells`)}
 					{row('Largest', `${stats.largest}`)}
+					{stats.vaults > 0 &&
+						row(
+							'Vaults',
+							level!.vaults.map((placed) => placed.vault.name).join(', '),
+						)}
 					{row('Entry to exit', stats.route > 0 ? `${stats.route} steps` : 'no route', stats.route === 0)}
 					{row('Attempts', `${stats.attempts}`, stats.attempts > 1)}
 					{row('Generated in', `${stats.ms.toFixed(1)} ms`)}

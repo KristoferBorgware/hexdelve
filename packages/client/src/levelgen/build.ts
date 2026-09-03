@@ -24,14 +24,11 @@
  * in a pocket that is about to be joined or filled in.
  */
 
-import {
-	AXIAL_DIRECTIONS,
-	axialDisc,
-	axialKey,
-	type Axial,
-} from '@hexdelve/shared';
+import { AXIAL_DIRECTIONS, axialDisc, axialKey, type Axial, type Random } from '@hexdelve/shared';
 
 import type { Level, LevelCell, LevelSettings, LevelStack } from './types.js';
+import { placeVaults } from './vault/place.js';
+import type { PlacedVault, Vault } from './vault/types.js';
 
 /** A cell while it is still being carved. Same fields, all of them writable. */
 export interface DraftCell {
@@ -52,6 +49,16 @@ export interface DraftCell {
 	 * carve marks its rim and the stitch goes round.
 	 */
 	sealed: boolean;
+	/**
+	 * This cell is FINISHED and nothing downstream may change it.
+	 *
+	 * Set by the vault pass, which runs before any stack carves. It is what
+	 * makes a vault a vault: its walls are fixed rock, so no carve opens them
+	 * and no tunnel is cut through them, and its doors are fixed floor, so the
+	 * way in is the way that was drawn. Unlike `sealed` it says nothing about
+	 * what the cell IS — a fixed cell may be floor — only that it is settled.
+	 */
+	fixed: boolean;
 }
 
 export const ROCK_COLOR = 0x36322c;
@@ -62,7 +69,52 @@ export const STITCH_COLOR = 0x565a5c;
 /** The tile name a stitched cell carries, so the readout can count them. */
 export const STITCH_TILE = 'stitch';
 
-/** A hex disc of solid rock, which is where every stack starts. */
+/**
+ * A disc of solid rock with its rim sealed and its vaults already in it.
+ *
+ * Every stack starts here rather than with a bare draft, and that is what makes
+ * "vaults work in all three" true by construction rather than by three stacks
+ * each remembering to. The order is the point: a vault goes in BEFORE anything
+ * carves, so a carve finds it as terrain it has to respect. Stamped afterwards
+ * it would be deleting whatever the carve had put there, which is how a
+ * treasury ends up with a cave running through the middle of it.
+ */
+export function startDraft(options: DraftOptions): {
+	cells: Map<string, DraftCell>;
+	vaults: PlacedVault[];
+} {
+	const cells = solidDraft(options.radius);
+
+	const edge = options.radius - options.rim;
+	for (const cell of cells.values()) {
+		const ring = (Math.abs(cell.q) + Math.abs(cell.r) + Math.abs(cell.q + cell.r)) / 2;
+		if (ring > edge) cell.sealed = true;
+	}
+
+	const vaults = placeVaults({
+		cells,
+		radius: options.radius,
+		depth: options.depth,
+		wanted: options.vaults,
+		random: options.random,
+		...(options.catalogue !== undefined ? { catalogue: options.catalogue } : {}),
+	});
+
+	return { cells, vaults };
+}
+
+export interface DraftOptions {
+	readonly radius: number;
+	/** Rings of sealed rock kept round the edge, so nothing runs off it. */
+	readonly rim: number;
+	readonly depth: number;
+	/** How many vaults to try to place. */
+	readonly vaults: number;
+	readonly random: Random;
+	readonly catalogue?: readonly Vault[];
+}
+
+/** A hex disc of solid rock, before anything at all has happened to it. */
 export function solidDraft(radius: number): Map<string, DraftCell> {
 	const draft = new Map<string, DraftCell>();
 	for (const cell of axialDisc(radius)) {
@@ -74,6 +126,7 @@ export function solidDraft(radius: number): Map<string, DraftCell> {
 			region: -1,
 			color: ROCK_COLOR,
 			sealed: false,
+			fixed: false,
 		});
 	}
 	return draft;
@@ -91,6 +144,8 @@ export function solidDraft(radius: number): Map<string, DraftCell> {
 export interface Carved {
 	readonly cells: Map<string, DraftCell>;
 	readonly attempts: number;
+	/** Whatever `startDraft` put down before this stack ran. */
+	readonly vaults: readonly PlacedVault[];
 }
 
 /**
@@ -119,6 +174,10 @@ export function finishLevel(
 
 	if (settings.prune && regions.count > 1) {
 		for (const cell of cells.values()) {
+			// A vault is never filled in, even when nothing reached it. Losing
+			// the one hand-made room on the level to tidy up an unreachable
+			// pocket is the worst trade the finish could make.
+			if (cell.fixed) continue;
 			if (cell.kind === 'floor' && cell.region !== regions.largest) {
 				cell.kind = 'rock';
 				cell.tile = '';
@@ -142,6 +201,7 @@ export function finishLevel(
 		entry: ends?.entry ?? null,
 		exit: ends?.exit ?? null,
 		route,
+		vaults: carved.vaults,
 		steps: stack.steps,
 		stats: {
 			cells: cells.size,
@@ -156,6 +216,7 @@ export function finishLevel(
 			largest: regions.size,
 			joins: joined.joins,
 			tunnelled: joined.tunnelled,
+			vaults: carved.vaults.length,
 			route: route.length > 0 ? route.length - 1 : 0,
 			attempts: carved.attempts,
 			ms: Math.round((performance.now() - startedAt) * 100) / 100,
@@ -251,10 +312,11 @@ function openNeighbours(cells: Map<string, DraftCell>, cell: DraftCell): DraftCe
  *
  * It digs a passage exactly one tile wide: the minimum that connects, and it
  * reads on screen as something cut rather than something found. It will not
- * touch `sealed` rock — the rim both stacks keep so a passage cannot run off
- * the boundary — because a stitcher free to route round the outside joins the
- * level up by removing the thing that made it a place. And a piece walled in
- * behind sealed rock is left for `prune`.
+ * touch `sealed` rock — the rim every stack keeps so a passage cannot run off
+ * the boundary — nor `fixed` rock, which is a vault wall: a stitcher that may
+ * cut through either has joined the level up by destroying the thing it was
+ * routing around. A vault is reached through its doors, which are floor, so the
+ * flood leaves it the way a player would.
  */
 function stitch(
 	cells: Map<string, DraftCell>,
@@ -323,8 +385,9 @@ function floodTerritories(cells: Map<string, DraftCell>): { from: Map<string, st
 
 				const theirs = owner.get(nextKey);
 				if (theirs === undefined) {
-					// Unclaimed rock: this piece gets there first.
-					if (neighbour.kind !== 'rock') continue;
+					// Unclaimed rock: this piece gets there first. Fixed rock is
+					// a vault wall and is not a route, however convenient.
+					if (neighbour.kind !== 'rock' || neighbour.fixed) continue;
 					owner.set(nextKey, mine);
 					from.set(nextKey, key);
 					depth.set(nextKey, here + 1);

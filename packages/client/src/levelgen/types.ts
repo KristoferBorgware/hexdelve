@@ -18,6 +18,8 @@
 
 import type { Axial } from '@hexdelve/shared';
 
+import type { PlacedVault } from './vault/types.js';
+
 /** Rock is the negative space; floor is everything a body can stand on. */
 export type CellKind = 'rock' | 'floor';
 
@@ -36,6 +38,12 @@ export interface LevelCell {
 	 * needs to know which rock is structural.
 	 */
 	readonly sealed: boolean;
+	/**
+	 * Settled before the carve ran, and not to be changed by anything: a vault
+	 * cell. Exposed because "may I dig here" is a question the game will ask
+	 * too, not only the generator.
+	 */
+	readonly fixed: boolean;
 	/** 0xRRGGBB, chosen by the stack that made it. */
 	readonly color: number;
 }
@@ -58,6 +66,8 @@ export interface LevelStats {
 	readonly joins: number;
 	/** Cells those tunnels cost. */
 	readonly tunnelled: number;
+	/** Hand-drawn rooms that went in before anything carved. */
+	readonly vaults: number;
 	/** Steps from entry to exit, or 0 if there is no route. */
 	readonly route: number;
 	/** How many seeds the stack burned before one produced a level. */
@@ -76,6 +86,8 @@ export interface Level {
 	/** Entry to exit, inclusive of both ends. */
 	readonly route: readonly Axial[];
 	readonly stats: LevelStats;
+	/** The vaults in this level, and where they landed. */
+	readonly vaults: readonly PlacedVault[];
 	/** A line per pipeline step, shown beside the level so the stack is legible. */
 	readonly steps: readonly string[];
 }
@@ -110,6 +122,16 @@ export interface LevelSettings {
 	readonly radius: number;
 	/** Keyed by `LevelParam.key`, already defaulted by `settingsFor`. */
 	readonly params: Readonly<Record<string, number>>;
+	/**
+	 * How deep this level is.
+	 *
+	 * Nothing but vault eligibility reads it yet, which is the honest state of
+	 * affairs: depth is the axis a roguelike scales everything along, and this
+	 * project has one thing that scales along it so far.
+	 */
+	readonly depth: number;
+	/** How many vaults to try to place, before anything carves. */
+	readonly vaults: number;
 	/** Dig tunnels between the pieces, so the level comes out walkable end to end. */
 	readonly stitch: boolean;
 	/** Throw away everything the stitch could not reach. */

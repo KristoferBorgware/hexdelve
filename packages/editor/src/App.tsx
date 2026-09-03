@@ -1,5 +1,5 @@
 /*
- * The editor shell: a toolbar, and one of four views under it.
+ * The editor shell: a toolbar, and one of five views under it.
  *
  * The YARD is the game, in a box — the client, unchanged, doing what a player
  * would see. The three BENCHES are the other thing an editor is for: one
@@ -41,10 +41,11 @@ import { Bench } from './components/Bench.js';
 import { PropBenchView } from './components/PropBenchView.js';
 import { Inspector } from './components/Inspector.js';
 import { Levels } from './components/Levels.js';
+import { Vaults } from './components/Vaults.js';
 import { SceneOutline } from './components/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
 
-type View = 'yard' | 'bench' | 'props' | 'levels';
+type View = 'yard' | 'bench' | 'props' | 'levels' | 'vaults';
 
 export function App() {
 	const [client, setClient] = useState<HexdelveClient | null>(null);
@@ -77,6 +78,7 @@ export function App() {
 						<ToggleButton value="bench">Character</ToggleButton>
 						<ToggleButton value="props">Props</ToggleButton>
 						<ToggleButton value="levels">Level</ToggleButton>
+						<ToggleButton value="vaults">Vault</ToggleButton>
 					</ToggleButtonGroup>
 
 					<Box sx={{ flexGrow: 1 }} />
@@ -94,8 +96,8 @@ export function App() {
 
 					<Tooltip
 						title={
-							view === 'levels'
-								? 'A level has no frame loop to run'
+							view === 'levels' || view === 'vaults'
+								? 'Nothing here has a frame loop to run'
 								: running
 									? 'Pause the frame loop'
 									: 'Run the frame loop'
@@ -105,7 +107,7 @@ export function App() {
 							<Button
 								size="small"
 								variant="outlined"
-								disabled={view === 'levels'}
+								disabled={view === 'levels' || view === 'vaults'}
 								startIcon={running ? <PauseIcon /> : <PlayArrowIcon />}
 								onClick={() => setRunning((value) => !value)}
 							>
@@ -127,6 +129,7 @@ export function App() {
 				{view === 'bench' && <Bench backend={backend} running={running} />}
 				{view === 'props' && <PropBenchView backend={backend} running={running} />}
 				{view === 'levels' && <Levels backend={backend} />}
+				{view === 'vaults' && <Vaults />}
 			</Box>
 		</Box>
 	);

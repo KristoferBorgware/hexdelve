@@ -22,8 +22,22 @@ import { defaultParams, LEVEL_STACKS, type Level, type LevelStack } from '@hexde
 const SEEDS = [1, 2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31];
 const RADII = [6, 10, 14];
 
-function generate(stack: LevelStack, seed: number, radius: number, stitch: boolean): Level {
-	return stack.generate({ seed, radius, params: defaultParams(stack), stitch, prune: false });
+function generate(
+	stack: LevelStack,
+	seed: number,
+	radius: number,
+	stitch: boolean,
+	vaults = 0,
+): Level {
+	return stack.generate({
+		seed,
+		radius,
+		depth: 20,
+		vaults,
+		params: defaultParams(stack),
+		stitch,
+		prune: false,
+	});
 }
 
 describe.each(LEVEL_STACKS.map((stack) => [stack.id, stack] as const))('%s', (_id, stack) => {
@@ -97,6 +111,49 @@ describe.each(LEVEL_STACKS.map((stack) => [stack.id, stack] as const))('%s', (_i
 						`route step ${i} stands on rock`,
 					).toBe('floor');
 				}
+			}
+		}
+	});
+
+	it('keeps every vault it placed, whole and reachable', () => {
+		// The three properties a vault has to have in all three stacks, and all
+		// three fail silently: a carve that overwrote its walls still draws, a
+		// stitcher that tunnelled in through the back still connects, and a
+		// vault nothing reached is only noticed by walking to it.
+		for (const seed of SEEDS) {
+			const level = generate(stack, seed, 26, true, 2);
+			expect(level.stats.vaults).toBe(level.vaults.length);
+
+			for (const placed of level.vaults) {
+				let doors = 0;
+				let reachable = 0;
+
+				for (let y = 0; y < placed.vault.height; y++) {
+					for (let x = 0; x < placed.vault.width; x++) {
+						const terrain = placed.vault.terrain[x + y * placed.vault.width]!;
+						if (terrain === 'outside') continue;
+
+						const col = placed.col + x;
+						const row = placed.row + y;
+						const cell = level.cells.get(
+							axialKey(col - ((row - (row & 1)) >> 1), row),
+						)!;
+
+						// Whatever the vault drew is what is there. A wall that
+						// became floor is a carve that ran over the top of it.
+						expect(cell.kind, `${placed.vault.id} at ${x},${y}`).toBe(
+							terrain === 'wall' ? 'rock' : 'floor',
+						);
+						expect(cell.fixed).toBe(true);
+
+						if (terrain !== 'door') continue;
+						doors++;
+						if (cell.region >= 0) reachable++;
+					}
+				}
+
+				expect(doors, `${placed.vault.id} has no door`).toBeGreaterThan(0);
+				expect(reachable, `${placed.vault.id} is sealed in`).toBeGreaterThan(0);
 			}
 		}
 	});

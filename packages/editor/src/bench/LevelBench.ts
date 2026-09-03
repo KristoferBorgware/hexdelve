@@ -74,6 +74,15 @@ const REGION_COLORS = [0x6f9ad4, 0xd48f5a, 0x77b573, 0xb56fa8, 0xc7bb62, 0x63b4b
 /** What a dug tunnel goes when the stitching overlay is on. */
 const STITCH_HIGHLIGHT = 0x4ec9d6;
 
+/** One per vault entity kind. Distinct rather than pretty: they are a readout. */
+const ENTITY_COLORS: Record<string, number> = {
+	monster: 0xe05252,
+	loot: 0xf0c64a,
+	trap: 0xb060d0,
+	light: 0xfff0b0,
+	marker: 0x7ea6ff,
+};
+
 export interface LevelBenchOptions {
 	canvas: HTMLCanvasElement;
 	backend?: BackendPreference;
@@ -91,6 +100,8 @@ export interface LevelShow {
 	regions: boolean;
 	/** Pick out the tunnels the stitcher dug, so its work can be judged. */
 	stitching: boolean;
+	/** The monsters, loot and traps the vaults put in their rooms. */
+	entities: boolean;
 }
 
 export interface LevelBenchStats {
@@ -115,6 +126,7 @@ export class LevelBench {
 		route: true,
 		regions: false,
 		stitching: false,
+		entities: true,
 	};
 
 	private level: Level | null = null;
@@ -269,6 +281,7 @@ export class LevelBench {
 		if (level) {
 			for (const cell of level.cells.values()) this.emitCell(opaque, cell);
 			if (this.show.route) this.emitRoute(overlay, level);
+			if (this.show.entities) this.emitEntities(overlay, level);
 		}
 
 		frame.clear();
@@ -327,6 +340,27 @@ export class LevelBench {
 
 		if (level.entry) this.emitMarker(out, level.entry.q, level.entry.r, ENTRY_COLOR);
 		if (level.exit) this.emitMarker(out, level.exit.q, level.exit.r, EXIT_COLOR);
+	}
+
+	/**
+	 * What the vaults put in their rooms, as a pip per entity.
+	 *
+	 * Unlit and in the overlay, like the route markers and for the same reason:
+	 * these are a readout of a decision somebody made while drawing the vault,
+	 * and a readout that goes dark on the shaded side of the level is one you
+	 * cannot use. Small, because there can be a dozen in one room and the shape
+	 * of the room is still the thing being judged.
+	 */
+	private emitEntities(out: HexInstances, level: Level): void {
+		for (const placed of level.vaults) {
+			for (const entity of placed.entities) {
+				const q = entity.col - ((entity.row - (entity.row & 1)) >> 1);
+				const { x, z } = axialToWorld(q, entity.row);
+				out.pushRadial(x, FLOOR_DEPTH + 0.16, z, 0.26, 0.22, ENTITY_COLORS[entity.kind], {
+					flags: HEX_FLAG_UNLIT,
+				});
+			}
+		}
 	}
 
 	private emitMarker(out: HexInstances, q: number, r: number, color: number): void {
