@@ -117,6 +117,7 @@ export {
 	type RendererOptions,
 	type InstanceRanges,
 	type ShadowView,
+	type FrameCapture,
 } from './renderer/types.js';
 
 export { instanceTotal } from './renderer/types.js';

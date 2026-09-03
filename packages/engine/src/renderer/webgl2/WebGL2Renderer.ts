@@ -15,6 +15,7 @@ import {
 	instanceTotal,
 	RendererCreationError,
 	type Frame,
+	type FrameCapture,
 	type InstanceRanges,
 	type Renderer,
 	type RendererInfo,
@@ -65,6 +66,7 @@ export class WebGL2Renderer implements Renderer {
 
 	private instanceCapacity = 0;
 	private ranges: InstanceRanges = { opaque: 0, blended: 0, overlay: 0 };
+	private pendingCapture: ((capture: FrameCapture) => void) | null = null;
 	private disposed = false;
 	private contextLost = false;
 	private readonly onContextLost: (event: Event) => void;
@@ -293,6 +295,47 @@ export class WebGL2Renderer implements Renderer {
 		}
 
 		gl.bindVertexArray(null);
+
+		if (this.pendingCapture) {
+			const resolve = this.pendingCapture;
+			this.pendingCapture = null;
+			resolve(this.readBackBuffer());
+		}
+	}
+
+	/**
+	 * Read the back buffer.
+	 *
+	 * Done inside render() and not after it, because the drawing buffer is only
+	 * guaranteed to hold its contents until the browser composites, and
+	 * preserveDrawingBuffer is off deliberately — keeping it on costs a copy on
+	 * every frame to serve a call almost nobody makes.
+	 *
+	 * WebGL hands back the bottom row first. The contract is top row first, so
+	 * the rows are reversed on the way out and the two backends describe an
+	 * image the same way.
+	 */
+	private readBackBuffer(): FrameCapture {
+		const gl = this.gl;
+		const width = this.canvas.width;
+		const height = this.canvas.height;
+		const stride = width * 4;
+
+		const flipped = new Uint8Array(stride * height);
+		gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, flipped);
+
+		const pixels = new Uint8Array(stride * height);
+		for (let y = 0; y < height; y++) {
+			pixels.set(flipped.subarray((height - 1 - y) * stride, (height - y) * stride), y * stride);
+		}
+		return { width, height, pixels };
+	}
+
+	captureFrame(): Promise<FrameCapture> {
+		if (!this.alive) return Promise.reject(new Error('The WebGL2 context is gone.'));
+		return new Promise((resolve) => {
+			this.pendingCapture = resolve;
+		});
 	}
 
 	/**
