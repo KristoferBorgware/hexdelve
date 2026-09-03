@@ -18,12 +18,21 @@ import {
 	BAT_SKELETON,
 	BAT_TIPS,
 	buildBat,
+	buildGhoul,
+	buildHellhound,
 	buildWanderer,
 	DUCK,
 	FLAP_PERIOD,
 	flyPose,
 	GUARD,
+	HELLHOUND_SKELETON,
+	HELLHOUND_TIPS,
 	HIPS_Y,
+	HOUND_STAND_Y,
+	HOUND_STRIDE_PERIOD,
+	houndBitePose,
+	houndRestPose,
+	houndRunPose,
 	HOVER_Y,
 	lungePose,
 	perchPose,
@@ -70,6 +79,38 @@ const FORWARD = { x: 0, z: 1 };
  */
 const BREATH_PERIOD = TAU / 1.8;
 const PERCH_BREATH = TAU / 1.5;
+/** How fast the hellhound breathes standing still, and lying down. */
+const HOUND_BREATH = TAU / 1.7;
+const HOUND_REST_BREATH = TAU / 1.4;
+
+/**
+ * Everything that poses the humanoid rig, regardless of who is wearing it.
+ *
+ * The wanderer and the ghoul are the same seventeen bones under two different
+ * bodies, so the tree, the stride and every clip in this list read on either
+ * one unchanged — which is the whole argument for building a second body
+ * rather than a second rig. Called once per subject rather than shared,
+ * because each subject's blend tree keeps its own playhead and its own
+ * calibration sweep, and two subjects sharing one would fight over both the
+ * moment either one was on the stand.
+ */
+function humanoidAnimations(): BenchAnimation[] {
+	return [
+		wandererTree(),
+		procedural('idle', 'Idle', BREATH_PERIOD, true, (t, out) =>
+			stridePose(0, 0, FORWARD, 0, t, out),
+		),
+		procedural('walk', 'Walk', WALK_PERIOD, true, (t, out) =>
+			stridePose((t / WALK_PERIOD) * TAU, 1, FORWARD, 0, t, out),
+		),
+		procedural('run', 'Run', RUN_PERIOD, true, (t, out) =>
+			stridePose((t / RUN_PERIOD) * TAU, 1, FORWARD, 1, t, out),
+		),
+		clipAnimation(GUARD, SKELETON, 'Guard'),
+		clipAnimation(SLASH, SKELETON, 'Slash'),
+		clipAnimation(DUCK, SKELETON, 'Duck'),
+	];
+}
 
 function wandererRig(): BenchRig {
 	let built: Model | null = null;
@@ -82,21 +123,22 @@ function wandererRig(): BenchRig {
 		focusY: HIPS_Y,
 		frameDistance: 4.2,
 		model: () => (built ??= buildWanderer()),
-		animations: [
-			wandererTree(),
-			procedural('idle', 'Idle', BREATH_PERIOD, true, (t, out) =>
-				stridePose(0, 0, FORWARD, 0, t, out),
-			),
-			procedural('walk', 'Walk', WALK_PERIOD, true, (t, out) =>
-				stridePose((t / WALK_PERIOD) * TAU, 1, FORWARD, 0, t, out),
-			),
-			procedural('run', 'Run', RUN_PERIOD, true, (t, out) =>
-				stridePose((t / RUN_PERIOD) * TAU, 1, FORWARD, 1, t, out),
-			),
-			clipAnimation(GUARD, SKELETON, 'Guard'),
-			clipAnimation(SLASH, SKELETON, 'Slash'),
-			clipAnimation(DUCK, SKELETON, 'Duck'),
-		],
+		animations: humanoidAnimations(),
+	};
+}
+
+function ghoulRig(): BenchRig {
+	let built: Model | null = null;
+
+	return {
+		id: 'ghoul',
+		label: 'Ghoul',
+		skeleton: SKELETON,
+		tips: TIPS,
+		focusY: HIPS_Y,
+		frameDistance: 4.2,
+		model: () => (built ??= buildGhoul()),
+		animations: humanoidAnimations(),
 	};
 }
 
@@ -129,7 +171,38 @@ function batRig(): BenchRig {
 }
 
 /** Everything the bench knows how to show, in the order the outline lists it. */
-export const BENCH_RIGS: readonly BenchRig[] = [wandererRig(), batRig()];
+function hellhoundRig(): BenchRig {
+	let built: Model | null = null;
+	const BITE_PERIOD = 0.85;
+
+	return {
+		id: 'hellhound',
+		label: 'Hellhound',
+		skeleton: HELLHOUND_SKELETON,
+		tips: HELLHOUND_TIPS,
+		focusY: HOUND_STAND_Y,
+		frameDistance: 5.2,
+		model: () => (built ??= buildHellhound()),
+		animations: [
+			procedural('idle', 'Idle', HOUND_BREATH, true, (t, out) => houndRunPose(0, 0, t, out)),
+			procedural('run', 'Run', HOUND_STRIDE_PERIOD, true, (t, out) =>
+				houndRunPose((t / HOUND_STRIDE_PERIOD) * TAU, 1, t, out),
+			),
+			procedural('bite', 'Bite', BITE_PERIOD, false, (t, out) =>
+				houndBitePose(t / BITE_PERIOD, out),
+			),
+			procedural('rest', 'Rest', HOUND_REST_BREATH, true, (t, out) => houndRestPose(t, out)),
+		],
+	};
+}
+
+/** Everything the bench knows how to show, in the order the outline lists it. */
+export const BENCH_RIGS: readonly BenchRig[] = [
+	wandererRig(),
+	ghoulRig(),
+	batRig(),
+	hellhoundRig(),
+];
 
 export function findRig(id: string): BenchRig {
 	return BENCH_RIGS.find((rig) => rig.id === id) ?? BENCH_RIGS[0]!;
