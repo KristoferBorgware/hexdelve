@@ -25,7 +25,25 @@ export { Item, type ItemOptions } from './game/items.js';
 
 export { buildWorld, type World, type Tile, type WorldOptions } from './scene/world.js';
 export { SKELETON, BONES, TIPS, HIPS_Y, UPPER_BODY } from './game/skeleton.js';
-export { BAT_SKELETON, BAT_BONES, BAT_TIPS, HOVER_Y } from './game/batrig.js';
+export { BAT_SKELETON, BAT_BONES, BAT_TIPS, HOVER_Y, PERCH_Y } from './game/batrig.js';
+
+/*
+ * The characters themselves — the rig data above, wearing prisms.
+ *
+ * Exported because a rig and the body hung on it are one thing to anyone
+ * looking at either: the editor's character bench previews a skeleton, a mesh
+ * and a clip together, and it should get all three from the package that owns
+ * them rather than build a second wanderer of its own.
+ */
+export { buildWanderer, WANDERER_PALETTE } from './models/wanderer.js';
+export { buildBat, BAT_PALETTE } from './models/bat.js';
+export {
+	perchPose,
+	flyPose,
+	lungePose,
+	FLAP_PERIOD,
+	LUNGE_CONTACT,
+} from './game/batpose.js';
 export {
 	stridePose,
 	stridePeriod,

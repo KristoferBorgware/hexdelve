@@ -1,9 +1,16 @@
 /*
- * The editor shell: a toolbar, a scene list, the game, an inspector.
+ * The editor shell: a toolbar, and one of two views under it.
  *
- * The backend selector is here rather than buried in a settings dialog on
- * purpose. Two renderers that are meant to draw the same picture only stay
- * that way if switching between them is one click during ordinary work.
+ * The views are the two things this editor is for. The YARD is the game, in a
+ * box — the client, unchanged, doing what a player would see. The BENCH is one
+ * character on a stand with a clock, which is where a mesh, a rig and a clip
+ * get looked at on their own; it is the only view here with a scene of its own,
+ * and it has one because a running world will not hold a frame still.
+ *
+ * The backend selector and the transport are shared, and sit here rather than
+ * being buried in a settings dialog on purpose. Two renderers that are meant to
+ * draw the same picture only stay that way if switching between them is one
+ * click during ordinary work — and that is as true of a wing beat as of a yard.
  */
 
 import AppBar from '@mui/material/AppBar';
@@ -20,14 +27,18 @@ import { useCallback, useState } from 'react';
 import type { HexdelveClient } from '@hexdelve/client';
 import type { BackendPreference } from '@hexdelve/engine';
 
+import { Bench } from './components/Bench.js';
 import { Inspector } from './components/Inspector.js';
 import { SceneOutline } from './components/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
+
+type View = 'yard' | 'bench';
 
 export function App() {
 	const [client, setClient] = useState<HexdelveClient | null>(null);
 	const [backend, setBackend] = useState<BackendPreference>('auto');
 	const [running, setRunning] = useState(true);
+	const [view, setView] = useState<View>('yard');
 
 	// Stable, because Viewport tears the client down when this identity changes.
 	const onClientReady = useCallback((next: HexdelveClient | null) => setClient(next), []);
@@ -39,9 +50,22 @@ export function App() {
 					<Typography variant="h6" sx={{ mr: 1 }}>
 						Hexdelve
 					</Typography>
-					<Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
+					<Typography variant="body2" color="text.secondary">
 						editor
 					</Typography>
+
+					<ToggleButtonGroup
+						size="small"
+						exclusive
+						value={view}
+						sx={{ ml: 1 }}
+						onChange={(_, value: View | null) => value && setView(value)}
+					>
+						<ToggleButton value="yard">Yard</ToggleButton>
+						<ToggleButton value="bench">Character</ToggleButton>
+					</ToggleButtonGroup>
+
+					<Box sx={{ flexGrow: 1 }} />
 
 					<ToggleButtonGroup
 						size="small"
@@ -68,9 +92,15 @@ export function App() {
 			</AppBar>
 
 			<Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
-				<SceneOutline />
-				<Viewport backend={backend} running={running} onClientReady={onClientReady} />
-				<Inspector client={client} />
+				{view === 'yard' ? (
+					<>
+						<SceneOutline />
+						<Viewport backend={backend} running={running} onClientReady={onClientReady} />
+						<Inspector client={client} />
+					</>
+				) : (
+					<Bench backend={backend} running={running} />
+				)}
 			</Box>
 		</Box>
 	);
