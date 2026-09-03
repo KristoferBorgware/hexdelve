@@ -227,6 +227,13 @@ kinds rather than two is the whole design — corridors and rooms may not meet
 except through a tile that has both — so rooms, corridors and doors all fall out
 of one rule.
 
+The tileset is drawn in the panel beside the level — every spec as the hexagon
+it is, once per distinct rotation, with each socket on the edge it belongs to,
+straight out of the solver's own expansion. `npm test` asserts the
+rest: a tileset is the other part of this that fails without telling anyone, and
+a rotation that turns the wrong way, a propagator that is asymmetric, or a tile
+with no legal neighbour all still produce levels that look like dungeons.
+
 They fail in opposite directions, which is the useful result: the cave has no
 concept of a room and never will, and the wave function has no idea whether the
 level is one piece and can fail outright. The bench reports both as numbers
@@ -285,6 +292,7 @@ there, or when there is no browser driver installed.
 |---|---|
 | `picking` | A screen point has to map back to the ground drawn there. A camera basis derived twice is a sign waiting to be got wrong, and nothing throws when it is — the original bug tracked the cursor correctly sideways and moved the aim a third as far up and down. |
 | `blend-tree` | A tree out of phase still produces sensible weights and a valid pose; the only symptom is a character who skates. Pins the thresholds, the calibration, the sync, the additive gain and the mask. |
+| `tiles` | Every mistake available in a WFC tileset still produces levels. A rotation that turns the wrong way bends corridors the wrong way; an asymmetric propagator drifts the solver's supporter counts and makes it ban tiles for no reason; a tile with no legal neighbour is never placed and its weight is a lie. Pins the edge mapping, the rotation cardinalities *and their direction* — turning the wrong way gives the same counts — the propagator's symmetry, and the open mask. |
 | `shaders` | WebGPU marks a bad pipeline invalid rather than throwing, so a broken shader reaches a browser looking healthy and only fails on the first draw. |
 | `render` | None of the above would notice a sign flip that put every shadow on the wrong side of every building, so a picture lives in `test/reference/` and is compared against. |
 | `backends` | The two shader sets are written twice on purpose; this is what stops them drifting apart. Needs a working WebGPU device and usually skips for want of one. |

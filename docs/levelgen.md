@@ -108,6 +108,28 @@ them, and the symmetry the solver depends on —
 asserted, because both questions come out of the same equality between the same
 two sockets.
 
+The panel draws them. Every spec appears as the hexagon it is, once per
+distinct rotation, with each socket on the edge it belongs to — which is how you
+see that `hall` opens east and west rather than being told it, and that it comes
+out as three tiles rather than six. Those glyphs are the solver's own
+`expandTiles` output, not a redrawing of the spec, so a rotation that turned the
+wrong way would show up in the panel as six halls.
+
+`npm test` asserts the rest without a browser, because a tileset is
+the other part of this that fails without telling anyone: every mistake
+available in one still produces levels. A rotation that turns the wrong way
+bends corridors the wrong way, an asymmetric propagator drifts the solver's
+supporter counts and makes it ban tiles it had no reason to, and a tile with no
+legal neighbour in some direction is simply never placed — its weight is a lie
+and nothing says so. None of them throws; all of them look like a dungeon. So
+the check pins the edge mapping (edge `d` faces the neighbour the grid puts in
+direction `d`, which the bench's edge walls stand on too), the rotation
+cardinalities, that a rotation carries edge `d - k` onto edge `d`, the
+propagator's symmetry, that all 61 tiles are placeable, and that the open mask
+the level is built from is the sockets it came from. Flip the sign in the
+rotation and it reports 132 sockets that did not survive it — the tile counts
+alone do not notice, which is why that assertion is separate.
+
 Three socket kinds, and three rather than two is the whole design:
 
 ```
