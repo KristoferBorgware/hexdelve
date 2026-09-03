@@ -39,7 +39,7 @@ attacks against the player are in *Melee Combat*.
 | `depth:` | native level | Level at which it is normal. |
 | `rarity:` | rarity | 1 = common. Allocation weight is ∝ 1/rarity. |
 | `experience:` | exp per level | XP = `experience × monster level / player level` (see *Experience*). |
-| `blow:` | method:effect:dice | Up to 4 blows. See *Melee Combat* 7.9. |
+| `blow:` | method:effect:dice | Up to 4 blows. See *Melee Combat* 7.7. |
 | `flags:` / `flags-off:` | RF_ flags | `flags-off` removes flags inherited from the base. |
 | `innate-freq:` / `spell-freq:` | 1-in-N chances | Innate = breath/missile; spells = everything else. |
 | `spell-power:` | power | Defaults to the monster level. |

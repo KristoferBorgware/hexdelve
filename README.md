@@ -34,6 +34,14 @@ no server needed.**
 Labs 02–09 share one rig and one animation system (lab 08 adds a second rig for
 the bat), and labs 06–09 share one world; see `labs/shared/` below.
 
+## Documentation
+
+- [The Angband Bible](docs/angband/README.md) — a 21-chapter mechanics
+  reference for Angband 4.2.6 derived from its source code: energy and
+  speed, combat, magic, resistances, monsters and their AI, objects, dungeon
+  generation, traps, stores, scoring, and every gamedata file. Written as
+  background reading for the dungeon-crawl side of these experiments.
+
 ## Layout
 
 Two halves that share a subject and nothing else. The **labs** are plain HTML
