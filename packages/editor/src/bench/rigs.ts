@@ -19,12 +19,20 @@ import {
 	BAT_TIPS,
 	buildBat,
 	buildGhoul,
+	buildHellhound,
 	buildWanderer,
 	DUCK,
 	FLAP_PERIOD,
 	flyPose,
 	GUARD,
+	HELLHOUND_SKELETON,
+	HELLHOUND_TIPS,
 	HIPS_Y,
+	HOUND_STAND_Y,
+	HOUND_STRIDE_PERIOD,
+	houndBitePose,
+	houndRestPose,
+	houndRunPose,
 	HOVER_Y,
 	lungePose,
 	perchPose,
@@ -71,6 +79,9 @@ const FORWARD = { x: 0, z: 1 };
  */
 const BREATH_PERIOD = TAU / 1.8;
 const PERCH_BREATH = TAU / 1.5;
+/** How fast the hellhound breathes standing still, and lying down. */
+const HOUND_BREATH = TAU / 1.7;
+const HOUND_REST_BREATH = TAU / 1.4;
 
 /**
  * Everything that poses the humanoid rig, regardless of who is wearing it.
@@ -160,7 +171,38 @@ function batRig(): BenchRig {
 }
 
 /** Everything the bench knows how to show, in the order the outline lists it. */
-export const BENCH_RIGS: readonly BenchRig[] = [wandererRig(), ghoulRig(), batRig()];
+function hellhoundRig(): BenchRig {
+	let built: Model | null = null;
+	const BITE_PERIOD = 0.85;
+
+	return {
+		id: 'hellhound',
+		label: 'Hellhound',
+		skeleton: HELLHOUND_SKELETON,
+		tips: HELLHOUND_TIPS,
+		focusY: HOUND_STAND_Y,
+		frameDistance: 5.2,
+		model: () => (built ??= buildHellhound()),
+		animations: [
+			procedural('idle', 'Idle', HOUND_BREATH, true, (t, out) => houndRunPose(0, 0, t, out)),
+			procedural('run', 'Run', HOUND_STRIDE_PERIOD, true, (t, out) =>
+				houndRunPose((t / HOUND_STRIDE_PERIOD) * TAU, 1, t, out),
+			),
+			procedural('bite', 'Bite', BITE_PERIOD, false, (t, out) =>
+				houndBitePose(t / BITE_PERIOD, out),
+			),
+			procedural('rest', 'Rest', HOUND_REST_BREATH, true, (t, out) => houndRestPose(t, out)),
+		],
+	};
+}
+
+/** Everything the bench knows how to show, in the order the outline lists it. */
+export const BENCH_RIGS: readonly BenchRig[] = [
+	wandererRig(),
+	ghoulRig(),
+	batRig(),
+	hellhoundRig(),
+];
 
 export function findRig(id: string): BenchRig {
 	return BENCH_RIGS.find((rig) => rig.id === id) ?? BENCH_RIGS[0]!;
