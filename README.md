@@ -73,6 +73,10 @@ npm run dev:client      # the client on its own
 npm run build           # every package
 npm run typecheck       # every package, no output
 npm run build:pages     # build, then stage the whole site in dist/pages
+npm run check:picking   # does a point on screen map back to the point drawn there
+npm run check:blend     # does the blend tree blend what it says it does
+npm run check:shaders   # do both shader sets compile and both pipeline sets build
+npm run check:render    # does the yard still look like the stored picture
 ```
 
 npm workspaces, so one `npm install` at the root wires the five packages
@@ -118,9 +122,50 @@ animation, play it, scrub it, slow it down, ghost the body to see the rig
 through it, mark a bone and read where the pose put it. What it is built around
 is the smallest thing every animation in this project has in common — a
 duration, and a function from a time to a pose. A keyframed clip is one of
-those, and so is the procedural stride, which has no keys at all; a blend tree
-will be another, and when it arrives it becomes one more entry in the list with
-parameters of its own, and the transport does not change.
+those; so is the procedural stride, which has no keys at all; and so is a blend
+tree, which is a function of its parameters. Gaining trees did not change the
+transport, only what is underneath it.
+
+### Blend trees
+
+`@hexdelve/engine` carries the tree itself, next to the poses and clips it is
+made of, because nothing in it knows what a renderer is. Three operations:
+
+| | |
+|---|---|
+| `blend1d` | the two children bracketing a parameter, weighted by where it falls between their thresholds |
+| `additive` | a subtree laid **on top of** another. A sum, because every value here is already a delta from rest, so the same lean composes with every gait instead of being authored once per gait |
+| `layer` | a subtree blended in through a per-bone **mask** — how this game carries a shield while walking: the arms hold a stance and the hips go on with the stride |
+
+A leaf is not a clip. It is anything that can answer "the pose at *t*", which
+here means a keyframed clip **or** a pose function — half the animation in this
+project is a function of an angle and has no keys at all.
+
+The interesting part is not the weighting, it is **phase synchronisation**. Two
+cycles of different lengths, run on their own clocks and mixed, put a
+character's legs in two places at once, and the average of a foot planting and
+a foot lifting is a foot skating. So the synced leaves share one normalised
+phase, are stretched onto the weighted blend of their own cycle lengths, and are
+each offset by their own contact phase so the footfalls land together. The
+bench has a toggle to take that away, and a readout that says what it cost.
+
+Thresholds on the speed axis are metres per second, and they are **measured**
+rather than typed: `measureGroundSpeed` asks the pose where the planted foot is
+at the two contact keys, which is the same argument the stride's own velocity
+rests on and now the same code. So the bench can show the asked-for speed
+against the delivered one, and the gap in between two thresholds is the honest
+error a calibration pass would remove. A bench should show that, not hide it.
+
+`npm run check:blend` asserts all of that without a browser, because a blend
+tree is the part of an animation system that fails without telling anyone:
+nothing throws when two gaits drift apart. The weights stay sensible, the pose
+stays valid, the man still walks — he just skates. So the check pins the
+thresholds (at a leaf's own threshold the tree must *be* that leaf, same cycle
+and same speed), the sync (zero spread across the whole axis, and never
+travelling backwards), the additive gain (0 changes nothing, ½ adds half, 1 adds
+the layer whole) and the mask (the upper body takes the guard, the legs go on
+striding). Take the contact phase out and it reports him walking backwards at
+half a metre a second.
 
 **`@hexdelve/desktop`** opens an Electron window on the client's own web build.
 No desktop-only rendering path and no desktop-only game code, so what ships on
@@ -431,3 +476,10 @@ and their feet slide the rest of it.
 Lab 09 measures the second way and travels at the speed its stride makes, which
 is why the same character is quicker there. The older labs are left as they are:
 changing the measurement would move every speed in six of them.
+
+The packages only ever measure the second way. `measureGroundSpeed` in
+`@hexdelve/engine` shares the labs' name and none of its method: it is given the
+contact schedule rather than hunting for contact by height, which is what the
+stride's own velocity has always done and now the only copy of that argument.
+Blend-tree thresholds are read off it, so a threshold in the editor's bench is a
+real metre per second.
