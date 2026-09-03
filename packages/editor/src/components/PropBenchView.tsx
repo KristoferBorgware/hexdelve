@@ -22,7 +22,12 @@ import Box from '@mui/material/Box';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BackendPreference } from '@hexdelve/engine';
 
-import { WEARER, type PropBench, type PropDisplay, type PropShow } from '../bench/PropBench.js';
+import {
+	WEARER_DEFAULT,
+	type PropBench,
+	type PropDisplay,
+	type PropShow,
+} from '../bench/PropBench.js';
 import { BENCH_PROPS, type BenchProp } from '../bench/props.js';
 import type { BenchAnimation } from '../bench/rigs.js';
 import { defaultStats, isEdited, type PropStats, type PropStatValue } from '../bench/stats.js';
@@ -41,7 +46,7 @@ export function PropBenchView({ backend, running }: PropBenchViewProps) {
 	const [bench, setBench] = useState<PropBench | null>(null);
 	const [prop, setProp] = useState<BenchProp>(BENCH_PROPS[0]!);
 	const [display, setDisplay] = useState<PropDisplay>('stand');
-	const [animation, setAnimation] = useState<BenchAnimation>(WEARER.animations[0]!);
+	const [animation, setAnimation] = useState<BenchAnimation>(WEARER_DEFAULT);
 	const [selectedPart, setSelectedPart] = useState<number | null>(null);
 	const [show, setShow] = useState<PropShow>(DEFAULT_SHOW);
 	const [edits, setEdits] = useState<Record<string, PropStats>>({});
