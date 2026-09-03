@@ -18,6 +18,7 @@ import {
 	BAT_SKELETON,
 	BAT_TIPS,
 	buildBat,
+	buildGhoul,
 	buildWanderer,
 	DUCK,
 	FLAP_PERIOD,
@@ -71,6 +72,35 @@ const FORWARD = { x: 0, z: 1 };
 const BREATH_PERIOD = TAU / 1.8;
 const PERCH_BREATH = TAU / 1.5;
 
+/**
+ * Everything that poses the humanoid rig, regardless of who is wearing it.
+ *
+ * The wanderer and the ghoul are the same seventeen bones under two different
+ * bodies, so the tree, the stride and every clip in this list read on either
+ * one unchanged — which is the whole argument for building a second body
+ * rather than a second rig. Called once per subject rather than shared,
+ * because each subject's blend tree keeps its own playhead and its own
+ * calibration sweep, and two subjects sharing one would fight over both the
+ * moment either one was on the stand.
+ */
+function humanoidAnimations(): BenchAnimation[] {
+	return [
+		wandererTree(),
+		procedural('idle', 'Idle', BREATH_PERIOD, true, (t, out) =>
+			stridePose(0, 0, FORWARD, 0, t, out),
+		),
+		procedural('walk', 'Walk', WALK_PERIOD, true, (t, out) =>
+			stridePose((t / WALK_PERIOD) * TAU, 1, FORWARD, 0, t, out),
+		),
+		procedural('run', 'Run', RUN_PERIOD, true, (t, out) =>
+			stridePose((t / RUN_PERIOD) * TAU, 1, FORWARD, 1, t, out),
+		),
+		clipAnimation(GUARD, SKELETON, 'Guard'),
+		clipAnimation(SLASH, SKELETON, 'Slash'),
+		clipAnimation(DUCK, SKELETON, 'Duck'),
+	];
+}
+
 function wandererRig(): BenchRig {
 	let built: Model | null = null;
 
@@ -82,21 +112,22 @@ function wandererRig(): BenchRig {
 		focusY: HIPS_Y,
 		frameDistance: 4.2,
 		model: () => (built ??= buildWanderer()),
-		animations: [
-			wandererTree(),
-			procedural('idle', 'Idle', BREATH_PERIOD, true, (t, out) =>
-				stridePose(0, 0, FORWARD, 0, t, out),
-			),
-			procedural('walk', 'Walk', WALK_PERIOD, true, (t, out) =>
-				stridePose((t / WALK_PERIOD) * TAU, 1, FORWARD, 0, t, out),
-			),
-			procedural('run', 'Run', RUN_PERIOD, true, (t, out) =>
-				stridePose((t / RUN_PERIOD) * TAU, 1, FORWARD, 1, t, out),
-			),
-			clipAnimation(GUARD, SKELETON, 'Guard'),
-			clipAnimation(SLASH, SKELETON, 'Slash'),
-			clipAnimation(DUCK, SKELETON, 'Duck'),
-		],
+		animations: humanoidAnimations(),
+	};
+}
+
+function ghoulRig(): BenchRig {
+	let built: Model | null = null;
+
+	return {
+		id: 'ghoul',
+		label: 'Ghoul',
+		skeleton: SKELETON,
+		tips: TIPS,
+		focusY: HIPS_Y,
+		frameDistance: 4.2,
+		model: () => (built ??= buildGhoul()),
+		animations: humanoidAnimations(),
 	};
 }
 
@@ -129,7 +160,7 @@ function batRig(): BenchRig {
 }
 
 /** Everything the bench knows how to show, in the order the outline lists it. */
-export const BENCH_RIGS: readonly BenchRig[] = [wandererRig(), batRig()];
+export const BENCH_RIGS: readonly BenchRig[] = [wandererRig(), ghoulRig(), batRig()];
 
 export function findRig(id: string): BenchRig {
 	return BENCH_RIGS.find((rig) => rig.id === id) ?? BENCH_RIGS[0]!;
