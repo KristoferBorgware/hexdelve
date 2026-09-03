@@ -39,6 +39,7 @@ export {
 	readChoice,
 	CAVE_STACK,
 	WFC_STACK,
+	ROOM_STACK,
 	DUNGEON_TILES,
 	expandTiles,
 	buildPropagator,

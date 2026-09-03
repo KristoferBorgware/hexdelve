@@ -51,8 +51,16 @@ import { BenchControls } from './BenchControls.js';
 const TILE_RADIUS = 0.985;
 /** How thick the floor slab is, and therefore where everything stands. */
 const FLOOR_DEPTH = 0.14;
-/** How tall solid rock is above that floor. */
-const ROCK_HEIGHT = 0.95;
+/**
+ * How tall solid rock is above that floor.
+ *
+ * Lower than it wants to be, and the room stack is why. A corridor there is one
+ * tile wide with rock on both sides, and at the isometric pitch a trench that
+ * deep is a black slot: the level reads as rooms with nothing joining them,
+ * which is the opposite of what the picture is for. Tall enough to read as a
+ * wall, short enough to see the floor of a passage between two of them.
+ */
+const ROCK_HEIGHT = 0.62;
 /** A wall on the edge between two floor tiles the tileset left shut. */
 const EDGE_WALL_HEIGHT = 0.62;
 const EDGE_WALL_THICKNESS = 0.17;

@@ -221,23 +221,105 @@ At radius 24 (1,801 cells) a run costs roughly 90 ms and typically wants two to
 four seeds, so 350 ms in the bad case. That is fine for a bench and would need
 moving off the main thread for a game.
 
-## Where this leaves the two
+## Stack three — rooms, sites and a graph
 
-They fail in opposite directions, which is the useful result:
+The other two stacks each make **one kind of space** and vary it. The noise band
+makes passage everywhere and widens it; the wave function makes tiles that
+happen to clump. Neither builds a level out of *places*. This one does nothing
+else.
 
-|  | cave | WFC |
-| --- | --- | --- |
-| rooms | none, ever | yes |
-| corridor width | a knob | exactly one tile |
-| doors | no concept | yes |
-| connectivity | often one piece | rarely one piece |
-| cost | ~5 ms | ~60 ms, can fail |
-| tuning surface | two numbers | thirteen weights, thirteen socket rows |
+It also has no partial hexagons anywhere in it: a room is a cluster of whole
+hexes, a corridor is a chain of them, and a wall is rock — which is a hexagon,
+the same as everything else on the grid.
 
-Neither is finished. The gap they share is the interesting one: **neither can
-say anything about the level as a whole.** No lock and key, no "the exit is
-behind the room with the three doors", no difficulty gradient. Both are local
-rules that happen to produce a global shape.
+**Scatter.** Room sites are thrown at the disc and rejected if they land too
+close to one already placed — dart throwing, the cheap half of Poisson-disc
+sampling. Sizes are drawn per room and the **big ones are placed first**: placing
+them in draw order strands the large rooms, because by the time one is tried the
+disc is full of small ones and the only gaps left are small.
+
+The rejection radius is `reach(a) + reach(b) + 2`, using each room's *nominal*
+reach rather than its worst case. Using the worst case is the obvious thing and
+it is wrong twice: it doubles the exclusion radius against a coincidence needing
+the noise at its extreme in exactly the spot two rooms face each other, and a
+radius-13 disc then holds three rooms when it was asked for twelve. And the
+coincidence is not a fault — two rooms whose edges bulge into each other merge
+into one larger lobed chamber, which is a shape nothing else in the stack can
+produce.
+
+**Grow.** A cell is floor if it is within a room's reach, and the reach is the
+room's size pushed about by a coherent noise field — the cave stack's own value
+noise, read at 4.5 tiles per lattice cell, **one octave**. The octave count is
+load-bearing. Two octaves at that scale puts the second at a wavelength under
+two tiles, finer than the grid it is sampled on; the reach then changes by more
+than a tile's worth between neighbours and rooms grow single stray hexes with
+gaps behind them. That is fringe, not lobes, and turning `ragged` down does not
+fix it — not asking the field for detail the grid cannot hold does.
+
+**Link.** This is the interesting decision and it is two decisions, not one.
+
+The **minimum spanning tree** (Prim's, over the complete graph of sites) is the
+guarantee: the cheapest set of corridors reaching every room, and being a tree
+it can never be redundant. It is also, alone, a bad level — one route between
+any two rooms, so every dead end is a walk back the way you came.
+
+The **extra edges** fix that, and where they come from matters more than how
+many. Taken from the complete graph they cut clean across the map between rooms
+that are nowhere near each other, so both options are *proximity* graphs:
+
+| | `a—b` survives if |
+| --- | --- |
+| **neighbourhood** (RNG) | no third room is closer to *both* a and b than they are to each other |
+| **gabriel** | no third room lies inside the circle with `ab` as its diameter |
+
+Gabriel is a superset of the neighbourhood graph and of the spanning tree, so it
+offers strictly more to choose from — it is the default. Both are computed
+straight from the definition in O(n³) rather than by building a Delaunay
+triangulation and filtering it: with a dozen rooms that is a few thousand
+comparisons, and a Delaunay implementation is several hundred lines that would
+earn their place at a thousand sites and not at twelve. (`MST ⊆ RNG ⊆ Gabriel ⊆
+Delaunay`, so nothing is lost but the outermost layer.)
+
+`loops` is the share of those candidates added on top of the tree. It is
+shuffled and cut rather than filtered by a coin per edge, so the count is exactly
+the share asked for instead of that share on average — a slider that sometimes
+does nothing at 0.1 is a slider nobody trusts.
+
+**Dig.** Each link is walked one hex at a time from one site to the other. The
+directions that get closest are collected and one is taken at random; on a hex
+grid there are usually two, so the walk wanders a little without being asked to,
+which is why a hex corridor looks hand-drawn where a square one looks like a
+staircase. `wiggle` is the chance of a sideways step instead. Cells already
+floor are left alone, which is what makes a corridor stop at a room rather than
+draw a stripe across it — and it costs nothing to arrange, because the walk
+starts inside one room and ends inside the other.
+
+At radius 20 it produces ~26% floor in about 10 ms, and it is the only stack
+here that comes out in one piece before the stitcher touches it — the spanning
+tree is that guarantee, made in the algorithm rather than after it.
+
+## Where this leaves the three
+
+|  | cave | WFC | rooms |
+| --- | --- | --- | --- |
+| rooms | none, ever | yes | yes, as first-class objects |
+| corridor width | a knob | exactly one tile | exactly one tile |
+| connectivity | often one piece | rarely one piece | **one piece by construction** |
+| cost | ~5 ms | ~60 ms, can fail | ~10 ms |
+| tuning surface | two numbers | thirteen weights and socket rows | six knobs |
+| partial hexagons | none | **walls on edges** | none |
+
+The rooms stack wins on every row that matters for an ARPG-shaped level, and it
+wins for a structural reason rather than a tuning one: it is the only one that
+**decides where the places are before deciding what any hexagon is**. Both of
+the others hope structure falls out of a local rule, and structure does not fall
+out of local rules.
+
+What all three still share is that **none of them can say anything about the
+level as a whole** beyond connectivity. No lock and key, no "the exit is behind
+the room with the three doors", no difficulty gradient. The rooms stack is the
+one positioned to gain that, because it already has a graph of rooms to hang it
+on — which is what item 6 below is about.
 
 ## What to consider next
 
@@ -249,7 +331,12 @@ does the same thing and calls it `ensure_connectedness`
 mattered as much as the step, since running it after the generator rather than
 inside it is what lets every profile that game has inherit it.
 
-**2. Room-and-corridor.** The classic, and the one Angband uses;
+**2. Rectangular rooms and traditional tunnelling.** The rooms stack scatters
+and grows; Angband *places builders* and tunnels between their centres in a
+shuffled cycle, and the difference shows in the output — its rooms have straight
+walls and can be read from a file as vaults. Worth having as a fourth stack
+rather than as a replacement.
+`docs/angband/16-dungeon-generation.md` is a chapter on a shipped one;
 `docs/angband/16-dungeon-generation.md` is a chapter-length description of a
 shipped implementation and should be read before writing this stack. Place rooms
 from a weighted table of *builders* (§16.2.2), then connect their centres in a
@@ -268,12 +355,10 @@ special-case, which is the reason this project uses hexes at all.
 **Brogue-style accretion** — place one room, attach the next to a door on the
 frontier, repeat — is the same family and suits an irregular disc even better.
 
-**3. Delaunay + minimum spanning tree (the "TinyKeep" recipe).** Scatter room
-centres, push them apart until they stop overlapping, triangulate the centres,
-take the MST, then add back a small fraction of the discarded edges. The MST
-guarantees connection; the added edges are what stop a dungeon being a tree, and
-the fraction is a single readable knob for "how many loops". Pairs well with
-either room placer above.
+~~**3. Delaunay + minimum spanning tree.**~~ **Done** — see *Rooms, sites and a
+graph* above, with Gabriel and relative-neighbourhood graphs standing in for the
+Delaunay triangulation, which they are subsets of and which needs several
+hundred lines this does not.
 
 **4. Hex cellular automata.** The other classic cave generator, and genuinely
 different from stack one: seed noise at random, then repeatedly set each cell to
