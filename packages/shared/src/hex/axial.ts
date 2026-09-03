@@ -13,6 +13,14 @@
 
 export const SQRT3 = Math.sqrt(3);
 
+/**
+ * Distance between neighbouring tile centres, at size 1.
+ *
+ * The one number that turns a grid step into metres, which is what anything
+ * moving between hexagons — or timing how long that should take — needs.
+ */
+export const HEX_SPACING = SQRT3;
+
 export interface Axial {
 	readonly q: number;
 	readonly r: number;

@@ -53,7 +53,7 @@ window.run = async (backend) => {
 		canvas: document.querySelector('#c'),
 		backend, seed: 37, msaa: false,
 		autoStart: false, autoResize: false, controls: false,
-		toggles: { follow: false, vectors: false, paths: false, skeleton: false, ik: true },
+		toggles: { follow: false, routes: false, skeleton: false, ik: true },
 	});
 
 	// A camera nobody can nudge, so the only thing left to differ is the drawing.

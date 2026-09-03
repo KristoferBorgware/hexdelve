@@ -278,3 +278,90 @@ export function strideVelocity(dir: Direction, amp = 1, gait = 0): StrideVelocit
 		{ contactPhase: STRIDE_CONTACTS[0] },
 	);
 }
+
+/**
+ * The calibration run backwards: the stride that carries him at a given speed.
+ *
+ * Lab 09 asked the pose how fast a throttle and a gait were worth. A world on
+ * a turn clock needs the opposite question, because there the speed is not
+ * his to choose — one action moves him one hexagon, and how long that action
+ * lasts is fixed by his place in the energy table. So the distance and the
+ * time are both given, and what has to be solved for is the walk that covers
+ * exactly that ground.
+ *
+ * One monotone line covers everything the rig can do, from a crawl to a
+ * sprint, in two pieces that meet at a full-length walk:
+ *
+ *   slower than a walk   shorten the stride (`amp`), keeping the walk's rate
+ *   faster than a walk   blend towards the run (`gait`), keeping full length
+ *
+ * Which is what anybody does. You do not walk to the shops in slow motion;
+ * you take smaller steps. And the point of solving it rather than tabulating
+ * it is that speed is now a game rule with a visible consequence: haste a man
+ * by +10 in the energy table and he breaks into a run here, because covering
+ * a hexagon in half the time is the only thing that number can mean.
+ *
+ * Bisection rather than algebra because `strideVelocity` is a measurement of a
+ * seventeen-bone solve, not a formula to invert. It is monotone in both
+ * parameters, so bisection is exact to as many digits as anyone wants; this is
+ * a once-per-actor cost, not a per-frame one.
+ */
+
+const FORWARD: Direction = { x: 0, z: 1 };
+
+/** Below this the stride is a shuffle in place, and shortening it further only stalls. */
+const MIN_AMP = 0.06;
+
+export interface StrideSetting {
+	/** 0 standing, 1 a full-length stride. */
+	readonly amp: number;
+	/** 0 walking, 1 running. */
+	readonly gait: number;
+	/** What that setting actually carries him at, in m/s. */
+	readonly speed: number;
+	/**
+	 * What is left over, in m/s: asked-for minus achieved. Zero everywhere the
+	 * rig can reach, and positive only past a full run, where the feet have to
+	 * slide because there is no more leg.
+	 */
+	readonly slip: number;
+}
+
+/** Forward speed at a full-length walk, in m/s. The clock is set from this. */
+export const WALK_SPEED = strideVelocity(FORWARD, 1, 0).z;
+/** Forward speed at a full run. Past this the feet slide. */
+export const RUN_SPEED = strideVelocity(FORWARD, 1, 1).z;
+
+export function strideFor(target: number): StrideSetting {
+	if (target <= 0) return { amp: 0, gait: 0, speed: 0, slip: 0 };
+
+	const settle = (amp: number, gait: number): StrideSetting => {
+		const speed = strideVelocity(FORWARD, amp, gait).z;
+		return { amp, gait, speed, slip: Math.max(0, target - speed) };
+	};
+
+	if (target >= RUN_SPEED) return settle(1, 1);
+
+	let lo: number;
+	let hi: number;
+	let at: (t: number) => StrideSetting;
+
+	if (target >= WALK_SPEED) {
+		// Between a walk and a run: blend the gait.
+		lo = 0;
+		hi = 1;
+		at = (t) => settle(1, t);
+	} else {
+		// Slower than a walk: shorten the step.
+		lo = MIN_AMP;
+		hi = 1;
+		at = (t) => settle(t, 0);
+	}
+
+	for (let i = 0; i < 24; i++) {
+		const mid = (lo + hi) / 2;
+		if (at(mid).speed < target) lo = mid;
+		else hi = mid;
+	}
+	return at((lo + hi) / 2);
+}
