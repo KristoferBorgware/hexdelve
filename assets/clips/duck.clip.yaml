@@ -1,0 +1,62 @@
+# The stoop, used for picking something up off the grass.
+#
+# It holds at the bottom rather than springing back, so he rises by blending
+# out of it into the stride instead of playing it backwards.
+#
+# Two rules keep the poses grounded, and the numbers below follow them:
+#   a foot stays flat when      foot.x ~ -(hip.x + shin.x)
+#   bending the knees lowers the hips AND pushes them forward, so a crouch
+#   carries a matching negative root pos.y and pos.z.
+
+id: duck
+name: Duck
+rig: ../rigs/humanoid.rig.yaml
+duration: 0.85
+loop: hold
+
+constants:
+  # A relaxed arm still has a little bend in it.
+  elbow: -0.3
+
+poses:
+  - t: 0
+    bones:
+      root: { pos: [0, 0, 0] }
+      spine: [0.03, 0, 0]
+      chest: [0.02, 0, 0]
+      head: [0, 0, 0]
+      armL: [0, 0, 0.06]
+      armR: [0, 0, -0.06]
+      forearmL: [elbow, 0, 0]
+      forearmR: [elbow, 0, 0]
+      hipL: [-0.04, 0, 0.06]
+      hipR: [-0.04, 0, -0.06]
+      shinL: [0.07, 0, 0]
+      shinR: [0.07, 0, 0]
+      footL: [-0.03, 0, 0]
+      footR: [-0.03, 0, 0]
+
+  - t: 0.34
+    bones:
+      root: { pos: [0, -0.375, -0.15] }
+      spine: [0.3, 0, 0]
+      chest: [0.18, 0, 0]
+      head: [-0.14, 0, 0]
+      armL: [-0.9, 0, 0.35]
+      armR: [-0.9, 0, -0.35]
+      forearmL: [-1.3, 0, 0]
+      forearmR: [-1.3, 0, 0]
+      hipL: [-1.25, 0, 0.12]
+      hipR: [-1.25, 0, -0.12]
+      shinL: [2, 0, 0]
+      shinR: [2, 0, 0]
+      footL: [-0.75, 0, 0]
+      footR: [-0.75, 0, 0]
+
+  # Flat on the way in, so the hold holds instead of overshooting.
+  - t: 0.85
+    ease: flat
+    bones:
+      root: { pos: [0, -0.365, -0.15] }
+      chest: [0.2, 0, 0]
+      head: [-0.12, 0, 0]

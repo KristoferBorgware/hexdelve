@@ -1,0 +1,112 @@
+# The ghoul: hexagonal prisms on the humanoid rig.
+#
+# Same bones, same trick, same rig as the wanderer — a body is still nothing
+# but the unit hex prism under a different scale and rotation, bound to a bone.
+# What changes is what gets hung on it: where he was built up in layers of
+# cloth, the ghoul is built down to what is left once most of them have rotted
+# away — a gaunt frame, bone showing through torn skin at the chest and one
+# cheek, and a single ragged wrap at the waist held on by a cord. Every clip
+# and the locomotion tree both read on him unchanged, because nothing here is
+# animated directly and the rig underneath is the wanderer's own.
+#
+# Hands and feet end in claws rather than fingers and toes — three thin struts
+# fanned from the wrist and the ankle, the same primitive the wings and the
+# sword blade already use, not a new one.
+
+id: ghoul
+name: Ghoul body
+rig: ../rigs/humanoid.rig.yaml
+
+constants:
+  # The five torn strips round the hem, at even angles from a quarter turn off
+  # the front — written as the fractions of a circle they are.
+  strip0: (0 / 5) * tau + 0.3
+  strip1: (1 / 5) * tau + 0.3
+  strip2: (2 / 5) * tau + 0.3
+  strip3: (3 / 5) * tau + 0.3
+  strip4: (4 / 5) * tau + 0.3
+
+palette:
+  skin: 0x8ea88a
+  skinDark: 0x71896f
+  bone: 0xe2d9bc
+  boneDark: 0xb9ad8d
+  wound: 0x38221e
+  eye: 0x120f0c
+  rag: 0xa9865a
+  ragDark: 0x836b47
+  cord: 0x4a3826
+  claw: 0xcdbd8d
+  hair: 0x413b34
+
+parts:
+  # Pelvis: nothing left to wear but one ragged wrap, tied on with a cord —
+  # there is no belt because there is no waistband it could sit on any more.
+  - { bone: root, at: [0, -0.02, 0], size: [0.185, 0.2, 0.15], color: rag }
+  - { bone: root, at: [0, 0.055, 0.01], size: [0.2, 0.05, 0.155], color: ragDark }
+  - { bone: root, at: [0, 0.015, 0.16], size: [0.05, 0.055, 0.018], color: cord }
+
+  # Torn strips at angles round the hem, the greave trick turned loose: a stack
+  # of plates reads as armour, a fan of scraps at uneven lengths and tilts
+  # reads as cloth that is falling apart rather than made that way.
+  - { bone: root, at: [sin(strip0) * 0.14, -0.135, cos(strip0) * 0.11], size: [0.038, 0.1, 0.016], euler: [0.15, strip0, -0.1], color: rag }
+  - { bone: root, at: [sin(strip1) * 0.14, -0.165, cos(strip1) * 0.11], size: [0.038, 0.145, 0.016], euler: [0.15, strip1, 0.1], color: ragDark }
+  - { bone: root, at: [sin(strip2) * 0.14, -0.135, cos(strip2) * 0.11], size: [0.038, 0.1, 0.016], euler: [0.15, strip2, -0.1], color: rag }
+  - { bone: root, at: [sin(strip3) * 0.14, -0.165, cos(strip3) * 0.11], size: [0.038, 0.145, 0.016], euler: [0.15, strip3, 0.1], color: ragDark }
+  - { bone: root, at: [sin(strip4) * 0.14, -0.135, cos(strip4) * 0.11], size: [0.038, 0.1, 0.016], euler: [0.15, strip4, -0.1], color: rag }
+
+  # Torso: a gaunt cage rather than a chest. The sternum has torn open and
+  # stayed that way, which is the wound the whole silhouette reads from — a
+  # dark cavity set back of the skin, with a course of exposed ribs crossing
+  # it, each a little shorter than the one above.
+  - { bone: spine, at: [0, 0.0, 0], size: [0.155, 0.22, 0.12], color: skin }
+  - { bone: chest, at: [0, 0.02, 0], size: [0.175, 0.32, 0.13], color: skin }
+  - { bone: chest, at: [-0.1, 0.15, 0.015], size: [0.09, 0.13, 0.11], color: skinDark }
+  - { bone: chest, at: [0.01, 0.03, 0.05], size: [0.09, 0.22, 0.028], color: wound }
+  - { bone: chest, at: [0.01, 0.16, 0.075], size: [0.075, 0.026, 0.018], color: bone }
+  - { bone: chest, at: [0.01, 0.16 - 1 * 0.09, 0.075], size: [0.075 - 1 * 0.006, 0.026, 0.018], color: boneDark }
+  - { bone: chest, at: [0.01, 0.16 - 2 * 0.09, 0.075], size: [0.075 - 2 * 0.006, 0.026, 0.018], color: bone }
+  - { bone: chest, at: [0.01, 0.16 - 3 * 0.09, 0.075], size: [0.075 - 3 * 0.006, 0.026, 0.018], color: boneDark }
+
+  # The one scrap of what was once a shirt, hanging off a shoulder that still
+  # has skin on it.
+  - { bone: chest, at: [-0.13, 0.1, 0.02], size: [0.058, 0.14, 0.09], euler: [0.1, 0, 0.35], color: ragDark }
+
+  # Neck and head: sunken eyes, a lipless jaw, bone showing through one torn
+  # cheek, and a few tufts of hair left over the rest of a bald skull.
+  - { bone: neck, at: [0, 0.0, 0], size: [0.058, 0.13, 0.058], color: skin }
+  - { bone: head, at: [0, 0.01, 0], size: [0.135, 0.19, 0.125], color: skin }
+  - { bone: head, at: [0.045, 0.03, 0.115], size: [0.032, 0.028, 0.02], color: eye }
+  - { bone: head, at: [-0.045, 0.03, 0.115], size: [0.032, 0.028, 0.02], color: eye }
+  - { bone: head, at: [0, -0.09, 0.09], size: [0.075, 0.045, 0.075], color: bone }
+  - { bone: head, at: [0, -0.075, 0.125], size: [0.07, 0.016, 0.02], color: boneDark }
+  - { bone: head, at: [0.075, -0.02, 0.06], size: [0.045, 0.055, 0.02], euler: [0, 0.3, 0], color: bone }
+  - { bone: head, at: [0.02, 0.12, -0.06], size: [0.05, 0.03, 0.05], color: hair }
+  - { bone: head, at: [-0.06, 0.1, -0.03], size: [0.03, 0.025, 0.03], color: hair }
+
+  # Arms: thin to the bone, bare, an elbow worn through — and hands that end
+  # in claws rather than fingers. The fan is uneven because the claw
+  # directions are not unit vectors: a claw is as long as its own vector says.
+  - sides: [L, R]
+    parts:
+      - { bone: 'arm*', at: [0, -0.14, 0], size: [0.052, 0.3, 0.052], color: skin }
+      - { bone: 'arm*', at: [0, -0.3, 0], size: [0.038, 0.09, 0.038], color: bone }
+      - { bone: 'forearm*', at: [0, -0.13, 0], size: [0.045, 0.24, 0.045], color: skin }
+      - { bone: 'forearm*', at: [0, -0.26, 0], size: [0.05, 0.05, 0.05], color: skinDark }
+      - { bone: 'hand*', at: [0, -0.02, 0], size: [0.045, 0.06, 0.04], color: skin }
+      - { bone: 'hand*', from: [0, -0.05, 0.01], along: [-0.4, -1, 0.3], length: 0.09, radius: 0.013, color: claw, mirror: true }
+      - { bone: 'hand*', from: [0, -0.05, 0.01], along: [0, -1, 0.5], length: 0.09, radius: 0.013, color: claw, mirror: true }
+      - { bone: 'hand*', from: [0, -0.05, 0.01], along: [0.4, -1, 0.3], length: 0.09, radius: 0.013, color: claw, mirror: true }
+
+  # Legs: bare and skeletal — one shin worn through to bone the same way the
+  # elbow is — and feet that end in claws the same way the hands do. These
+  # claws are symmetric about the centre line, so they do not mirror.
+  - sides: [L, R]
+    parts:
+      - { bone: 'hip*', at: [0, -0.2, 0], size: [0.07, 0.36, 0.07], color: skin }
+      - { bone: 'shin*', at: [0, -0.16, 0], size: [0.055, 0.3, 0.055], color: skin }
+      - { bone: 'shin*', at: [0, -0.05, 0.045], size: [0.03, 0.07, 0.014], euler: [0.15, 0, 0], color: bone }
+      - { bone: 'foot*', at: [0, -0.05, 0.03], size: [0.055, 0.06, 0.09], color: skinDark }
+      - { bone: 'foot*', from: [0, -0.075, 0.12], along: [-0.5, -0.3, 1], length: 0.1, radius: 0.013, color: claw }
+      - { bone: 'foot*', from: [0, -0.075, 0.12], along: [0, -0.2, 1], length: 0.1, radius: 0.013, color: claw }
+      - { bone: 'foot*', from: [0, -0.075, 0.12], along: [0.5, -0.3, 1], length: 0.1, radius: 0.013, color: claw }

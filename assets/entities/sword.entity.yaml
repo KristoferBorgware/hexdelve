@@ -1,0 +1,21 @@
+# The sword.
+#
+# Modelled around the origin of the fist that holds it, so worn its transform
+# is the identity. Put down it lies flat, which is the one number that
+# separates it from the helmet.
+
+id: sword
+name: Sword
+kind: prop
+tags: [weapon]
+blurb: Straight blade, cross guard
+
+mesh: ../meshes/sword.mesh.yaml
+
+attach:
+  rig: ../rigs/humanoid.rig.yaml
+  bone: handR
+
+ground:
+  lift: 0.04
+  tilt: pi / 2

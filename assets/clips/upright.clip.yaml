@@ -1,0 +1,16 @@
+# The middle of the lean blend: no lean at all, and nothing else either.
+#
+# It exists so the turn axis has something to be at zero. A blend1d needs a
+# child at every threshold it interpolates through, and "no bank" is a real
+# pose rather than an absence — the rest pose, said explicitly.
+
+id: upright
+name: Upright
+rig: ../rigs/humanoid.rig.yaml
+duration: 0.1
+loop: hold
+
+poses:
+  - t: 0
+    bones:
+      root: [0, 0, 0]

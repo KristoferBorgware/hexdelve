@@ -1,0 +1,35 @@
+# The player character.
+#
+# This is the root file: it says which rig, which body, which animations and
+# which trees belong to each other, and it is the only file in the set that
+# names paths. Everything below it is either a description of one thing or, in
+# the trees' case, an arrangement over names this file defines — which is what
+# lets the ghoul beside him reuse both the rig and the tree unchanged.
+
+id: wanderer
+name: Wanderer
+kind: character
+blurb: Grey-bearded traveller, empty-handed
+
+rig: ../rigs/humanoid.rig.yaml
+mesh: ../meshes/wanderer.mesh.yaml
+
+animations:
+  # The gait is one function at three settings rather than three animations:
+  # `amp` is the throttle between standing and a full stride, `gait` between a
+  # walk and a run. The durations are the cycles those settings run at, and
+  # the contacts come from the function itself.
+  idle: { procedural: stride, label: Idle, args: { amp: 0 }, duration: tau / 1.8 }
+  walk: { procedural: stride, label: Walk, args: { amp: 1, gait: 0 }, sync: true }
+  run: { procedural: stride, label: Run, args: { amp: 1, gait: 1 }, sync: true }
+
+  # And the keyframed half, which is everything with a beginning and an end.
+  guard: ../clips/guard.clip.yaml
+  slash: ../clips/slash.clip.yaml
+  duck: ../clips/duck.clip.yaml
+  upright: ../clips/upright.clip.yaml
+  leanLeft: ../clips/lean-left.clip.yaml
+  leanRight: ../clips/lean-right.clip.yaml
+
+blendTrees:
+  locomotion: ../trees/locomotion.tree.yaml

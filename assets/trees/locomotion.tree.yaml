@@ -1,0 +1,101 @@
+# The humanoid locomotion tree.
+#
+# "Play walk" is the wrong instruction for locomotion, because a character has
+# to be continuously anywhere between standing and running and there is no clip
+# for 1.2 metres a second. A blend tree replaces the instruction with a NUMBER.
+#
+#   layer  "guard"          the shield arm holds a stance through the upper-body
+#   +- additive "lean"      mask while the hips go on with the stride — which is
+#      +- blend1d "speed"   exactly what the game's own blend mask does
+#      +- blend1d "turn"
+#
+# The bank goes on ADDITIVELY rather than being blended in, so the same lean
+# composes with every speed instead of being authored once per gait; the guard
+# goes on through a MASK, because a man carrying a shield is still walking with
+# his legs and a scalar blend would have to take the walk away to make room.
+#
+# Thresholds on the speed axis are metres per second, and they are MEASURED
+# rather than typed: `speedOf` asks the named animation where its planted foot
+# is at the two contact keys. So idle, walk and run sit at their own true
+# speeds, and re-tuning the stride moves the thresholds with it.
+#
+# Between them they did not, until the axis was calibrated. A blend halfway
+# between a walk and a run blends the stride and the cadence separately, and
+# speed is one divided by the other — so the tree delivered about five per cent
+# less than the slider claimed, and the feet made up the difference by sliding.
+# A file cannot hold that answer, only the request: `calibrated: true` asks
+# whoever drives this tree to sweep the axis once and bend the slider to match.
+#
+# It refers to its leaves by NAME, not by path. The entity file says what
+# `walk` is, which is why this same tree drives the wanderer and the ghoul.
+
+id: locomotion
+label: Locomotion tree
+rig: ../rigs/humanoid.rig.yaml
+fallbackCycle: walk
+
+parameters:
+  - name: speed
+    label: Speed
+    unit: m/s
+    min: 0
+    max: { speedOf: run }
+    step: 0.01
+    initial: { speedOf: walk }
+    calibrated: true
+    hint: Calibrated, so the number on the slider is the speed it delivers
+
+  - name: turn
+    label: Turn
+    min: -1
+    max: 1
+    step: 0.01
+    initial: 0
+    hint: Which way he is banking; negative is his right
+
+  - name: lean
+    label: Lean gain
+    min: 0
+    max: 1
+    step: 0.01
+    initial: 1
+    hint: How much of the bank is laid over the gait
+
+  - name: guard
+    label: Guard
+    min: 0
+    max: 1
+    step: 0.01
+    initial: 0
+    hint: Sword and board, through the upper-body mask
+
+root:
+  layer:
+    label: guard, through the upper body
+    mask: upperBody
+    weight: guard
+    over: { leaf: guard }
+    base:
+      additive:
+        label: lean, added on top
+        gain: lean
+        base:
+          blend1d:
+            param: speed
+            label: speed, m/s
+            entries:
+              # Walk and run are the same function at two settings, so their
+              # contact schedules are identical — but their cycles are not
+              # (0.95s against 0.66s), which is the whole reason the phase sync
+              # has work to do.
+              - { at: 0, node: { leaf: idle } }
+              - { at: { speedOf: walk }, node: { leaf: walk } }
+              - { at: { speedOf: run }, node: { leaf: run } }
+        over:
+          blend1d:
+            param: turn
+            label: turn, -1 to 1
+            entries:
+              - { at: -1, node: { leaf: leanRight } }
+              - { at: 0, node: { leaf: upright } }
+              - { at: 1, node: { leaf: leanLeft } }

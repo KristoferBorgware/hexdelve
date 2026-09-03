@@ -1,0 +1,29 @@
+# Banking into a turn.
+#
+# A single-pose clip meant to be ADDED on top of whatever the legs are doing
+# rather than blended against it. Because every pose in this system is already
+# a delta from rest, "additive" needs no reference pose to subtract: adding the
+# delta is the whole operation, and the same lean then composes with a walk, a
+# run and a standstill without being authored three times.
+#
+# +X is the character's left and rot.z > 0 tips the body towards its right, so
+# leaning left is negative. The head counter-rotates to stay nearer level,
+# which is what a real body does going round a corner.
+
+id: leanLeft
+name: Lean left
+rig: ../rigs/humanoid.rig.yaml
+duration: 0.1
+loop: hold
+
+poses:
+  - t: 0
+    bones:
+      root: [0, 0, -0.1]
+      spine: [0.01, 0, -0.07]
+      chest: [0.01, -0.05, -0.05]
+      head: [0, 0.06, 0.09]
+      armL: [0, 0, -0.1]
+      armR: [0, 0, -0.06]
+      hipL: [0, 0, -0.04]
+      hipR: [0, 0, -0.04]

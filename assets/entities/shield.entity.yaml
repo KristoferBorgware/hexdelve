@@ -1,0 +1,21 @@
+# The shield.
+#
+# On the forearm rather than in the hand, because the arm goes through the
+# straps — see the mesh, where getting that the wrong way round is the mistake
+# worth the comment.
+
+id: shield
+name: Shield
+kind: prop
+tags: [shield]
+blurb: Round boards, iron boss
+
+mesh: ../meshes/shield.mesh.yaml
+
+attach:
+  rig: ../rigs/humanoid.rig.yaml
+  bone: forearmL
+
+ground:
+  lift: 0.05
+  tilt: pi / 2

@@ -1,0 +1,44 @@
+# Sword and board at the ready.
+#
+# A bladed stance: the body turns off square so the shield side leads and the
+# sword hand is back, cocked, out of the way. Meant to be layered over
+# locomotion through the rig's `upperBody` mask, so he can walk while holding
+# it — unmasked it would freeze him to the spot, which is what that mask was
+# written for.
+
+id: guard
+name: Guard
+rig: ../rigs/humanoid.rig.yaml
+duration: 0.1
+loop: hold
+
+poses:
+  - t: 0
+    bones:
+      root: { rot: [0, -0.26, 0], pos: [0, -0.015, 0] }
+      spine: [0.06, -0.1, 0.03]
+      chest: [0.05, -0.2, 0.05]
+      neck: [0.02, 0.14, 0]
+      head: [0.02, 0.2, 0]
+
+      # Shield arm: elbow down and in, forearm across the chest, rolled so the
+      # face of the shield looks where he does.
+      armL: [-0.85, -1.0, 0.32]
+      forearmL: [-1.45, -0.3, 0]
+      handL: [0, 0, 0]
+
+      # Sword arm. The blade rides up beside his head, and it gets there the
+      # way an arm does: the shoulder carries the hand up, the elbow stays at a
+      # hundred-odd degrees, and the WRIST sets the angle of the blade. Folding
+      # the elbow to its stop instead — hand touching shoulder — is why nobody
+      # holds a sword like it.
+      armR: [0.25, 0, -0.42]
+      forearmR: [-2.0, 0, 0]
+      handR: [-1.0, -0.35, 0]
+
+      hipL: [-0.05, -0.1, 0.07]
+      hipR: [-0.02, -0.1, -0.07]
+      shinL: [0.08, 0, 0]
+      shinR: [0.05, 0, 0]
+      footL: [-0.04, 0.1, 0]
+      footR: [-0.02, 0.1, 0]

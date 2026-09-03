@@ -1,0 +1,96 @@
+# The humanoid rig.
+#
+# A bone is a name, a parent and an offset. Everything else — the wanderer's
+# prisms, the ghoul's, the visible skeleton, the clips, the IK — is built from
+# this list, and parents always precede their children so one forward pass
+# resolves it.
+#
+# Low-poly humanoid: no fingers, no toes, no twist bones. Seventeen bones is
+# enough to walk, carry a shield and swing a sword, and every one of them is
+# doing work.
+#
+# Sign conventions (the character faces +Z, +X is its left):
+#   limb bones hang down -Y   ->  rot.x < 0 swings FORWARD, rot.x > 0 swings BACK
+#   spine/chest/head point up ->  rot.x > 0 tips FORWARD (the head looks down)
+#   feet                      ->  rot.x > 0 points the toe DOWN
+#   rot.y > 0                 ->  turns towards the character's left
+
+id: humanoid
+name: Humanoid
+
+metrics:
+  # Hip height at rest, which is also where a camera looks when it follows.
+  hipHeight: 0.92
+
+bones:
+  - { name: root, offset: [0, hipHeight, 0] }
+  - { name: spine, parent: root, offset: [0, 0.14, 0] }
+  - { name: chest, parent: spine, offset: [0, 0.22, 0] }
+  - { name: neck, parent: chest, offset: [0, 0.18, 0] }
+  - { name: head, parent: neck, offset: [0, 0.14, 0] }
+  - { name: armL, parent: chest, offset: [0.28, 0.12, 0] }
+  - { name: forearmL, parent: armL, offset: [0, -0.34, 0] }
+  - { name: handL, parent: forearmL, offset: [0, -0.3, 0] }
+  - { name: armR, parent: chest, offset: [-0.28, 0.12, 0] }
+  - { name: forearmR, parent: armR, offset: [0, -0.34, 0] }
+  - { name: handR, parent: forearmR, offset: [0, -0.3, 0] }
+  - { name: hipL, parent: root, offset: [0.16, -0.04, 0] }
+  - { name: shinL, parent: hipL, offset: [0, -0.41, 0] }
+  - { name: footL, parent: shinL, offset: [0, -0.35, 0] }
+  - { name: hipR, parent: root, offset: [-0.16, -0.04, 0] }
+  - { name: shinR, parent: hipR, offset: [0, -0.41, 0] }
+  - { name: footR, parent: shinR, offset: [0, -0.35, 0] }
+
+# Where a chain ends and there is no child bone to draw towards.
+tips:
+  - { bone: head, to: [0, 0.17, 0] }
+  - { bone: handL, to: [0, -0.11, 0] }
+  - { bone: handR, to: [0, -0.11, 0] }
+  - { bone: footL, to: [0, -0.08, 0.15] }
+  - { bone: footR, to: [0, -0.08, 0.15] }
+
+# The two that alternate, so a cycle's ground speed can be measured off them.
+feet: [footL, footR]
+
+groups:
+  arms: [armL, forearmL, handL, armR, forearmR, handR]
+  legs: [hipL, shinL, footL, hipR, shinR, footR]
+
+masks:
+  # Blend mask for playing an upper-body clip over locomotion.
+  #
+  # The spine is deliberately partial so the two halves meet in the middle
+  # instead of hinging at one joint — a man whose chest is doing one thing and
+  # whose hips are doing another bends through the spine, not at it.
+  upperBody:
+    spine: 0.45
+    chest: 1
+    neck: 1
+    head: 1
+    armL: 1
+    forearmL: 1
+    handL: 1
+    armR: 1
+    forearmR: 1
+    handR: 1
+  # The shield arm holds its stance whatever the legs are doing.
+  shieldArm: { armL: 1, forearmL: 1, handL: 1 }
+  # The sword side eases off as he speeds up, so a run gets counter-swing back.
+  swordArm:
+    armR: 1
+    forearmR: 1
+    handR: 1
+    spine: 0.45
+    chest: 1
+    neck: 1
+    head: 1
+  # The bladed stance at the root is only for a man standing still.
+  rootOnly: { root: 1 }
+
+# Read off the bones above rather than typed beside them: hip to ankle.
+measures:
+  legLength: { chain: [hipL, footL] }
+
+view:
+  focusY: hipHeight
+  frameDistance: 4.2

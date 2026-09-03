@@ -8,8 +8,15 @@ indent_style = tab
 indent_size = 4
 trim_trailing_whitespace = true
 
-[*.{json,yml,yaml,md}]
+[*.{json,md}]
 indent_style = tab
+
+# YAML forbids a tab as indentation, so the asset files under assets/ use
+# spaces and the reader in packages/shared/src/data/yaml.ts refuses a tab by
+# name rather than mis-reading the file.
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false

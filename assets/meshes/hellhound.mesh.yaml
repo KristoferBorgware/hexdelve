@@ -1,0 +1,102 @@
+# The hellhound: hexagonal prisms hung on its own quadruped rig.
+#
+# Built the same way every other body in this project is — the unit hex prism
+# under a different scale and rotation, bound to a bone — but jagged rather
+# than smooth where the wanderer and the ghoul are both built out of flat
+# planes. The mane is a row of thin spikes struck straight off the spine, the
+# same primitive a claw or a sword blade already is; nothing here is a new kind
+# of shape, only a new arrangement of the one shape the whole project draws.
+#
+# A mane spike is a strut given a direction and a height rather than an end
+# point: `along: [0, 1, -lean]` with `length: height` is "up, and this far
+# back per unit up", which is the shape of the row rather than eight
+# pre-multiplied end points.
+
+id: hellhound
+name: Hellhound body
+rig: ../rigs/hellhound.rig.yaml
+
+palette:
+  fur: 0x18181a
+  furDark: 0x0b0b0c
+  mane: 0x08080a
+  eye: 0xff2a1c
+  mouth: 0x7a0d08
+  fang: 0xe6dccc
+  claw: 0x2a2422
+
+parts:
+  # Torso: hips, the bridge of ribs between them and the chest, and a deep,
+  # powerful chest — a running animal is built round its lungs and haunches,
+  # not round a waist the way a man is.
+  - { bone: root, at: [0, 0.05, 0.02], size: [0.19, 0.22, 0.24], color: fur }
+  - { bone: root, at: [0, -0.05, 0.0], size: [0.17, 0.1, 0.2], color: furDark }
+  - { bone: spineMid, at: [0, 0.02, 0.1], size: [0.155, 0.17, 0.16], color: fur }
+  - { bone: chest, at: [0, 0.02, 0.02], size: [0.18, 0.2, 0.19], color: fur }
+  - { bone: chest, at: [0, -0.09, 0.05], size: [0.16, 0.09, 0.17], color: furDark }
+
+  # Neck and head: a heavy skull, a tapering snout, and eyes set for a
+  # straight-ahead stare rather than a wide field of view.
+  - { bone: neck, at: [0, 0.0, 0.04], size: [0.13, 0.15, 0.14], color: fur }
+  - { bone: head, at: [0, 0.0, 0.02], size: [0.135, 0.135, 0.16], color: fur }
+  - { bone: head, at: [0, -0.025, 0.13], size: [0.075, 0.075, 0.09], color: furDark }
+  - { bone: head, at: [0.05, 0.03, 0.15], size: [0.024, 0.022, 0.012], color: eye }
+  - { bone: head, at: [-0.05, 0.03, 0.15], size: [0.024, 0.022, 0.012], color: eye }
+
+  # Jaw: the lower half of an open mouth, glowing at the back of the throat,
+  # with a fang top and bottom on each side.
+  - { bone: jaw, at: [0, -0.015, 0.055], size: [0.065, 0.045, 0.09], color: mouth }
+  - { bone: head, at: [0.028, -0.05, 0.16], size: [0.011, 0.03, 0.011], euler: [0.5, 0, 0], color: fang }
+  - { bone: head, at: [-0.028, -0.05, 0.16], size: [0.011, 0.03, 0.011], euler: [0.5, 0, 0], color: fang }
+  - { bone: jaw, at: [0.026, 0.02, 0.09], size: [0.01, 0.026, 0.01], euler: [-0.4, 0, 0], color: fang }
+  - { bone: jaw, at: [-0.026, 0.02, 0.09], size: [0.01, 0.026, 0.01], euler: [-0.4, 0, 0], color: fang }
+
+  # Ears: two segments a side, raked back and drawn to a point, folded forward
+  # a little rather than standing straight up.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'ear*', at: [0.01, 0.05, -0.015], size: [0.04, 0.11, 0.02], euler: [-0.3, 0, 0.15], color: mane }
+      - { bone: 'ear*', at: [0.015, 0.11, -0.03], size: [0.02, 0.05, 0.012], euler: [-0.45, 0, 0.15], color: mane }
+
+  # The mane: a single row of spikes down the ridge of the spine, tallest over
+  # the shoulders where a real animal carries the most muscle and tapering off
+  # towards the skull ahead of it and the hips behind — which is what makes it
+  # read as a silhouette rather than as a fence.
+  - { bone: head, from: [0, 0.07, -0.02], along: [0, 1, -0.55], length: 0.05, radius: 0.014, color: mane }
+  - { bone: neck, from: [0, 0.075, 0.03], along: [0, 1, -0.6], length: 0.09, radius: 0.014, color: mane }
+  - { bone: neck, from: [0, 0.08, -0.03], along: [0, 1, -0.5], length: 0.11, radius: 0.014, color: mane }
+  - { bone: chest, from: [0, 0.1, 0.07], along: [0, 1, -0.45], length: 0.13, radius: 0.014, color: mane }
+  - { bone: chest, from: [0, 0.095, -0.02], along: [0, 1, -0.5], length: 0.1, radius: 0.014, color: mane }
+  - { bone: spineMid, from: [0, 0.085, 0.06], along: [0, 1, -0.55], length: 0.08, radius: 0.014, color: mane }
+  - { bone: spineMid, from: [0, 0.075, -0.03], along: [0, 1, -0.6], length: 0.06, radius: 0.014, color: mane }
+  - { bone: root, from: [0, 0.14, 0.05], along: [0, 1, -0.65], length: 0.045, radius: 0.014, color: mane }
+
+  # Front legs: lean and built for reach rather than power.
+  - sides: [L, R]
+    parts:
+      - { bone: 'frontLeg*', at: [0, -0.1, 0], size: [0.062, 0.2, 0.062], color: fur }
+      - { bone: 'frontShin*', at: [0, -0.09, 0], size: [0.05, 0.17, 0.05], color: furDark }
+      - { bone: 'frontPaw*', at: [0, -0.03, 0.02], size: [0.052, 0.05, 0.075], color: fur }
+      - { bone: 'frontPaw*', from: [0, -0.05, 0.06], along: [-0.35, -0.3, 1], length: 0.075, radius: 0.015, color: claw, mirror: true }
+      - { bone: 'frontPaw*', from: [0, -0.05, 0.06], along: [0, -0.2, 1], length: 0.075, radius: 0.015, color: claw, mirror: true }
+      - { bone: 'frontPaw*', from: [0, -0.05, 0.06], along: [0.35, -0.3, 1], length: 0.075, radius: 0.015, color: claw, mirror: true }
+
+  # Back legs: the haunches, thicker than the front pair by a clear margin —
+  # this is where a lunge actually comes from.
+  - sides: [L, R]
+    parts:
+      - { bone: 'backLeg*', at: [0, -0.1, 0], size: [0.075, 0.2, 0.075], color: fur }
+      - { bone: 'backShin*', at: [0, -0.09, 0], size: [0.05, 0.17, 0.05], color: furDark }
+      - { bone: 'backPaw*', at: [0, -0.03, 0.02], size: [0.055, 0.05, 0.078], color: fur }
+      - { bone: 'backPaw*', from: [0, -0.05, 0.06], along: [-0.35, -0.3, 1], length: 0.08, radius: 0.015, color: claw, mirror: true }
+      - { bone: 'backPaw*', from: [0, -0.05, 0.06], along: [0, -0.2, 1], length: 0.08, radius: 0.015, color: claw, mirror: true }
+      - { bone: 'backPaw*', from: [0, -0.05, 0.06], along: [0.35, -0.3, 1], length: 0.08, radius: 0.015, color: claw, mirror: true }
+
+  # Tail: two segments, tapering, with a small dark tuft at the tip rather than
+  # a fan — the mane already carries the silhouette, the tail need not repeat
+  # it. The first segment spans its own child bone; the second runs on past the
+  # end of the rig, which is why that one length is written out.
+  - { bone: tailA, from: [0, 0, 0], to: { bone: tailB }, radius: 0.035, color: fur }
+  - { bone: tailB, from: [0, 0, 0], to: [0, -0.02, -0.16], radius: 0.024, color: furDark }
+  - { bone: tailB, at: [0, -0.02, -0.17], size: [0.028, 0.03, 0.03], color: mane }

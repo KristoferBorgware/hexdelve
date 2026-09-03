@@ -1,0 +1,11 @@
+# The same bank, the other way.
+#
+# Nothing about it is worth typing twice: a left/right mirror swaps the L and R
+# bones and negates the y and z of every rotation, which is exactly what
+# `mirrorPose` did in the code this replaces. Duration, loop and events are
+# inherited from the clip being mirrored, so the pair cannot drift apart.
+
+id: leanRight
+name: Lean right
+rig: ../rigs/humanoid.rig.yaml
+mirrorOf: ./lean-left.clip.yaml

@@ -15,6 +15,19 @@ export type { Vec3, Vec3Like } from './math/vec3.js';
 export type { Mat4, Mat4Like, DepthRange } from './math/mat4.js';
 export type { Quat, QuatLike } from './math/quat.js';
 
+export {
+	parseYaml,
+	YamlError,
+	type YamlMap,
+	type YamlValue,
+} from './data/yaml.js';
+export {
+	evaluateExpression,
+	expressionNames,
+	ExpressionError,
+	type Scope,
+} from './data/expression.js';
+
 export * from './hex/axial.js';
 export * from './hex/path.js';
 export * from './random.js';

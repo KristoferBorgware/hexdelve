@@ -1,0 +1,64 @@
+# The sword.
+#
+# Modelled around the origin of the fist that holds it, so worn its transform
+# is the identity and every clip carries it for free. On the ground it is the
+# same mesh under one transform of its own — see the entity file's `ground`.
+#
+# The blade is built straight down its own axis and the whole thing is then
+# tipped out of the wrist by `lean`, which is what the frame below is: a bone,
+# and a rotation the parts inside it are authored against. So every number here
+# reads as "how far down the blade" rather than as a pile of pre-rotated
+# offsets — and the point can be DERIVED rather than guessed. `anchors.tip` is
+# where the tip actually ends up in the hand bone's space, and the reach the
+# game measures is taken from that.
+
+id: sword
+name: Sword
+rig: ../rigs/humanoid.rig.yaml
+
+constants:
+  lean: -0.22
+  bladeEnd: -0.92
+
+frames:
+  # Everything hangs off the leaning axis rather than off the hand directly.
+  blade: { bone: handR, euler: [lean, 0, 0] }
+
+parts:
+  - frame: blade
+    parts:
+      # Grip in the fist, its wrapping, and the pommel above it.
+      - { at: [0, 0.04, 0], size: [0.032, 0.05, 0.032], color: guardDark }
+      - { at: [0, -0.03, 0], size: [0.026, 0.15, 0.026], color: grip }
+      - { at: [0, -0.06, 0], size: [0.03, 0.02, 0.03], color: wrap }
+      - { at: [0, -0.005, 0], size: [0.03, 0.02, 0.03], color: wrap }
+
+      # Cross guard: a bar lying along the character's X, which is most of what
+      # makes the silhouette a sword rather than a stick.
+      - { at: [0, -0.12, 0], size: [0.028, 0.2, 0.028], euler: [0, 0, pi / 2], color: guard }
+      - { at: [0, -0.12, 0], size: [0.045, 0.05, 0.045], color: guard }
+
+      # Blade: flat in Z, so the edges are at +-X, which is where the two
+      # bright strips go. The fuller is a groove down the middle of the flat
+      # and has to stay inside the blade's thickness — proud of it, it turns
+      # the whole sword into a pale plank from any angle.
+      - { at: [0, -0.44, 0], size: [0.046, 0.6, 0.021], color: steel }
+      - { at: [0, -0.44, 0], size: [0.016, 0.6, 0.023], color: fuller }
+      - { at: [0.04, -0.44, 0], size: [0.009, 0.6, 0.013], color: edge }
+      - { at: [-0.04, -0.44, 0], size: [0.009, 0.6, 0.013], color: edge }
+      - { at: [0, -0.79, 0], size: [0.03, 0.13, 0.017], color: steel }
+      - { at: [0, -0.87, 0], size: [0.013, 0.06, 0.009], color: steel }
+
+palette:
+  steel: 0xb9bec7
+  edge: 0xd9dee5
+  fuller: 0x9aa1ab
+  guard: 0x8a6a3a
+  guardDark: 0x6d5129
+  grip: 0x46301f
+  wrap: 0x5a4029
+
+anchors:
+  # Where the point ends up, in the hand bone's own space. Read off the blade
+  # rather than typed, so re-leaning the sword moves the reach with it.
+  tip: { frame: blade, at: [0, bladeEnd, 0] }

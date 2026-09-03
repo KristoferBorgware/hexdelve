@@ -1,0 +1,89 @@
+# The bat: hexagonal prisms hung on its own rig.
+#
+# The wing is the interesting part. It is built the way the animal is: a spar
+# along each of the four bones, and a membrane patch trailing behind each spar
+# — a hexagonal prism squashed flat in Y, so it is a sheet lying in the plane
+# of the wing. Because each patch belongs to one bone, folding the bones folds
+# the wing: the sheets come together with the spars and end up wrapped round
+# the body without a single line of cloth simulation.
+#
+# The three inboard spars span their own bone by NAMING it rather than by
+# repeating its length — `to: { bone: fore* }` is that bone's rest offset — so
+# re-tuning a wing bone in the rig moves the spar with it. The outermost spar
+# runs to the membrane's own edge rather than to a bone, so it is the one
+# length written out.
+
+id: bat
+name: Bat body
+rig: ../rigs/bat.rig.yaml
+
+palette:
+  fur: 0x4a3a3c
+  furDark: 0x372a2d
+  belly: 0x5b4a49
+  membrane: 0x6b4f57
+  membraneDark: 0x5a4149
+  spar: 0x2e2428
+  ear: 0x57424a
+  snout: 0x6d5257
+  eye: 0xffb648
+  claw: 0xcfc4b6
+  fang: 0xefe8dc
+
+parts:
+  # Body: a prism lying along Z, nose to tail, with the fur darker on top than
+  # underneath. It is tipped head-up so that the perch pose, which pitches the
+  # whole root forward, ends with the animal hunched rather than face down.
+  - { bone: root, at: [0, 0, -0.02], size: [0.19, 0.52, 0.2], euler: [pi / 2, 0, 0], color: fur }
+  - { bone: root, at: [0, -0.1, -0.02], size: [0.15, 0.34, 0.13], euler: [pi / 2, 0, 0], color: belly }
+  - { bone: chest, at: [0, 0, 0.02], size: [0.17, 0.24, 0.18], euler: [pi / 2, 0, 0], color: fur }
+  - { bone: neck, at: [0, 0, 0.03], size: [0.1, 0.14, 0.1], euler: [pi / 2, 0, 0], color: furDark }
+
+  # Head, snout and jaw. The eyes are small and set wide; the ears are the
+  # silhouette, so they are big, thin and raked back.
+  - { bone: head, at: [0, 0.01, 0.02], size: [0.15, 0.17, 0.15], euler: [pi / 2, 0, 0], color: fur }
+  - { bone: head, at: [0, -0.01, 0.13], size: [0.08, 0.1, 0.08], euler: [pi / 2, 0, 0], color: snout }
+  - { bone: head, at: [0.055, 0.05, 0.11], size: [0.026, 0.03, 0.026], color: eye }
+  - { bone: head, at: [-0.055, 0.05, 0.11], size: [0.026, 0.03, 0.026], color: eye }
+  - { bone: jaw, at: [0, -0.01, 0.05], size: [0.07, 0.06, 0.11], euler: [pi / 2, 0, 0], color: snout }
+  - { bone: jaw, at: [0.032, 0.01, 0.11], size: [0.012, 0.035, 0.012], euler: [0.4, 0, 0], color: fang }
+  - { bone: jaw, at: [-0.032, 0.01, 0.11], size: [0.012, 0.035, 0.012], euler: [0.4, 0, 0], color: fang }
+
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'ear*', at: [0.01, 0.09, -0.03], size: [0.055, 0.2, 0.02], euler: [-0.35, 0, 0.12], color: ear }
+      - { bone: 'ear*', at: [0.01, 0.18, -0.06], size: [0.03, 0.09, 0.016], euler: [-0.5, 0, 0.12], color: ear }
+
+  # The wings. Four segments a side; for each, a spar along the bone and a
+  # membrane patch behind it, widening outboard the way a real wing does. The
+  # patches alternate shade so the four segments read as four rather than as
+  # one sheet.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'arm*', from: [0, 0, 0], to: { bone: 'fore*' }, radius: 0.035, color: spar }
+      - { bone: 'arm*', at: [0.17, -0.01, -0.24], size: [0.23, 0.016, 0.3], euler: [0, 0.12, 0], color: membrane }
+      - { bone: 'fore*', from: [0, 0, 0], to: { bone: 'hand*' }, radius: 0.03, color: spar }
+      - { bone: 'fore*', at: [0.2, -0.005, -0.27], size: [0.26, 0.016, 0.32], euler: [0, 0.12, 0], color: membraneDark }
+      - { bone: 'hand*', from: [0, 0, 0], to: { bone: 'digit*' }, radius: 0.025, color: spar }
+      - { bone: 'hand*', at: [0.13, 0, -0.25], size: [0.19, 0.014, 0.29], euler: [0, 0.12, 0], color: membrane }
+      - { bone: 'digit*', from: [0, 0, 0], to: [0.24, 0, 0], radius: 0.02, color: spar }
+      - { bone: 'digit*', at: [0.11, 0, -0.19], size: [0.16, 0.014, 0.24], euler: [0, 0.12, 0], color: membraneDark }
+      # A thumb claw at the wrist, which is what a bat walks and hangs on.
+      - { bone: 'hand*', at: [0.03, 0.05, 0.03], size: [0.018, 0.09, 0.018], euler: [0.3, 0, 0.5], color: claw }
+
+  # Hind legs. The three foot claws are symmetric about the centre line, so
+  # they are the same on both sides and do not mirror.
+  - sides: [L, R]
+    parts:
+      - { bone: 'leg*', from: [0, 0, 0], to: { bone: 'foot*' }, radius: 0.03, color: spar }
+      - { bone: 'leg*', at: [0, -0.1, 0], size: [0.045, 0.16, 0.05], color: furDark }
+      - { bone: 'foot*', at: [0, -0.02, 0.02], size: [0.04, 0.05, 0.06], color: furDark }
+      - { bone: 'foot*', at: [-0.025, -0.04, 0.055], size: [0.012, 0.055, 0.012], euler: [0.9, 0, 0], color: claw }
+      - { bone: 'foot*', at: [0, -0.04, 0.055], size: [0.012, 0.055, 0.012], euler: [0.9, 0, 0], color: claw }
+      - { bone: 'foot*', at: [0.025, -0.04, 0.055], size: [0.012, 0.055, 0.012], euler: [0.9, 0, 0], color: claw }
+
+  # And the membrane stretched between the legs and the tail.
+  - { bone: tail, at: [0, -0.02, -0.09], size: [0.14, 0.014, 0.13], color: membraneDark }
+  - { bone: tail, from: [0, 0, 0], to: [0, -0.03, -0.18], radius: 0.018, color: spar }

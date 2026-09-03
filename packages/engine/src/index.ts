@@ -143,6 +143,57 @@ export {
 	type Parameters,
 } from './anim/blendtree.js';
 
+/*
+ * Assets read from files rather than typed into modules — the entity file and
+ * everything it links to. Engine-side because everything the readers touch
+ * (bones, poses, clips, prisms) already is, and nothing in them knows what a
+ * renderer is.
+ */
+export {
+	AssetError,
+	AssetLibrary,
+	buildClipAsset,
+	clipAnimation,
+	ENTITY_KEYS,
+	fetchSource,
+	loadBlendTree,
+	loadMesh,
+	loadRig,
+	mapSource,
+	Node as AssetNode,
+	normalise as normaliseAssetPath,
+	poseFunctionAnimation,
+	PoseFunctionRegistry,
+	readClip,
+	readEntity,
+	resolve as resolveAssetPath,
+	type Anchor,
+	type AnimationAsset,
+	type AnimationOptions,
+	type AnimationRequest,
+	type AssetLibraryOptions,
+	type AssetSource,
+	type Attachment,
+	type BlendTreeAsset,
+	type ClipAsset,
+	type ClipDocument,
+	type ClipRequest,
+	type EntityAsset,
+	type EntityDocument,
+	type EntityKind,
+	type Grounding,
+	type MeshAsset,
+	type PoseFunction,
+	type PoseFunctionContext,
+	type PoseSampler,
+	type ProceduralRequest,
+	type RigAnchor,
+	type RigAsset,
+	type RigView,
+	type TreeParameter,
+	type Vec3 as AssetVec3,
+} from './assets/index.js';
+
 export { Ticker, type TickerOptions, type FixedUpdate, type FrameUpdate } from './core/Ticker.js';
 
 export { createRenderer, isWebGPUAvailable } from './renderer/createRenderer.js';

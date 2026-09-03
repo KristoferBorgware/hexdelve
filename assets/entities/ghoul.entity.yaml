@@ -1,0 +1,28 @@
+# The ghoul.
+#
+# The same seventeen bones as the wanderer under a different body, so the tree,
+# the stride and every clip read on either one unchanged. That is the whole
+# argument for building a second body rather than a second rig, and here it is
+# as two lines that differ: a mesh, and a name.
+
+id: ghoul
+name: Ghoul
+kind: character
+blurb: Gaunt, clawed, mostly bone
+
+rig: ../rigs/humanoid.rig.yaml
+mesh: ../meshes/ghoul.mesh.yaml
+
+animations:
+  idle: { procedural: stride, label: Idle, args: { amp: 0 }, duration: tau / 1.8 }
+  walk: { procedural: stride, label: Walk, args: { amp: 1, gait: 0 }, sync: true }
+  run: { procedural: stride, label: Run, args: { amp: 1, gait: 1 }, sync: true }
+  guard: ../clips/guard.clip.yaml
+  slash: ../clips/slash.clip.yaml
+  duck: ../clips/duck.clip.yaml
+  upright: ../clips/upright.clip.yaml
+  leanLeft: ../clips/lean-left.clip.yaml
+  leanRight: ../clips/lean-right.clip.yaml
+
+blendTrees:
+  locomotion: ../trees/locomotion.tree.yaml

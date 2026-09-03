@@ -1,0 +1,24 @@
+# The hellhound.
+#
+# A quadruped, so a third rig: front legs off the chest, hind legs off the
+# hips, and the spine between them a bridge rather than a stack.
+#
+# No blend tree yet, on purpose. The trot's legs are written to a different
+# sign convention from the humanoid's, so its gait declares no contact
+# schedule and nothing measures its ground speed — a threshold measured
+# through the wrong sign would be worse than an absent one. The three
+# animations are here and previewable; the tree waits for the gait.
+
+id: hellhound
+name: Hellhound
+kind: character
+blurb: Black quadruped, spiked mane, red eyes
+
+rig: ../rigs/hellhound.rig.yaml
+mesh: ../meshes/hellhound.mesh.yaml
+
+animations:
+  idle: { procedural: houndRun, label: Idle, args: { amp: 0 }, duration: tau / 1.7 }
+  run: { procedural: houndRun, label: Run, args: { amp: 1 }, sync: true }
+  bite: { procedural: houndBite, label: Bite }
+  rest: { procedural: houndRest, label: Rest, duration: tau / 1.4 }

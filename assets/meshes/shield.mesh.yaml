@@ -1,0 +1,68 @@
+# The shield.
+#
+# How it sits on the arm is the one thing about it that is easy to get subtly,
+# embarrassingly wrong.
+#
+# The boss and the studs are on the plate's +Y; the straps are on its -Y. The
+# frame below turns that +Y into the direction the shield faces, and then the
+# plate has to be offset along that same direction — because the arm goes
+# through the straps, so the arm is on the BACK of the shield and the shield
+# hangs on the far side of it.
+#
+# Get the offset and the facing pointing opposite ways and the geometry is
+# inside-out: the forearm lies across the boss with the straps waving at the
+# enemy. It renders as a shield right up until you look at it. Writing the
+# offset as `cos(mount) * out` rather than as a number is what keeps the two
+# from being able to disagree.
+
+id: shield
+name: Shield
+rig: ../rigs/humanoid.rig.yaml
+
+constants:
+  mount: -pi / 2
+  # How far the plate stands off the arm.
+  out: 0.08
+  radius: 0.26
+
+frames:
+  # Parts are authored in the plate's own frame and rotated onto the arm here,
+  # so the numbers below read as "on the face of the shield".
+  plate:
+    bone: forearmL
+    at: [0.02, -0.11 + cos(mount) * out, sin(mount) * out]
+    euler: [mount, 0, 0]
+
+palette:
+  face: 0x7d5a34
+  facePale: 0x8f6a3f
+  rim: 0x6b6f78
+  rimDark: 0x54585f
+  boss: 0x9aa0a9
+  strap: 0x43301f
+  stud: 0x8a8f98
+
+parts:
+  - frame: plate
+    parts:
+      # Boards, banded rim, boss. Everything meant to read as a border sits
+      # BEHIND the face and wider than it — a plate in front of the face at
+      # nearly the same radius simply hides it, which is how this shield spent
+      # its first render as a grey dinner plate.
+      - { at: [0, -0.014, 0], size: [radius * 1.07, 0.032, radius * 1.07], euler: [0, pi / 6, 0], color: rimDark }
+      - { at: [0, 0, 0], size: [radius, 0.045, radius], color: face }
+      - { at: [0, 0.026, 0], size: [radius * 0.66, 0.012, radius * 0.66], color: facePale }
+      - { at: [0, 0.042, 0], size: [0.075, 0.045, 0.075], color: boss }
+      - { at: [0, 0.066, 0], size: [0.035, 0.03, 0.035], color: boss }
+
+      # Studs round the rim, one to each face of the hexagon.
+      - { at: [cos((0 * pi) / 3 + pi / 6) * radius * 0.86, 0.03, sin((0 * pi) / 3 + pi / 6) * radius * 0.86], size: [0.022, 0.02, 0.022], color: stud }
+      - { at: [cos((1 * pi) / 3 + pi / 6) * radius * 0.86, 0.03, sin((1 * pi) / 3 + pi / 6) * radius * 0.86], size: [0.022, 0.02, 0.022], color: stud }
+      - { at: [cos((2 * pi) / 3 + pi / 6) * radius * 0.86, 0.03, sin((2 * pi) / 3 + pi / 6) * radius * 0.86], size: [0.022, 0.02, 0.022], color: stud }
+      - { at: [cos((3 * pi) / 3 + pi / 6) * radius * 0.86, 0.03, sin((3 * pi) / 3 + pi / 6) * radius * 0.86], size: [0.022, 0.02, 0.022], color: stud }
+      - { at: [cos((4 * pi) / 3 + pi / 6) * radius * 0.86, 0.03, sin((4 * pi) / 3 + pi / 6) * radius * 0.86], size: [0.022, 0.02, 0.022], color: stud }
+      - { at: [cos((5 * pi) / 3 + pi / 6) * radius * 0.86, 0.03, sin((5 * pi) / 3 + pi / 6) * radius * 0.86], size: [0.022, 0.02, 0.022], color: stud }
+
+      # The straps the arm goes through, on the back.
+      - { at: [0, -0.04, -0.1], size: [0.03, 0.03, 0.11], euler: [pi / 2, 0, 0], color: strap }
+      - { at: [0, -0.04, 0.1], size: [0.03, 0.03, 0.11], euler: [pi / 2, 0, 0], color: strap }

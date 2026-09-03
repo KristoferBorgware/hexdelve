@@ -1,0 +1,15 @@
+# Everything the game has, in the order a catalogue lists it.
+#
+# One manifest rather than a directory scan, because a directory is not an
+# ordering and half of what an editor wants from a list of entities is a
+# stable one. It is also the only place that has to change when something is
+# added — the entity file beside it carries all its own detail.
+
+entities:
+  - ./entities/wanderer.entity.yaml
+  - ./entities/ghoul.entity.yaml
+  - ./entities/bat.entity.yaml
+  - ./entities/hellhound.entity.yaml
+  - ./entities/helmet.entity.yaml
+  - ./entities/sword.entity.yaml
+  - ./entities/shield.entity.yaml

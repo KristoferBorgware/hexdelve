@@ -62,9 +62,17 @@ packages/
 labs/           one folder per lab, each a standalone page
   shared/       the code the labs are built from
 assets/
+  index.yaml    every entity the game has, in catalogue order
+  entities/     the root file per asset: what rig, body, clips and trees belong
+                together — props are entities too, with no rig
+  rigs/         bones, tips, blend masks, metrics
+  meshes/       hex prisms bound to bones
+  clips/        keyframes, pose-major
+  trees/        blend trees over animations the entity names
   audio/        ambience, and the scripts that synthesise it
 docs/
   angband/      Angband's rules, read out of its source as a reference
+  assets.md     the asset file format, and what is deliberately still code
   levelgen.md   the level generation stacks, what they measured, what is next
 tools/          the landing-page generator and the Pages staging script
 ```
@@ -266,6 +274,69 @@ worth trying next.
 No desktop-only rendering path and no desktop-only game code, so what ships on
 the web ships there.
 
+### Assets are files, not modules
+
+Every rig, body, clip and tree in this project was a TypeScript module first.
+Adding the hellhound touched five files and not one of them was about a
+hellhound: a rig module, a mesh module, a pose module, an export block, and an
+entry in the editor's bench. The data was never code — it was only *stored* as
+code — and seven entities is where a catalogue starts being worth having and a
+compiler stops being the right place to keep one.
+
+So `assets/` holds it, `@hexdelve/engine` reads it, and the entity file is the
+root that ties one asset together:
+
+```yaml
+id: wanderer
+kind: character
+rig: ../rigs/humanoid.rig.yaml
+mesh: ../meshes/wanderer.mesh.yaml
+animations:
+  walk: { procedural: stride, args: { amp: 1, gait: 0 }, sync: true }
+  guard: ../clips/guard.clip.yaml
+blendTrees:
+  locomotion: ../trees/locomotion.tree.yaml
+```
+
+Blend trees link *animations*, and the entity is what says an animation is. A
+tree refers to `walk` and carries no path, so exactly one file names files —
+which is why one `locomotion.tree.yaml` drives the wanderer and the ghoul
+unchanged. A prop is the same file with less in it: a helmet has a mesh, an
+`attach` bone and the two numbers that put it down in the grass, and the loader
+*refuses* a rig or an animation on one.
+
+Three things kept the files from being worse than the code they replace. Any
+scalar may be arithmetic (`pi / 2 + 0.05`, `cos(mount) * out`, `tau / 1.8`),
+because a cheek plate is not tilted by 1.6207963267948965 radians. A mesh keeps
+the `for (const side of ['L', 'R'])` loop as a sided group, so sixty readable
+parts do not become a hundred and twenty unreadable ones. And a blend
+threshold may be `{ speedOf: walk }`, which measures the walk's own feet
+exactly as `strideVelocity` did — a tree that stated 1.53 would be wrong the
+first time anyone re-tuned the stride.
+
+Half the animation stays code, and that is the right answer rather than a gap:
+the stride is a function of one phase angle and a heading, so it covers the
+whole circle of directions where a blend space over clips covers four. An
+animation may therefore name a registered *pose function* and hand it
+arguments — the file carries the tuning, the code carries the curve.
+
+The reader is about four hundred lines in `@hexdelve/shared` with no
+dependencies, for the same reason there is a quaternion in that package rather
+than gl-matrix. It reads the subset the asset files use and refuses the rest by
+name and line number — anchors, tags, a second document, a duplicate key, a tab
+used as indentation — because every one of those has a silent mis-reading
+available to it.
+
+`test/assets.test.ts` is the part worth keeping: it loads every file and
+compares it against the module it replaced, part for part and key for key. Both
+statements of what a wanderer is still exist, so they can be checked against
+each other, and a mesh that mirrors the wrong axis fails there rather than
+being noticed later by somebody looking at a character with one ear.
+
+The modules are still what the client and the benches read; the files are
+proven equal to them and ready to be read instead. See
+[docs/assets.md](docs/assets.md).
+
 ### Versions
 
 Nothing here is published to npm. Every package is `"private": true`, and the
@@ -313,6 +384,8 @@ there, or when there is no browser driver installed.
 |---|---|
 | `picking` | A screen point has to map back to the ground drawn there. A camera basis derived twice is a sign waiting to be got wrong, and nothing throws when it is — the original bug tracked the cursor correctly sideways and moved the aim a third as far up and down. |
 | `blend-tree` | A tree out of phase still produces sensible weights and a valid pose; the only symptom is a character who skates. Pins the thresholds, the calibration, the sync, the additive gain and the mask. |
+| `assets` | Every file in `assets/` against the module it replaced — part for part, key for key, bone for bone. Both statements of what a wanderer is still exist, which is the one chance there will ever be to check them against each other: a mesh that drops a prism, mirrors the wrong axis or reads a colour out of the wrong palette entry fails here rather than being noticed later by somebody looking at a character with one ear. |
+| `yaml` | The reader's **refusals**, mostly. A tab used as indentation, an anchor, a tag, a second document, a duplicate key — each has a silent mis-reading available to it, and a parser you wrote yourself is only worth having if it is loud. Also pins that `pi / 2 + 0.05` in a file is the same double as `PI / 2 + 0.05` in TypeScript. |
 | `tiles` | Every mistake available in a WFC tileset still produces levels. A rotation that turns the wrong way bends corridors the wrong way; an asymmetric propagator drifts the solver's supporter counts and makes it ban tiles for no reason; a tile with no legal neighbour is never placed and its weight is a lie. Pins the edge mapping, the rotation cardinalities *and their direction* — turning the wrong way gives the same counts — the propagator's symmetry, and the open mask. |
 | `shaders` | WebGPU marks a bad pipeline invalid rather than throwing, so a broken shader reaches a browser looking healthy and only fails on the first draw. |
 | `render` | None of the above would notice a sign flip that put every shadow on the wrong side of every building, so a picture lives in `test/reference/` and is compared against. |

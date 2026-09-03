@@ -1,0 +1,30 @@
+# The helmet.
+#
+# A prop is an entity — it is a thing in the world with a mesh — and it has no
+# rig, no animations and no blend trees, because the whole of wearing one is
+# which transform its parts are drawn through: its own, or a bone's. So it
+# carries the two things a body does not.
+#
+# `attach` names the rig it was modelled against and the bone it hangs from.
+# Worn, its transform is the identity — there is no second mesh for the worn
+# version and no offsets to keep in step, and every clip carries it for free.
+#
+# `ground` is how it lies when it is put down: lifted so it rests on the grass
+# rather than floating where a head would have been, and tilted, because a
+# helmet stands up and a sword does not.
+
+id: helmet
+name: Helmet
+kind: prop
+tags: [armour]
+blurb: Nasal helm, cheek plates
+
+mesh: ../meshes/helmet.mesh.yaml
+
+attach:
+  rig: ../rigs/humanoid.rig.yaml
+  bone: head
+
+ground:
+  lift: 0.2
+  tilt: 0

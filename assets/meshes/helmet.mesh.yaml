@@ -1,0 +1,66 @@
+# The helmet.
+#
+# A prop has no bones. It is one mesh, and the whole of "equipping" it is which
+# transform it is drawn through: its own, or a bone's. So it is modelled around
+# the origin of the bone it belongs to — the head — and worn, its transform is
+# the identity. There is no second mesh for the worn version and no offsets to
+# keep in step, and once it is on, every clip carries it for free.
+#
+# Everything here is laid out against the head it has to fit, which in the head
+# bone's space is a prism of radius 0.18 by 0.165 running from y -0.095 to
+# 0.135, with the brows at y 0.055, the nose reaching z 0.197 and the beard
+# hanging to y -0.165. So the shell stops at y 0.08 — the brow line of that
+# face, not of an imagined one — and the eye slits sit where the eyes actually
+# are. Get this wrong and the helmet is a bucket with a nose sticking out.
+
+id: helmet
+name: Helmet
+rig: ../rigs/humanoid.rig.yaml
+
+palette:
+  steel: 0x4a5058
+  steelDark: 0x3a4046
+  steelLight: 0x5d646d
+  rim: 0x727a84
+  liner: 0x2a2e33
+
+parts:
+  # The skull: three courses, each turned and tipped further back than the one
+  # below, which is what sweeps the crown back over the neck. Fewer, larger
+  # pieces read as one helmet; a tall stack of thin rings reads as a cake.
+  - { bone: head, at: [0, 0.155, 0], size: [0.207, 0.155, 0.195], euler: [0, deg(0), 0], color: steel }
+  - { bone: head, at: [0, 0.245, -0.03], size: [0.15, 0.105, 0.145], euler: [-0.18, deg(15), 0], color: steelLight }
+  - { bone: head, at: [0, 0.293, -0.078], size: [0.078, 0.1, 0.083], euler: [-0.45, deg(-10), 0], color: steelLight }
+
+  # Below the brow. The back and sides are one collar pulled backwards, so its
+  # front vertex stops short of the face; a post carries the brow down outside
+  # each eye; the nose guard comes down the centre line. What is left between
+  # post, nose guard and brow is the eye slit — not cut out of anything, just
+  # the space no piece fills.
+  - { bone: head, at: [0, 0.068, 0.135], size: [0.168, 0.05, 0.062], euler: [0.1, 0, 0], color: steel }
+  - { bone: head, at: [0, -0.01, -0.05], size: [0.201, 0.19, 0.14], color: steel }
+  - { bone: head, at: [0, 0.0, 0.178], size: [0.038, 0.16, 0.052], euler: [0.05, 0, 0], color: steelLight }
+  - { bone: head, at: [0, -0.1, 0.168], size: [0.045, 0.05, 0.04], euler: [0.2, 0, 0], color: rim }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: head, at: [0.152, 0.02, 0.105], size: [0.055, 0.13, 0.08], euler: [0, deg(-12), 0], color: steel }
+
+  # Cheek plates: prisms laid on their side so each is a flat plate, hanging
+  # from the collar past the jaw and flared at the bottom. They stand as far
+  # forward as the shell does, because the face behind them has a beard that
+  # reaches almost that far and would otherwise come through the steel.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: head, at: [0.108, -0.075, 0.172], size: [0.085, 0.046, 0.115], euler: [pi / 2 + 0.05, 0, 0.12], color: steel }
+      - { bone: head, at: [0.183, -0.07, -0.005], size: [0.075, 0.045, 0.085], euler: [0, 0, pi / 2 + 0.08], color: steelDark }
+  - { bone: head, at: [0, -0.035, -0.185], size: [0.176, 0.05, 0.09], euler: [pi / 2 + 0.22, 0, 0], color: steel }
+  - { bone: head, at: [0, -0.105, -0.205], size: [0.14, 0.045, 0.065], euler: [pi / 2 + 0.42, 0, 0], color: steelDark }
+
+  # Two dark blocks well inside the shell: one behind the eye slits, one down
+  # where the jaw would be. From outside they are invisible; through the slits
+  # and the mouth they are what makes the helmet read as hollow rather than as
+  # a window straight through it.
+  - { bone: head, at: [0, 0.07, -0.005], size: [0.172, 0.22, 0.158], color: liner }
+  - { bone: head, at: [0, -0.09, 0.0], size: [0.15, 0.16, 0.135], color: liner }

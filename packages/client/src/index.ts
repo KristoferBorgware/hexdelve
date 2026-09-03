@@ -148,6 +148,17 @@ export {
 	UPRIGHT,
 } from './game/clips.js';
 
+/*
+ * The pose functions the asset files name, and the library that reads them.
+ *
+ * `assets/` holds every rig, body, clip and tree as YAML; the engine holds the
+ * readers. What the client adds is the half that cannot be a file — the stride,
+ * the wing beat, the trot — and a library with those already registered, so an
+ * embedder gets a working one rather than an empty one.
+ */
+export { poseFunctions } from './assets/poseFunctions.js';
+export { openAssets, ASSET_INDEX, type OpenAssetsOptions } from './assets/library.js';
+
 export type { BackendKind, BackendPreference, RendererInfo, FrameCapture } from '@hexdelve/engine';
 
 import { HexdelveClient, type ClientOptions } from './HexdelveClient.js';

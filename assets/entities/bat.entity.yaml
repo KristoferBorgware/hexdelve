@@ -1,0 +1,24 @@
+# The bat.
+#
+# Its own rig, because its arms ARE its wings and nothing about that fits a
+# spine with four limbs hanging off it. Nothing downstream had to change for
+# that, which is the point the rig files make and this one inherits.
+
+id: bat
+name: Bat
+kind: character
+blurb: Two and a half metres of wing, folded
+
+rig: ../rigs/bat.rig.yaml
+mesh: ../meshes/bat.mesh.yaml
+
+animations:
+  # The wings working. A bat does not beat faster to hover, it beats shallower,
+  # so hover and fly are one function at two amplitudes and one cycle length.
+  fly: { procedural: flight, label: Fly, args: { amp: 1 }, sync: true }
+  hover: { procedural: flight, label: Hover, args: { amp: 0.45 }, sync: true }
+  perch: { procedural: perch, label: Perch }
+  lunge: { procedural: lunge, label: Lunge }
+
+blendTrees:
+  flight: ../trees/flight.tree.yaml
