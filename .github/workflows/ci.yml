@@ -48,11 +48,25 @@ jobs:
         # download; the script skips itself if it cannot find one.
         run: npm run check:shaders
 
-      - name: Check the two backends draw the same picture
-        # Captures a frame from each off the GPU and diffs them. Skips the
-        # comparison, without failing, on a runner with no usable WebGPU
-        # device — which is most of them; it still proves WebGL2 renders.
-        run: npm run check:backends
+      - name: Check the yard still renders as it did
+        # The other checks prove the code is well formed without ever looking
+        # at a picture: none of them would notice a sign flip that put every
+        # shadow on the wrong side. This draws the scene through WebGL2 and
+        # compares it against tools/reference/yard-webgl2.png. WebGL2 only,
+        # because a runner reliably has a software rasteriser and reliably has
+        # no WebGPU device; check:backends compares the two, and stays local
+        # for that reason.
+        run: npm run check:render
+
+      - name: Upload the render diff
+        # Only reachable when the comparison failed, and it is the only way to
+        # see what changed from a log.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-diff
+          path: /tmp/render-*.png
+          if-no-files-found: ignore
 
       - name: Syntax-check the labs
         run: |
