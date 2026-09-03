@@ -1,0 +1,86 @@
+/*
+ * The hellhound's skeleton, as plain data.
+ *
+ * Four legs rather than two, and none of them hang from a spine the way the
+ * humanoid's do — a quadruped's front legs hang from the CHEST, its hind legs
+ * from the HIPS, and the spine between the two is a bridge rather than a
+ * stack. So this gets its own rig, in the same shape of data the humanoid and
+ * the bat already use — a name, a parent, an offset — because that is all the
+ * engine's animation ever needed.
+ *
+ * Conventions match the other two rigs where they can: it faces +Z, +X is its
+ * own left, +Y is up. Where the chain hangs down like a limb (the four legs),
+ * the humanoid's rule holds unchanged: rot.x < 0 swings it FORWARD, > 0 BACK.
+ * Where the chain runs forward like a spine (root, spineMid, chest, neck,
+ * head), the bat's rule holds instead: rot.x > 0 pitches the tip DOWN — the
+ * whole animal hunching over its own feet — and rot.x < 0 lifts it, which is
+ * how `hellhoundpose.ts` reads as an animal rather than as numbers.
+ */
+
+import { boneIndex, boneNames, type BoneTip, type Skeleton } from '@hexdelve/engine';
+
+/** Hip height at rest, the same role `HIPS_Y` plays for the humanoid. */
+export const HIP_Y = 0.5;
+/** Roughly the middle of the animal's mass, for a camera to look at. */
+export const STAND_Y = 0.42;
+
+export const HELLHOUND_SKELETON: Skeleton = [
+	{ name: 'root', parent: null, offset: [0, HIP_Y, 0] },
+	{ name: 'spineMid', parent: 'root', offset: [0, 0.05, 0.22] },
+	{ name: 'chest', parent: 'spineMid', offset: [0, 0.06, 0.22] },
+	{ name: 'neck', parent: 'chest', offset: [0, 0.04, 0.16] },
+	{ name: 'head', parent: 'neck', offset: [0, 0.02, 0.14] },
+	{ name: 'jaw', parent: 'head', offset: [0, -0.05, 0.09] },
+	{ name: 'earL', parent: 'head', offset: [0.055, 0.08, -0.01] },
+	{ name: 'earR', parent: 'head', offset: [-0.055, 0.08, -0.01] },
+
+	// Front legs, hung off the chest — three bones a side: the same shoulder,
+	// elbow, paw a real one has, and no more than that.
+	{ name: 'frontLegL', parent: 'chest', offset: [0.15, -0.04, 0.06] },
+	{ name: 'frontShinL', parent: 'frontLegL', offset: [0, -0.22, 0] },
+	{ name: 'frontPawL', parent: 'frontShinL', offset: [0, -0.19, 0] },
+	{ name: 'frontLegR', parent: 'chest', offset: [-0.15, -0.04, 0.06] },
+	{ name: 'frontShinR', parent: 'frontLegR', offset: [0, -0.22, 0] },
+	{ name: 'frontPawR', parent: 'frontShinR', offset: [0, -0.19, 0] },
+
+	// Hind legs, hung off the hips instead — where the power for a lunge
+	// actually comes from, which is why the run and the bite both lean on
+	// these more than the front pair.
+	{ name: 'backLegL', parent: 'root', offset: [0.14, -0.04, -0.08] },
+	{ name: 'backShinL', parent: 'backLegL', offset: [0, -0.22, 0] },
+	{ name: 'backPawL', parent: 'backShinL', offset: [0, -0.19, 0] },
+	{ name: 'backLegR', parent: 'root', offset: [-0.14, -0.04, -0.08] },
+	{ name: 'backShinR', parent: 'backLegR', offset: [0, -0.22, 0] },
+	{ name: 'backPawR', parent: 'backShinR', offset: [0, -0.19, 0] },
+
+	// A two-segment tail, so it can whip on a lunge and droop at rest instead
+	// of swinging as one stiff bar.
+	{ name: 'tailA', parent: 'root', offset: [0, 0.02, -0.14] },
+	{ name: 'tailB', parent: 'tailA', offset: [0, -0.02, -0.16] },
+];
+
+export const HELLHOUND_BONES = boneNames(HELLHOUND_SKELETON);
+export const HELLHOUND_BONE_INDEX = boneIndex(HELLHOUND_SKELETON);
+
+/** Where a chain ends and there is no child bone to draw towards. */
+export const HELLHOUND_TIPS: readonly BoneTip[] = [
+	{ bone: 'jaw', to: [0, -0.02, 0.08] },
+	{ bone: 'earL', to: [0.02, 0.1, -0.03] },
+	{ bone: 'earR', to: [-0.02, 0.1, -0.03] },
+	{ bone: 'frontPawL', to: [0, -0.05, 0.08] },
+	{ bone: 'frontPawR', to: [0, -0.05, 0.08] },
+	{ bone: 'backPawL', to: [0, -0.05, 0.08] },
+	{ bone: 'backPawR', to: [0, -0.05, 0.08] },
+	{ bone: 'tailB', to: [0, -0.02, -0.14] },
+];
+
+/**
+ * The three bones of one leg, hip to paw — what the gait and the bite both
+ * walk to write a leg without naming its bones three times over.
+ */
+export const LEGS: Record<'frontL' | 'frontR' | 'backL' | 'backR', readonly string[]> = {
+	frontL: ['frontLegL', 'frontShinL', 'frontPawL'],
+	frontR: ['frontLegR', 'frontShinR', 'frontPawR'],
+	backL: ['backLegL', 'backShinL', 'backPawL'],
+	backR: ['backLegR', 'backShinR', 'backPawR'],
+};

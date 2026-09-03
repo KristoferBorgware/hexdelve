@@ -70,6 +70,14 @@ export {
 } from './levelgen/index.js';
 export { SKELETON, BONES, TIPS, HIPS_Y, UPPER_BODY } from './game/skeleton.js';
 export { BAT_SKELETON, BAT_BONES, BAT_TIPS, HOVER_Y, PERCH_Y } from './game/batrig.js';
+export {
+	HELLHOUND_SKELETON,
+	HELLHOUND_BONES,
+	HELLHOUND_TIPS,
+	LEGS as HOUND_LEGS,
+	HIP_Y as HOUND_HIP_Y,
+	STAND_Y as HOUND_STAND_Y,
+} from './game/hellhoundrig.js';
 
 /*
  * The characters themselves — the rig data above, wearing prisms.
@@ -82,6 +90,7 @@ export { BAT_SKELETON, BAT_BONES, BAT_TIPS, HOVER_Y, PERCH_Y } from './game/batr
 export { buildWanderer, WANDERER_PALETTE } from './models/wanderer.js';
 export { buildGhoul, GHOUL_PALETTE } from './models/ghoul.js';
 export { buildBat, BAT_PALETTE } from './models/bat.js';
+export { buildHellhound, HELLHOUND_PALETTE } from './models/hellhound.js';
 
 /*
  * The gear, for the same reason as the bodies above.
@@ -113,6 +122,13 @@ export {
 	FLAP_PERIOD,
 	LUNGE_CONTACT,
 } from './game/batpose.js';
+export {
+	runPose as houndRunPose,
+	bitePose as houndBitePose,
+	restPose as houndRestPose,
+	HOUND_STRIDE_PERIOD,
+	BITE_CONTACT as HOUND_BITE_CONTACT,
+} from './game/hellhoundpose.js';
 export {
 	stridePose,
 	stridePeriod,
