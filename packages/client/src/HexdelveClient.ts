@@ -44,6 +44,13 @@ export interface ClientOptions {
 	autoStart?: boolean;
 	/** Attach keyboard, mouse and touch controls. On by default. */
 	controls?: boolean;
+	/**
+	 * 4x multisampling, on by default. Worth turning off for a comparison
+	 * between two renderers or against a stored picture: resolving a
+	 * multisampled buffer is where two rasterisers most visibly disagree, and
+	 * an edge one pixel softer is not a difference worth failing over.
+	 */
+	msaa?: boolean;
 	/** Seed for the yard's scenery, so a given seed is a given yard. */
 	seed?: number;
 	toggles?: Partial<SimulationToggles>;
@@ -100,6 +107,7 @@ export class HexdelveClient {
 		const renderer = await createRenderer({
 			canvas: options.canvas,
 			...(options.backend !== undefined ? { backend: options.backend } : {}),
+			...(options.msaa !== undefined ? { msaa: options.msaa } : {}),
 			clearColor: [0.66, 0.76, 0.71, 1],
 			onDeviceLost: (reason) => {
 				box.client?.stop();
