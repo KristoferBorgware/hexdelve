@@ -18,7 +18,7 @@
  *   carries a matching negative root pos.y and pos.z.
  */
 
-import { poseClip, type Clip } from '@hexdelve/engine';
+import { mirrorPose, poseClip, type Clip } from '@hexdelve/engine';
 
 const ELBOW = -0.3; // a relaxed arm still has a little bend in it
 
@@ -283,3 +283,35 @@ export const SLASH: Clip = poseClip(
 
 /** The fraction of a second into SLASH at which the blade arrives. */
 export const SWING_CONTACT = 0.44;
+
+/* ----------------------------------------------------------------- lean -- */
+/*
+ * Banking into a turn — single-pose clips meant to be ADDED on top of whatever
+ * the legs are doing rather than blended against it. Because every pose in this
+ * system is already a delta from rest, "additive" needs no reference pose to
+ * subtract: adding the delta is the whole operation, and the same lean then
+ * composes with a walk, a run and a standstill without being authored three
+ * times.
+ *
+ * +X is the character's left and rot.z > 0 tips the body towards its right, so
+ * leaning left is negative. The head counter-rotates to stay nearer level,
+ * which is what a real body does going round a corner.
+ */
+
+const LEAN_POSE: Record<string, readonly [number, number, number]> = {
+	root: [0, 0, -0.1],
+	spine: [0.01, 0, -0.07],
+	chest: [0.01, -0.05, -0.05],
+	head: [0, 0.06, 0.09],
+	armL: [0, 0, -0.1],
+	armR: [0, 0, -0.06],
+	hipL: [0, 0, -0.04],
+	hipR: [0, 0, -0.04],
+};
+
+export const LEAN_LEFT: Clip = poseClip('leanLeft', 0.1, 'hold', [{ t: 0, p: LEAN_POSE }]);
+export const LEAN_RIGHT: Clip = poseClip('leanRight', 0.1, 'hold', [
+	{ t: 0, p: mirrorPose(LEAN_POSE) },
+]);
+/** The middle of the lean blend: no lean at all, and nothing else either. */
+export const UPRIGHT: Clip = poseClip('upright', 0.1, 'hold', [{ t: 0, p: { root: [0, 0, 0] } }]);

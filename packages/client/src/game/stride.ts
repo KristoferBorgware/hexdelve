@@ -35,7 +35,7 @@
  *   rot.y > 0 turns towards the character's left
  */
 
-import { setSparse, solveWorld, type SparsePose, type WorldPose } from '@hexdelve/engine';
+import { measureGroundSpeed, setSparse, type SparsePose } from '@hexdelve/engine';
 
 import { LEG_LENGTH, SKELETON } from './skeleton.js';
 
@@ -255,21 +255,13 @@ export function stridePose(
  * How fast this gait carries him, for a heading and a stride length —
  * measured off the pose, in his own frame, so nothing here is a tuned speed.
  *
- * The obvious approach, watching the feet over a whole cycle and working out
- * which one is planted by height, will not do: at a bearing where the step is
- * short the pelvis bob is deeper than the foot lift, so it finds "contact" in
- * the middle of a swing and reports a side-step travelling backwards.
- *
- * There is nothing to detect anyway. The knee gate IS the contact schedule:
- * the left foot goes down at one contact key and leaves at the other, and in
- * between it is planted, whichever way the body is going. So ask the pose
- * where that foot is at those two keys. Whatever distance it covers through
- * the body's space, the body covers the other way, in half a stride pair.
+ * The measurement itself is the engine's, because the argument it rests on is
+ * not about the stride: a cycle's contact schedule is known, so ask the pose
+ * where the planted foot is at the two contact keys rather than hunting for
+ * contact by height. The knee gate IS that schedule here — the left foot goes
+ * down at one key and leaves at the other — so all this has to supply is where
+ * the first one falls.
  */
-const contactA: SparsePose = {};
-const contactB: SparsePose = {};
-const worldA: WorldPose = {};
-const worldB: WorldPose = {};
 
 export interface StrideVelocity {
 	/** Metres per second along the character's own +X (its left). */
@@ -279,15 +271,10 @@ export interface StrideVelocity {
 }
 
 export function strideVelocity(dir: Direction, amp = 1, gait = 0): StrideVelocity {
-	const half = stridePeriod(gait) / 2;
-	const a = solveWorld(SKELETON, stridePose(STRIDE_CONTACTS[0] * TAU, amp, dir, gait, 0, contactA), worldA);
-	const b = solveWorld(SKELETON, stridePose(STRIDE_CONTACTS[1] * TAU, amp, dir, gait, 0, contactB), worldB);
-
-	// Both feet, because they are mirror images half a cycle apart: the left is
-	// planted from the first key to the second, the right from the second to
-	// the first. Averaging them is symmetry, not smoothing.
-	return {
-		x: (a.footL!.p[0] - b.footL!.p[0] + b.footR!.p[0] - a.footR!.p[0]) / 2 / half,
-		z: (a.footL!.p[2] - b.footL!.p[2] + b.footR!.p[2] - a.footR!.p[2]) / 2 / half,
-	};
+	return measureGroundSpeed(
+		SKELETON,
+		(phase, out) => stridePose(phase * TAU, amp, dir, gait, 0, out),
+		stridePeriod(gait),
+		{ contactPhase: STRIDE_CONTACTS[0] },
+	);
 }

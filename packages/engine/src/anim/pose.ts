@@ -53,6 +53,22 @@ export function lerpPose(dst: DensePose, a: DensePose, b: DensePose, w: number):
 }
 
 /**
+ * Add one pose onto another, scaled.
+ *
+ * This is the whole of additive blending here, and it needs no reference pose
+ * to subtract because every value in this system is ALREADY a delta from rest.
+ * A lean is a lean whatever the legs are doing, so laying one over a stride is
+ * a sum — where blending it in would have to take something away from the
+ * stride to make room, and a character cannot bank by walking less.
+ */
+export function addPose(dst: DensePose, src: DensePose, weight = 1): void {
+	for (let i = 0; i < dst.rot.length; i++) {
+		dst.rot[i]! += src.rot[i]! * weight;
+		dst.pos[i]! += src.pos[i]! * weight;
+	}
+}
+
+/**
  * The same, but each bone's weight is scaled by a mask.
  *
  * This is what lets the guard hold a shield up through the arms while the legs

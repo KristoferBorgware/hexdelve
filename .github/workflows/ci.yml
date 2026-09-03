@@ -40,6 +40,13 @@ jobs:
         # is pointing. This round-trips screen points through the real matrix.
         run: npm run check:picking
 
+      - name: Check the blend tree blends what it says it does
+        # The failure this catches is the one nothing throws for: two gaits
+        # drifting out of phase still produce sensible weights and a valid
+        # pose, and the only symptom is a character who skates. Asserts the
+        # thresholds, the sync, the additive gain and the mask.
+        run: npm run check:blend
+
       - name: Check the shaders compile and the pipelines build
         # Catches a WGSL or GLSL mistake at the point it is made. WebGPU marks
         # a bad pipeline invalid rather than throwing, so without this a broken

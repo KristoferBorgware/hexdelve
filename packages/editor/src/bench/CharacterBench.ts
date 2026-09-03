@@ -132,6 +132,7 @@ export class CharacterBench {
 	private instanceCount = 0;
 	private smoothedFps = 0;
 	private disposed = false;
+	private lastDuration = 0;
 
 	/** Asynchronous for the same reason the client is: asking for a GPU is. */
 	static async create(options: BenchOptions): Promise<CharacterBench> {
@@ -269,6 +270,10 @@ export class CharacterBench {
 	setAnimation(animation: BenchAnimation): void {
 		this.animation = animation;
 		this.time = 0;
+		// A different animation is a different cycle, and its length is not a
+		// change in this one's — so there is nothing to rescale against.
+		this.lastDuration = 0;
+		this.playing = true;
 		if (!this.running) this.renderOnce();
 	}
 
@@ -356,8 +361,27 @@ export class CharacterBench {
 		this.build();
 	}
 
+	/**
+	 * Keep the playhead meaning the same thing when the cycle changes length.
+	 *
+	 * A clip's duration is a constant, but a blend tree's is not: blend a walk
+	 * towards a run and the cadence speeds up under you. Left alone, a playhead
+	 * measured in seconds would then sit at a different point in the cycle than
+	 * it did a frame ago — the footfall would jump. Rescaling it holds the
+	 * PHASE, which is the quantity that actually matters, and is the same thing
+	 * as integrating the phase directly.
+	 */
+	private syncCycle(): void {
+		const duration = this.animation.duration;
+		if (this.lastDuration > 1e-6 && duration > 1e-6 && duration !== this.lastDuration) {
+			this.time *= duration / this.lastDuration;
+		}
+		this.lastDuration = duration;
+	}
+
 	/** Everything on screen, rebuilt into the three passes. */
 	private build(): void {
+		this.syncCycle();
 		const { opaque, blended, overlay, frame } = this;
 		opaque.clear();
 		blended.clear();

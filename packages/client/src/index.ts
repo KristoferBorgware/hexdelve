@@ -48,11 +48,20 @@ export {
 	stridePose,
 	stridePeriod,
 	strideVelocity,
+	STRIDE_CONTACTS,
 	WALK_PERIOD,
 	RUN_PERIOD,
 	type Direction,
 } from './game/stride.js';
-export { DUCK, GUARD, SLASH, SWING_CONTACT } from './game/clips.js';
+export {
+	DUCK,
+	GUARD,
+	SLASH,
+	SWING_CONTACT,
+	LEAN_LEFT,
+	LEAN_RIGHT,
+	UPRIGHT,
+} from './game/clips.js';
 
 export type { BackendKind, BackendPreference, RendererInfo, FrameCapture } from '@hexdelve/engine';
 
