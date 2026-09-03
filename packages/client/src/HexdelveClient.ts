@@ -8,6 +8,7 @@
  * is the point: whatever the editor can do to the world, an embedder can too.
  */
 
+import type { AssetLibrary } from '@hexdelve/engine';
 import {
 	createRenderer,
 	directionalShadowMatrix,
@@ -22,6 +23,7 @@ import {
 } from '@hexdelve/engine';
 import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
+import { openAssets, type OpenAssetsOptions } from './assets/library.js';
 import { Controls } from './input/Controls.js';
 import { Simulation, type SimulationToggles, type YardStats } from './game/simulation.js';
 
@@ -55,6 +57,15 @@ export interface ClientOptions {
 	seed?: number;
 	toggles?: Partial<SimulationToggles>;
 	/**
+	 * How to reach the asset files, if the defaults are not right.
+	 *
+	 * Left alone this opens the tree at `assets/`, relative to the page, and
+	 * works unchanged in a browser tab, on a Vite dev server and inside the
+	 * desktop shell — which serves the build through a real `app://` origin
+	 * for exactly this reason. Writable on the dev server and nowhere else.
+	 */
+	assets?: OpenAssetsOptions;
+	/**
 	 * Called if the GPU takes the renderer's device away. The client stops its
 	 * loop when this happens; recovering means disposing it and creating a new
 	 * one on a fresh canvas.
@@ -71,6 +82,14 @@ export interface ClientStats {
 
 export class HexdelveClient {
 	readonly renderer: Renderer;
+	/**
+	 * The asset library, opened for whatever host this is.
+	 *
+	 * Created eagerly and read lazily: opening it costs nothing, and an
+	 * embedder that wants an entity should not have to construct a second
+	 * library and get the pose functions right by hand.
+	 */
+	readonly assets: AssetLibrary;
 	readonly camera: OrbitCamera;
 	readonly ticker: Ticker;
 	readonly simulation: Simulation;
@@ -122,6 +141,7 @@ export class HexdelveClient {
 	private constructor(options: ClientOptions, renderer: Renderer) {
 		this.canvas = options.canvas;
 		this.renderer = renderer;
+		this.assets = openAssets(options.assets ?? {});
 
 		/*
 		 * The labs' camera exactly: orthographic at the isometric pitch, so a

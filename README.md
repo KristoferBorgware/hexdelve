@@ -61,7 +61,7 @@ packages/
   desktop/      Electron wrapper around the client's build
 labs/           one folder per lab, each a standalone page
   shared/       the code the labs are built from
-assets/
+public/assets/   served as themselves by both apps, and copied into both builds
   index.yaml    every entity the game has, in catalogue order
   entities/     the root file per asset: what rig, body, clips and trees belong
                 together — props are entities too, with no rig
@@ -69,7 +69,9 @@ assets/
   meshes/       hex prisms bound to bones
   clips/        keyframes, pose-major
   trees/        blend trees over animations the entity names
-  audio/        ambience, and the scripts that synthesise it
+assets/
+  audio/        ambience, and the scripts that synthesise it — generators, not
+                served files, which is why they are not under public/
 docs/
   angband/      Angband's rules, read out of its source as a reference
   assets.md     the asset file format, and what is deliberately still code
@@ -126,7 +128,7 @@ renderer toggle is in the toolbar rather than a settings dialog, because two
 backends meant to draw the same picture only stay that way if switching is one
 click during ordinary work.
 
-It has five views. The **yard** is the client, in a box: no editor renderer and
+It has six views. The **yard** is the client, in a box: no editor renderer and
 no editor scene, so whatever the editor can do to the world an embedder can do
 too. The four **benches** are the exception, and say why in their own name — a
 bench is one subject, alone, held still, which is exactly what a running world
@@ -135,6 +137,12 @@ it is the one with no viewport in it. They have scenes of their own for that rea
 and they build nothing of their own: the skeletons, the bodies, the clips and
 the gear all come out of the client, so what reads well on a bench is what the
 game draws.
+
+The **assets view** is the odd one out and the newest: every other view
+previews something the code decided, and that one edits the decision. It lists
+the YAML under `public/assets`, shows which IO backend it reached them through
+and whether that backend can write, and saves a changed file back through the
+dev server. See [docs/assets.md](docs/assets.md).
 
 The **character bench** puts a rig on a stand with a clock. Pick a subject, pick
 an animation, play it, scrub it, slow it down, ghost the body to see the rig
@@ -333,8 +341,40 @@ statements of what a wanderer is still exist, so they can be checked against
 each other, and a mesh that mirrors the wrong axis fails there rather than
 being noticed later by somebody looking at a character with one ear.
 
-The modules are still what the client and the benches read; the files are
-proven equal to them and ready to be read instead. See
+### One IO model for three hosts
+
+The files are fetched, which raises the question Electron usually answers
+badly. Loaded with `loadFile` its window would be a `file://` document with an
+opaque origin, and a relative fetch from one is refused. The usual answer is a
+desktop-only read path over IPC — which works, and costs the sentence that the
+desktop build is a shell and nothing more, because the client would then carry
+a branch only that build takes. So the shell registers a standard, secure
+`app://hexdelve/` scheme served out of the client's build instead, and every
+URL under it resolves exactly as it does over http. Reading is `fetch`
+everywhere, including there.
+
+Writing is where the hosts genuinely differ, so it is a capability rather than
+a method — `io.writer` is null when a host cannot write, which makes "this
+editor cannot save here" something the type system knows and the UI shows.
+
+| host | reads | writes |
+|---|---|---|
+| dev server | `fetch` | a `PUT` back to the same URL, into `public/assets` |
+| a built page | `fetch` | none — a static page has nowhere to put a file |
+| Electron | `fetch` over `app://` | none — the shell wraps the client, which authors nothing |
+| memory | a map | the same map: a pack, or a test |
+
+The editor's **Assets** view is the file list, the file, and a save button. It
+edits the actual bytes rather than offering a form, because these documents
+carry the comments explaining why a cheek plate sits where it does and a form
+would throw all of that away the first time it round-tripped one. What it adds
+is validating before writing — a document that could not be read back is never
+saved, since turning an unsaved change into a broken asset is strictly worse
+than refusing — and invalidating everything derived from what changed, because
+a rig's hip height moves every mesh hung on it.
+
+The benches still take their subjects from the TypeScript modules; the files
+are proven equal to them and the IO to reach them is in place. See
 [docs/assets.md](docs/assets.md).
 
 ### Versions

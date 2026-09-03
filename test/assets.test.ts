@@ -20,15 +20,18 @@
  * is the thing the expressions exist to avoid.
  */
 
-import { readFile } from 'node:fs/promises';
-import { resolve as resolvePath } from 'node:path';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, resolve as resolvePath } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import {
 	AssetLibrary,
 	loadRig,
-	type AssetSource,
+	AssetWriteError,
+	memoryIO,
+	readOnly,
+	type AssetIO,
 	type EntityAsset,
 	type Model,
 	type RigAsset,
@@ -61,20 +64,37 @@ import {
 	UPRIGHT,
 } from '@hexdelve/client';
 
-const root = resolvePath(import.meta.dirname, '..', 'assets');
+const root = resolvePath(import.meta.dirname, '..', 'public', 'assets');
 
 /**
- * The disk as an asset source.
+ * The disk as an asset backend, read and write.
  *
- * Four lines, which is the point of `AssetSource` being one method: nothing in
- * @hexdelve/engine imports `node:fs`, and a test that wants the disk does not
- * need it to.
+ * A dozen lines, which is the point of `AssetIO` being this small: nothing in
+ * @hexdelve/engine imports `node:fs`, a test that wants the disk does not need
+ * it to, and a tool wanting one writes the same dozen lines.
  */
-const disk: AssetSource = {
-	read: (path) => readFile(resolvePath(root, path), 'utf8'),
-};
+function diskIO(at: string): AssetIO {
+	const full = (path: string): string => resolvePath(at, path);
+	return {
+		kind: 'memory',
+		origin: at,
+		read: (path) => readFile(full(path), 'utf8'),
+		writer: {
+			async write(path, text) {
+				await mkdir(dirname(full(path)), { recursive: true });
+				await writeFile(full(path), text, 'utf8');
+			},
+			remove: (path) => rm(full(path), { force: true }),
+		},
+	};
+}
 
-const library = new AssetLibrary(disk, { poseFunctions });
+/*
+ * The real tree, opened READ-ONLY. A test that can write to public/assets is a
+ * test that can quietly rewrite the thing it is checking; the write path is
+ * exercised below against a scratch backend instead.
+ */
+const library = new AssetLibrary(readOnly(diskIO(root)), { poseFunctions });
 
 const entity = (id: string): Promise<EntityAsset> => library.entity(`entities/${id}.entity.yaml`);
 
@@ -237,7 +257,7 @@ describe('entities', () => {
 
 	it('refuses a prop that claims a rig', async () => {
 		const source = ['id: bad', 'kind: prop', 'rig: ../rigs/humanoid.rig.yaml', 'mesh: x.mesh.yaml'].join('\n');
-		const one = new AssetLibrary({ read: async () => source });
+		const one = new AssetLibrary(memoryIO({ 'bad.entity.yaml': source }));
 		await expect(one.entity('bad.entity.yaml')).rejects.toThrow(/a prop has no rig/);
 	});
 });
@@ -272,5 +292,63 @@ describe('animations', () => {
 		tree.resolve({ speed: (walk + run) / 2, turn: 0, lean: 0, guard: 0 });
 		for (let i = 0; i < 30; i++) tree.advance({ speed: (walk + run) / 2, turn: 0, lean: 0, guard: 0 }, 1 / 60);
 		expect(tree.phaseSpread()).toBeLessThan(1e-6);
+	});
+});
+
+describe('io', () => {
+	it('reports what the backend can do, and refuses what it cannot', async () => {
+		const reader = new AssetLibrary(readOnly(memoryIO({ 'a.rig.yaml': 'id: a' })));
+		expect(reader.writable).toBe(false);
+		await expect(reader.save('a.rig.yaml', 'id: a')).rejects.toThrow(AssetWriteError);
+		await expect(reader.save('a.rig.yaml', 'id: a')).rejects.toThrow(/read-only/);
+
+		const writer = new AssetLibrary(memoryIO());
+		expect(writer.writable).toBe(true);
+	});
+
+	it('will not write a file it could not read back', async () => {
+		const library = new AssetLibrary(memoryIO());
+		await expect(library.save('bad.rig.yaml', 'a: 1\n\tb: 2')).rejects.toThrow(/tabs may not indent/);
+		// And having refused, it wrote nothing.
+		await expect(library.rig('bad.rig.yaml')).rejects.toThrow(/no asset at/);
+	});
+
+	it('forgets what a save invalidated, all the way down', async () => {
+		const scratch = resolvePath(import.meta.dirname, '..', 'dist', 'asset-io-test');
+		await rm(scratch, { recursive: true, force: true });
+
+		// A copy of the real tree, so the round trip is over real documents.
+		const files = [
+			'index.yaml',
+			'entities/wanderer.entity.yaml',
+			'rigs/humanoid.rig.yaml',
+			'meshes/wanderer.mesh.yaml',
+		];
+		const io = diskIO(scratch);
+		for (const file of files) await io.writer!.write(file, await readFile(resolvePath(root, file), 'utf8'));
+
+		const library = new AssetLibrary(io, { poseFunctions });
+		const before = await library.rig('rigs/humanoid.rig.yaml');
+		expect(before.metrics.hipHeight).toBeCloseTo(0.92, 12);
+
+		// Change the hip height in the rig, and the MESH hung on it must be
+		// rebuilt too — which is why a save drops the whole derived side.
+		const text = await io.read('rigs/humanoid.rig.yaml');
+		await library.save('rigs/humanoid.rig.yaml', text.replace('hipHeight: 0.92', 'hipHeight: 1.05'));
+
+		const after = await library.rig('rigs/humanoid.rig.yaml');
+		expect(after).not.toBe(before);
+		expect(after.metrics.hipHeight).toBeCloseTo(1.05, 12);
+		expect(after.skeleton[0]!.offset[1]).toBeCloseTo(1.05, 12);
+
+		// And it really reached the disk, not just the cache.
+		expect(await readFile(resolvePath(scratch, 'rigs/humanoid.rig.yaml'), 'utf8')).toContain(
+			'hipHeight: 1.05',
+		);
+
+		await library.remove('rigs/humanoid.rig.yaml');
+		await expect(library.rig('rigs/humanoid.rig.yaml')).rejects.toThrow();
+
+		await rm(scratch, { recursive: true, force: true });
 	});
 });

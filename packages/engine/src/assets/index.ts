@@ -9,6 +9,15 @@
  */
 
 export { AssetError, Node, type Vec3 } from './document.js';
+export {
+	fetchIO,
+	memoryIO,
+	readOnly,
+	type AssetIO,
+	type AssetIOKind,
+	type AssetWriter,
+} from './io.js';
+
 export { loadRig, type RigAnchor, type RigAsset, type RigView } from './rig.js';
 export { loadMesh, type Anchor, type MeshAsset } from './mesh.js';
 export { readClip, buildClipAsset, type ClipAsset, type ClipDocument } from './clip.js';
@@ -39,10 +48,8 @@ export {
 } from './poseFunctions.js';
 export {
 	AssetLibrary,
-	fetchSource,
-	mapSource,
+	AssetWriteError,
 	normalise,
 	resolve,
 	type AssetLibraryOptions,
-	type AssetSource,
 } from './library.js';

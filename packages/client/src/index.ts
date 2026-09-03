@@ -157,7 +157,25 @@ export {
  * embedder gets a working one rather than an empty one.
  */
 export { poseFunctions } from './assets/poseFunctions.js';
-export { openAssets, ASSET_INDEX, type OpenAssetsOptions } from './assets/library.js';
+export { openAssets, ASSET_BASE, ASSET_INDEX, type OpenAssetsOptions } from './assets/library.js';
+
+/*
+ * The asset types, re-exported so an embedder or the editor need not import
+ * @hexdelve/engine alongside this package just to name what it was handed.
+ */
+export type {
+	AnimationAsset,
+	AssetIO,
+	AssetLibrary,
+	BlendTreeAsset,
+	ClipAsset,
+	EntityAsset,
+	EntityKind,
+	MeshAsset,
+	RigAsset,
+	TreeParameter,
+} from '@hexdelve/engine';
+export { AssetError, AssetWriteError, fetchIO, memoryIO, readOnly } from '@hexdelve/engine';
 
 export type { BackendKind, BackendPreference, RendererInfo, FrameCapture } from '@hexdelve/engine';
 

@@ -8,11 +8,16 @@
  * without it either, and a blend tree cannot be built until the animations it
  * refers to by name exist. So the graph is walked rig-first, always.
  *
- * Reading is asynchronous because getting a file is, whatever it comes out of.
- * `AssetSource` is the whole of that: one method, one string in, one string
- * out. `fetchSource` is the browser's; a tool or a test wanting the disk
- * writes four lines around `readFile` and hands it over, which is why nothing
- * in @hexdelve/engine imports `node:fs` and nothing has to.
+ * Reading is asynchronous because getting a file is, whatever it comes out of,
+ * and `AssetIO` is the whole of that host difference — see io.ts. Nothing in
+ * @hexdelve/engine imports `node:fs`, and nothing has to.
+ *
+ * The library also owns the other half of the caching problem, which is
+ * throwing it away. Saving a rig changes every mesh hung on it and every clip
+ * checked against it, so a write drops the whole derived side rather than
+ * trying to work out what it invalidated. These are small files read in
+ * milliseconds; a clever invalidation here would buy nothing and would be
+ * wrong the first time somebody added a link between two kinds.
  */
 
 import { poseFunctionAnimation, clipAnimation, type AnimationAsset } from './animation.js';
@@ -22,64 +27,109 @@ import { AssetError, Node } from './document.js';
 import { readEntity, type AnimationRequest, type EntityAsset } from './entity.js';
 import { loadMesh, type MeshAsset } from './mesh.js';
 import { PoseFunctionRegistry } from './poseFunctions.js';
+import type { AssetIO } from './io.js';
 import { loadRig, type RigAsset } from './rig.js';
-
-/** Where asset files come from. One method, so anything can be one. */
-export interface AssetSource {
-	read(path: string): Promise<string>;
-}
-
-/**
- * Files over HTTP, under a base URL.
- *
- * The base is joined with a `/` and nothing cleverer, so it works from a
- * GitHub Pages subdirectory and from a `file://` URL inside Electron — the
- * same reason the client's Vite config sets `base: './'`.
- */
-export function fetchSource(baseUrl: string): AssetSource {
-	const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-	return {
-		async read(path) {
-			const url = `${base}${path}`;
-			const response = await fetch(url);
-			if (!response.ok) throw new Error(`${url}: ${response.status} ${response.statusText}`);
-			return response.text();
-		},
-	};
-}
-
-/** Files already in hand, keyed by path — for a packed build, or a test. */
-export function mapSource(files: ReadonlyMap<string, string> | Record<string, string>): AssetSource {
-	const map = files instanceof Map ? files : new Map(Object.entries(files));
-	return {
-		async read(path) {
-			const text = map.get(path);
-			if (text === undefined) {
-				throw new Error(`no asset at '${path}'; this pack has ${[...map.keys()].sort().join(', ')}`);
-			}
-			return text;
-		},
-	};
-}
 
 export interface AssetLibraryOptions {
 	/** The pose functions entity files may name. Defaults to an empty one. */
 	readonly poseFunctions?: PoseFunctionRegistry;
 }
 
+/** What a save refused, and why — so an editor can say it rather than throw. */
+export class AssetWriteError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'AssetWriteError';
+	}
+}
+
 export class AssetLibrary {
 	readonly poseFunctions: PoseFunctionRegistry;
 
-	private readonly source: AssetSource;
+	private readonly io: AssetIO;
 	private readonly texts = new Map<string, Promise<string>>();
 	private readonly rigs = new Map<string, Promise<RigAsset>>();
 	private readonly meshes = new Map<string, Promise<MeshAsset>>();
 	private readonly clips = new Map<string, Promise<ClipAsset>>();
 	private readonly entities = new Map<string, Promise<EntityAsset>>();
 
-	constructor(source: AssetSource, options: AssetLibraryOptions = {}) {
-		this.source = source;
+	constructor(io: AssetIO, options: AssetLibraryOptions = {}) {
+		this.io = io;
 		this.poseFunctions = options.poseFunctions ?? new PoseFunctionRegistry();
+	}
+
+	/** Which backend this is reading through, for a status line. */
+	get source(): AssetIO {
+		return this.io;
+	}
+
+	/**
+	 * Every file read so far, in order.
+	 *
+	 * Not a directory listing — no backend here has one, and a manifest is a
+	 * better answer anyway. After `index()` this is the whole reachable set,
+	 * because reaching an entity means reading everything it links to; before
+	 * it, it is honestly just what has been asked for.
+	 */
+	get paths(): string[] {
+		return [...this.texts.keys()].sort();
+	}
+
+	/** Whether this host can save at all. False on a static build, and in Electron. */
+	get writable(): boolean {
+		return this.io.writer !== null;
+	}
+
+	/**
+	 * Write one file back, and forget everything derived from the old one.
+	 *
+	 * The text is PARSED before it is sent, so a file that could not be read
+	 * back is never written — an editor that saves a broken document has
+	 * turned an unsaved change into a broken asset, which is strictly worse
+	 * than refusing. This is a syntax check, not a full load: whether the
+	 * document means anything is settled by reading it again, which the caller
+	 * is free to do straight afterwards and which the caches above now oblige.
+	 */
+	async save(path: string, text: string): Promise<void> {
+		const at = normalise(path);
+		const writer = this.io.writer;
+		if (!writer) {
+			throw new AssetWriteError(
+				`cannot save '${at}': the ${this.io.kind} backend at ${this.io.origin} is read-only`,
+			);
+		}
+		// Node.parse throws an AssetError naming the file and line if it cannot.
+		Node.parse(text, at);
+		await writer.write(at, text);
+		this.invalidate();
+	}
+
+	/** Delete one file, and forget everything derived from it. */
+	async remove(path: string): Promise<void> {
+		const at = normalise(path);
+		const writer = this.io.writer;
+		if (!writer) {
+			throw new AssetWriteError(
+				`cannot delete '${at}': the ${this.io.kind} backend at ${this.io.origin} is read-only`,
+			);
+		}
+		await writer.remove(at);
+		this.invalidate();
+	}
+
+	/**
+	 * Forget what has been read.
+	 *
+	 * With a path, that one file's text; without, everything. Either way the
+	 * whole derived side goes, for the reason in this file's header.
+	 */
+	invalidate(path?: string): void {
+		if (path === undefined) this.texts.clear();
+		else this.texts.delete(normalise(path));
+		this.rigs.clear();
+		this.meshes.clear();
+		this.clips.clear();
+		this.entities.clear();
 	}
 
 	/** Every entity a manifest lists, in the order it lists them. */
@@ -214,10 +264,17 @@ export class AssetLibrary {
 		});
 	}
 
-	private text(path: string): Promise<string> {
+	/**
+	 * One file's raw text, read once and remembered.
+	 *
+	 * Public because an editor wants the bytes rather than the parsed thing —
+	 * these documents carry their own comments and a reader that returned only
+	 * what it understood would drop every one of them.
+	 */
+	text(path: string): Promise<string> {
 		let pending = this.texts.get(path);
 		if (pending === undefined) {
-			pending = this.source.read(path);
+			pending = this.io.read(path);
 			this.texts.set(path, pending);
 		}
 		return pending;

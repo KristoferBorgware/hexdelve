@@ -1,5 +1,5 @@
 /*
- * The editor shell: a toolbar, and one of five views under it.
+ * The editor shell: a toolbar, and one of six views under it.
  *
  * The YARD is the game, in a box — the client, unchanged, doing what a player
  * would see. The three BENCHES are the other thing an editor is for: one
@@ -13,9 +13,16 @@
  * of them quickly. All three have scenes of their own for that reason and no
  * other.
  *
+ * The ASSETS view is the odd one out, and the newest. Every other view here
+ * previews something the code decided; that one edits the decision — the YAML
+ * under public/assets, through the dev server, which is the only host in this
+ * project that can write a file. It is also where the editor admits it cannot:
+ * the built page published to Pages reads the same files and says so.
+ *
  * The level bench is the one with no clock, which is why the transport is
  * disabled while it is up rather than left there doing nothing: a level does not
- * move, it is redrawn when something about it changes.
+ * move, it is redrawn when something about it changes. The vault and asset views
+ * are the same case for the same reason.
  *
  * The backend selector and the transport are shared, and sit here rather than
  * being buried in a settings dialog on purpose. Two renderers that are meant to
@@ -37,6 +44,7 @@ import { useCallback, useState } from 'react';
 import type { HexdelveClient } from '@hexdelve/client';
 import type { BackendPreference } from '@hexdelve/engine';
 
+import { Assets } from './components/Assets.js';
 import { Bench } from './components/Bench.js';
 import { PropBenchView } from './components/PropBenchView.js';
 import { Inspector } from './components/Inspector.js';
@@ -45,7 +53,7 @@ import { Vaults } from './components/Vaults.js';
 import { SceneOutline } from './components/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
 
-type View = 'yard' | 'bench' | 'props' | 'levels' | 'vaults';
+type View = 'yard' | 'bench' | 'props' | 'levels' | 'vaults' | 'assets';
 
 export function App() {
 	const [client, setClient] = useState<HexdelveClient | null>(null);
@@ -75,6 +83,7 @@ export function App() {
 						onChange={(_, value: View | null) => value && setView(value)}
 					>
 						<ToggleButton value="yard">Yard</ToggleButton>
+						<ToggleButton value="assets">Assets</ToggleButton>
 						<ToggleButton value="bench">Character</ToggleButton>
 						<ToggleButton value="props">Props</ToggleButton>
 						<ToggleButton value="levels">Level</ToggleButton>
@@ -96,7 +105,7 @@ export function App() {
 
 					<Tooltip
 						title={
-							view === 'levels' || view === 'vaults'
+							view === 'levels' || view === 'vaults' || view === 'assets'
 								? 'Nothing here has a frame loop to run'
 								: running
 									? 'Pause the frame loop'
@@ -107,7 +116,7 @@ export function App() {
 							<Button
 								size="small"
 								variant="outlined"
-								disabled={view === 'levels' || view === 'vaults'}
+								disabled={view === 'levels' || view === 'vaults' || view === 'assets'}
 								startIcon={running ? <PauseIcon /> : <PlayArrowIcon />}
 								onClick={() => setRunning((value) => !value)}
 							>
@@ -130,6 +139,7 @@ export function App() {
 				{view === 'props' && <PropBenchView backend={backend} running={running} />}
 				{view === 'levels' && <Levels backend={backend} />}
 				{view === 'vaults' && <Vaults />}
+				{view === 'assets' && <Assets />}
 			</Box>
 		</Box>
 	);

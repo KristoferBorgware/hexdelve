@@ -20,7 +20,7 @@ a renderer is.
 ## The tree
 
 ```
-assets/
+public/assets/
   index.yaml              every entity, in the order a catalogue lists them
   entities/*.entity.yaml  the root file: what belongs to what
   rigs/*.rig.yaml         bones, tips, masks, groups, metrics
@@ -28,6 +28,21 @@ assets/
   clips/*.clip.yaml       keyframes, pose-major
   trees/*.tree.yaml       blend trees over named animations
 ```
+
+`public/` because these are files a browser fetches, and Vite's `publicDir`
+is how a file gets served as itself rather than bundled. One tree at the
+repository root rather than one per app: the client and the editor read the
+same rigs, they live in different directories, and a copy in each would be the
+same YAML twice, drifting — which is the thing moving assets out of TypeScript
+was meant to stop. `vite.assets.mts` points both apps at it, and both builds
+carry it.
+
+One consequence worth knowing: Vite emits its own chunks into `assetsDir`,
+which defaults to `assets` and would collide. Both apps move the **bundle**
+aside to `bundle/` rather than moving the data, because
+`/assets/rigs/humanoid.rig.yaml` is an address that appears in the asset files
+themselves and in this document, and `/bundle/index-a1b2c3.js` is an address
+nobody ever types.
 
 Paths inside a file are relative to that file. A leading `/` is from the asset
 root instead, for a tree deep enough that the alternative is all dots.
@@ -188,23 +203,100 @@ listing what *was*.
 ```ts
 import { openAssets } from '@hexdelve/client';
 
-const library = openAssets({ baseUrl: 'assets' });
+const library = openAssets();                  // assets/, relative to the page
 const wanderer = await library.entity('entities/wanderer.entity.yaml');
 
-wanderer.mesh.model();                       // the prisms
+wanderer.mesh.model();                         // the prisms
 wanderer.blendTrees.get('locomotion')!.tree(); // a tree of its own
-await library.index();                        // every entity, in order
+await library.index();                         // every entity, in order
 ```
+
+`HexdelveClient` opens one for you as `client.assets`, so an embedder that
+wants an entity need not construct a second library and get the pose functions
+right by hand.
 
 `tree()` returns a **fresh** tree each call on purpose: a tree owns a playhead
 and a set of scratch buffers, so two subjects sharing one would fight over both
 the moment either was being looked at.
 
-`openAssets` is `new AssetLibrary(source)` with this package's pose functions
-already registered. `AssetSource` is one method — `read(path): Promise<string>`
-— so the browser gets `fetchSource`, a packed build gets `mapSource`, and a
-tool or a test wanting the disk writes four lines around `readFile`. Nothing in
-`@hexdelve/engine` imports `node:fs`, and nothing has to.
+## The IO model
+
+Three hosts have to read these files and they have almost nothing in common: a
+browser tab, a Vite dev server, and an Electron window whose page is not served
+over http at all. What they share is a path in and a string out, so that is the
+whole of `AssetIO`, and every host difference lives in one small object.
+
+**Reading is `fetch` everywhere, Electron included.** That is the part worth
+arguing for. Loaded with `loadFile`, the desktop window's page would be a
+`file://` document with an opaque origin, and a relative fetch from one is
+refused by Chromium. The usual answer is to give Electron its own read path
+over IPC — which works, and costs the desktop shell's whole claim that whatever
+ships on the web ships there, because the client would then contain a branch
+only the desktop build takes. So the window gets a real origin instead:
+`packages/desktop/src/main.ts` registers a standard, secure `app://hexdelve/`
+scheme served straight out of the client's build, and every URL under it
+resolves exactly as it does over http. The client knows nothing about any of
+it, which is the point.
+
+**Writing is a capability, not a method.** `io.writer` is null on a backend
+that cannot write, which makes "this editor cannot save here" something the
+type system knows and the UI can show, rather than an error somebody discovers
+by pressing a button.
+
+| host | reads | writes |
+|---|---|---|
+| `dev-server` | `fetch` | a `PUT` to the same URL, handled by `vite.assets.mts` |
+| `fetch` — a built page | `fetch` | none: a static page has nowhere to put a file |
+| Electron | `fetch` over `app://` | none: the shell wraps the client, which authors nothing |
+| `memory` | a map | the same map — a pack, or a test |
+
+A file has one address, so a write is a PUT to the URL the GET came from rather
+than a second endpoint: an editor that read from one place and wrote to another
+would have two ways to be pointed at the wrong tree.
+
+The dev plugin is `apply: 'serve'` and therefore cannot exist in a build. It
+refuses anything but `.yaml`, caps a body at a megabyte, and resolves each path
+and then checks where it actually **leads** rather than scanning its text for
+`..` — a check on the text of a path is a check on one spelling of it, and
+`%2e%2e` is another. A dev server is usually on localhost but `--host` is one
+flag away.
+
+It also answers **404** for a missing asset. Vite treats both apps as
+single-page apps, so a path it cannot serve falls back to `index.html` with a
+200 on it, and a mistyped rig path would reach the YAML reader as a page of
+HTML — the error would be about an unexpected `<` on line one rather than about
+a file that is not there.
+
+A tool or a test wanting the disk writes a dozen lines around `readFile` and
+`writeFile` and hands them over; `test/assets.test.ts` has exactly that.
+Nothing in `@hexdelve/engine` imports `node:fs`, and nothing has to.
+
+## Writing them
+
+The editor's **Assets** view is the file list, the file, and a save button.
+
+What is in the pane is the actual bytes of the actual document — no form, no
+schema-driven widgets — and that is a choice rather than a shortcut. These
+files are written to be read: they carry the comments explaining why a cheek
+plate sits where it does, and a form would throw all of that away the first
+time it round-tripped one.
+
+What the editor adds is the two things a text box cannot do on its own.
+
+It **validates before writing**. `library.save` parses the document and refuses
+to send one it could not read back, because turning an unsaved change into a
+broken asset is strictly worse than refusing — the error is the reader's own,
+naming the file and the line.
+
+It **invalidates the whole derived side**. Saving a rig changes every mesh hung
+on it and every clip checked against it, so a write drops all of it rather than
+working out what it touched. These are small files read in milliseconds; a
+clever invalidation would buy nothing and be wrong the first time somebody
+added a link between two kinds.
+
+When the host cannot write, the view says so and leaves the text read-only. The
+published editor is that host. An editor offering a save that silently does
+nothing is worse than one that admits what it is.
 
 ## The reader
 
@@ -241,13 +333,16 @@ of a double — a millionth of a millimetre.
 
 ## Still to do
 
-The modules are still what the client and the editor's benches read. The files
-are proven equal to them and ready to be read instead; switching over means the
-editor's bench taking its subjects from `library.index()` and the client
-loading its entities at startup, at which point `models/`, `game/*rig.ts` and
-`game/clips.ts` become the files that are deleted rather than the files that
-are duplicated.
+The four preview benches still take their subjects from the TypeScript modules
+rather than from the library. The files are proven equal to those modules and
+the IO to reach them is in place, so switching over means the benches taking
+their subjects from `library.index()` and the client loading its entities at
+startup — at which point `models/`, `game/*rig.ts` and `game/clips.ts` become
+the files that are deleted rather than the files that are duplicated.
 
-Not done in the same change on purpose: the switchover changes when the client
-does I/O and what a fresh clone needs served, and it is worth doing against
-data that is already known to be identical.
+Two things that would be worth having and are not here. There is no way to
+create a new file from the editor, only to change one that exists — an entity
+has to be added to `index.yaml` by hand. And nothing writes a **pack**: the
+loader will read one out of `memoryIO`, so a build step that folds the tree
+into a single JSON would give the distributed client its assets with no second
+request, but nothing produces one yet.
