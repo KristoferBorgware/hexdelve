@@ -47,6 +47,15 @@ jobs:
         # thresholds, the sync, the additive gain and the mask.
         run: npm run check:blend
 
+      - name: Check the dungeon tileset is what it says it is
+        # The same class of failure as the blend check: every mistake available
+        # in a WFC tileset still produces levels. A rotation that turns the
+        # wrong way bends corridors the wrong way, an asymmetric propagator
+        # drifts the solver's supporter counts, and a tile with no legal
+        # neighbour is silently never placed. None of them throws and all of
+        # them look like a dungeon.
+        run: npm run check:tiles
+
       - name: Check the shaders compile and the pipelines build
         # Catches a WGSL or GLSL mistake at the point it is made. WebGPU marks
         # a bad pipeline invalid rather than throwing, so without this a broken

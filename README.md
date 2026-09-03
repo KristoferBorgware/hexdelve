@@ -220,6 +220,13 @@ kinds rather than two is the whole design — corridors and rooms may not meet
 except through a tile that has both — so rooms, corridors and doors all fall out
 of one rule.
 
+The tileset is drawn in the panel beside the level — every spec as the hexagon
+it is, once per distinct rotation, with each socket on the edge it belongs to,
+straight out of the solver's own expansion. `npm run check:tiles` asserts the
+rest: a tileset is the other part of this that fails without telling anyone, and
+a rotation that turns the wrong way, a propagator that is asymmetric, or a tile
+with no legal neighbour all still produce levels that look like dungeons.
+
 They fail in opposite directions, which is the useful result: the cave has no
 concept of a room and never will, and the wave function has no idea whether the
 level is one piece and can fail outright. The bench reports both as numbers
