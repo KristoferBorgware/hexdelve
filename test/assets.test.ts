@@ -362,6 +362,15 @@ describe('the pose functions still agree with the rigs', () => {
 		expect(world.frontShinL!.p[1]).toBeLessThan(0.12);
 		expect(world.backHockL!.p[1]).toBeLessThan(0.1);
 		expect(world.root!.p[1]).toBeLessThan(rig.metrics.hipHeight! * 0.4);
+		// And every paw lies flat, toes forward: the tip of each paw is on the
+		// ground and ahead of the paw bone rather than above it.
+		const pose = direRestPose(0, {});
+		for (const tip of rig.tips) {
+			if (!tip.bone.includes('Paw')) continue;
+			const toes = attachmentPosition(rig.skeleton, pose, tip.bone, tip.to, world);
+			expect(Math.abs(toes[1]), `${tip.bone} toes on the ground`).toBeLessThan(0.03);
+			expect(toes[2] - world[tip.bone]!.p[2], `${tip.bone} toes forward`).toBeGreaterThan(0.1);
+		}
 	});
 
 	it('the dire hellhound’s bite reaches into the next hexagon and comes back', async () => {

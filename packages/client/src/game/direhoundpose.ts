@@ -596,29 +596,39 @@ export function restPose(time: number, out: SparsePose = {}): SparsePose {
 	setSparse(out, 'earL', [-0.05, 0, 0.12 + 0.05 * Math.sin(time * 1.9)]);
 	setSparse(out, 'earR', [-0.05, 0, -0.12 - 0.05 * Math.sin(time * 1.7 + 0.5)]);
 
-	// Forelegs out along the ground: the humerus drops to put the elbow down,
-	// the forearm folds forward flat from there, the pastern and paw lie flat.
+	/*
+	 * Forelegs out along the ground: the humerus drops to put the elbow down,
+	 * the forearm folds forward flat from there, and the paw's own rotation
+	 * cancels everything above it, so the paw lies flat with its toes pointing
+	 * forward rather than standing on its heel at the end of the leg.
+	 */
+	const trunkPitch = 0.05 - 0.06 - 0.02;
+	const foreleg = [0.15, 0.7, -2.3, 0.05] as const;
+	const forePaw = -(trunkPitch + foreleg[0] + foreleg[1] + foreleg[2] + foreleg[3]);
 	for (const [bones, side] of [
 		[LEGS.frontL, 1],
 		[LEGS.frontR, -1],
 	] as const) {
-		setSparse(out, bones[0]!, [0.15, 0, 0]);
-		setSparse(out, bones[1]!, [0.7, 0, 0.1 * side]);
-		setSparse(out, bones[2]!, [-2.3, 0, 0]);
-		setSparse(out, bones[3]!, [0.05, 0, 0]);
-		setSparse(out, bones[4]!, [0, 0, 0]);
+		setSparse(out, bones[0]!, [foreleg[0], 0, 0]);
+		setSparse(out, bones[1]!, [foreleg[1], 0, 0.1 * side]);
+		setSparse(out, bones[2]!, [foreleg[2], 0, 0]);
+		setSparse(out, bones[3]!, [foreleg[3], 0, 0]);
+		setSparse(out, bones[4]!, [forePaw, 0, 0]);
 	}
 
 	// Hind legs folded under: femur forward and out, tibia folded back along
-	// it, metatarsus folded forward again, paw tucked beside the belly.
+	// it, metatarsus folded forward again, and the paw flat on the ground
+	// beside the belly, toes forward, cancelling the fold the same way.
+	const hindLeg = [-0.6, 1.3, -2.2] as const;
+	const hindPaw = -(0.05 + hindLeg[0] + hindLeg[1] + hindLeg[2]);
 	for (const [bones, side] of [
 		[LEGS.backL, 1],
 		[LEGS.backR, -1],
 	] as const) {
-		setSparse(out, bones[0]!, [-0.6, 0, 0.35 * side]);
-		setSparse(out, bones[1]!, [1.3, 0, 0]);
-		setSparse(out, bones[2]!, [-2.2, 0, 0]);
-		setSparse(out, bones[3]!, [0, 0, 0]);
+		setSparse(out, bones[0]!, [hindLeg[0], 0, 0.35 * side]);
+		setSparse(out, bones[1]!, [hindLeg[1], 0, 0]);
+		setSparse(out, bones[2]!, [hindLeg[2], 0, 0]);
+		setSparse(out, bones[3]!, [hindPaw, 0, 0]);
 	}
 
 	// The tail lies on the ground and lifts its tip once in a while.
