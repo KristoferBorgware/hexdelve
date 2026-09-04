@@ -16,3 +16,11 @@ name: Game systems
 object:
   name: systems
   components: []
+
+  children:
+    # Nothing draws this. It is here so there is a script running in the yard
+    # from the first frame — a place to watch a save arrive, and the shape a
+    # real system will take when there is one to write.
+    - name: spinner
+      components:
+        - { type: script, script: Spin, speed: 0.5 }

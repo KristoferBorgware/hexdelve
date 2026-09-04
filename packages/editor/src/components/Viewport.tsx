@@ -22,15 +22,19 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import { useEffect, useRef, useState } from 'react';
 import { createClient, type HexdelveClient } from '@hexdelve/client';
+
+import { watchScripts, type ScriptWatchState } from '../scripts/reload.js';
 import type { BackendPreference } from '@hexdelve/engine';
 
 export interface ViewportProps {
 	backend: BackendPreference;
 	running: boolean;
 	onClientReady(client: HexdelveClient | null): void;
+	/** What the scripts are doing: which are running, and what last failed. */
+	onScripts(state: ScriptWatchState): void;
 }
 
-export function Viewport({ backend, running, onClientReady }: ViewportProps) {
+export function Viewport({ backend, running, onClientReady, onScripts }: ViewportProps) {
 	const hostRef = useRef<HTMLDivElement>(null);
 	const clientRef = useRef<HexdelveClient | null>(null);
 	const [status, setStatus] = useState<'starting' | 'ready' | 'failed'>('starting');
@@ -45,6 +49,7 @@ export function Viewport({ backend, running, onClientReady }: ViewportProps) {
 		host.replaceChildren(canvas);
 
 		let disposed = false;
+		let stopWatching: (() => void) | null = null;
 		setStatus('starting');
 		setError('');
 
@@ -65,6 +70,13 @@ export function Viewport({ backend, running, onClientReady }: ViewportProps) {
 					return;
 				}
 				clientRef.current = client;
+				/*
+				 * Hand this client's script host to the watcher, so a saved
+				 * script file reaches the yard without a rebuild. The client
+				 * came up on the table compiled into it; from here on it runs
+				 * whatever is on disk.
+				 */
+				stopWatching = watchScripts(client.simulation.scripts, onScripts);
 				setStatus('ready');
 				onClientReady(client);
 			})
@@ -77,6 +89,7 @@ export function Viewport({ backend, running, onClientReady }: ViewportProps) {
 
 		return () => {
 			disposed = true;
+			stopWatching?.();
 			clientRef.current?.dispose();
 			clientRef.current = null;
 			canvas.remove();

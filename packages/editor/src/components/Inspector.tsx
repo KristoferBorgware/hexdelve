@@ -14,6 +14,7 @@
 
 import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
+import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -23,8 +24,12 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useState, type ReactElement } from 'react';
 import type { HexdelveClient, SimulationToggles, YardStats } from '@hexdelve/client';
 
+import type { ScriptWatchState } from '../scripts/reload.js';
+
 export interface InspectorProps {
 	client: HexdelveClient | null;
+	/** What the scripts are doing, or null before the first compile. */
+	scripts: ScriptWatchState | null;
 }
 
 const TOGGLES: { key: keyof SimulationToggles; label: string; hint: string }[] = [
@@ -39,7 +44,7 @@ function rating(value: number): string {
 	return `${value} (${value >= 110 ? '+' : ''}${value - 110})`;
 }
 
-export function Inspector({ client }: InspectorProps) {
+export function Inspector({ client, scripts }: InspectorProps) {
 	const [fps, setFps] = useState(0);
 	const [instances, setInstances] = useState(0);
 	const [stats, setStats] = useState<YardStats | null>(null);
@@ -258,6 +263,54 @@ export function Inspector({ client }: InspectorProps) {
 				}}
 			/>
 
+			{/*
+			  * What the scripts are doing.
+			  *
+			  * Worth a permanent line rather than only an error: a compile
+			  * failure leaves the PREVIOUS scripts running, so without
+			  * something on screen the yard carries on behaving correctly
+			  * while the file being edited is not the one running it — which
+			  * is the most confusing state this whole mechanism can be in.
+			  */}
+			<Divider sx={{ my: 1.5 }} />
+			<Typography variant="overline" color="text.secondary">
+				Scripts
+			</Typography>
+			{scripts === null ? (
+				<Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+					Not compiled yet.
+				</Typography>
+			) : (
+				<>
+					<Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
+						{scripts.names.length === 0 ? (
+							<Typography variant="caption" color="text.secondary">
+								None running.
+							</Typography>
+						) : (
+							scripts.names.map((name) => <Chip key={name} size="small" label={name} />)
+						)}
+						{scripts.compiling && <Chip size="small" label="compiling" variant="outlined" />}
+					</Stack>
+					{scripts.error ? (
+						<Alert severity="warning" sx={{ py: 0, mb: 1 }}>
+							<Typography variant="caption" component="span">
+								{scripts.error}
+							</Typography>
+							<Typography variant="caption" component="div" color="text.secondary">
+								The scripts from before this error are still running.
+							</Typography>
+						</Alert>
+					) : (
+						<Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+							Reloaded {scripts.generation}x. Saving a file in
+							<code> packages/client/src/scripts</code> swaps them here.
+						</Typography>
+					)}
+				</>
+			)}
+
+			<Divider sx={{ my: 1.5 }} />
 			<Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
 				<b>W</b>/<b>S</b> are his, <b>A</b>/<b>D</b> the screen's. <b>Shift</b> runs,
 				<b> click</b> or <b>space</b> cuts. The mouse aims and nothing else — the

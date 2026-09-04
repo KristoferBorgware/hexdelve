@@ -25,7 +25,7 @@
  * find out that a PUT can write anywhere the process can reach.
  */
 
-import { access, mkdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 
 import type { Connect, Plugin } from 'vite';
@@ -34,6 +34,21 @@ const root = import.meta.dirname;
 
 /** The one tree both apps serve, and the editor writes back to. */
 export const publicDir = resolve(root, 'public');
+
+/**
+ * The client's scripts, served as TEXT so the editor can compile them.
+ *
+ * They are ordinary TypeScript inside the client's source, compiled into both
+ * of its builds like anything else. What this route adds is the other way of
+ * reading them: the editor fetches the source and compiles it in the browser,
+ * which is what makes a saved file reach a running game without a rebuild.
+ *
+ * Serving them from where they already live rather than copying them into
+ * `public/` is the whole point — a copy would be the same script twice, and the
+ * one the editor was hot-reloading would not be the one the client shipped.
+ */
+const scriptRoot = resolve(root, 'packages', 'client', 'src', 'scripts');
+const SCRIPTS = 'scripts';
 
 /** Where the asset files live inside it, and the URL prefix they answer on. */
 const ASSETS = 'assets';
@@ -60,6 +75,7 @@ export function assetIO(): Plugin {
 		apply: 'serve',
 		configureServer(server) {
 			server.middlewares.use(`/${ASSETS}`, handle);
+			server.middlewares.use(`/${SCRIPTS}`, scripts);
 		},
 	};
 }
@@ -93,6 +109,49 @@ const handle: Connect.NextHandleFunction = (request, response, next) => {
 	void act(method, request, response).catch((error: unknown) => {
 		fail(response, 500, error instanceof Error ? error.message : String(error));
 	});
+};
+
+/**
+ * The scripts, listed and read.
+ *
+ *   GET /scripts/          the file names, as JSON
+ *   GET /scripts/Spin.ts   one file's source
+ *
+ * Read-only. Editing a script is editing the client's source, which is what a
+ * text editor and a rebuild are for; what this exists to do is let the editor
+ * SEE the current text so it can compile it, and watch for it changing.
+ */
+const scripts: Connect.NextHandleFunction = (request, response, next) => {
+	const method = request.method ?? 'GET';
+	if (method !== 'GET' && method !== 'HEAD') {
+		next();
+		return;
+	}
+
+	const path = (request.url ?? '/').split('?')[0] ?? '/';
+	if (path === '/' || path === '') {
+		void readdir(scriptRoot)
+			.then((names) => {
+				const list = names.filter((name) => name.endsWith('.ts') && name !== 'index.ts');
+				response.setHeader('content-type', 'application/json; charset=utf-8');
+				response.end(JSON.stringify(list.sort()));
+			})
+			.catch(() => fail(response, 500, 'cannot read the script directory'));
+		return;
+	}
+
+	const target = inside(scriptRoot, path, /\.ts$/);
+	if (!target) {
+		fail(response, 400, 'that is not a script');
+		return;
+	}
+	void readFile(target, 'utf8').then(
+		(text) => {
+			response.setHeader('content-type', 'text/plain; charset=utf-8');
+			response.end(text);
+		},
+		() => fail(response, 404, 'no such script'),
+	);
 };
 
 /** True when the URL names a place inside the tree that has nothing in it. */
@@ -144,17 +203,27 @@ async function act(
  * on where it actually leads.
  */
 function safePath(url: string, options: { anyExtension?: boolean } = {}): string | null {
+	return inside(assetRoot, url, options.anyExtension ? /.*/ : WRITABLE);
+}
+
+/**
+ * A URL resolved inside a directory, or null.
+ *
+ * Resolved and then CHECKED against the root, rather than scanned for `..`: a
+ * check on the text of a path is a check on one spelling of it, and `%2e%2e` is
+ * another. Where it actually leads is the only thing worth asking.
+ */
+function inside(root: string, url: string, allowed: RegExp): string | null {
 	let path: string;
 	try {
 		path = decodeURIComponent(url.split('?')[0] ?? '').replace(/^\/+/, '');
 	} catch {
 		return null; // A malformed escape is not a path.
 	}
-	if (path === '' || path.endsWith('/')) return null;
-	if (!options.anyExtension && !WRITABLE.test(path)) return null;
+	if (path === '' || path.endsWith('/') || !allowed.test(path)) return null;
 
-	const target = resolve(assetRoot, path);
-	if (target !== assetRoot && !target.startsWith(assetRoot + sep)) return null;
+	const target = resolve(root, path);
+	if (target !== root && !target.startsWith(root + sep)) return null;
 	return target;
 }
 

@@ -423,6 +423,69 @@ before anything is published rather than when somebody opens the editor and
 finds a character with no arms. It also reports any file the manifest does not
 reach, which is how a rig nothing uses stops being invisible.
 
+## Scripts
+
+A prefab can name a behaviour:
+
+```yaml
+components:
+  - { type: script, script: Spin, speed: 0.5 }
+```
+
+The class lives in `packages/client/src/scripts/`, derives from `Script`, and
+gets `onLoad` / `tick(dt)` / `onDestroy`. Every field beyond `type` and
+`script` in the record is a parameter, checked against what the class declared
+and named if it is not one.
+
+A parameter declares itself by its value:
+
+```ts
+export class Spin extends Script {
+  speed = param(1, { min: -6, max: 6, hint: 'Radians a second' });
+}
+```
+
+`@serialize() speed = 1` is the obvious spelling and does not work here: Vite 8
+transforms with oxc, which does not accept decorators, so a script carrying one
+fails to parse before any of the runtime runs. Declaring by value asks nothing
+of the compiler, keeps the default in one place, and stays typed — `param(1)`
+is a number everywhere in the script.
+
+### The component holds a number
+
+`ScriptComponent` knows an id and nothing else. Which class that id means,
+whether an instance exists, what its parameters are — all of it belongs to the
+host, and that indirection is what makes hot reload possible: a reload rebuilds
+every instance behind its id and no component notices.
+
+Three failure rules, each because the alternative is worse than the bug. A
+script that throws in `tick` is **muted** until the next reload, since left
+running it throws sixty times a second and killed outright it cannot be fixed
+by saving the file. A script whose class is missing stays **registered** with no
+instance, because its file may be half-written. And a value somebody set
+survives a reload where a value nobody set does not — otherwise editing a
+default in the source would never take effect.
+
+### Two providers, one host
+
+| | classes from | reloads |
+|---|---|---|
+| the client | a table compiled into the build | no |
+| the editor | esbuild-wasm, in the browser | yes |
+
+Only the editor carries the compiler. The client's whole promise is one ES
+module with nothing to install, and a multi-megabyte WebAssembly toolchain
+nobody playing the game will run has no business inside it.
+
+The editor reads the same files the client ships — the dev server serves
+`packages/client/src/scripts` as text at `/scripts/` — so what is hot-reloaded
+is what is shipped, rather than a copy that can drift. Saving a file recompiles
+and swaps; a compile error leaves the previous scripts running and says so.
+
+**esbuild strips types without checking them.** A script with a type error
+compiles and runs in the editor, and only `tsc` objects. That is what makes the
+reload fast, and it is why `npm run typecheck` covers the scripts directory.
+
 ## What is left in code, and why
 
 The switchover is done: nothing builds a body, a rig or a clip in TypeScript

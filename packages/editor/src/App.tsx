@@ -52,6 +52,7 @@ import { Levels } from './components/Levels.js';
 import { Vaults } from './components/Vaults.js';
 import { SceneOutline } from './components/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
+import type { ScriptWatchState } from './scripts/reload.js';
 
 type View = 'yard' | 'bench' | 'props' | 'levels' | 'vaults' | 'assets';
 
@@ -60,6 +61,13 @@ export function App() {
 	const [backend, setBackend] = useState<BackendPreference>('auto');
 	const [running, setRunning] = useState(true);
 	const [view, setView] = useState<View>('yard');
+	/*
+	 * What the scripts are doing. Held here rather than in the viewport because
+	 * the inspector shows it and the viewport is what learns it — and because a
+	 * backend switch rebuilds the viewport, where a compile error should
+	 * outlive one.
+	 */
+	const [scripts, setScripts] = useState<ScriptWatchState | null>(null);
 
 	// Stable, because Viewport tears the client down when this identity changes.
 	const onClientReady = useCallback((next: HexdelveClient | null) => setClient(next), []);
@@ -131,8 +139,13 @@ export function App() {
 				{view === 'yard' && (
 					<>
 						<SceneOutline />
-						<Viewport backend={backend} running={running} onClientReady={onClientReady} />
-						<Inspector client={client} />
+						<Viewport
+							backend={backend}
+							running={running}
+							onClientReady={onClientReady}
+							onScripts={setScripts}
+						/>
+						<Inspector client={client} scripts={scripts} />
 					</>
 				)}
 				{view === 'bench' && <Bench backend={backend} running={running} />}

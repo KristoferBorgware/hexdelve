@@ -53,7 +53,8 @@ built properly.
 ```
 packages/
   shared/       maths, hex coordinates, seeded random — no dependencies at all
-  engine/       WebGPU and WebGL2 rendering, camera, frame loop
+  engine/       WebGPU and WebGL2 rendering, camera, frame loop, the scene graph
+  scripting/    what game behaviour is written as, and the host that swaps it
   client/       the game itself; the package built for external distribution
   editor/       React and Material UI shell: the client in a viewport, plus a
                 benches for one rig, one piece of gear, one generated level

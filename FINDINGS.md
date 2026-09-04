@@ -197,6 +197,50 @@ ordering is the awkward part rather than the code: the bone follow has to run
 after the actor has solved its pose and before the scene solves, and today the
 simulation drives those two by hand.
 
+### F-007 — A script with a syntax error stops the editor from booting
+
+**Kind:** risk
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-04, checking that a broken script does not take the running game down with it
+**Where:** `packages/client/src/scripts/`, `Simulation`'s import of `scripts/index.ts`, `packages/editor/src/scripts/reload.ts`
+
+**What happens.** The hot-reload path handles a broken script exactly as
+intended: the compile fails, the previous scripts keep running, the yard carries
+on, and the inspector says what went wrong and that it is running the older
+code. That much was checked in a browser with a real parse error.
+
+Vite then complains as well, because the same file is in the client's module
+graph — `Simulation` imports `scripts/index.ts` for its default provider, so
+oxc transforms every script whether or not the editor is compiling them
+separately. Its error overlay covers the page. That is noise while a session is
+already running, since the module it needs is already loaded.
+
+It is not noise across a refresh. A page load with a broken script in the
+directory cannot transform the client at all, so the editor does not start —
+and the one thing somebody is likely to do when an overlay appears is reload.
+
+**Why it matters.** The whole argument for hot reload is that a half-typed file
+does not cost you the running world. It holds until the moment the tab is
+refreshed, and then a syntax error in one script is a blank editor with a stack
+trace, which is a worse failure than the one this replaced. It also makes the
+system's real behaviour hard to demonstrate, because the correct handling is
+underneath an overlay that says the opposite.
+
+**What would fix it.** Take the scripts out of the client's build graph. The
+static table exists so a shipped client does not need a compiler, and it does
+not have to be a hand-written module the bundler follows: a build step could
+compile `src/scripts/*.ts` into one artefact the client loads the way it loads
+a packed asset, which is the same shape `tools/build-assets.mjs` already has.
+The client would then carry its scripts without importing them, a broken script
+would fail that build step by name, and nothing about a page load would depend
+on every script parsing. This is the work already sketched as compiling scripts
+during the client build, and this finding is the reason to do it sooner.
+
+A narrower fix that is not recommended: `server.hmr.overlay: false` in the
+editor's Vite config hides the overlay and changes nothing about the refresh.
+
 ---
 
 ## Closed
