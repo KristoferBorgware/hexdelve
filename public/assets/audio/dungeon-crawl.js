@@ -4,7 +4,8 @@
 // plucks, bowed clusters, dull impacts, distant metal and a big Schroeder
 // cavern. No dependencies, no samples.
 //
-//   node tools/audio/dungeon-crawl.js [out.wav]
+//   npm run audio -- dungeon-crawl
+//   node public/assets/audio/dungeon-crawl.js [out.wav]
 //
 // The result is a seamless loop: the reverb tail is folded back onto the
 // head, and every sustained oscillator is tuned to a whole number of cycles

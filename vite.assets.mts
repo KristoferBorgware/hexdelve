@@ -114,6 +114,51 @@ const TYPE_PACKAGES: readonly { name: string; dir: string }[] = [
 	{ name: '@webgpu/types', dir: resolve(root, 'node_modules', '@webgpu', 'types') },
 ];
 
+/**
+ * The audio generators, which are source and not something to publish.
+ *
+ * `public/assets/audio` holds both halves of the ambience: the `.wav` loops the
+ * game plays, and the Node programs that synthesise them from nothing. Keeping
+ * them together is the point — a render is reproducible only if you can find
+ * what rendered it — but `publicDir` copies a directory wholesale, so a build
+ * would otherwise carry a hundred kilobytes of DSP source, and a `.mixgain-*`
+ * scratch file per track, onto a static host that has no use for either.
+ *
+ * Vite has no filter on the public copy, so this takes them back out afterwards.
+ * Stated as what SURVIVES rather than as what goes: a generator that starts
+ * writing a second kind of working file should not be able to publish it by
+ * default, and the answer to "what is audio for" is one extension.
+ *
+ * `closeBundle` rather than `generateBundle`: the public copy happens at the end
+ * of the write, and a hook that ran before it would delete files that were not
+ * there yet and then watch them be copied in.
+ */
+export function audioSources(): Plugin {
+	let outDir = '';
+	return {
+		name: 'hexdelve:audio-sources',
+		apply: 'build',
+		configResolved(config) {
+			outDir = resolve(config.root, config.build.outDir);
+		},
+		async closeBundle() {
+			const dir = join(outDir, ASSETS, AUDIO);
+			let names: string[];
+			try {
+				names = await readdir(dir);
+			} catch {
+				return; // No audio in this build. Nothing to take out of it.
+			}
+			await Promise.all(
+				names.filter((name) => !PUBLISHED_AUDIO.test(name)).map((name) => rm(join(dir, name))),
+			);
+		},
+	};
+}
+
+/** The only thing in the audio directory a build publishes. */
+const PUBLISHED_AUDIO = /\.wav$/;
+
 /** What the types route answers with. */
 export interface ScriptTypes {
 	/** Path inside a notional `node_modules`, to the text of the file. */
@@ -125,6 +170,9 @@ export interface ScriptTypes {
 /** Where the asset files live inside it, and the URL prefix they answer on. */
 const ASSETS = 'assets';
 const assetRoot = join(publicDir, ASSETS);
+
+/** The one subdirectory of it that holds its own source. See `audioSources`. */
+const AUDIO = 'audio';
 
 /**
  * Vite emits its own chunks into `outDir/assetsDir`, which defaults to

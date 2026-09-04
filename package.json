@@ -28,6 +28,7 @@
 		"build:editor-desktop": "npm run build:editor && npm run build -w @hexdelve/editor-desktop",
 		"build:pages": "npm run build && node tools/build-pages.js",
 		"assets": "npm run build:libs && node tools/build-assets.mjs",
+		"audio": "node tools/build-audio.js",
 		"scripts:build": "node tools/build-scripts.mjs",
 		"dev:client": "npm run dev -w @hexdelve/client",
 		"dev:editor": "npm run dev -w @hexdelve/editor",

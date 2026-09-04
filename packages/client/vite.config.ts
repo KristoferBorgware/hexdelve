@@ -9,7 +9,14 @@
 
 import { defineConfig } from 'vite';
 
-import { assetIO, bundleDir, publicDir, scriptBundle, servedDirs } from '../../vite.assets.mts';
+import {
+	assetIO,
+	audioSources,
+	bundleDir,
+	publicDir,
+	scriptBundle,
+	servedDirs,
+} from '../../vite.assets.mts';
 import { workspaceAliases } from '../../vite.workspace.mts';
 
 export default defineConfig({
@@ -19,7 +26,7 @@ export default defineConfig({
 	 * mostly so a missing asset answers 404 here as it does on a static host,
 	 * rather than falling through to index.html with a 200 on it.
 	 */
-	plugins: [assetIO(), scriptBundle()],
+	plugins: [assetIO(), scriptBundle(), audioSources()],
 	resolve: { alias: workspaceAliases },
 	/*
 	 * One asset tree, served by both apps and copied into both builds — see

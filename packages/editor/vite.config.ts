@@ -7,7 +7,14 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-import { assetIO, bundleDir, publicDir, scriptTypes, servedDirs } from '../../vite.assets.mts';
+import {
+	assetIO,
+	audioSources,
+	bundleDir,
+	publicDir,
+	scriptTypes,
+	servedDirs,
+} from '../../vite.assets.mts';
 import { workspaceAliases } from '../../vite.workspace.mts';
 
 export default defineConfig({
@@ -24,7 +31,7 @@ export default defineConfig({
 	 * frozen at the moment IT was built, which has nothing to do with the
 	 * project a window is later opened on.
 	 */
-	plugins: [react(), assetIO(), scriptTypes()],
+	plugins: [react(), assetIO(), scriptTypes(), audioSources()],
 	resolve: { alias: workspaceAliases },
 	/*
 	 * One asset tree, served by both apps and copied into both builds — see
