@@ -109,31 +109,6 @@ standing error in it is a console people stop reading.
 or drop the wrapper and let the subheader be the list item it already is.
 
 
-### F-004 — The README's test table describes a test that no longer exists
-
-**Kind:** cleanup
-**Milestone:** now
-**Priority:** low
-**Effort:** small
-**Found:** 2026-09-03, adding the asset and yaml rows to the same table
-**Where:** the `## Tests` table in `README.md`
-
-**What happens.** The table has a `tiles` row describing "every mistake
-available in a WFC tileset". The WFC stack was dropped in `2963f80` and there is
-no `test/tiles.test.ts`; what `test/` actually holds in its place is
-`vaults.test.ts`, `levels.test.ts` and `largest-rectangle.test.ts`, none of
-which the table mentions.
-
-**Why it matters.** The table is how somebody decides which test to run and what
-it would catch. A row for a test that cannot be run wastes the reader once; the
-three real tests it omits are missed every time.
-
-**What would fix it.** Replace the `tiles` row with rows for `vaults`, `levels`
-and `largest-rectangle`, each saying what it would catch rather than what it
-covers. Whoever wrote those tests knows the answer; reading them to guess it is
-most of the effort.
-
-
 ### F-005 — Two directories are called `assets` and only one of them is served
 
 **Kind:** cleanup
@@ -236,7 +211,46 @@ and play this instead" exists and would be followed rather than invented.
 The rules half is already done and should stay done: what a death COSTS is the
 script's, and what it LOOKS like is the client's.
 
-### F-011 — The client uses `@hexdelve/scripting` without declaring that it does
+### F-011 — The dev server hands out the repository, not only the asset tree
+
+**Kind:** risk
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-04, writing the dev-server tests and checking that a path cannot escape the asset directory
+**Where:** `packages/client/vite.config.ts` and `packages/editor/vite.config.ts`, neither of which sets `server.fs`
+
+**What happens.** The plugin's own guards hold. `/scripts/..%2f..%2fpackage.json`
+and `/assets/..%2f..%2fpackage.json` are both declined, and the escape is
+checked on what a path resolves to rather than on how it is spelt, so the
+percent-encoded spellings are refused along with the plain ones.
+
+What answers instead is Vite. `GET /package.json` returns the file, because a
+Vite dev server serves what is under its root and the root here is the whole
+repository. Anything a `fetch` normalises before sending — `../../package.json`
+among them — arrives as a plain path and never reaches the plugin at all.
+
+This is documented Vite behaviour rather than a hole in anything written here.
+`server.fs.deny` covers `.env`, `.env.*`, `*.{crt,pem}` and `**/.git/**` by
+default, and nothing else.
+
+**Why it matters.** Nobody today. A dev server is bound to localhost unless
+somebody passes `--host`, and the plugin's own header already says that is one
+flag away — the day somebody demos the editor off a laptop on a conference
+network, the asset tree is guarded and the source tree is not. There is nothing
+secret in this repository, so the cost is currently zero and the shape is what
+is worth recording: two different guards, one of them the plugin's and the
+strict one, the other Vite's and the permissive one.
+
+**What would fix it.** `server.fs.allow` in both configs, set to the directories
+the apps actually read — `public`, the packages they build from, and
+`node_modules`. Half an hour, and worth doing at the same moment somebody first
+wants `--host`, since that is when it stops being theoretical. A `server.fs.deny`
+list is the weaker alternative and would have to be guessed at rather than
+derived.
+
+
+### F-012 — The client uses `@hexdelve/scripting` without declaring that it does
 
 **Kind:** risk
 **Milestone:** scripting
@@ -272,7 +286,7 @@ Neither changes what is built today; both stop it from depending on the order
 somebody wrote a script in.
 
 
-### F-012 — A script saved in the editor does not reach the yard until the view is left and returned to
+### F-013 — A script saved in the editor does not reach the yard until the view is left and returned to
 
 **Kind:** gap
 **Milestone:** scripting
@@ -312,7 +326,7 @@ half the pane to each, and a decision about whether that world is the yard or a
 bench.
 
 
-### F-013 — `packages/client/dist-scripts` is committed output from an arrangement that no longer exists
+### F-014 — `packages/client/dist-scripts` is committed output from an arrangement that no longer exists
 
 **Kind:** cleanup
 **Milestone:** unscheduled
@@ -493,3 +507,29 @@ Worth a test that a string parameter can be compared against another string,
 since that is the case the current signature rejects. The alternative, asking
 authors to write `param<string>('foe')`, puts the burden on every script for
 one signature's convenience and would be forgotten.
+
+### F-004 — The README's test table describes a test that no longer exists
+
+**Kind:** cleanup
+**Milestone:** now
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-03, adding the asset and yaml rows to the same table
+**Closed:** 2026-09-04, fixed — the row is gone and the table now lists the
+tests that exist, the new ones included
+**Where:** the `## Tests` table in `README.md`
+
+**What happens.** The table has a `tiles` row describing "every mistake
+available in a WFC tileset". The WFC stack was dropped in `2963f80` and there is
+no `test/tiles.test.ts`; what `test/` actually holds in its place is
+`vaults.test.ts`, `levels.test.ts` and `largest-rectangle.test.ts`, none of
+which the table mentions.
+
+**Why it matters.** The table is how somebody decides which test to run and what
+it would catch. A row for a test that cannot be run wastes the reader once; the
+three real tests it omits are missed every time.
+
+**What would fix it.** Replace the `tiles` row with rows for `vaults`, `levels`
+and `largest-rectangle`, each saying what it would catch rather than what it
+covers. Whoever wrote those tests knows the answer; reading them to guess it is
+most of the effort.

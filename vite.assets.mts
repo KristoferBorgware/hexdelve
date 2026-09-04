@@ -234,22 +234,6 @@ const handle: Connect.NextHandleFunction = (request, response, next) => {
  * not a `.d.ts` is accepted, and the body has a ceiling.
  */
 const scripts: Connect.NextHandleFunction = (request, response, next) => {
-	/*
-	 * `/scripts.js` is not in this directory, and this middleware is offered it.
-	 *
-	 * Connect matches a mounted path at a `/` or a `.` boundary and then hands
-	 * over what is left, with a slash put back on the front: a request for
-	 * `/scripts.js` arrives here as `/.js`. Answering that with "no such
-	 * script" is how the compiled bundle came to be a 400 in development, with
-	 * every client on a dev server reporting that it was running with no
-	 * scripts on it. The original URL is the only thing that says which of the
-	 * two was asked for.
-	 */
-	if (!under(request, SCRIPTS)) {
-		next();
-		return;
-	}
-
 	const method = request.method ?? 'GET';
 	if (method === 'PUT' || method === 'DELETE') {
 		void actOnScript(method, request, response).catch((error: unknown) => {
@@ -263,6 +247,7 @@ const scripts: Connect.NextHandleFunction = (request, response, next) => {
 	}
 
 	const path = (request.url ?? '/').split('?')[0] ?? '/';
+
 	if (path === '/' || path === '') {
 		void readdir(scriptRoot)
 			.then((names) => {
@@ -276,9 +261,21 @@ const scripts: Connect.NextHandleFunction = (request, response, next) => {
 		return;
 	}
 
+	/*
+	 * Anything this route does not recognise is passed on rather than refused.
+	 *
+	 * Connect mounts on a prefix and treats a `.` as a boundary as well as a
+	 * `/`, so this middleware — mounted at `/scripts` — is also handed
+	 * `/scripts.js`, which is the COMPILED bundle and belongs to
+	 * `scriptBundle`. Answering 400 here swallowed the one request the client
+	 * makes, and a dev server ran with no behaviour in it at all.
+	 *
+	 * Passing it on is the right shape regardless: a route mounted on a prefix
+	 * owns the paths it recognises, not every path that begins with its name.
+	 */
 	const target = inside(scriptRoot, path, /(?<!\.d)\.ts$/);
 	if (!target) {
-		fail(response, 400, 'that is not a script');
+		next();
 		return;
 	}
 	void readFile(target, 'utf8').then(
@@ -289,12 +286,6 @@ const scripts: Connect.NextHandleFunction = (request, response, next) => {
 		() => fail(response, 404, 'no such script'),
 	);
 };
-
-/** Whether the request was really for something inside a mounted directory. */
-function under(request: Connect.IncomingMessage, directory: string): boolean {
-	const url = (request.originalUrl ?? request.url ?? '').split('?')[0] ?? '';
-	return url === `/${directory}` || url.startsWith(`/${directory}/`);
-}
 
 /**
  * Write or delete one script.
