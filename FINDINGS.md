@@ -230,6 +230,41 @@ names and average all of them, which would also let a quadruped declare four
 feet. Either way, a pair that lands together should be refused or warned
 about rather than measured.
 
+### F-019 — Two open findings are both numbered F-017
+
+**Kind:** bug
+**Milestone:** unscheduled
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, while reading the register before starting the Angband
+bible chapters
+**Where:** `FINDINGS.md`, the open list
+
+**What happens.** Two entries in the open list carry the number `F-017`. The
+first is "A parameter takes whatever a prefab wrote, of whatever type"; the
+second is "The ground speed measurement cannot read a gait whose left and
+right feet land together". Both were found on the same date. The highest
+number otherwise in use is `F-018`, so one of the two was written without
+checking what the last number was.
+
+**Why it matters.** `HOW-TO-WRITE-FINDINGS.md` says a number is never reused,
+and gives the reason: a commit message or a conversation can point at `F-007`
+a year later and still mean one thing. A duplicated number breaks that for
+both entries at once — "fixed F-017" now names two unrelated pieces of work,
+one in the scripting milestone and one in the game milestone. Nobody is hurt
+today, because neither has been referenced from a commit yet. That is exactly
+why it is worth renumbering now rather than after something points at it.
+
+**What would fix it.** Renumber the second of the two — the ground speed one —
+to `F-020`, the next free number once this entry has taken `F-019`, and leave
+the first as `F-017`. The second
+is the safer one to move because it is last in the file, so the open list's
+"order things were found" is preserved either way. Check first that no commit
+message already says `F-017`; if one does, move whichever entry it does not
+mean. A second, larger fix would be a check that the register's numbers are
+unique and dense, run wherever the repository's other checks run, so the next
+duplicate is caught when it is written rather than months later.
+
 
 ## Closed
 
