@@ -25,6 +25,13 @@ import type { PoseFunction } from '@hexdelve/engine';
 import { PoseFunctionRegistry } from '@hexdelve/engine';
 
 import { flyPose, lungePose, perchPose } from '../game/batpose.js';
+import {
+	bitePose as direBitePose,
+	DIRE_RUN_CONTACTS,
+	DIRE_STRIDE_PERIOD,
+	restPose as direRestPose,
+	runPose as direRunPose,
+} from '../game/direhoundpose.js';
 import { bitePose, restPose, runPose } from '../game/hellhoundpose.js';
 import { stridePose, stridePeriod, STRIDE_CONTACTS, type Direction } from '../game/stride.js';
 
@@ -129,6 +136,40 @@ const houndRest: PoseFunction = {
 };
 
 /**
+ * The dire hellhound's gallop, and its stare.
+ *
+ * This gait declares its contact schedule where the hellhound's trot does
+ * not: its legs are written to the humanoid's sign convention, its rig names
+ * a hind paw and a front paw as the pair that alternate, and the measured
+ * ground speed comes out forwards — `test/assets.test.ts` checks the sign.
+ */
+const direRun: PoseFunction = {
+	id: 'direRun',
+	duration: DIRE_STRIDE_PERIOD,
+	contacts: DIRE_RUN_CONTACTS,
+	build: ({ args, duration }) => {
+		const amp = arg(args, 'amp', 1);
+		const moving = amp >= 0.02;
+		return (t, out) => direRunPose(moving ? (t / duration) * TAU : 0, amp, t, out);
+	},
+};
+
+/** The strike: gather, throw, contact, wrench, recover. */
+const direBite: PoseFunction = {
+	id: 'direBite',
+	duration: 0.9,
+	loop: false,
+	build: ({ duration }) => (t, out) => direBitePose(t / duration, out),
+};
+
+/** Down on its chest, head up and watching. One breath, at 1.3 rad/s. */
+const direRest: PoseFunction = {
+	id: 'direRest',
+	duration: TAU / 1.3,
+	build: () => (t, out) => direRestPose(t, out),
+};
+
+/**
  * Every pose function this package owns.
  *
  * One registry, exported rather than constructed per caller, because two
@@ -143,4 +184,7 @@ export const poseFunctions = new PoseFunctionRegistry().register(
 	houndRun,
 	houndBite,
 	houndRest,
+	direRun,
+	direBite,
+	direRest,
 );

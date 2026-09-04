@@ -1,0 +1,255 @@
+# The dire hellhound: hexagonal prisms hung on its own quadruped rig.
+#
+# Built the way every other body in this project is — the unit hex prism under
+# a different scale and rotation, bound to a bone — and jagged where the
+# hellhound is merely lean. About three times the hellhound's count of prisms,
+# and the extra is spent on three things: the shoulders, which are the widest
+# and heaviest part of the animal and carry the mane's tallest spikes; the
+# head, which has a brow, cheeks, a lip and two rows of teeth rather than a
+# block with fangs; and the legs, which have a muscle on every segment and
+# four toes on every paw.
+#
+# The limb segments are struts spanning their own bone by NAMING it —
+# `to: { bone: frontShin* }` is that bone's rest offset — so the rig's bent
+# hind leg is followed exactly and re-tuning a bone in the rig moves the leg
+# with it. The muscle prisms beside them are tilted to the same line, which
+# is where the angles below come from: the femur runs 0.17 forward per 0.26
+# down, which is 0.58 rad off vertical, the tibia 0.19 back per 0.24 down,
+# which is 0.67 rad, and the humerus 0.07 back per 0.28 down, which is
+# 0.245 rad.
+#
+# A mane spike is a strut given a direction and a height rather than an end
+# point: `along: [0, 1, -lean]` with `length: height` is "up, and this far
+# back per unit up", which is the shape of the row rather than thirty
+# pre-multiplied end points. The direction is not unit, so the spike rises by
+# exactly `length` whatever its lean.
+#
+# The eyes and the back of the throat are drawn unlit, so they glow the same
+# red from every angle and under every light — the thing the animal is
+# recognised by in the dark.
+
+id: direhound
+name: Dire hellhound body
+rig: ../rigs/direhound.rig.yaml
+
+constants:
+  # The tilts that lay a muscle prism along its bone; see the note above.
+  thighPitch: -0.58
+  tibiaPitch: 0.67
+  humerusPitch: 0.245
+  spike: 0.017
+
+palette:
+  fur: 0x151517
+  furDark: 0x0a0a0b
+  furLight: 0x212125
+  mane: 0x08080a
+  brow: 0x0d0d0f
+  eye: 0xff2416
+  gum: 0x7a0c0c
+  maw: 0x5c0909
+  tongue: 0xb52020
+  fang: 0xeee5d6
+  tooth: 0xd9cfbf
+  claw: 0x2c2628
+  nose: 0x050506
+
+parts:
+  # Hips: the pelvis, the croup sloping down to the tail, a haunch muscle
+  # either side and the belly under it all.
+  - { bone: root, at: [0, -0.02, -0.02], size: [0.19, 0.3, 0.22], color: fur }
+  - { bone: root, at: [0, 0.12, -0.04], size: [0.16, 0.1, 0.2], euler: [-0.2, 0, 0], color: furDark }
+  - { bone: root, at: [0, -0.16, 0.06], size: [0.14, 0.08, 0.2], color: furDark }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: root, at: [0.17, -0.06, 0.04], size: [0.11, 0.26, 0.17], euler: [0.2, 0, -0.1], color: fur }
+
+  # The barrel of the ribs between the hips and the chest, a ridge of muscle
+  # along the top of it, the belly, and a flank plate either side canted
+  # outwards so the side of the animal reads as two facets rather than one.
+  - { bone: spineMid, at: [0, -0.02, 0.05], size: [0.21, 0.34, 0.26], color: fur }
+  - { bone: spineMid, at: [0, 0.14, 0.03], size: [0.12, 0.08, 0.24], color: furDark }
+  - { bone: spineMid, at: [0, -0.2, 0.06], size: [0.16, 0.09, 0.22], color: furDark }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: spineMid, at: [0.19, 0.04, 0.02], size: [0.06, 0.22, 0.2], euler: [0, 0.15, 0.3], color: fur }
+
+  # The chest: the deepest block of the body, a hump at the withers above it,
+  # the brisket below, and a pectoral either side of a plate across the front.
+  - { bone: chest, at: [0, -0.03, 0], size: [0.24, 0.4, 0.28], color: fur }
+  - { bone: chest, at: [0, 0.16, -0.02], size: [0.17, 0.12, 0.22], color: furDark }
+  - { bone: chest, at: [0, -0.26, 0.06], size: [0.13, 0.12, 0.2], color: furDark }
+  - { bone: chest, at: [0, -0.08, 0.24], size: [0.12, 0.22, 0.06], color: fur }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: chest, at: [0.1, -0.12, 0.2], size: [0.1, 0.2, 0.09], euler: [0, 0.2, 0.1], color: furLight }
+
+  # The shoulders: a scapula slab leaning in towards the withers, the point of
+  # the shoulder below it, and a fan of three spikes off the top of each
+  # blade — the widest, most jagged part of the silhouette.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'shoulder*', at: [0.03, -0.05, -0.02], size: [0.07, 0.24, 0.16], euler: [0.15, 0, 0.25], color: fur }
+      - { bone: 'shoulder*', at: [0.02, -0.14, 0.05], size: [0.1, 0.14, 0.13], color: furLight }
+      - { bone: 'shoulder*', from: [0.04, 0.04, -0.03], along: [0.3, 1, -0.6], length: 0.14, radius: spike, color: mane }
+      - { bone: 'shoulder*', from: [0, 0.06, -0.08], along: [0.1, 1, -0.5], length: 0.17, radius: spike, color: mane }
+      - { bone: 'shoulder*', from: [0.06, 0.02, 0.03], along: [0.5, 1, -0.3], length: 0.11, radius: spike, color: mane }
+
+  # The mane: a ridge of spikes down the spine from the crown of the head to
+  # the croup, tallest over the withers where the animal carries the most
+  # muscle and tapering off towards the skull ahead and the hips behind. A
+  # centre row, and a second row either side of it over the neck and the
+  # chest, leaning outwards — a crest rather than a fence.
+  - { bone: root, from: [0, 0.16, 0], along: [0, 1, -0.7], length: 0.07, radius: spike, color: mane }
+  - { bone: root, from: [0, 0.15, -0.09], along: [0, 1, -0.8], length: 0.05, radius: spike, color: mane }
+  - { bone: spineMid, from: [0, 0.16, 0.14], along: [0, 1, -0.55], length: 0.12, radius: spike, color: mane }
+  - { bone: spineMid, from: [0, 0.17, 0.05], along: [0, 1, -0.6], length: 0.1, radius: spike, color: mane }
+  - { bone: spineMid, from: [0, 0.16, -0.05], along: [0, 1, -0.65], length: 0.08, radius: spike, color: mane }
+  - { bone: chest, from: [0, 0.2, 0.15], along: [0, 1, -0.4], length: 0.16, radius: spike, color: mane }
+  - { bone: chest, from: [0, 0.21, 0.08], along: [0, 1, -0.45], length: 0.19, radius: spike, color: mane }
+  - { bone: chest, from: [0, 0.22, 0], along: [0, 1, -0.5], length: 0.21, radius: spike, color: mane }
+  - { bone: chest, from: [0, 0.21, -0.08], along: [0, 1, -0.55], length: 0.17, radius: spike, color: mane }
+  - { bone: neckA, from: [0, 0.135, 0.17], along: [0, 1, -0.4], length: 0.11, radius: spike, color: mane }
+  - { bone: neckA, from: [0, 0.13, 0.1], along: [0, 1, -0.4], length: 0.13, radius: spike, color: mane }
+  - { bone: neckA, from: [0, 0.13, 0.02], along: [0, 1, -0.45], length: 0.15, radius: spike, color: mane }
+  - { bone: neckB, from: [0, 0.12, 0.1], along: [0, 1, -0.45], length: 0.08, radius: spike, color: mane }
+  - { bone: neckB, from: [0, 0.12, 0.02], along: [0, 1, -0.45], length: 0.1, radius: spike, color: mane }
+  - { bone: head, from: [0, 0.1, -0.02], along: [0, 1, -0.6], length: 0.06, radius: spike, color: mane }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: spineMid, from: [0.06, 0.15, 0.1], along: [0.15, 1, -0.6], length: 0.09, radius: spike, color: mane }
+      - { bone: chest, from: [0.07, 0.19, 0.04], along: [0.2, 1, -0.5], length: 0.15, radius: spike, color: mane }
+      - { bone: chest, from: [0.07, 0.19, -0.06], along: [0.2, 1, -0.55], length: 0.13, radius: spike, color: mane }
+      - { bone: neckA, from: [0.06, 0.12, 0.06], along: [0.2, 1, -0.45], length: 0.11, radius: spike, color: mane }
+      - { bone: neckB, from: [0.05, 0.11, 0.05], along: [0.25, 1, -0.4], length: 0.08, radius: spike, color: mane }
+      # Hackles: a spike off each side of the neck, raked out and back.
+      - { bone: neckA, from: [0.1, 0.06, 0.05], along: [0.8, 0.6, -0.5], length: 0.09, radius: spike, color: mane }
+
+  # The neck, in its two segments: a block and a throat on each. The base is
+  # the thicker, and the throat the darker.
+  - { bone: neckA, at: [0, 0, 0.1], size: [0.15, 0.22, 0.17], color: fur }
+  - { bone: neckA, at: [0, -0.12, 0.1], size: [0.1, 0.1, 0.14], color: furDark }
+  - { bone: neckB, at: [0, -0.01, 0.07], size: [0.13, 0.2, 0.14], color: fur }
+  - { bone: neckB, at: [0, -0.11, 0.06], size: [0.09, 0.09, 0.11], color: furDark }
+
+  # The head. A heavy skull, a brow ridge either side of a furrow, a muzzle
+  # with a bridge along the top and a nose at the end, a cheek either side,
+  # and a dark lip along the upper jaw that the teeth hang from.
+  - { bone: head, at: [0, 0, 0], size: [0.15, 0.2, 0.16], color: fur }
+  - { bone: head, at: [0, 0.085, 0.09], size: [0.04, 0.04, 0.05], euler: [0.3, 0, 0], color: brow }
+  - { bone: head, at: [0, -0.03, 0.2], size: [0.09, 0.1, 0.14], color: fur }
+  - { bone: head, at: [0, 0.03, 0.17], size: [0.06, 0.05, 0.12], euler: [0.15, 0, 0], color: furDark }
+  - { bone: head, at: [0, -0.01, 0.33], size: [0.04, 0.045, 0.035], color: nose }
+  - { bone: head, at: [0, -0.075, 0.2], size: [0.085, 0.02, 0.13], color: furDark }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: head, at: [0.06, 0.08, 0.1], size: [0.05, 0.05, 0.07], euler: [0.3, 0, -0.35], color: brow }
+      - { bone: head, at: [0.11, -0.04, 0.02], size: [0.06, 0.12, 0.1], euler: [0, 0.2, 0.15], color: fur }
+      # The eye: a dark socket, and a slab of red in front of it, narrow and
+      # tilted so the inner corner sits lower than the outer — the glare.
+      - { bone: head, at: [0.075, 0.035, 0.13], size: [0.035, 0.035, 0.03], color: furDark }
+      - { bone: head, at: [0.08, 0.035, 0.15], size: [0.03, 0.022, 0.014], euler: [0, 0.3, 0.25], color: eye, unlit: true }
+      # Upper teeth: the canine, raked back a little, and two cheek teeth
+      # behind it along the lip.
+      - { bone: head, at: [0.05, -0.1, 0.27], size: [0.014, 0.075, 0.014], euler: [0.2, 0, -0.08], color: fang }
+      - { bone: head, at: [0.055, -0.08, 0.18], size: [0.01, 0.03, 0.02], color: tooth }
+      - { bone: head, at: [0.06, -0.08, 0.1], size: [0.01, 0.028, 0.02], color: tooth }
+  # Upper incisors, across the front of the lip.
+  - { bone: head, at: [0.02, -0.085, 0.31], size: [0.008, 0.03, 0.008], euler: [0.3, 0, 0], color: tooth }
+  - { bone: head, at: [0, -0.085, 0.32], size: [0.008, 0.03, 0.008], euler: [0.3, 0, 0], color: tooth }
+  - { bone: head, at: [-0.02, -0.085, 0.31], size: [0.008, 0.03, 0.008], euler: [0.3, 0, 0], color: tooth }
+
+  # The lower jaw: the bone of it, the gum inside, the glow at the back of the
+  # throat, the tongue, a chin, and the lower teeth standing up to meet the
+  # upper ones.
+  - { bone: jaw, at: [0, -0.02, 0.07], size: [0.075, 0.06, 0.15], color: fur }
+  - { bone: jaw, at: [0, 0.02, 0.03], size: [0.06, 0.03, 0.12], color: gum }
+  - { bone: jaw, at: [0, 0.03, -0.05], size: [0.05, 0.05, 0.05], color: maw, unlit: true }
+  - { bone: jaw, at: [0, 0.035, 0.08], size: [0.03, 0.02, 0.09], color: tongue }
+  - { bone: jaw, at: [0, -0.045, 0.16], size: [0.045, 0.03, 0.05], color: furDark }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: jaw, at: [0.045, 0.04, 0.17], size: [0.012, 0.06, 0.012], euler: [-0.2, 0, -0.05], color: fang }
+      - { bone: jaw, at: [0.05, 0.035, 0.08], size: [0.009, 0.026, 0.02], color: tooth }
+      - { bone: jaw, at: [0.052, 0.035, 0], size: [0.009, 0.024, 0.02], color: tooth }
+  - { bone: jaw, at: [0.018, 0.035, 0.2], size: [0.007, 0.025, 0.007], euler: [-0.3, 0, 0], color: tooth }
+  - { bone: jaw, at: [0, 0.035, 0.21], size: [0.007, 0.025, 0.007], euler: [-0.3, 0, 0], color: tooth }
+  - { bone: jaw, at: [-0.018, 0.035, 0.2], size: [0.007, 0.025, 0.007], euler: [-0.3, 0, 0], color: tooth }
+
+  # Ears: two segments a side, raked back and drawn to a point, with a dark
+  # inner face set just proud of the base.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'ear*', at: [0.01, 0.06, -0.015], size: [0.045, 0.14, 0.025], euler: [-0.3, 0, 0.18], color: mane }
+      - { bone: 'ear*', at: [0.02, 0.14, -0.04], size: [0.024, 0.07, 0.014], euler: [-0.45, 0, 0.18], color: mane }
+      - { bone: 'ear*', at: [0.005, 0.06, 0], size: [0.028, 0.1, 0.014], euler: [-0.3, 0, 0.18], color: furDark }
+
+  # Front legs: a strut along each bone, a muscle prism laid along the
+  # humerus and the forearm, and a paw of four toes with a claw on each. The
+  # toes are symmetric about the paw's own centre line, so the paw's parts are
+  # the same on both sides and do not mirror.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'frontLeg*', from: [0, 0, 0], to: { bone: 'frontShin*' }, radius: 0.075, color: fur }
+      - { bone: 'frontLeg*', at: [0, -0.12, -0.02], size: [0.09, 0.2, 0.1], euler: [humerusPitch, 0, 0], color: fur }
+      - { bone: 'frontShin*', from: [0, 0, 0], to: { bone: 'frontWrist*' }, radius: 0.055, color: furDark }
+      - { bone: 'frontShin*', at: [0, -0.13, 0], size: [0.065, 0.24, 0.07], color: fur }
+      - { bone: 'frontWrist*', from: [0, 0, 0], to: { bone: 'frontPaw*' }, radius: 0.045, color: furDark }
+      - mirror: false
+        parts:
+          - { bone: 'frontPaw*', at: [0, -0.035, 0.03], size: [0.075, 0.07, 0.085], color: fur }
+          - { bone: 'frontPaw*', at: [-0.048, -0.045, 0.1], size: [0.018, 0.045, 0.028], color: furDark }
+          - { bone: 'frontPaw*', at: [-0.016, -0.045, 0.11], size: [0.018, 0.045, 0.028], color: furDark }
+          - { bone: 'frontPaw*', at: [0.016, -0.045, 0.11], size: [0.018, 0.045, 0.028], color: furDark }
+          - { bone: 'frontPaw*', at: [0.048, -0.045, 0.1], size: [0.018, 0.045, 0.028], color: furDark }
+          - { bone: 'frontPaw*', from: [-0.048, -0.05, 0.12], along: [-0.1, -0.35, 1], length: 0.06, radius: 0.012, color: claw }
+          - { bone: 'frontPaw*', from: [-0.016, -0.05, 0.13], along: [0, -0.35, 1], length: 0.06, radius: 0.012, color: claw }
+          - { bone: 'frontPaw*', from: [0.016, -0.05, 0.13], along: [0, -0.35, 1], length: 0.06, radius: 0.012, color: claw }
+          - { bone: 'frontPaw*', from: [0.048, -0.05, 0.12], along: [0.1, -0.35, 1], length: 0.06, radius: 0.012, color: claw }
+
+  # Hind legs: the same, with more on the thigh — the haunches are where a
+  # lunge comes from, so they get the strut, the thigh muscle along it and a
+  # plate on the outside — and a point at the hock.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'backLeg*', from: [0, 0, 0], to: { bone: 'backShin*' }, radius: 0.085, color: fur }
+      - { bone: 'backLeg*', at: [0, -0.11, 0.06], size: [0.11, 0.24, 0.13], euler: [thighPitch, 0, 0], color: fur }
+      - { bone: 'backLeg*', at: [0.06, -0.08, 0.04], size: [0.04, 0.2, 0.12], euler: [thighPitch, 0.1, 0.2], color: furLight }
+      - { bone: 'backShin*', from: [0, 0, 0], to: { bone: 'backHock*' }, radius: 0.06, color: furDark }
+      - { bone: 'backShin*', at: [0, -0.11, -0.08], size: [0.07, 0.22, 0.08], euler: [tibiaPitch, 0, 0], color: fur }
+      - { bone: 'backHock*', from: [0, 0, 0], to: { bone: 'backPaw*' }, radius: 0.045, color: furDark }
+      - { bone: 'backHock*', at: [0, 0, -0.03], size: [0.05, 0.07, 0.06], color: furDark }
+      - mirror: false
+        parts:
+          - { bone: 'backPaw*', at: [0, -0.035, 0.03], size: [0.08, 0.07, 0.09], color: fur }
+          - { bone: 'backPaw*', at: [-0.05, -0.045, 0.105], size: [0.019, 0.045, 0.03], color: furDark }
+          - { bone: 'backPaw*', at: [-0.017, -0.045, 0.115], size: [0.019, 0.045, 0.03], color: furDark }
+          - { bone: 'backPaw*', at: [0.017, -0.045, 0.115], size: [0.019, 0.045, 0.03], color: furDark }
+          - { bone: 'backPaw*', at: [0.05, -0.045, 0.105], size: [0.019, 0.045, 0.03], color: furDark }
+          - { bone: 'backPaw*', from: [-0.05, -0.05, 0.125], along: [-0.1, -0.35, 1], length: 0.065, radius: 0.012, color: claw }
+          - { bone: 'backPaw*', from: [-0.017, -0.05, 0.135], along: [0, -0.35, 1], length: 0.065, radius: 0.012, color: claw }
+          - { bone: 'backPaw*', from: [0.017, -0.05, 0.135], along: [0, -0.35, 1], length: 0.065, radius: 0.012, color: claw }
+          - { bone: 'backPaw*', from: [0.05, -0.05, 0.125], along: [0.1, -0.35, 1], length: 0.065, radius: 0.012, color: claw }
+
+  # Tail: three segments, each spanning its own bone and tapering, a spike on
+  # the top of the first two, and a tuft of three at the tip. The last
+  # segment runs on past the end of the rig, which is why that one length is
+  # written out.
+  - { bone: tailA, from: [0, 0, 0], to: { bone: tailB }, radius: 0.045, color: fur }
+  - { bone: tailB, from: [0, 0, 0], to: { bone: tailC }, radius: 0.035, color: furDark }
+  - { bone: tailC, from: [0, 0, 0], to: [0, -0.04, -0.18], radius: 0.026, color: fur }
+  - { bone: tailA, from: [0, 0.04, -0.08], along: [0, 1, -0.7], length: 0.06, radius: 0.014, color: mane }
+  - { bone: tailB, from: [0, 0.03, -0.1], along: [0, 1, -0.8], length: 0.05, radius: 0.014, color: mane }
+  - { bone: tailC, from: [0, -0.04, -0.17], along: [0, -0.2, -1], length: 0.08, radius: 0.014, color: mane }
+  - { bone: tailC, from: [0, -0.04, -0.17], along: [0.35, 0.2, -1], length: 0.07, radius: 0.014, color: mane }
+  - { bone: tailC, from: [0, -0.04, -0.17], along: [-0.35, 0.2, -1], length: 0.07, radius: 0.014, color: mane }

@@ -9,7 +9,7 @@
  *
  * What is left here is the three things that outlive the migration.
  *
- * The files LOAD, and to the shapes the game expects: seven entities, three
+ * The files LOAD, and to the shapes the game expects: eight entities, four
  * rigs, the trees measuring their own thresholds. A file that stopped parsing
  * would be found by the render test too, but only as a blank picture.
  *
@@ -31,15 +31,24 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	AssetLibrary,
+	attachmentPosition,
 	loadRig,
 	AssetWriteError,
 	memoryIO,
 	readOnly,
+	solveWorld,
 	type AssetIO,
 	type EntityAsset,
 	type RigAsset,
 } from '@hexdelve/engine';
 import {
+	DIRE_BITE_CONTACT,
+	DIRE_CHAIN,
+	DIRE_RUN_CONTACTS,
+	DIRE_STRIDE_PERIOD,
+	direBitePose,
+	direRestPose,
+	direRunPose,
 	flyPose,
 	HOUND_STRIDE_PERIOD,
 	houndRunPose,
@@ -126,6 +135,23 @@ describe('rigs', () => {
 		expect(parent('backLegL')).toBe('root');
 	});
 
+	it('the dire hellhound hangs its front legs off a scapula, and its hind legs bend at rest', async () => {
+		const rig = await readRig('direhound');
+		const bone = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!;
+		expect(rig.bones).toHaveLength(30);
+		expect(bone('shoulderL').parent).toBe('chest');
+		expect(bone('frontLegL').parent).toBe('shoulderL');
+		expect(bone('backLegL').parent).toBe('root');
+		// The femur runs forward and the tibia back: the Z a dog stands on.
+		expect(bone('backShinL').offset[2]).toBeGreaterThan(0);
+		expect(bone('backHockL').offset[2]).toBeLessThan(0);
+		// A gallop's pairs alternate hind against front, so the measured pair
+		// is one of each rather than a left and a right.
+		expect(rig.feet).toEqual(['backPawL', 'frontPawL']);
+		expect(rig.anchors.jawTip!.bone).toBe('jaw');
+		expect(rig.groups.frontL).toEqual(['shoulderL', 'frontLegL', 'frontShinL', 'frontWristL', 'frontPawL']);
+	});
+
 	it('refuses a child that comes before its parent', () => {
 		const source = ['id: bad', 'bones:', '  - { name: hand, parent: arm, offset: [0, 0, 0] }'].join('\n');
 		expect(() => loadRig(source, 'bad.rig.yaml')).toThrow(/must precede/);
@@ -153,6 +179,7 @@ describe('entities', () => {
 			'ghoul',
 			'bat',
 			'hellhound',
+			'direhound',
 			'helmet',
 			'sword',
 			'shield',
@@ -263,6 +290,112 @@ describe('the pose functions still agree with the rigs', () => {
 	it('the hound’s cycle is the one its entity asks for', async () => {
 		const hound = await entity('hellhound');
 		expect(hound.animations.get('run')!.duration).toBeCloseTo(HOUND_STRIDE_PERIOD, 12);
+	});
+
+	it('the gallop is solved on the dire hellhound rig’s own chain', async () => {
+		const rig = await readRig('direhound');
+		const offset = (name: string): readonly [number, number] => {
+			const bone = rig.skeleton.find((candidate) => candidate.name === name)!;
+			return [bone.offset[1], bone.offset[2]];
+		};
+		expect(DIRE_CHAIN.hipHeight).toBeCloseTo(rig.metrics.hipHeight!, 12);
+		const pairs: [readonly [number, number], string][] = [
+			[DIRE_CHAIN.spineMid, 'spineMid'],
+			[DIRE_CHAIN.chest, 'chest'],
+			[DIRE_CHAIN.shoulder, 'shoulderL'],
+			[DIRE_CHAIN.frontLeg, 'frontLegL'],
+			[DIRE_CHAIN.humerus, 'frontShinL'],
+			[DIRE_CHAIN.forearm, 'frontWristL'],
+			[DIRE_CHAIN.pastern, 'frontPawL'],
+			[DIRE_CHAIN.backLeg, 'backLegL'],
+			[DIRE_CHAIN.femur, 'backShinL'],
+			[DIRE_CHAIN.tibia, 'backHockL'],
+			[DIRE_CHAIN.metatarsus, 'backPawL'],
+		];
+		for (const [copy, bone] of pairs) {
+			expect(copy[0], bone).toBeCloseTo(offset(bone)[0], 12);
+			expect(copy[1], bone).toBeCloseTo(offset(bone)[1], 12);
+		}
+	});
+
+	it('the gallop keeps every planted paw on the ground', async () => {
+		const rig = await readRig('direhound');
+		// Each paw's own phase: hind left at theta, front left half a cycle on.
+		const legs = [
+			{ paw: 'backPawL', offset: 0 },
+			{ paw: 'frontPawL', offset: Math.PI },
+		];
+		for (const { paw, offset } of legs) {
+			for (let i = 0; i <= 10; i++) {
+				const own = Math.PI / 2 + (Math.PI * i) / 10;
+				const world = solveWorld(rig.skeleton, direRunPose(own - offset, 1, 0, {}));
+				// Planted paws sit at the paw's own depth; the front pair may
+				// lift a hair early as the leg straightens at push-off.
+				expect(world[paw]!.p[1], `${paw} at ${i}/10 of its stance`).toBeGreaterThan(0.06);
+				expect(world[paw]!.p[1], `${paw} at ${i}/10 of its stance`).toBeLessThan(0.1);
+			}
+		}
+	});
+
+	it('the gallop carries the dire hellhound forwards, and its entity measures it', async () => {
+		const hound = await entity('direhound');
+		const run = hound.animations.get('run')!;
+		expect(run.duration).toBeCloseTo(DIRE_STRIDE_PERIOD, 12);
+		expect(run.contacts).toEqual(DIRE_RUN_CONTACTS);
+		const speed = run.speed()!;
+		expect(speed.z).toBeGreaterThan(1.5);
+		expect(Math.abs(speed.x)).toBeLessThan(0.05);
+		// Standing still is still the same function, and goes nowhere — bar the
+		// breathing, which shifts its weight a fraction.
+		expect(Math.abs(hound.animations.get('idle')!.speed()!.z)).toBeLessThan(0.01);
+	});
+
+	it('the dire hellhound rests with its chest and all four paws on the ground', async () => {
+		const rig = await readRig('direhound');
+		const world = solveWorld(rig.skeleton, direRestPose(0, {}));
+		for (const paw of ['frontPawL', 'frontPawR', 'backPawL', 'backPawR']) {
+			expect(world[paw]!.p[1], paw).toBeGreaterThan(0.04);
+			expect(world[paw]!.p[1], paw).toBeLessThan(0.1);
+		}
+		// The elbows and hocks lie down too, and the hips have dropped most of
+		// the standing height.
+		expect(world.frontShinL!.p[1]).toBeLessThan(0.12);
+		expect(world.backHockL!.p[1]).toBeLessThan(0.1);
+		expect(world.root!.p[1]).toBeLessThan(rig.metrics.hipHeight! * 0.4);
+	});
+
+	it('the dire hellhound’s bite reaches into the next hexagon and comes back', async () => {
+		const rig = await readRig('direhound');
+		const jaws = (u: number) =>
+			attachmentPosition(rig.skeleton, direBitePose(u, {}), 'jaw', rig.anchors.jawTip!.at);
+		// Neighbouring hexagon centres are 1.73 m apart; the teeth close well
+		// past the edge of its own cell and short of the far side of the next.
+		expect(jaws(DIRE_BITE_CONTACT)[2]).toBeGreaterThan(1.7);
+		expect(jaws(DIRE_BITE_CONTACT)[2]).toBeLessThan(2.4);
+		expect(jaws(1)[2]).toBeLessThan(jaws(DIRE_BITE_CONTACT)[2] - 0.5);
+		// It lunges from its own cell and lands back in it.
+		const start = solveWorld(rig.skeleton, direBitePose(0, {}));
+		const end = solveWorld(rig.skeleton, direBitePose(1, {}));
+		expect(Math.abs(start.root!.p[2])).toBeLessThan(0.2);
+		expect(Math.abs(end.root!.p[2])).toBeLessThan(0.1);
+	});
+
+	it('every bone the dire hellhound’s poses write exists on its rig', async () => {
+		const rig = await readRig('direhound');
+		const poses = [
+			direRunPose(0.7, 1, 0.3, {}),
+			direRunPose(0, 0, 2, {}),
+			direBitePose(0.5, {}),
+			direRestPose(1, {}),
+		];
+		for (const posed of poses) {
+			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
+		// And the gallop moves every bone of every leg the rig groups.
+		const posed = direRunPose(1.1, 1, 0, {});
+		for (const side of ['frontL', 'frontR', 'backL', 'backR'] as const) {
+			for (const bone of rig.groups[side]!) expect(posed[bone], bone).toBeDefined();
+		}
 	});
 
 	it('every bone a pose function writes exists on the rig it is for', async () => {
