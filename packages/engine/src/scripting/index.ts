@@ -18,7 +18,6 @@
 
 export {
 	ScriptHost,
-	type LiveParameter,
 	type ScriptHostOptions,
 	type ScriptProvider,
 	type ScriptSpawner,
@@ -39,16 +38,3 @@ export {
 	type GameEvent,
 	type Payload,
 } from './events.js';
-export {
-	applyParameters,
-	parameterKeys,
-	parametersOf,
-	param,
-	readParameters,
-	resolveParameters,
-	type ParameterMeta,
-	type ParameterOptions,
-	type ParameterType,
-	type ScriptClass,
-	type Widen,
-} from './parameters.js';

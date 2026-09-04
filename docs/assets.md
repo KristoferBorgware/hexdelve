@@ -147,6 +147,42 @@ A system is not a special kind of thing. It is an ordinary object with ordinary
 components that happens to be spawned once, which is what will let a script
 attached to one be written exactly like a script attached to a character.
 
+### What a component exposes
+
+A component decides which of its fields anybody else may set, by declaring
+them:
+
+```ts
+export class BoneFollow extends Component {
+  bone = param('', { label: 'Bone', hint: "The bone in the wearer's rig" });
+}
+```
+
+That is the whole of the opt-in, and it is the same for a script and for
+everything else — `Script` derives from `Component`, so a behaviour and a prop's
+bone are declared and read the same way. `GameObject.attachComponent` resolves
+the declarations into their defaults before the component's first hook runs and
+applies whatever the prefab named; a name the class never declared throws,
+listing what it does have.
+
+An editor reads them back off the instance. `component.parameters()` gives each
+field with its type, its default, its hints and the value it holds right now,
+and `inspectObject(object)` does that for a whole subtree — a row per object, a
+block per component, a control per field. Writing goes through
+`component.setParameter(key, value)`, which a script overrides so the host
+remembers the value and applies it again to the instance the next hot reload
+builds.
+
+Unity draws the line by a rule where this draws it by a marker. There, a public
+instance **field** of a serialisable type is in the inspector, as is a private
+one marked `[SerializeField]`; a property is not a field, so `public float
+CurrentHealth { get; set; }` is not in it, a method is not a field, so
+`CanPickup()` is not, and `public UnityAction<float, GameObject> OnDamaged`
+holds functions rather than data, so neither is that. `[Tooltip("...")]` labels
+a field that is already exposed rather than exposing one, which is what `hint`
+is here. The line ends up in the same place; declaring it per field rather than
+per type is what saves keeping a list of the types a rule would accept.
+
 ## Arithmetic, because the numbers were never flat
 
 Any scalar may be a string holding arithmetic:

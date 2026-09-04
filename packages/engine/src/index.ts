@@ -52,6 +52,36 @@ export { GameObject, type GameObjectOptions } from './scene/GameObject.js';
 export { Component, type ComponentClass } from './scene/components/Component.js';
 export { Script, type ScriptBinding } from './scene/components/Script.js';
 
+/*
+ * What a component exposes, and the walk that collects it — the editor's side
+ * of the object model. A component declares the fields it is willing to have
+ * set with `param`; a tree view reads them off whatever is selected.
+ */
+export {
+	applyParameters,
+	learnParameters,
+	liveParameters,
+	param,
+	parameterKeys,
+	parametersOf,
+	readParameters,
+	resolveParameters,
+	writeParameter,
+	type ComponentType,
+	type LiveParameter,
+	type ParameterMeta,
+	type ParameterOptions,
+	type ParameterType,
+	type Widen,
+} from './scene/components/parameters.js';
+export {
+	inspectComponent,
+	inspectComponents,
+	inspectObject,
+	type ComponentView,
+	type ObjectView,
+} from './scene/components/inspect.js';
+
 export { Scene, type SceneOptions } from './scene/Scene.js';
 
 export {

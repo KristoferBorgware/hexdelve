@@ -48,12 +48,11 @@
 
 import {
 	applyParameters,
-	parametersOf,
-	readParameters,
+	parameterKeys,
 	resolveParameters,
-	type ParameterMeta,
-	type ScriptClass,
-} from './parameters.js';
+	type ComponentType,
+	type LiveParameter,
+} from '../scene/components/parameters.js';
 import { handlersOf, type EventHandler, type GameEvent } from './events.js';
 import { Script } from '../scene/components/Script.js';
 import type { GameObject } from '../scene/GameObject.js';
@@ -62,7 +61,7 @@ import type { Scene } from '../scene/Scene.js';
 /** Where a host gets its classes. */
 export interface ScriptProvider {
 	/** The class for a name, or null if this provider has not got one. */
-	resolve(typeName: string): ScriptClass<Script> | null;
+	resolve(typeName: string): ComponentType<Script> | null;
 	/** Every name it can currently resolve, for an error that lists them. */
 	readonly names: readonly string[];
 }
@@ -102,11 +101,6 @@ export interface SpawnPlacement {
  * fetch, and a tick cannot wait for it.
  */
 export type ScriptSpawner = (id: string, placement: SpawnPlacement) => GameObject | null;
-
-/** One exposed field, with the value it currently holds. */
-export interface LiveParameter extends ParameterMeta {
-	readonly value: unknown;
-}
 
 /** What the host remembers about one script, instance or no instance. */
 interface Registration {
@@ -222,24 +216,25 @@ export class ScriptHost {
 		this.log(`reloaded: ${live} of ${registered} script(s) running`);
 	}
 
-	/** The exposed fields of one live script, with their current values. */
+	/**
+	 * The exposed fields of one live script, with their current values.
+	 *
+	 * The component answers for itself; the host only refuses a script it is
+	 * not running, which is a script whose values it could not keep.
+	 */
 	parameters(script: Script): LiveParameter[] {
-		const registration = this.byInstance.get(script);
-		if (!registration) return [];
-		const values = readParameters(script);
-		return parametersOf(script.constructor as ScriptClass).map((meta) => ({
-			...meta,
-			value: values[meta.key] ?? registration.overrides[meta.key] ?? meta.default,
-		}));
+		if (!this.byInstance.has(script)) return [];
+		return script.parameters();
 	}
 
 	/** Set one field, and remember it across every reload from here on. */
 	setParameter(script: Script, key: string, value: unknown): void {
 		const registration = this.byInstance.get(script);
 		if (!registration) return;
-		registration.overrides[key] = value;
-		applyParameters(script, { [key]: value }, (bad, known) =>
-			this.log(`${this.where(registration)} has no parameter '${bad}'; it has ${list(known)}`),
+		if (script.setParameter(key, value)) return;
+		this.log(
+			`${this.where(registration)} has no parameter '${key}';` +
+				` it has ${list(parameterKeys(script.constructor as ComponentType))}`,
 		);
 	}
 
@@ -484,6 +479,9 @@ export class ScriptHost {
 			send: (target, event, payload) => this.send(target, event, payload),
 			spawn: (id, placement) => this.spawn(id, placement),
 			log: (message) => this.log(`${this.where(registration)}: ${message}`),
+			remember: (key, value) => {
+				registration.overrides[key] = value;
+			},
 			failed: (where, error, detail) =>
 				this.log(
 					`${this.where(registration)}.${where} threw${detail ? ` ${detail}` : ''},` +

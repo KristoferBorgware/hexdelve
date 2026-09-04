@@ -33,7 +33,7 @@ import {
 	scriptSdkShim,
 	scriptsFromBundle,
 	staticScripts,
-	type ScriptClass,
+	type ComponentType,
 	type ScriptProvider,
 } from '@hexdelve/engine';
 
@@ -217,6 +217,32 @@ describe('a hot reload', () => {
 
 		host.reload(staticScripts({ Counter: Fast }));
 		expect(host.parameters(live(subject)).find((one) => one.key === 'rate')?.value).toBe(7);
+	});
+
+	it('keeps a value written through the component itself', () => {
+		const { host: make } = quiet();
+		const host = make(staticScripts({ Counter: Slow }));
+		const subject = attach(host, new Scene());
+
+		// What an editor's control does: write to the script in front of it. A
+		// script routes that to the host, so the value is applied again to the
+		// instance the next reload builds — a person who typed a number should
+		// not have it undone by saving the file.
+		expect(live(subject).setParameter('rate', 5)).toBe(true);
+		expect(live(subject).parameters()[0]!.value).toBe(5);
+
+		host.reload(staticScripts({ Counter: Fast }));
+		expect(host.parameters(live(subject))[0]!.value).toBe(5);
+	});
+
+	it('refuses a name the script never declared, and says what it has', () => {
+		const { host: make, said } = quiet();
+		const host = make(staticScripts({ Counter: Slow }));
+		const subject = attach(host, new Scene());
+
+		host.setParameter(live(subject), 'raet', 5);
+		expect(said.join('\n')).toMatch(/no parameter 'raet'; it has rate/);
+		expect(host.parameters(live(subject))[0]!.value).toBe(1);
 	});
 
 	it('adopts a new default nobody had overridden', () => {
@@ -460,7 +486,7 @@ describe('events', () => {
 	}
 	handles(Angry, Poke, 'poked');
 
-	function running(classes: Record<string, ScriptClass<Script>>) {
+	function running(classes: Record<string, ComponentType<Script>>) {
 		const { host: make, said } = quiet();
 		return { host: make(staticScripts(classes)), said, scene: new Scene() };
 	}
@@ -640,7 +666,7 @@ describe('the scripts this build ships', () => {
 	});
 
 	it('declares the parameters a prefab may set', () => {
-		const spin = provider.resolve('Spin') as ScriptClass;
+		const spin = provider.resolve('Spin') as ComponentType;
 		expect(spin).not.toBeNull();
 		expect(parametersOf(spin).map((one) => one.key)).toEqual(['speed']);
 		expect(parametersOf(spin)[0]!.type).toBe('number');
@@ -757,7 +783,7 @@ describe('the scripts this build ships', () => {
 			for (const use of prefabScripts(prefab)) {
 				const constructor = provider.resolve(use.script);
 				expect(constructor, `'${id}' names script '${use.script}'`).not.toBeNull();
-				const known = parametersOf(constructor as ScriptClass).map((one) => one.key);
+				const known = parametersOf(constructor as ComponentType).map((one) => one.key);
 				for (const key of use.parameters) {
 					expect(known, `'${id}' sets '${key}' on '${use.script}'`).toContain(key);
 					checked++;

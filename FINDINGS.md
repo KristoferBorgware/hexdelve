@@ -153,6 +153,40 @@ dev server answer for the asset tree the way the static host it stands in for
 does. The `content-type` would have to be set by extension, which for this tree
 is `.yaml` and nothing else.
 
+### F-017 — A parameter takes whatever a prefab wrote, of whatever type
+
+**Kind:** gap
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, while making exposed fields a component's business rather than a script's
+**Where:** `applyParameters` in `packages/engine/src/scene/components/parameters.ts`
+
+**What happens.** A parameter declares its type by what it was initialised to —
+`speed = param(1.5)` is a number — and `applyParameters` checks the NAME of
+every value it is given and nothing else. A prefab writing `speed: fast` sets
+the field to the string `fast`, and the first `this.speed * dt` produces `NaN`.
+`{ alive: 'no' }` on a flag is truthy. A number written as `'3'` in YAML
+concatenates rather than adds.
+
+The name check is there and is loud: `speeed: 3` is refused and lists what the
+class does have. The type check beside it is missing.
+
+**Why it matters.** Nobody yet — the prefabs in the tree write numbers where
+numbers are declared. It matters at the moment a person edits a component in
+the editor rather than a file, because a text control produces strings and a
+control drawn from `ParameterMeta` will produce them for a `number` field
+unless something converts. The failure it produces is a `NaN` in a transform,
+which is a body that vanishes rather than an error naming the field.
+
+**What would fix it.** `applyParameters` knows the declared type of every key it
+accepts. Convert where the conversion is exact — a numeric string to a number,
+`'true'` and `'false'` to a flag — and refuse the rest through the same
+reporter the unknown name uses, so a prefab with a nonsense value says so where
+it says a nonsense name. The editor's write path (`Component.setParameter`)
+wants the same treatment, and both should get it in one place rather than at
+each call site.
+
 ---
 
 ## Closed

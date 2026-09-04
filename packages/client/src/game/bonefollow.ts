@@ -39,22 +39,21 @@
  */
 
 import { quat } from '@hexdelve/shared';
-import { Component, type GameObject } from '@hexdelve/engine';
+import { Component, param } from '@hexdelve/engine';
 
 import { Actor } from './actor.js';
 
-export interface BoneFollowOptions {
-	/** The bone this object hangs from, by the name the rig gives it. */
-	bone: string;
-}
-
 export class BoneFollow extends Component {
-	readonly bone: string;
-
-	constructor(object: GameObject, options: BoneFollowOptions) {
-		super(object);
-		this.bone = options.bone;
-	}
+	/**
+	 * The bone this object hangs from, by the name the rig gives it.
+	 *
+	 * Declared with `param` rather than taken as a constructor argument, which
+	 * is how any component says a field is somebody else's to set: the prop's
+	 * entity file names the bone, `attachComponent` applies it, and an editor
+	 * showing this component shows this one field. A component that declares
+	 * nothing shows nothing.
+	 */
+	bone = param('', { label: 'Bone', hint: "The bone in the wearer's rig" });
 
 	/**
 	 * The actor this is being carried by, or null when it is not.

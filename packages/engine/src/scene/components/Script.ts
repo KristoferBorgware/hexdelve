@@ -67,6 +67,14 @@ export interface ScriptBinding {
 	readonly spawn: ScriptSpawner;
 	/** Where a script's own messages go, tagged with which script said them. */
 	readonly log: (message: string) => void;
+	/**
+	 * Keep a field somebody set, so the next reload sets it again.
+	 *
+	 * A reload builds a new instance from new code, and a new instance starts
+	 * at whatever the source says. The host holds the values that were set from
+	 * outside the source and re-applies them — see `parameters.ts`.
+	 */
+	readonly remember: (key: string, value: unknown) => void;
 	/** Told when this script threw, so the host can report it. */
 	readonly failed: (where: string, error: unknown, detail?: string) => void;
 	/**
@@ -100,6 +108,19 @@ export abstract class Script extends Component {
 			);
 		}
 		return this.bound;
+	}
+
+	/**
+	 * `Component.setParameter`, and the value outlives this instance.
+	 *
+	 * An editor setting a field is setting it on the SCRIPT rather than on the
+	 * instance, which is the only version of it a person can see. The host is
+	 * told so the value is applied again to whatever the next reload builds.
+	 */
+	override setParameter(key: string, value: unknown): boolean {
+		if (!super.setParameter(key, value)) return false;
+		this.bound?.remember(key, value);
+		return true;
 	}
 
 	/** The scene it is in, for finding things that are not underneath it. */

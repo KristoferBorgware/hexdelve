@@ -27,6 +27,7 @@ import type { Quat } from '@hexdelve/shared';
 
 import { composeWorld, Transform, type Point, type WorldTransform } from './Transform.js';
 import type { Component, ComponentClass } from './components/Component.js';
+import { applyParameters, resolveParameters } from './components/parameters.js';
 
 let nextId = 1;
 
@@ -139,15 +140,27 @@ export class GameObject {
 	}
 
 	/**
-	 * Attach one that is already built.
+	 * Attach one that is already built, setting the fields it exposes.
 	 *
-	 * For a component whose construction is somebody else's business — a script,
-	 * whose class is found by name in a compiled bundle and whose parameters are
-	 * applied before it may run. `addComponent` is this with the construction
-	 * done here, which is what every component that can be built from its
-	 * arguments should use.
+	 * `values` is what a prefab said, by field name — `{ bone: 'hand.R' }` —
+	 * and a name the component never declared throws, because the prefab is
+	 * wrong and this is the moment to find out. A component that exposes
+	 * nothing takes no values.
+	 *
+	 * Exposed fields are markers until they are resolved, so that happens here
+	 * and before `onAttach`: a component's first hook sees numbers.
 	 */
-	attachComponent<T extends Component>(component: T): T {
+	attachComponent<T extends Component>(
+		component: T,
+		values: Readonly<Record<string, unknown>> = {},
+	): T {
+		resolveParameters(component);
+		applyParameters(component, values, (bad, known) => {
+			throw new Error(
+				`${component.typeName} on '${this.name}' has no parameter '${bad}';` +
+					` it has ${known.length > 0 ? known.join(', ') : 'none'}`,
+			);
+		});
 		this.componentList.push(component);
 		component.onAttach();
 		return component;
