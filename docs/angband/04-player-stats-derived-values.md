@@ -269,7 +269,7 @@ with the stat adjustment being `adj_dex_dis` for physical disarming, `adj_int_di
 | SKILL_DEVICE | Wand/staff/rod/activation success |
 | SKILL_SAVE | Saving throw against monster spells and many side effects (`randint0(100) < save`) |
 | SKILL_STEALTH | Monster wake-up rate (0..30) |
-| SKILL_SEARCH | Multiplied by 5 from the SEARCH modifier; noticing secret doors |
+| SKILL_SEARCH | Multiplied by 5 from the SEARCH modifier; spotting invisible traps, and nothing else — `trap.c`'s `SKILL_SEARCH < trap->power` test is its only use in the game. Secret doors are found automatically with no roll (Traps chapter) |
 | SKILL_TO_HIT_MELEE / BOW / THROW | Base of the hit chance for each attack type |
 | SKILL_DIGGING | Tunnelling chances (4.11) |
 
