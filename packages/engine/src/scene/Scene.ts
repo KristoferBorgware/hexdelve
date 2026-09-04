@@ -18,7 +18,8 @@
  * point of having the tree in the first place.
  */
 
-import { GameObject, type Component } from './GameObject.js';
+import { GameObject } from './GameObject.js';
+import type { Component } from './components/Component.js';
 
 export interface SceneOptions {
 	/** What the root is called. Only matters when something goes looking. */

@@ -1,11 +1,11 @@
 /*
  * Scripting — what game behaviour is written as, and what runs it.
  *
- * A script is a component, in the plainest sense: derive from `Script`, put the
- * file in the client's `scripts/` directory, name it from a prefab, and it sits
- * in its object's component list beside a `Model`. `object.getComponent(Wander)`
- * finds it, and nothing outside `ScriptHost` has to know it arrived by a
- * different road.
+ * A script is a component, in the plainest sense: derive from `Script` — which
+ * lives with the other components, in `scene/components` — put the file in the
+ * client's `scripts/` directory, name it from a prefab, and it sits in its
+ * object's component list. `object.getComponent(Wander)` finds it, and nothing
+ * outside `ScriptHost` has to know it arrived by a different road.
  *
  * What the host keeps is the road: which class a NAME means, and how to build a
  * new instance in the old one's place when that class is replaced by a hot
@@ -16,7 +16,6 @@
  * the client's whole promise is one ES module with nothing to install.
  */
 
-export { Script, type ScriptBinding } from './Script.js';
 export {
 	ScriptHost,
 	type LiveParameter,

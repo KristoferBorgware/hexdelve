@@ -49,11 +49,11 @@
  * pair drops the handling around them.
  */
 
-import { Component } from '../scene/GameObject.js';
-import type { GameObject } from '../scene/GameObject.js';
-import type { Scene } from '../scene/Scene.js';
+import { Component } from './Component.js';
+import type { GameObject } from '../GameObject.js';
+import type { Scene } from '../Scene.js';
 
-import type { GameEvent, Payload } from './events.js';
+import type { GameEvent, Payload } from '../../scripting/events.js';
 
 /** What the host gives a script once it has been built. */
 export interface ScriptBinding {

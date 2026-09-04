@@ -26,39 +26,7 @@
 import type { Quat } from '@hexdelve/shared';
 
 import { composeWorld, Transform, type Point, type WorldTransform } from './Transform.js';
-
-/** A component constructor, as `addComponent` takes it. */
-export type ComponentClass<T extends Component, A extends unknown[] = []> = new (
-	object: GameObject,
-	...args: A
-) => T;
-
-/**
- * Something attached to an object.
- *
- * A component reaches its object and, through it, everything else. It is not a
- * node: it has no transform, no children and no place of its own, and acts
- * entirely through the object that owns it. That is the whole distinction, and
- * it is what keeps the tree a tree.
- */
-export abstract class Component {
-	constructor(readonly object: GameObject) {}
-
-	/** After it has been attached and the object knows about it. */
-	onAttach(): void {}
-
-	/** Once a frame, in tree order, parents before children. */
-	update(_dt: number): void {}
-
-	/**
-	 * When it is removed, or its object is destroyed.
-	 *
-	 * Always called exactly once, and always before the object stops being
-	 * reachable — so a component can still find its neighbours and take itself
-	 * out of whatever registered it.
-	 */
-	onDetach(): void {}
-}
+import type { Component, ComponentClass } from './components/Component.js';
 
 let nextId = 1;
 

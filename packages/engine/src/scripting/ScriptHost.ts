@@ -55,7 +55,7 @@ import {
 	type ScriptClass,
 } from './parameters.js';
 import { handlersOf, type EventHandler, type GameEvent } from './events.js';
-import { Script } from './Script.js';
+import { Script } from '../scene/components/Script.js';
 import type { GameObject } from '../scene/GameObject.js';
 import type { Scene } from '../scene/Scene.js';
 

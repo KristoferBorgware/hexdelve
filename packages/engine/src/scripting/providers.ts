@@ -18,7 +18,7 @@
  * Same scripts, same base class, same host. Only the editor pays.
  */
 
-import type { Script } from './Script.js';
+import type { Script } from '../scene/components/Script.js';
 import type { ScriptClass } from './parameters.js';
 import type { ScriptProvider } from './ScriptHost.js';
 
