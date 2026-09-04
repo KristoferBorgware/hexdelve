@@ -163,7 +163,15 @@ export {
 	DIRE_BITE_CONTACT,
 	DIRE_CHAIN,
 } from './game/direhoundpose.js';
-export { shamblePose, GHOUL_CHAIN, SHAMBLE_PERIOD, SHAMBLE_CONTACTS } from './game/ghoulpose.js';
+export {
+	shamblePose,
+	scramblePose,
+	GHOUL_CHAIN,
+	SHAMBLE_PERIOD,
+	SHAMBLE_CONTACTS,
+	SCRAMBLE_PERIOD,
+	SCRAMBLE_CONTACTS,
+} from './game/ghoulpose.js';
 export { LEG_LENGTH, HUMANOID_SKELETON } from './game/humanoid.js';
 export {
 	stridePose,

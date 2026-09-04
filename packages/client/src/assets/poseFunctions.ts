@@ -32,7 +32,14 @@ import {
 	restPose as direRestPose,
 	runPose as direRunPose,
 } from '../game/direhoundpose.js';
-import { shamblePose, SHAMBLE_CONTACTS, SHAMBLE_PERIOD } from '../game/ghoulpose.js';
+import {
+	SCRAMBLE_CONTACTS,
+	SCRAMBLE_PERIOD,
+	scramblePose,
+	SHAMBLE_CONTACTS,
+	SHAMBLE_PERIOD,
+	shamblePose,
+} from '../game/ghoulpose.js';
 import { bitePose, restPose, runPose } from '../game/hellhoundpose.js';
 import { stridePose, stridePeriod, STRIDE_CONTACTS, type Direction } from '../game/stride.js';
 
@@ -186,6 +193,18 @@ const ghoulShamble: PoseFunction = {
 	},
 };
 
+/** The ghoul's run: on all fours, diagonal pairs, hands and feet both solved onto the ground. */
+const ghoulScramble: PoseFunction = {
+	id: 'ghoulScramble',
+	duration: SCRAMBLE_PERIOD,
+	contacts: SCRAMBLE_CONTACTS,
+	build: ({ args, duration }) => {
+		const amp = arg(args, 'amp', 1);
+		const moving = amp >= 0.02;
+		return (t, out) => scramblePose(moving ? (t / duration) * TAU : 0, amp, t, out);
+	},
+};
+
 /**
  * Every pose function this package owns.
  *
@@ -205,4 +224,5 @@ export const poseFunctions = new PoseFunctionRegistry().register(
 	direBite,
 	direRest,
 	ghoulShamble,
+	ghoulScramble,
 );

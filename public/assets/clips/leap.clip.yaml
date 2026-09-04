@@ -20,8 +20,10 @@
 # hunched creature from standing on its toes. An arm hangs in the chest's
 # frame, and the chest is pitched forward by the whole bend of the spine, so
 # every arm key below is the bend taken back out at the shoulder plus where
-# the arm is meant to point: -1.4 at the stand hangs it a little forward of
-# straight down under a bend of about one radian.
+# the arm is meant to point: -1.55 at the stand hangs it a little forward of
+# straight down under a bend of one and a quarter radians. The hands turn in
+# at the wrist, palms towards each other, and further in as the claws come
+# down on the target.
 
 id: leap
 name: Leap attack
@@ -36,23 +38,23 @@ poses:
   # The hunched stand it starts from: the same crouch the shamble holds.
   - t: 0
     bones:
-      root: { rot: [0.14, 0, 0], pos: [0, -0.17, 0] }
-      spine: [0.5, 0, 0]
-      chest: [0.4, 0, 0]
-      neck: [-0.38, 0, 0.14]
-      head: [-0.42, 0, 0.05]
-      armL: [-1.4, 0.05, 0.28]
-      armR: [-1.46, -0.05, -0.24]
-      forearmL: [-0.45, 0.1, 0.05]
-      forearmR: [-0.55, -0.1, -0.05]
-      handL: [-0.35, 0, 0.15]
-      handR: [-0.45, 0, -0.1]
-      hipL: [-0.79, 0, 0.1]
-      shinL: [1.22, 0, 0]
-      footL: [-0.58, 0.18, -0.08]
-      hipR: [-0.63, 0, -0.1]
-      shinR: [1.23, 0, 0]
-      footR: [-0.74, -0.18, 0.08]
+      root: { rot: [0.25, 0, 0], pos: [0, -0.22, 0] }
+      spine: [0.55, 0, 0]
+      chest: [0.45, 0, 0]
+      neck: [-0.45, 0, 0.14]
+      head: [-0.5, 0, 0.05]
+      armL: [-1.55, 0.05, 0.28]
+      armR: [-1.61, -0.05, -0.24]
+      forearmL: [-0.5, 0.1, 0.05]
+      forearmR: [-0.6, -0.1, -0.05]
+      handL: [-0.4, -0.35, 0.1]
+      handR: [-0.45, 0.35, -0.1]
+      hipL: [-1.0, 0, 0.1]
+      shinL: [1.43, 0, 0]
+      footL: [-0.68, 0.18, -0.08]
+      hipR: [-0.83, 0, -0.1]
+      shinR: [1.44, 0, 0]
+      footR: [-0.86, -0.18, 0.08]
 
   # Coiled: lower still, weight back, arms drawn back and up behind the
   # shoulders with the claws cocked, the face turned up at the target. Held
@@ -69,8 +71,8 @@ poses:
       armR: [0.22, -0.2, -0.5]
       forearmL: [-1.3, 0, 0]
       forearmR: [-1.3, 0, 0]
-      handL: [-0.6, 0, 0.2]
-      handR: [-0.6, 0, -0.2]
+      handL: [-0.6, -0.3, 0.2]
+      handR: [-0.6, 0.3, -0.2]
       hipL: [-1.45, 0, 0.1]
       shinL: [1.88, 0, 0]
       footL: [-0.75, 0.18, -0.08]
@@ -91,8 +93,8 @@ poses:
       armR: [-3.1, -0.1, -0.65]
       forearmL: [-0.5, 0, 0]
       forearmR: [-0.5, 0, 0]
-      handL: [-0.6, 0, 0.3]
-      handR: [-0.6, 0, -0.3]
+      handL: [-0.6, -0.5, 0.3]
+      handR: [-0.6, 0.5, -0.3]
       hipL: [0.6, 0, 0.12]
       shinL: [0.7, 0, 0]
       footL: [0.6, 0.1, 0]
@@ -114,8 +116,8 @@ poses:
       armR: [-2.15, -0.15, -0.4]
       forearmL: [-0.9, 0, 0]
       forearmR: [-0.9, 0, 0]
-      handL: [-0.9, 0, 0.25]
-      handR: [-0.9, 0, -0.25]
+      handL: [-0.9, -0.7, 0.2]
+      handR: [-0.9, 0.7, -0.2]
       hipL: [-1.01, 0, 0.1]
       shinL: [1.02, 0, 0]
       footL: [-0.37, 0.18, -0.08]
@@ -136,8 +138,8 @@ poses:
       armR: [-1.25, -0.2, -0.3]
       forearmL: [-0.7, 0, 0]
       forearmR: [-0.7, 0, 0]
-      handL: [-0.5, 0, 0.2]
-      handR: [-0.5, 0, -0.2]
+      handL: [-0.5, -0.4, 0.2]
+      handR: [-0.5, 0.4, -0.2]
       hipL: [-1.4, 0, 0.1]
       shinL: [1.6, 0, 0]
       footL: [-0.62, 0.18, -0.08]
@@ -158,8 +160,8 @@ poses:
       armR: [-1.25, -0.1, -0.35]
       forearmL: [-0.6, 0, 0]
       forearmR: [-0.6, 0, 0]
-      handL: [-0.4, 0, 0.2]
-      handR: [-0.4, 0, -0.2]
+      handL: [-0.4, -0.35, 0.2]
+      handR: [-0.4, 0.35, -0.2]
       hipL: [-1.3, 0, 0.12]
       shinL: [1.9, 0, 0]
       footL: [-0.2, 0.18, -0.08]
@@ -170,20 +172,20 @@ poses:
   # And down in its own cell, into the stand it started from.
   - t: 1.15
     bones:
-      root: { rot: [0.14, 0, 0], pos: [0, -0.17, 0] }
-      spine: [0.5, 0, 0]
-      chest: [0.4, 0, 0]
-      neck: [-0.38, 0, 0.14]
-      head: [-0.42, 0, 0.05]
-      armL: [-1.4, 0.05, 0.28]
-      armR: [-1.46, -0.05, -0.24]
-      forearmL: [-0.45, 0.1, 0.05]
-      forearmR: [-0.55, -0.1, -0.05]
-      handL: [-0.35, 0, 0.15]
-      handR: [-0.45, 0, -0.1]
-      hipL: [-0.79, 0, 0.1]
-      shinL: [1.22, 0, 0]
-      footL: [-0.58, 0.18, -0.08]
-      hipR: [-0.63, 0, -0.1]
-      shinR: [1.23, 0, 0]
-      footR: [-0.74, -0.18, 0.08]
+      root: { rot: [0.25, 0, 0], pos: [0, -0.22, 0] }
+      spine: [0.55, 0, 0]
+      chest: [0.45, 0, 0]
+      neck: [-0.45, 0, 0.14]
+      head: [-0.5, 0, 0.05]
+      armL: [-1.55, 0.05, 0.28]
+      armR: [-1.61, -0.05, -0.24]
+      forearmL: [-0.5, 0.1, 0.05]
+      forearmR: [-0.6, -0.1, -0.05]
+      handL: [-0.4, -0.35, 0.1]
+      handR: [-0.45, 0.35, -0.1]
+      hipL: [-1.0, 0, 0.1]
+      shinL: [1.43, 0, 0]
+      footL: [-0.68, 0.18, -0.08]
+      hipR: [-0.83, 0, -0.1]
+      shinR: [1.44, 0, 0]
+      footR: [-0.86, -0.18, 0.08]
