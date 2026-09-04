@@ -12,7 +12,8 @@
 //
 // No noise beds. Everything you hear is played.
 //
-//   node tools/audio/dungeon-pursuit.js [out.wav]
+//   npm run audio -- dungeon-pursuit
+//   node public/assets/audio/dungeon-pursuit.js [out.wav]
 
 const path = require('path');
 

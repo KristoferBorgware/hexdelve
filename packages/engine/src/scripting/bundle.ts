@@ -38,7 +38,7 @@
  */
 
 import { Script } from '../scene/components/Script.js';
-import type { ScriptClass } from './parameters.js';
+import type { ComponentType } from '../scene/components/parameters.js';
 import type { ScriptProvider } from './ScriptHost.js';
 
 /** The specifier a script imports, and the global its import is rewritten to. */
@@ -92,10 +92,10 @@ export function scriptSdkShim(sdk: ScriptSdk): string {
 export function scriptsFromBundle(code: string, sdk: ScriptSdk): ScriptProvider {
 	const exported = evaluate(code, sdk);
 
-	const table = new Map<string, ScriptClass<Script>>();
+	const table = new Map<string, ComponentType<Script>>();
 	for (const [name, value] of Object.entries(exported)) {
 		if (typeof value === 'function' && value.prototype instanceof Script) {
-			table.set(name, value as ScriptClass<Script>);
+			table.set(name, value as ComponentType<Script>);
 		}
 	}
 

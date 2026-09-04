@@ -21,7 +21,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { Component, Scene, Transform } from '@hexdelve/engine';
+import { Component, inspectObject, param, Scene, Transform } from '@hexdelve/engine';
 
 const PI = Math.PI;
 
@@ -279,5 +279,114 @@ describe('the hierarchy', () => {
 		scene.spawn('a1', a);
 		scene.spawn('b');
 		expect(scene.all().map((object) => object.name)).toEqual(['scene', 'a', 'a1', 'b']);
+	});
+});
+
+/*
+ * A component's exposed fields, which is what an editor draws controls from.
+ *
+ * The rule under test is which members are exposed and which are not, because
+ * that is the part somebody reading the class has to be able to predict: a
+ * field declared with `param` is, and a plain field, a getter, a method and a
+ * callback are not.
+ */
+class Health extends Component {
+	max = param(10, { label: 'Maximum health', hint: 'Full health, in hit points' });
+	criticalRatio = param(0.3, { min: 0, max: 1 });
+
+	/** Not exposed: state the game keeps, not tuning a person sets. */
+	current = 10;
+	/** Not exposed: a function to call, which is not a value to type in. */
+	onDamaged: ((amount: number) => void) | null = null;
+
+	get ratio(): number {
+		return this.current / this.max;
+	}
+
+	isCritical(): boolean {
+		return this.ratio < this.criticalRatio;
+	}
+}
+
+class Silent extends Component {
+	hits = 0;
+}
+
+describe('exposed fields', () => {
+	it('exposes what was declared, and nothing else', () => {
+		const scene = new Scene();
+		const health = scene.spawn('goblin').addComponent(Health);
+
+		expect(health.parameters().map((one) => one.key)).toEqual(['max', 'criticalRatio']);
+		expect(scene.spawn('rock').addComponent(Silent).parameters()).toEqual([]);
+	});
+
+	it('reports the type, default, hints and current value of each field', () => {
+		const health = new Scene().spawn('goblin').addComponent(Health);
+		health.max = 25;
+
+		expect(health.parameters()).toEqual([
+			{
+				key: 'max',
+				type: 'number',
+				default: 10,
+				options: { label: 'Maximum health', hint: 'Full health, in hit points' },
+				value: 25,
+			},
+			{
+				key: 'criticalRatio',
+				type: 'number',
+				default: 0.3,
+				options: { min: 0, max: 1 },
+				value: 0.3,
+			},
+		]);
+	});
+
+	it('has the defaults in place before the first hook runs', () => {
+		let seen: unknown = 'unset';
+		class Early extends Component {
+			speed = param(2.5);
+			override onAttach(): void {
+				seen = this.speed;
+			}
+		}
+
+		new Scene().spawn('thing').addComponent(Early);
+		expect(seen).toBe(2.5);
+	});
+
+	it('takes the values a prefab set, and refuses a name it never declared', () => {
+		const object = new Scene().spawn('goblin');
+		const health = object.attachComponent(new Health(object), { max: 40 });
+
+		expect(health.max).toBe(40);
+		expect(health.criticalRatio).toBe(0.3);
+		expect(() => object.attachComponent(new Health(object), { maxx: 40 })).toThrow(
+			/no parameter 'maxx'; it has max, criticalRatio/,
+		);
+	});
+
+	it('writes one field by name, and answers false for anything else', () => {
+		const health = new Scene().spawn('goblin').addComponent(Health);
+
+		expect(health.setParameter('max', 12)).toBe(true);
+		expect(health.max).toBe(12);
+		expect(health.setParameter('current', 1)).toBe(false);
+		expect(health.current).toBe(10);
+	});
+
+	it('collects the tree an editor lists', () => {
+		const scene = new Scene();
+		const goblin = scene.spawn('goblin');
+		goblin.addComponent(Health);
+		scene.spawn('sword', goblin).addComponent(Silent);
+
+		const view = inspectObject(goblin);
+		expect(view.name).toBe('goblin');
+		expect(view.components.map((one) => one.type)).toEqual(['Health']);
+		expect(view.components[0]!.parameters.map((one) => one.value)).toEqual([10, 0.3]);
+		expect(view.children.map((one) => one.name)).toEqual(['sword']);
+		expect(view.children[0]!.components[0]!.parameters).toEqual([]);
 	});
 });

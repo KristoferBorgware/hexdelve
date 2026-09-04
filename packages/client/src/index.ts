@@ -60,7 +60,7 @@ export {
 } from './game/turns.js';
 export { SECONDS_PER_GAME_TURN, actionSeconds, hexSpeed } from './game/pace.js';
 export { Actor, ActorBehaviour, turnTowards, wrapAngle, type Turnable } from './game/actor.js';
-export { BoneFollow, type BoneFollowOptions } from './game/bonefollow.js';
+export { BoneFollow } from './game/bonefollow.js';
 
 /*
  * The component types a prefab file may name, and the one call that spawns an

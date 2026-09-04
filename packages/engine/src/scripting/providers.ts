@@ -19,7 +19,7 @@
  */
 
 import type { Script } from '../scene/components/Script.js';
-import type { ScriptClass } from './parameters.js';
+import type { ComponentType } from '../scene/components/parameters.js';
 import type { ScriptProvider } from './ScriptHost.js';
 
 /**
@@ -29,7 +29,7 @@ import type { ScriptProvider } from './ScriptHost.js';
  * the host's back — a provider that could would be a reload nobody asked for.
  */
 export function staticScripts(
-	classes: Readonly<Record<string, ScriptClass<Script>>>,
+	classes: Readonly<Record<string, ComponentType<Script>>>,
 ): ScriptProvider {
 	const table = new Map(Object.entries(classes));
 	return {

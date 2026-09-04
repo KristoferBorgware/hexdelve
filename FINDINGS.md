@@ -105,6 +105,38 @@ message. If it does not, the finding closes as an artefact of the container and
 `HOW-TO-TAKE-A-FRAME`-style guidance should say to force WebGL2 when driving the
 editor headlessly.
 
+### F-016 — A rendered ambience track is copied into every build output
+
+**Kind:** risk
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-04, moving the audio generators into `public/assets/audio`
+**Where:** `public/assets/audio/`, `packages/*/vite.config.ts` (`publicDir`),
+`tools/build-pages.js`
+
+**What happens.** The `.wav` renders sit in `public/assets/audio`, which is the
+`publicDir` both applications copy wholesale into their build output. One track
+is 21–30 MB. Seven of them is about 200 MB, and `npm run build:pages` stages the
+client's output and the editor's output side by side, so a full local build on a
+machine that has rendered everything writes roughly 600 MB and then offers it to
+`actions/upload-pages-artifact`.
+
+**Why it matters.** Nobody has been hurt yet, and CI cannot be: the renders are
+gitignored, so a clean checkout has none of them and every build there copies an
+empty directory. It is a local machine and a deploy that would notice — a
+`build:pages` that takes minutes instead of seconds, and an artefact upload that
+fails on size rather than on anything to do with the change that triggered it.
+The failure would arrive nowhere near its cause.
+
+**What would fix it.** Nothing, until something plays the audio: the right
+answer depends on how the game asks for a track. If it streams one at a time
+from `/assets/audio/`, the tracks want to be published but not all at once, and
+the fix is a manifest naming which ones ship and an extension of `audioSources`
+in `vite.assets.mts` to copy only those. If it turns out the audio should be
+served from somewhere else entirely — a release asset, a CDN — the fix is to
+stop copying the directory at all. Deciding now would be deciding without the
+one fact that settles it.
 
 
 ### F-016 — A file the dev server has just written is not served until Vite notices it
@@ -152,6 +184,40 @@ a few lines more, removes the dependency on a watcher entirely, and makes the
 dev server answer for the asset tree the way the static host it stands in for
 does. The `content-type` would have to be set by extension, which for this tree
 is `.yaml` and nothing else.
+
+### F-017 — A parameter takes whatever a prefab wrote, of whatever type
+
+**Kind:** gap
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, while making exposed fields a component's business rather than a script's
+**Where:** `applyParameters` in `packages/engine/src/scene/components/parameters.ts`
+
+**What happens.** A parameter declares its type by what it was initialised to —
+`speed = param(1.5)` is a number — and `applyParameters` checks the NAME of
+every value it is given and nothing else. A prefab writing `speed: fast` sets
+the field to the string `fast`, and the first `this.speed * dt` produces `NaN`.
+`{ alive: 'no' }` on a flag is truthy. A number written as `'3'` in YAML
+concatenates rather than adds.
+
+The name check is there and is loud: `speeed: 3` is refused and lists what the
+class does have. The type check beside it is missing.
+
+**Why it matters.** Nobody yet — the prefabs in the tree write numbers where
+numbers are declared. It matters at the moment a person edits a component in
+the editor rather than a file, because a text control produces strings and a
+control drawn from `ParameterMeta` will produce them for a `number` field
+unless something converts. The failure it produces is a `NaN` in a transform,
+which is a body that vanishes rather than an error naming the field.
+
+**What would fix it.** `applyParameters` knows the declared type of every key it
+accepts. Convert where the conversion is exact — a numeric string to a number,
+`'true'` and `'false'` to a flag — and refuse the rest through the same
+reporter the unknown name uses, so a prefab with a nonsense value says so where
+it says a nonsense name. The editor's write path (`Component.setParameter`)
+wants the same treatment, and both should get it in one place rather than at
+each call site.
 
 ---
 
@@ -677,7 +743,12 @@ or drop the wrapper and let the subheader be the list item it already is.
 **Found:** 2026-09-03, moving the game's asset files under `public/`
 **Where:** `assets/audio/`, `public/assets/`
 **Closed:** 2026-09-04, fixed — the audio generators moved to `tools/audio`,
-which is where the scripts that are run by hand live
+which is where the scripts that are run by hand live. Reversed the same day:
+they moved on to `public/assets/audio`, beside the `.wav` files they write,
+because audio is an asset the game will read from `/assets/audio/` and a render
+is only reproducible if whatever rendered it can be found next to it. The
+finding itself stands closed either way — there is one `assets` now, and the
+audio is under it.
 
 **What happens.** `public/assets/` holds the rigs, meshes, clips and trees, is
 served by both apps at `/assets/` and is copied into both builds. `assets/` at

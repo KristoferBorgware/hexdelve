@@ -94,7 +94,7 @@ jobs:
               echo "::error file=$f::syntax error"
               fail=1
             fi
-          done < <(find labs tools -name '*.js' | sort)
+          done < <(find labs tools public/assets/audio -name '*.js' | sort)
           if [ "$fail" -ne 0 ]; then exit 1; fi
           echo "all scripts parsed"
 

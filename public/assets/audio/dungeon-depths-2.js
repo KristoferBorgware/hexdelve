@@ -4,7 +4,8 @@
 // and three gothic voices where the guitar used to be — a pipe organ, a tolling
 // bell, and a low male choir. The creature is still down here.
 //
-//   node tools/audio/dungeon-depths-2.js [out.wav]
+//   npm run audio -- dungeon-depths-2
+//   node public/assets/audio/dungeon-depths-2.js [out.wav]
 
 const path = require('path');
 
@@ -27,7 +28,7 @@ const dryL = new Float32Array(NT), dryR = new Float32Array(NT);
 const wetL = new Float32Array(NT), wetR = new Float32Array(NT);
 const echL = new Float32Array(NT), echR = new Float32Array(NT);
 
-// SOLO=organ,bell node tools/audio/dungeon-depths-2.js stem.wav — renders one group
+// SOLO=organ,bell node public/assets/audio/dungeon-depths-2.js stem.wav — renders one group
 // alone. The voices still run either way, so the random details of a stem match
 // the full mix exactly and the two can be compared sample for sample.
 const SOLO = process.env.SOLO ? process.env.SOLO.split(',') : null;

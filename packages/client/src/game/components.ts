@@ -135,7 +135,7 @@ function itemFactory(context: ComponentContext): void {
 	 * could be picked up and then not follow the hand would be a prop with a
 	 * missing line in it.
 	 */
-	context.object.addComponent(BoneFollow, { bone });
+	context.object.attachComponent(new BoneFollow(context.object), { bone });
 }
 
 /**

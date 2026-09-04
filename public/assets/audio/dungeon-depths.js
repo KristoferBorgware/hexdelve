@@ -5,7 +5,8 @@
 // around an empty space: a throat, a heartbeat, claws on stone, and the moment
 // they stop being distant.
 //
-//   node tools/audio/dungeon-depths.js [out.wav]
+//   npm run audio -- dungeon-depths
+//   node public/assets/audio/dungeon-depths.js [out.wav]
 
 const path = require('path');
 
