@@ -24,9 +24,37 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          # The tarball cache, which is what saves the DOWNLOAD on the miss
+          # path below. It does not save the install; that is the next step.
           cache: npm
 
-      - run: npm ci
+      # The installed tree itself, which is the whole of the seven minutes.
+      #
+      # `npm ci` DELETES node_modules before it installs, so caching the tree
+      # and then running `npm ci` anyway would throw the cache away every time.
+      # The install has to be skipped on a hit, which is what the `if` below
+      # does — and it is why `cache: npm` alone never helped: 424 packages and
+      # 445 MB were being re-extracted on every run whether or not the download
+      # was cached.
+      #
+      # Keyed on the lockfile, so any dependency change misses and reinstalls.
+      - name: Restore the installed tree
+        id: modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+          key: node-modules-${{ runner.os }}-node22-${{ hashFiles('package-lock.json') }}
+
+      - name: Install
+        if: steps.modules.outputs.cache-hit != 'true'
+        # `--ignore-scripts` because the only install script that does anything
+        # on Linux is electron-winstaller's, which fetches Squirrel binaries for
+        # a Windows installer no job here builds. The other two are `fsevents`,
+        # which is macOS-only. No package in this repository has a `prepare` or
+        # `postinstall` of its own.
+        run: npm ci --ignore-scripts
 
       - name: Typecheck every package
         run: npm run typecheck
