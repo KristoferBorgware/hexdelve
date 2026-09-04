@@ -15,7 +15,7 @@
 // menace towards mourning, which is the difference between a place that wants
 // to kill you and a place where things are kept.
 //
-//   node assets/audio/dungeon-prison.js [out.wav]
+//   node tools/audio/dungeon-prison.js [out.wav]
 
 const path = require('path');
 

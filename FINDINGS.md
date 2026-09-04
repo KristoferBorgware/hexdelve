@@ -16,9 +16,9 @@ and how to write one. The open list stays in the order things were found.
 **Kind:** bug
 **Milestone:** game
 **Priority:** medium
-**Effort:** small
+**Effort:** medium
 **Found:** 2026-09-03, working out which contact schedule the hound's asset files should declare
-**Where:** `leg()` in `packages/client/src/game/hellhoundpose.ts`
+**Where:** `leg()` and `runPose()` in `packages/client/src/game/hellhoundpose.ts`, `measureGroundSpeed` in `packages/engine/src/anim/measure.ts`
 
 **What happens.** `leg()` writes the thigh swing as
 `setSparse(out, bones[0], [swing, 0, stance])` where
@@ -42,14 +42,35 @@ moment the hound is given a gait axis, because a threshold measured through the
 wrong sign is worse than an absent one. It is also visible now if anyone looks:
 the animal moonwalks.
 
-**What would fix it.** Negate `swing` in `leg()`, or state in the comment that
-this rig's convention is inverted and mean it. The comment currently claims the
-shape is "the humanoid's own ... carried over unchanged", which is what makes
-this look like a transcription slip rather than a decision. Once the two agree,
-`hellhound.entity.yaml` can declare `contacts: [0.25, 0.75]` on its `run`, the
-rig's `feet: [backPawR, backPawL]` starts meaning something, and the hound can
-have a blend tree in `public/assets/trees/` the way the bat does.
+**What would fix it.** Not what this entry first said, and the correction is
+the useful part.
 
+**[measured, 2026-09-04]** Negating `swing` in `leg()` changes the pose and does
+NOT change the measured ground speed. Both versions were built and measured:
+`0.6088159098633436` either way, identical to every digit. The reason is a
+symmetry — `runPose` gives `backL` the phase `theta + PI` and `backR` the phase
+`theta`, so negating the swing for all four legs maps the measured pair onto
+itself with the two legs swapped, and a measurement averaged over a whole cycle
+cannot see it.
+
+Two more things that measurement turned up, both of which have to be understood
+before this is worth attempting again:
+
+`measureGroundSpeed` returns exactly `0` for a single foot — `backPawR` alone,
+`backPawL` alone and `frontPawR` alone all measure zero, and only the pair reads
+anything. So it is measuring the alternation rather than the travel of one
+planted paw, and what it means for a quadruped is not obvious.
+
+The numbers above do not reconcile with the ones recorded when this was found
+(humanoid **+1.5580**, hound **−2.1019**). Measured the same afternoon through
+`stridePose` at `amp: 1, gait: 0` over `stridePeriod(1, 0)`, the humanoid comes
+out **−0.7738** and the hound **+0.6088** — the same disagreement in sign, at
+half the magnitude and with both signs flipped. Whoever picks this up should
+work out which sampling is right before trusting either pair of numbers.
+
+What still stands is the claim itself: the two gaits disagree in sign, so one of
+them travels the wrong way. What is now known is that the one-character fix is
+not the fix, and that the measurement has to be understood first.
 
 ### F-002 — WebGPU loses its device in the editor under software rasterisation
 
@@ -84,57 +105,6 @@ message. If it does not, the finding closes as an artefact of the container and
 `HOW-TO-TAKE-A-FRAME`-style guidance should say to force WebGL2 when driving the
 editor headlessly.
 
-
-### F-003 — The prop catalogue nests a list item inside a list item
-
-**Kind:** bug
-**Milestone:** unscheduled
-**Priority:** low
-**Effort:** small
-**Found:** 2026-09-04, reading the browser console while checking the benches load from the manifest
-**Where:** `PropCatalogue` in `packages/editor/src/components/PropCatalogue.tsx`
-
-**What happens.** Each catalogue group is a `<Box component="li">` wrapping a
-`<ListSubheader>`, and MUI renders `ListSubheader` as an `<li>` too. React logs
-`In HTML, <li> cannot be a descendant of <li>. This will cause a hydration
-error.` once per group, every time the props bench is opened.
-
-**Why it matters.** Nothing is drawn wrong and the editor is not server-rendered,
-so the hydration warning cannot bite. It matters because it is noise in the one
-console anybody watches while working on the editor, and a console with a
-standing error in it is a console people stop reading.
-
-**What would fix it.** Give the wrapper `component="li"` and the subheader
-`component="div"` — `ListSubheader` takes a `component` prop for exactly this —
-or drop the wrapper and let the subheader be the list item it already is.
-
-
-### F-005 — Two directories are called `assets` and only one of them is served
-
-**Kind:** cleanup
-**Milestone:** unscheduled
-**Priority:** low
-**Effort:** small
-**Found:** 2026-09-03, moving the game's asset files under `public/`
-**Where:** `assets/audio/`, `public/assets/`
-
-**What happens.** `public/assets/` holds the rigs, meshes, clips and trees, is
-served by both apps at `/assets/` and is copied into both builds. `assets/` at
-the repository root now holds only `audio/`, which is a directory of Node
-scripts that synthesise `.wav` files and is served by nothing. The two are told
-apart by their path and by nothing else.
-
-**Why it matters.** Nobody has been caught by it yet. It costs whoever is caught
-first about an hour, because both are plausible homes for a new asset and the
-wrong guess produces a file that loads locally and 404s in the build — or does
-not load at all and looks like a parser bug.
-
-**What would fix it.** Move the audio generators to `tools/audio/`, which is what
-`tools/` is for and what they are: they are run by hand to produce files that
-are `.gitignore`d. It is nine files, one line in the README's layout tree and
-one in the `.gitignore` comment, and nothing imports them. The alternative —
-renaming `public/assets` — is worse, because `/assets/rigs/humanoid.rig.yaml` is
-an address that appears inside the asset files themselves.
 
 ---
 
@@ -581,3 +551,57 @@ the apps actually read — `public`, the packages they build from, and
 wants `--host`, since that is when it stops being theoretical. A `server.fs.deny`
 list is the weaker alternative and would have to be guessed at rather than
 derived.
+
+### F-003 — The prop catalogue nests a list item inside a list item
+
+**Kind:** bug
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-04, reading the browser console while checking the benches load from the manifest
+**Where:** `PropCatalogue` in `packages/editor/src/components/PropCatalogue.tsx`
+**Closed:** 2026-09-04, fixed — the subheader is a `div`, since it is already
+inside the list item that wraps it
+
+**What happens.** Each catalogue group is a `<Box component="li">` wrapping a
+`<ListSubheader>`, and MUI renders `ListSubheader` as an `<li>` too. React logs
+`In HTML, <li> cannot be a descendant of <li>. This will cause a hydration
+error.` once per group, every time the props bench is opened.
+
+**Why it matters.** Nothing is drawn wrong and the editor is not server-rendered,
+so the hydration warning cannot bite. It matters because it is noise in the one
+console anybody watches while working on the editor, and a console with a
+standing error in it is a console people stop reading.
+
+**What would fix it.** Give the wrapper `component="li"` and the subheader
+`component="div"` — `ListSubheader` takes a `component` prop for exactly this —
+or drop the wrapper and let the subheader be the list item it already is.
+
+### F-005 — Two directories are called `assets` and only one of them is served
+
+**Kind:** cleanup
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-03, moving the game's asset files under `public/`
+**Where:** `assets/audio/`, `public/assets/`
+**Closed:** 2026-09-04, fixed — the audio generators moved to `tools/audio`,
+which is where the scripts that are run by hand live
+
+**What happens.** `public/assets/` holds the rigs, meshes, clips and trees, is
+served by both apps at `/assets/` and is copied into both builds. `assets/` at
+the repository root now holds only `audio/`, which is a directory of Node
+scripts that synthesise `.wav` files and is served by nothing. The two are told
+apart by their path and by nothing else.
+
+**Why it matters.** Nobody has been caught by it yet. It costs whoever is caught
+first about an hour, because both are plausible homes for a new asset and the
+wrong guess produces a file that loads locally and 404s in the build — or does
+not load at all and looks like a parser bug.
+
+**What would fix it.** Move the audio generators to `tools/audio/`, which is what
+`tools/` is for and what they are: they are run by hand to produce files that
+are `.gitignore`d. It is nine files, one line in the README's layout tree and
+one in the `.gitignore` comment, and nothing imports them. The alternative —
+renaming `public/assets` — is worse, because `/assets/rigs/humanoid.rig.yaml` is
+an address that appears inside the asset files themselves.

@@ -81,7 +81,15 @@ export function PropCatalogue({
 			<List dense sx={{ mt: 0.5 }}>
 				{groups.map((group) => (
 					<Box key={group.kind} component="li" sx={{ listStyle: 'none' }}>
+						{/*
+						 * `component="div"` because this is already inside a list
+						 * item. MUI renders a ListSubheader as an <li> by default,
+						 * and an <li> inside an <li> is invalid HTML — React says
+						 * so once per group, every time the bench is opened, in
+						 * the one console anybody watches while working here.
+						 */}
 						<ListSubheader
+							component="div"
 							disableSticky
 							sx={{ bgcolor: 'transparent', lineHeight: 2, fontSize: 11, letterSpacing: '0.06em' }}
 						>

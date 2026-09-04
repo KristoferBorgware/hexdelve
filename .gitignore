@@ -1,5 +1,5 @@
 # Generated audio. ~30 MB each, and reproducible from the scripts beside them:
-#   node assets/audio/dungeon-crawl.js
+#   node tools/audio/dungeon-crawl.js
 # Committing them would make the history ~300x larger than the source.
 *.wav
 .mixgain-*

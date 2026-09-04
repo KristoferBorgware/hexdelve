@@ -78,21 +78,21 @@ public/assets/   served as themselves by both apps, and copied into both builds
   meshes/       hex prisms bound to bones
   clips/        keyframes, pose-major
   trees/        blend trees over animations the entity names
-assets/
-  audio/        ambience, and the scripts that synthesise it — generators, not
-                served files, which is why they are not under public/
 docs/
   angband/      Angband's rules, read out of its source as a reference
   assets.md     the asset file format, and what is deliberately still code
   levelgen.md   the level generation stacks, what they measured, what is next
-tools/          the landing-page generator and the Pages staging script
+tools/          the scripts that are run by hand rather than imported
+  audio/        ambience, and the generators that synthesise it — they produce
+                files, they are not files the game reads, which is why they
+                live here and not beside the asset tree under public/
 ```
 
-`assets/audio` holds three generated loops plus the Node scripts that render
-them from scratch — no samples, no dependencies:
+`tools/audio` holds the Node scripts that render three loops from scratch — no
+samples, no dependencies. The `.wav` files they produce are gitignored:
 
 ```
-node assets/audio/dungeon-crawl.js
+node tools/audio/dungeon-crawl.js
 ```
 
 ## The packages
@@ -347,8 +347,8 @@ entry in the editor's bench. The data was never code — it was only *stored* as
 code — and seven entities is where a catalogue starts being worth having and a
 compiler stops being the right place to keep one.
 
-So `assets/` holds it, `@hexdelve/engine` reads it, and the entity file is the
-root that ties one asset together:
+So `public/assets/` holds it, `@hexdelve/engine` reads it, and the entity file
+is the root that ties one asset together:
 
 ```yaml
 id: wanderer
