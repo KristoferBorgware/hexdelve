@@ -236,6 +236,114 @@ and play this instead" exists and would be followed rather than invented.
 The rules half is already done and should stay done: what a death COSTS is the
 script's, and what it LOOKS like is the client's.
 
+### F-011 — The client uses `@hexdelve/scripting` without declaring that it does
+
+**Kind:** risk
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, adding a desktop shell for the editor and reading every package manifest to see which ones name each other
+**Where:** `packages/client/package.json`, `packages/client/tsconfig.json`
+
+**What happens.** Seven files under `packages/client/src` import
+`@hexdelve/scripting` — `simulation.ts`, `components.ts`, `scripts.ts`,
+`player.ts`, `bathunt.ts`, `events.ts` and `HexdelveClient.ts`. The client's
+manifest lists two dependencies, `@hexdelve/engine` and `@hexdelve/shared`, and
+its `tsconfig.json` references the same two. Neither names the scripting
+package.
+
+It works anyway, for two reasons that are both accidents of the layout. npm
+hoists every workspace package into the root `node_modules`, so the import
+resolves whether or not it was asked for; and the root's `build:libs` script
+happens to list scripting before client, so its declarations are on disk by the
+time `tsc` wants them.
+
+**Why it matters.** Nobody yet. It costs the day somebody builds the client on
+its own — `npm run build -w @hexdelve/client` in a clean checkout, or a package
+list that grows and stops being in dependency order by luck — and gets an error
+about a package that is right there in the repository. It also means
+`tsc -b packages/client` does not rebuild scripting when scripting changes,
+which is the whole point of a project reference: the client can be typechecked
+against declarations that are one edit stale.
+
+**What would fix it.** Two lines. `"@hexdelve/scripting": "*"` in the client's
+dependencies, and `{ "path": "../scripting" }` in its tsconfig references.
+Neither changes what is built today; both stop it from depending on the order
+somebody wrote a script in.
+
+
+### F-012 — A script saved in the editor does not reach the yard until the view is left and returned to
+
+**Kind:** gap
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-04, writing the script view and working out what a save should do
+**Where:** `App.tsx`, which renders one view at a time; `Scripts.tsx`;
+`Viewport.tsx` and `watchScripts` in `packages/editor/src/scripts/reload.ts`
+
+**What happens.** The editor shows one view at a time, so the yard's viewport is
+unmounted while the script view is up — and the viewport is what holds the
+client, the script host and the watcher that swaps a compiled bundle into it. A
+save therefore writes the file and compiles it, and nothing else happens. The
+change appears when the yard is selected again, because mounting the viewport
+starts a fresh watcher which reads the directory and compiles it.
+
+**Why it matters.** It is one click rather than none, and the click is not
+obvious: the script view reports a successful compile, which reads as though
+something took effect. The hot reload it is standing on is the feature the
+whole scripting layer was built around — a save reaching a running world
+without a rebuild — and the editor is the one place that shows it off least.
+
+It matters more for the thing it makes impossible: watching a change take
+effect on a creature that is mid-fight. Editing a number and seeing the
+behaviour change while the world keeps running is exactly what a script host
+with a reload is for, and it cannot be done from the view that edits scripts.
+
+**What would fix it.** Two shapes, and the second is better. The cheap one is
+to keep the client alive across a view change — mount the viewport once and
+hide it rather than unmounting it — which is a change to how `App` renders and
+would make every bench's client outlive its view too, for better and worse. The
+one that fits what an editor is: put a small yard beside the code, so the
+script view has a running world of its own to reload into. The viewport is
+already a component that takes a canvas and a backend, and the host it hands
+back is the one `watchScripts` wants; what is missing is a layout that gives
+half the pane to each, and a decision about whether that world is the yard or a
+bench.
+
+
+### F-013 — `packages/client/dist-scripts` is committed output from an arrangement that no longer exists
+
+**Kind:** cleanup
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-04, looking for everything that reads the script directory before pointing an editor at it
+**Where:** `packages/client/dist-scripts/`
+
+**What happens.** Eight generated files — `Spin.js`, `index.js`, their
+declarations and four source maps — are tracked in git. They were emitted when
+the scripts lived at `packages/client/src/scripts` and were compiled into the
+client's own build. That arrangement is gone: the scripts moved to
+`packages/client/scripts`, `tools/build-scripts.mjs` compiles them into one
+bundle the client fetches, and nothing emits into `dist-scripts` any more.
+
+They survive because `.gitignore` ignores `dist/`, which matches a directory
+called exactly `dist` and not one called `dist-scripts`.
+
+The contents are stale in a way that is worth naming: `index.js` describes a
+table of scripts checked by `test/scripts.test.ts`, and there is no such test.
+
+**Why it matters.** Nobody yet — nothing reads them. It costs whoever greps the
+repository for a script name and finds two answers, one of them describing a
+build step and a test that no longer exist. Generated files that nothing
+generates are worse than generated files, because there is no way to tell from
+looking whether they are current.
+
+**What would fix it.** Delete the directory, and add `dist-scripts/` to
+`.gitignore` beside `dist-app/` and `dist-lib/` so a stray rebuild of the old
+shape does not put it back.
+
 ---
 
 ## Closed
