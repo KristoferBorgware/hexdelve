@@ -29,6 +29,10 @@ object:
     # The one place that knows what a swing hits. A swing is announced, this
     # works out what was in front of it, and whatever that was hears about it
     # as damage — so nothing that deals damage has to know what can take it.
+    #
+    # No parameters. The slack allowed on a swept arc is `arcPad`, and what the
+    # script declares as its default is the value the game was tuned at — a
+    # file that restated it would be the same number written twice.
     - name: combat
       components:
-        - { type: script, script: Combat, spread: 1 }
+        - { type: script, script: Combat }

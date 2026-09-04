@@ -19,7 +19,7 @@ import { resolve } from 'node:path';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { Component, GameObject, Scene } from '@hexdelve/engine';
+import { Component, GameObject, prefabScripts, Scene } from '@hexdelve/engine';
 import {
 	param,
 	parametersOf,
@@ -40,6 +40,7 @@ import {
 } from '@hexdelve/scripting';
 
 import { bundleScripts, scriptDir } from '../tools/build-scripts.mjs';
+import { openLibrary } from './harness/assets.js';
 
 /** A host that says nothing, so a test can read what it would have said. */
 function quiet(): { host: (provider: ScriptProvider) => ScriptHost; said: string[] } {
@@ -614,6 +615,38 @@ describe('the scripts this build ships', () => {
 		expect(inScripts, 'the scripts declare the events the client listens for').toContain('damage');
 		expect(inScripts.length).toBeGreaterThan(0);
 		expect(inClient).toEqual(inScripts);
+	});
+
+	/*
+	 * The prefabs that ship, against the scripts they name.
+	 *
+	 * `tools/build-assets.mjs` checks the same thing and is the place a build
+	 * fails, but it runs on `npm run assets` and this runs on `npm test`, which
+	 * is the one people run without being asked. The failure it guards is
+	 * quiet: a parameter the script does not have is a warning in a console and
+	 * the script's own default instead of the number in the file.
+	 */
+	it('sets only parameters the scripts actually have', async () => {
+		const library = openLibrary();
+		const prefabs = [
+			...(await library.index()).map((one) => ({ id: one.id, prefab: one.prefab })),
+			{ id: 'game', prefab: (await library.system('systems/game.system.yaml')).prefab },
+		];
+
+		let checked = 0;
+		for (const { id, prefab } of prefabs) {
+			for (const use of prefabScripts(prefab)) {
+				const constructor = provider.resolve(use.script);
+				expect(constructor, `'${id}' names script '${use.script}'`).not.toBeNull();
+				const known = parametersOf(constructor as ScriptClass).map((one) => one.key);
+				for (const key of use.parameters) {
+					expect(known, `'${id}' sets '${key}' on '${use.script}'`).toContain(key);
+					checked++;
+				}
+			}
+		}
+		// A test that silently checked nothing would pass for ever.
+		expect(checked, 'some prefab sets some parameter').toBeGreaterThan(0);
 	});
 
 	it('offers exactly the names the SDK shim re-exports', async () => {

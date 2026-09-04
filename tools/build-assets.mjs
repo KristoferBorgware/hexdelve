@@ -110,22 +110,60 @@ async function main() {
 	}
 
 	/*
-	 * And the script names, against the scripts this build actually compiles.
+	 * And the scripts, against the ones this build actually compiles — both the
+	 * class a prefab names and the fields it tries to set on it.
 	 *
-	 * A prefab naming a script that is not there spawns an object with nothing
-	 * on it — the host says so at run time and carries on, which is right for a
-	 * file somebody is halfway through writing and wrong for a build. A
-	 * misspelt `Charcter` is a creature that quietly cannot be hit, and that is
-	 * the sort of thing found a week later rather than here.
+	 * Neither failure is loud at run time, and that is the whole reason to
+	 * catch them here. A prefab naming a script that is not there spawns an
+	 * object with nothing on it; a prefab setting a parameter the script does
+	 * not have gets a warning in a console nobody is reading and the script's
+	 * own default instead of the number in the file. Both are right at run
+	 * time — a file somebody is halfway through writing must not take a scene
+	 * down — and both are wrong in a build.
+	 *
+	 * The second one is here because it happened. `Combat.spread` was renamed
+	 * to `arcPad`, the system prefab went on setting `spread`, and the rule ran
+	 * at its default for as long as it took somebody to read the console.
 	 */
-	const { scriptsFromBundle } = await import(pathToFileURL(scriptingDist).href);
+	const { scriptsFromBundle, parametersOf } = await import(pathToFileURL(scriptingDist).href);
 	const { bundleScripts } = await import('./build-scripts.mjs');
 	const behaviour = scriptsFromBundle((await bundleScripts()).code);
+	let uses = 0;
 	for (const { id, prefab } of [...entities, ...systems]) {
-		for (const name of prefabScripts(prefab)) {
-			if (!behaviour.resolve(name)) {
+		for (const use of prefabScripts(prefab)) {
+			const constructor = behaviour.resolve(use.script);
+			if (!constructor) {
 				throw new Error(
-					`'${id}' names script '${name}'; this build compiles ${behaviour.names.sort().join(', ')}`,
+					`'${id}' names script '${use.script}'; ` +
+						`this build compiles ${behaviour.names.sort().join(', ')}`,
+				);
+			}
+			uses++;
+			if (use.parameters.length === 0) continue;
+
+			/*
+			 * A parameter declares itself by its value, so the only way to ask a
+			 * class what it exposes is to build one — which `parametersOf` does.
+			 * It answers an empty list for a constructor that throws as well as
+			 * for a script with nothing to set, so the construction is tried
+			 * here to tell those two apart. Getting that wrong would report
+			 * every parameter of a broken script as misspelt.
+			 */
+			try {
+				void new constructor();
+			} catch (error) {
+				throw new Error(
+					`'${id}' names script '${use.script}', which will not construct: ` +
+						`${error instanceof Error ? error.message : error}`,
+				);
+			}
+
+			const known = parametersOf(constructor).map((one) => one.key);
+			for (const key of use.parameters) {
+				if (known.includes(key)) continue;
+				throw new Error(
+					`'${id}' sets '${key}' on script '${use.script}' (object '${use.on}'), ` +
+						`which has ${known.length ? known.sort().join(', ') : 'no parameters'}`,
 				);
 			}
 		}
@@ -144,7 +182,10 @@ async function main() {
 			`into ${relative(root, out)}`,
 	);
 	console.log(`checked ${entities.length} entities: ${entities.map((one) => one.id).join(', ')}`);
-	console.log(`checked ${behaviour.names.length} script(s): ${behaviour.names.sort().join(', ')}`);
+	console.log(
+		`checked ${behaviour.names.length} script(s) and ${uses} use(s) of them: ` +
+			`${behaviour.names.sort().join(', ')}`,
+	);
 	if (systems.length) {
 		console.log(`checked ${systems.length} system(s): ${systems.map((one) => one.id).join(', ')}`);
 	}

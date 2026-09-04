@@ -61,12 +61,23 @@ jobs:
 
       - name: Install
         if: steps.modules.outputs.cache-hit != 'true'
-        # `--ignore-scripts` because the only install script that does anything
-        # on Linux is electron-winstaller's, which fetches Squirrel binaries for
-        # a Windows installer no job here builds. The other two are `fsevents`,
-        # which is macOS-only. No package in this repository has a `prepare` or
+        # The flags are belt and braces over the repository's .npmrc, so that
+        # this step says what it does rather than depending on a file two
+        # directories up.
+        #
+        # `--no-audit` is the one that mattered. The audit POSTs the whole tree
+        # and waits, and during a registry incident on 2026-09-04 that request
+        # took 276 seconds against about 20ms for every other request in the
+        # same install — the whole of the seven minutes this step used to take.
+        # The outage passed; the reason not to depend on it did not. See the
+        # repository's .npmrc, which turns the same thing off for everybody.
+        #
+        # `--ignore-scripts` is a smaller saving. The only install script that
+        # runs on Linux is electron-winstaller's, which prepares a Windows
+        # installer no job here builds; the other two are `fsevents`, which is
+        # macOS-only. No package in this repository has a `prepare` or
         # `postinstall` of its own.
-        run: npm ci --ignore-scripts
+        run: npm ci --no-audit --no-fund --ignore-scripts
 
       - name: Typecheck every package
         run: npm run typecheck
