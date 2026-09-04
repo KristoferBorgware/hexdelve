@@ -31,6 +31,7 @@ import {
 	buildSkeletonView,
 	HEX_FLAG_UNLIT,
 	HexInstances,
+	Scene,
 	type InstanceRanges,
 } from '@hexdelve/engine';
 import {
@@ -241,6 +242,18 @@ export class Simulation {
 	/** The action count the hover answer was worked out at. */
 	private hoverAsked = -1;
 
+	/**
+	 * Everything that stands somewhere, as objects with their behaviour on
+	 * them.
+	 *
+	 * It is not paying for itself yet: this file still names each of them and
+	 * drives them in a fixed order, because the order IS the game — the turns
+	 * are resolved and then the actors draw whatever that left them doing. It
+	 * pays when prefabs arrive and the naming goes away, and again when the
+	 * behaviour moves into scripts and the fixed order becomes a system.
+	 */
+	readonly scene: Scene;
+
 	/** Hip height at rest, which is also where the camera looks. */
 	private readonly hipHeight: number;
 
@@ -276,15 +289,15 @@ export class Simulation {
 		 * the prop bench shows is what the yard drops.
 		 */
 		const { cast } = options;
-		this.items = cast.props.map(
-			(prop) =>
-				new Item({
-					label: prop.id,
-					bone: prop.attach?.bone ?? 'root',
-					model: prop.mesh.model(),
-					lift: prop.ground?.lift ?? 0,
-					tilt: prop.ground?.tilt ?? 0,
-				}),
+		this.scene = new Scene({ name: 'yard' });
+		this.items = cast.props.map((prop) =>
+			this.scene.spawn(prop.id).addComponent(Item, {
+				label: prop.id,
+				bone: prop.attach?.bone ?? 'root',
+				model: prop.mesh.model(),
+				lift: prop.ground?.lift ?? 0,
+				tilt: prop.ground?.tilt ?? 0,
+			}),
 		);
 
 		/*
@@ -315,7 +328,8 @@ export class Simulation {
 		const swordTip = sword?.mesh.anchors.tip?.at;
 		if (!swordTip) throw new Error(`the yard's sword has no 'tip' anchor to measure a reach from`);
 
-		this.player = new Player(
+		this.player = this.scene.spawn('player').addComponent(
+			Player,
 			{
 				rig: cast.player.rig!,
 				skeleton: cast.player.rig!.skeleton,
@@ -343,7 +357,8 @@ export class Simulation {
 			},
 		);
 
-		this.bat = new BatHunt(
+		this.bat = this.scene.spawn('bat').addComponent(
+			BatHunt,
 			{
 				rig: cast.enemy.rig!,
 				skeleton: cast.enemy.rig!.skeleton,
@@ -460,11 +475,11 @@ export class Simulation {
 		this.motes.update(dt);
 		this.resolveTurns();
 
-		this.player.update(dt, this.elapsed);
+		this.player.advance(dt, this.elapsed);
 		if (this.toggles.ik) this.player.applyFootIK();
 		this.player.solve();
 
-		this.bat.update(dt, this.elapsed);
+		this.bat.advance(dt, this.elapsed);
 		this.bat.solve();
 
 		if (this.toggles.follow) {

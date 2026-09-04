@@ -5,13 +5,30 @@
  * comes from — which is the point of keeping the pose and the model apart. The
  * pose is solved once per frame in the actor's own space, and everything else
  * that frame reads that same solve: the IK, the hit tests, the model.
+ *
+ * ## Why this is a component
+ *
+ * An actor is not a thing in the world. It is one of the things a thing in the
+ * world can HAVE — the game object is where it stands, and this is the body it
+ * stands there with. Splitting them that way is what lets a prop hang off a
+ * bone without the prop knowing what a bone is, and it is what stops a
+ * character being a class that grows a field every time the game learns a verb.
+ *
+ * `x`, `y`, `z` and `yaw` are views of the object's transform rather than
+ * fields beside it, so nothing can hold a stale copy of where a character is.
+ * That costs the yaw its last few digits — a transform's rotation is a
+ * Float32Array — and every use here is safe for it, because each one is either
+ * a difference taken through `wrapAngle`, a sine, or a turn that converges on a
+ * target and corrects its own error on the way.
  */
 
 import {
+	Component,
 	solveWorld,
 	type Model,
 	type Skeleton,
 	type SparsePose,
+	type GameObject,
 	type WorldPose,
 	type HexInstances,
 } from '@hexdelve/engine';
@@ -20,21 +37,17 @@ export interface ActorOptions {
 	skeleton: Skeleton;
 	model: Model;
 	skeletonView: Model;
+	/** Where it stands. Written onto the object's transform. */
 	x: number;
 	z: number;
 	y: number;
 	yaw?: number;
 }
 
-export class Actor {
+export class Actor extends Component {
 	readonly skeleton: Skeleton;
 	readonly model: Model;
 	readonly skeletonView: Model;
-
-	x: number;
-	y: number;
-	z: number;
-	yaw: number;
 
 	/** The pose for this frame, in the actor's own space. */
 	readonly pose: SparsePose = {};
@@ -44,14 +57,41 @@ export class Actor {
 	/** How far the foot IK had to lower the hips, in metres. Negative is down. */
 	pelvisDrop = 0;
 
-	constructor(options: ActorOptions) {
+	constructor(object: GameObject, options: ActorOptions) {
+		super(object);
 		this.skeleton = options.skeleton;
 		this.model = options.model;
 		this.skeletonView = options.skeletonView;
-		this.x = options.x;
-		this.y = options.y;
-		this.z = options.z;
-		this.yaw = options.yaw ?? 0;
+		object.transform.setPosition(options.x, options.y, options.z);
+		object.transform.yaw = options.yaw ?? 0;
+	}
+
+	get x(): number {
+		return this.object.transform.position[0];
+	}
+	set x(value: number) {
+		this.object.transform.position[0] = value;
+	}
+
+	get y(): number {
+		return this.object.transform.position[1];
+	}
+	set y(value: number) {
+		this.object.transform.position[1] = value;
+	}
+
+	get z(): number {
+		return this.object.transform.position[2];
+	}
+	set z(value: number) {
+		this.object.transform.position[2] = value;
+	}
+
+	get yaw(): number {
+		return this.object.transform.yaw;
+	}
+	set yaw(value: number) {
+		this.object.transform.yaw = value;
 	}
 
 	/** Resolve the current pose. Everything downstream reads the result. */

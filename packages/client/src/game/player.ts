@@ -47,6 +47,7 @@ import {
 	type Clip,
 	type ClipEvent,
 	type DensePose,
+	type GameObject,
 	type RigAsset,
 	type Skeleton,
 	type SparsePose,
@@ -307,10 +308,10 @@ export class Player extends Actor implements TurnTaker {
 	readonly swing = { cuts: 0, hits: 0, missed: 0 };
 	readonly control = { state: 'idle' as PlayerActionKind | 'idle', message: 'waiting' };
 
-	constructor(options: PlayerOptions, deps: PlayerDeps) {
+	constructor(object: GameObject, options: PlayerOptions, deps: PlayerDeps) {
 		const tile = deps.world.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the player cannot start on ${options.cell.q},${options.cell.r}`);
-		super({
+		super(object, {
 			skeleton: options.skeleton,
 			model: options.model,
 			skeletonView: options.skeletonView,
@@ -613,7 +614,15 @@ export class Player extends Actor implements TurnTaker {
 
 	/* ------------------------------------------------------------ the drawing -- */
 
-	update(dt: number, elapsed: number): void {
+	/**
+	 * Draw whatever he is doing at this instant.
+	 *
+	 * Named apart from the component hook on purpose: this is the ANIMATION
+	 * step and it needs the simulation's own clock, where a component's
+	 * `update` gets a frame's delta and nothing else. The rules advanced in
+	 * `resolveTurns` before this ran; what happens here is the picture of them.
+	 */
+	advance(dt: number, elapsed: number): void {
 		const flight = this.flight;
 		let moving = false;
 

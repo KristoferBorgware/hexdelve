@@ -35,6 +35,7 @@
 import {
 	attachmentPosition,
 	mixSparse,
+	type GameObject,
 	type RigAnchor,
 	type RigAsset,
 	type SparsePose,
@@ -177,10 +178,10 @@ export class BatHunt extends Actor implements TurnTaker {
 	/** How far off the ground the wings hold it, off the rig's own metrics. */
 	private readonly hoverY: number;
 
-	constructor(options: BatOptions, deps: BatDeps) {
+	constructor(object: GameObject, options: BatOptions, deps: BatDeps) {
 		const tile = deps.world.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the bat cannot perch on ${options.cell.q},${options.cell.r}`);
-		super({
+		super(object, {
 			skeleton: options.skeleton,
 			model: options.model,
 			skeletonView: options.skeletonView,
@@ -352,7 +353,11 @@ export class BatHunt extends Actor implements TurnTaker {
 
 	/* ------------------------------------------------------------ the drawing -- */
 
-	update(dt: number, time: number): void {
+	/**
+	 * Draw whatever it is doing at this instant. See `Player.advance` for why
+	 * this is not the component's `update`.
+	 */
+	advance(dt: number, time: number): void {
 		const player = this.deps.playerPosition();
 		const flight = this.flight;
 		let flapAmp = 1;

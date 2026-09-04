@@ -10,10 +10,16 @@
  * lifted so the thing rests on the grass rather than floating where a head
  * would have been, and tilted, because a sword lies flat and a helmet stands
  * up. Picking it up changes which of the two paths runs, and nothing else.
+ *
+ * It is a component for the same reason an actor is: a helmet is not a thing
+ * in the world, it is what a thing in the world has. The object is where the
+ * helmet lies; this is the helmet. Once prefabs arrive, being worn will be
+ * exactly what it sounds like — the object moves under the hand's — and the
+ * two drawing paths below collapse into one.
  */
 
 import { quat, worldToAxial, type Axial } from '@hexdelve/shared';
-import type { HexInstances, Model, WorldPose } from '@hexdelve/engine';
+import { Component, type GameObject, type HexInstances, type Model, type WorldPose } from '@hexdelve/engine';
 
 export interface ItemOptions {
 	label: string;
@@ -26,7 +32,7 @@ export interface ItemOptions {
 	tilt: number;
 }
 
-export class Item {
+export class Item extends Component {
 	readonly label: string;
 	readonly bone: string;
 	readonly model: Model;
@@ -43,7 +49,8 @@ export class Item {
 	// fields, because that is the only form the emit path wants them in.
 	private readonly groundRotation = quat.quat();
 
-	constructor(options: ItemOptions) {
+	constructor(object: GameObject, options: ItemOptions) {
+		super(object);
 		this.label = options.label;
 		this.bone = options.bone;
 		this.model = options.model;
