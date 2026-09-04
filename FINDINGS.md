@@ -105,40 +105,6 @@ message. If it does not, the finding closes as an artefact of the container and
 `HOW-TO-TAKE-A-FRAME`-style guidance should say to force WebGL2 when driving the
 editor headlessly.
 
-### F-016 — A rendered ambience track is copied into every build output
-
-**Kind:** risk
-**Milestone:** unscheduled
-**Priority:** low
-**Effort:** small
-**Found:** 2026-09-04, moving the audio generators into `public/assets/audio`
-**Where:** `public/assets/audio/`, `packages/*/vite.config.ts` (`publicDir`),
-`tools/build-pages.js`
-
-**What happens.** The `.wav` renders sit in `public/assets/audio`, which is the
-`publicDir` both applications copy wholesale into their build output. One track
-is 21–30 MB. Seven of them is about 200 MB, and `npm run build:pages` stages the
-client's output and the editor's output side by side, so a full local build on a
-machine that has rendered everything writes roughly 600 MB and then offers it to
-`actions/upload-pages-artifact`.
-
-**Why it matters.** Nobody has been hurt yet, and CI cannot be: the renders are
-gitignored, so a clean checkout has none of them and every build there copies an
-empty directory. It is a local machine and a deploy that would notice — a
-`build:pages` that takes minutes instead of seconds, and an artefact upload that
-fails on size rather than on anything to do with the change that triggered it.
-The failure would arrive nowhere near its cause.
-
-**What would fix it.** Nothing, until something plays the audio: the right
-answer depends on how the game asks for a track. If it streams one at a time
-from `/assets/audio/`, the tracks want to be published but not all at once, and
-the fix is a manifest naming which ones ship and an extension of `audioSources`
-in `vite.assets.mts` to copy only those. If it turns out the audio should be
-served from somewhere else entirely — a release asset, a CDN — the fix is to
-stop copying the directory at all. Deciding now would be deciding without the
-one fact that settles it.
-
-
 ### F-016 — A file the dev server has just written is not served until Vite notices it
 
 **Kind:** bug
@@ -723,3 +689,40 @@ are `.gitignore`d. It is nine files, one line in the README's layout tree and
 one in the `.gitignore` comment, and nothing imports them. The alternative —
 renaming `public/assets` — is worse, because `/assets/rigs/humanoid.rig.yaml` is
 an address that appears inside the asset files themselves.
+
+### F-018 — A rendered ambience track is copied into every build output
+
+**Kind:** risk
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-04, moving the audio generators into `public/assets/audio`
+**Where:** `public/assets/audio/`, `packages/*/vite.config.ts` (`publicDir`),
+`tools/build-pages.js`
+**Closed:** 2026-09-04, fixed — a track is encoded to MP3 and a build publishes
+the encodes and their catalogue rather than the renders, so all seven come to
+about 14 MB in an output instead of about 200 MB. The masters and the
+generators stay in `public/assets/audio` and are left out of the copy.
+
+**What happens.** The `.wav` renders sit in `public/assets/audio`, which is the
+`publicDir` both applications copy wholesale into their build output. One track
+is 21–30 MB. Seven of them is about 200 MB, and `npm run build:pages` stages the
+client's output and the editor's output side by side, so a full local build on a
+machine that has rendered everything writes roughly 600 MB and then offers it to
+`actions/upload-pages-artifact`.
+
+**Why it matters.** Nobody has been hurt yet, and CI cannot be: the renders are
+gitignored, so a clean checkout has none of them and every build there copies an
+empty directory. It is a local machine and a deploy that would notice — a
+`build:pages` that takes minutes instead of seconds, and an artefact upload that
+fails on size rather than on anything to do with the change that triggered it.
+The failure would arrive nowhere near its cause.
+
+**What would fix it.** Nothing, until something plays the audio: the right
+answer depends on how the game asks for a track. If it streams one at a time
+from `/assets/audio/`, the tracks want to be published but not all at once, and
+the fix is a manifest naming which ones ship and an extension of `audioSources`
+in `vite.assets.mts` to copy only those. If it turns out the audio should be
+served from somewhere else entirely — a release asset, a CDN — the fix is to
+stop copying the directory at all. Deciding now would be deciding without the
+one fact that settles it.

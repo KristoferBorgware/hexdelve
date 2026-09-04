@@ -79,7 +79,8 @@ public/assets/   served as themselves by both apps, and copied into both builds
   meshes/       hex prisms bound to bones
   clips/        keyframes, pose-major
   trees/        blend trees over animations the entity names
-  audio/        the ambience loops, and the generators that synthesise them
+  audio/        the ambience loops, the generators that synthesise them, and
+                the catalogue naming what has been encoded
 docs/
   angband/      Angband's rules, read out of its source as a reference
   assets.md     the asset file format, and what is deliberately still code
@@ -89,22 +90,34 @@ tools/          the scripts that are run by hand rather than imported
 
 `public/assets/audio` holds seven Node programs that render an ambience loop
 each from nothing — no samples, no dependencies, three minutes apiece and
-seamless. They sit beside the `.wav` files they write, because a render is only
+seamless. They sit beside the files they write, because a render is only
 reproducible if you can find what rendered it, and because audio is an asset:
-the game will read it from `/assets/audio/` the way it reads a rig from
+the game reads it from `/assets/audio/` the way it reads a rig from
 `/assets/rigs/`.
 
 ```
-npm run audio                    # every track that is not already rendered
-npm run audio -- --force         # every track, again
-npm run audio -- dungeon-crawl   # one of them
-npm run audio -- --list          # what there is, and what is on disk
+npm run audio                    # bring every track up to date
+npm run audio -- --force         # render and encode all of them again
+npm run audio -- dungeon-crawl   # one track
+npm run audio -- --list          # every track, and what is on disk
 ```
 
-The `.wav` files are gitignored: ~30 MB each, and committing them would make
-the history a couple of hundred times larger than the source. The generators
-are not published either — they are source, and a build takes them back out of
-the asset tree it copies (see `audioSources` in `vite.assets.mts`).
+A track is three files. `<name>.js` synthesises it, `<name>.wav` is the render
+at full rate, and `<name>.mp3` is what the game loads: about 2 MB against 30,
+and a format every browser decodes. `index.json` lists what has been encoded.
+
+Encoding uses ffmpeg where it is installed and a JavaScript encoder where it is
+not, so a clone with nothing extra on it can still produce the tracks. Either
+way the stream carries a Xing header stating the encoder's delay and the
+padding on its last frame, so a decoder hands back exactly the samples that
+went in — without it a track picks up about 41 ms of silence, which lands in
+the middle of a loop whose oscillators are tuned to a whole number of cycles so
+that the join is silent.
+
+The `.wav` and `.mp3` files are gitignored: committing them would make the
+history a couple of hundred times larger than the source. A build publishes the
+encodes and the catalogue, and leaves the masters, the generators and their
+working files out of the asset tree it copies.
 
 ## The packages
 
@@ -118,7 +131,7 @@ npm run typecheck       # every package, no output
 npm run build:pages     # build, then stage the whole site in dist/pages
 npm test                # every test in test/, once
 npm run assets          # pack public/assets into dist/assets.json, and check it
-npm run audio           # render the ambience loops into public/assets/audio
+npm run audio           # render and encode the ambience loops
 npm run test:watch      # and again on every save
 ```
 

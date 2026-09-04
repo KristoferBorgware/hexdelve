@@ -1,8 +1,11 @@
-# Generated audio. ~30 MB each, and reproducible from the generators that sit
-# beside them in public/assets/audio:
+# Generated audio, and the catalogue naming it. A render is ~30 MB and the MP3
+# encoded from it is ~2 MB; both come back from the generators beside them in
+# public/assets/audio:
 #   npm run audio
 # Committing them would make the history ~300x larger than the source.
 *.wav
+*.mp3
+public/assets/audio/index.json
 .mixgain-*
 
 # Dependencies and build output

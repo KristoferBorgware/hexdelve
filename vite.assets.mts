@@ -115,19 +115,19 @@ const TYPE_PACKAGES: readonly { name: string; dir: string }[] = [
 ];
 
 /**
- * The audio generators, which are source and not something to publish.
+ * The audio directory, reduced to the part a browser loads.
  *
- * `public/assets/audio` holds both halves of the ambience: the `.wav` loops the
- * game plays, and the Node programs that synthesise them from nothing. Keeping
- * them together is the point — a render is reproducible only if you can find
- * what rendered it — but `publicDir` copies a directory wholesale, so a build
- * would otherwise carry a hundred kilobytes of DSP source, and a `.mixgain-*`
- * scratch file per track, onto a static host that has no use for either.
+ * `public/assets/audio` holds a track at three stages: the Node program that
+ * synthesises it, the `.wav` that program renders at full rate, and the `.mp3`
+ * encoded from that render. Only the last is worth sending over a network — it
+ * is a fifteenth of the bytes and decodes to the same samples — so a build
+ * publishes the encodes and the catalogue naming them, and leaves the 30 MB
+ * masters, the DSP source and the `.mixgain-*` working files where they are.
  *
- * Vite has no filter on the public copy, so this takes them back out afterwards.
- * Stated as what SURVIVES rather than as what goes: a generator that starts
- * writing a second kind of working file should not be able to publish it by
- * default, and the answer to "what is audio for" is one extension.
+ * Vite has no filter on the public copy, so this takes the rest back out
+ * afterwards. Stated as what SURVIVES rather than as what goes: a generator
+ * that starts writing a new kind of working file should not be able to publish
+ * it by default.
  *
  * `closeBundle` rather than `generateBundle`: the public copy happens at the end
  * of the write, and a hook that ran before it would delete files that were not
@@ -156,8 +156,8 @@ export function audioSources(): Plugin {
 	};
 }
 
-/** The only thing in the audio directory a build publishes. */
-const PUBLISHED_AUDIO = /\.wav$/;
+/** The only things in the audio directory a build publishes. */
+const PUBLISHED_AUDIO = /(\.mp3|^index\.json)$/;
 
 /** What the types route answers with. */
 export interface ScriptTypes {
