@@ -27,6 +27,20 @@
  * there: a hexagon at that angle is the same hexagon wherever it sits on the
  * screen, which is the whole reason the labs chose it, and a drag that could
  * tilt out of it would let you lose that for nothing in return.
+ *
+ * ## The keys are the page's before they are the game's
+ *
+ * The two keys are bound on the WINDOW, because a canvas only receives a key
+ * if something has given it focus and a game nobody has clicked on yet should
+ * still answer the space bar. The cost of that is real: this handler sees
+ * every key pressed anywhere on the page, including in whatever else the
+ * embedder has put there.
+ *
+ * So a key that went to something taking text is not this object's key. It is
+ * left alone entirely — not merely not acted on, but not `preventDefault`ed
+ * either, which is the half that actually bit: the editor grew a code editor
+ * beside a running yard, and every space typed into it was swallowed by a game
+ * that was not being played. See `takesText`.
  */
 
 import { ISO_PITCH, type OrbitCamera } from '@hexdelve/engine';
@@ -86,6 +100,10 @@ export class Controls {
 
 	private bind(): void {
 		this.on(window, 'keydown', (event) => {
+			// Somebody is writing something. Neither key is ours while that is
+			// true, and Space least of all — see the header.
+			if (takesText(event.target)) return;
+
 			if (event.code === 'Space') {
 				event.preventDefault();
 				if (!event.repeat) this.options.onHold?.();
@@ -226,3 +244,31 @@ export class Controls {
 }
 
 export { ISO_PITCH };
+
+/**
+ * Whether a key aimed at this went somewhere that takes text.
+ *
+ * Three kinds, because a browser has three answers to "where is typing going".
+ * A form control is the obvious one. `contenteditable` is the old way a page
+ * builds its own editor. And an element with an `EditContext` attached is the
+ * new way — Monaco uses one, which is why it is a plain `<div>` that swallows
+ * keystrokes and answers to none of the other tests.
+ *
+ * Written against the shape of the target rather than `instanceof HTMLElement`
+ * on purpose: an element from another document — an iframe, a popped-out
+ * window — is not an instance of THIS realm's HTMLElement, and a check that
+ * quietly said "not text" there would be the same bug in a place nobody would
+ * think to look. It is also what makes this testable without a DOM.
+ *
+ * `unknown` rather than `EventTarget` for the same reason. What arrives is
+ * whatever the event says its target is, which on a window handler is anything
+ * on the page and, in a test, the shape of one.
+ */
+export function takesText(target: unknown): boolean {
+	if (target === null || typeof target !== 'object') return false;
+	const node = target as { tagName?: unknown; isContentEditable?: unknown; editContext?: unknown };
+
+	if (node.isContentEditable === true) return true;
+	if (node.editContext != null) return true;
+	return node.tagName === 'INPUT' || node.tagName === 'TEXTAREA' || node.tagName === 'SELECT';
+}

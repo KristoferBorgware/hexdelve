@@ -8,7 +8,7 @@
  */
 
 export { HexdelveClient, type ClientOptions, type ClientStats } from './HexdelveClient.js';
-export { Controls, type ControlsOptions } from './input/Controls.js';
+export { Controls, takesText, type ControlsOptions } from './input/Controls.js';
 
 export {
 	Simulation,
