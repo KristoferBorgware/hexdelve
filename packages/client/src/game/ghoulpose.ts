@@ -99,8 +99,8 @@ function leg(
 	roll: number,
 	step: Step,
 ): void {
-	const air = Math.max(0, Math.cos(phase));
-	const fold = Math.pow(air, 0.8);
+	// How far into its swing the foot is: nothing at all when standing.
+	const swing = Math.pow(Math.max(0, Math.cos(phase)), 0.8) * clamp01(amp);
 
 	const hipAt = plus(
 		plus(trunk.root, turn(GHOUL_CHAIN.hip, trunk.rootRot)),
@@ -110,7 +110,7 @@ function leg(
 	const [hip, knee] = twoLink(trunk.rootRot, hipAt, GHOUL_CHAIN.thigh, GHOUL_CHAIN.shin, target, -1);
 
 	const level = -(trunk.rootRot + hip + knee);
-	const foot = level * (1 - 0.6 * fold) + 0.45 * amp * fold;
+	const foot = level * (1 - 0.6 * swing) + 0.45 * swing;
 
 	// Knees out and feet splayed: the bow-legged stance of something that
 	// stands on bent legs all the time.
@@ -148,8 +148,7 @@ function arm(
 	trunk: Trunk,
 	step: Step,
 ): void {
-	const air = Math.max(0, Math.cos(phase));
-	const fold = Math.pow(air, 0.8);
+	const swing = Math.pow(Math.max(0, Math.cos(phase)), 0.8) * clamp01(amp);
 
 	const { at, frame } = shoulderOf(trunk);
 	const target = groundPath(phase, step.restZ, step.halfStride, step.lift, GHOUL_CHAIN.palmHeight, amp);
@@ -158,7 +157,7 @@ function arm(
 	// Flat: the hand's own rotation takes out everything above it and a
 	// quarter turn more, so the fingers lie forward along the ground.
 	const flat = -PI / 2 - (frame + upper + elbow);
-	const hand = flat + 0.9 * amp * fold;
+	const hand = flat + 0.9 * swing;
 
 	setSparse(out, bones[0], [upper, 0, 0.15 * side]);
 	setSparse(out, bones[1], [elbow, 0, 0]);

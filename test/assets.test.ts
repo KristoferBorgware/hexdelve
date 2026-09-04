@@ -231,6 +231,16 @@ describe('entities', () => {
 				expect(world[foot]!.p[1], `${foot} at ${t}s`).toBeLessThan(0.12);
 			}
 		}
+		// It lands on all fours: at the strike and through the rake the palms
+		// are on the ground too, a metre forward.
+		for (const t of [strike.t, 0.72]) {
+			const world = solveWorld(ghoul.rig!.skeleton, leap.sample(t, {}));
+			for (const hand of ['handL', 'handR']) {
+				expect(world[hand]!.p[1], `${hand} at ${t}s`).toBeGreaterThan(0.03);
+				expect(world[hand]!.p[1], `${hand} at ${t}s`).toBeLessThan(0.08);
+				expect(world[hand]!.p[2], `${hand} at ${t}s`).toBeGreaterThan(1.1);
+			}
+		}
 	});
 
 	it('gives a prop no rig, and a bone to hang from', async () => {
