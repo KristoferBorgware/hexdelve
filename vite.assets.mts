@@ -189,7 +189,9 @@ const scripts: Connect.NextHandleFunction = (request, response, next) => {
 	if (path === '/' || path === '') {
 		void readdir(scriptRoot)
 			.then((names) => {
-				const list = names.filter((name) => name.endsWith('.ts'));
+				// Not `.d.ts`: a declaration is not a script. See `scriptFiles` in
+			// tools/build-scripts.mjs, which filters the same way.
+			const list = names.filter((name) => name.endsWith('.ts') && !name.endsWith('.d.ts'));
 				response.setHeader('content-type', 'application/json; charset=utf-8');
 				response.end(JSON.stringify(list.sort()));
 			})
@@ -197,7 +199,7 @@ const scripts: Connect.NextHandleFunction = (request, response, next) => {
 		return;
 	}
 
-	const target = inside(scriptRoot, path, /\.ts$/);
+	const target = inside(scriptRoot, path, /(?<!\.d)\.ts$/);
 	if (!target) {
 		fail(response, 400, 'that is not a script');
 		return;

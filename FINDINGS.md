@@ -197,6 +197,52 @@ ordering is the awkward part rather than the code: the bone follow has to run
 after the actor has solved its pose and before the scene solves, and today the
 simulation drives those two by hand.
 
+### F-009 — A parameter's type is its default's literal type, not its kind
+
+**Kind:** bug
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, reading the declarations `tsc` emits for the script directory
+**Where:** `param` in `packages/scripting/src/parameters.ts`; visible in every script that uses one, `packages/client/scripts/Character.ts` worst
+
+**What happens.** `param` is declared
+`param<T extends number | boolean | string>(value: T): T`, so `T` is inferred
+from a literal argument as that literal. `faction = param('foe')` gives the
+field the type `'foe'`, not `string`. `spread = param(1)` gives the type `1`,
+not `number`. The declaration `tsc` emits says so in as many words:
+`spread: 1`.
+
+Assigning through the marker hides it inside the class, because the values are
+only ever read. It shows the moment anything compares or assigns. In
+`Character`, `faction` is typed `'foe'` while the wanderer's entity file sets it
+to `player` — so the type says a value the game actually produces is
+impossible, and `if (this.faction === 'player')` is a comparison TypeScript
+would reject as having no overlap.
+
+**Why it matters.** The whole argument for declaring a parameter by its value
+rather than by a decorator was that it "stays typed". It does not: it is typed
+as the one value it happened to start with, which is the least useful type it
+could have. A script that branches on a string parameter — which is what a
+faction is for, and phase 5 will want — cannot be written without a cast.
+
+It is also a silent wrong answer rather than a loud one. Nothing fails today,
+so the first person to hit it will be reading a comparison error that looks
+like their mistake.
+
+**What would fix it.** Widen the return type. A conditional does it in one
+line and changes no runtime behaviour:
+
+```ts
+type Widen<T> = T extends number ? number : T extends boolean ? boolean : T extends string ? string : never;
+export function param<T extends number | boolean | string>(value: T, options?: ParameterOptions): Widen<T>;
+```
+
+Worth a test that a string parameter can be compared against another string,
+since that is the case the current signature rejects. The alternative, asking
+authors to write `param<string>('foe')`, puts the burden on every script for
+one signature's convenience and would be forgotten.
+
 ---
 
 ## Closed

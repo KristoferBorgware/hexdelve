@@ -484,7 +484,7 @@ describe('the scripts this build ships', () => {
 
 	it('compiles every file in the directory into one bundle', async () => {
 		const onDisk = (await readdir(scriptDir))
-			.filter((name) => name.endsWith('.ts'))
+			.filter((name) => name.endsWith('.ts') && !name.endsWith('.d.ts'))
 			.sort();
 
 		// There is no table to keep in step any more: the directory IS the list,

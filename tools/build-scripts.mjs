@@ -61,10 +61,17 @@ function start() {
 	return started;
 }
 
-/** The script files in a directory, sorted, as bare names. */
+/**
+ * The script files in a directory, sorted, as bare names.
+ *
+ * `.d.ts` is excluded because it is not a script. Nothing should put one here,
+ * but a stray `tsc` run against the wrong project emits declarations beside the
+ * sources, and compiling one as an entry would export types as though they were
+ * behaviour. The editor's listing route filters the same way.
+ */
 export async function scriptFiles(dir = scriptDir) {
 	const names = await readdir(dir);
-	return names.filter((name) => name.endsWith('.ts')).sort();
+	return names.filter((name) => name.endsWith('.ts') && !name.endsWith('.d.ts')).sort();
 }
 
 /**
