@@ -27,7 +27,7 @@
 # whoever drives this tree to sweep the axis once and bend the slider to match.
 #
 # It refers to its leaves by NAME, not by path. The entity file says what
-# `walk` is, which is why this same tree drives the wanderer and the ghoul.
+# `walk` is, which is why this same tree reads on any entity that names one.
 
 id: locomotion
 label: Locomotion tree

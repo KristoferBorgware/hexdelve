@@ -393,8 +393,8 @@ blendTrees:
 
 Blend trees link *animations*, and the entity is what says an animation is. A
 tree refers to `walk` and carries no path, so exactly one file names files —
-which is why one `locomotion.tree.yaml` drives the wanderer and the ghoul
-unchanged. A prop is the same file with less in it: a helmet has a mesh, an
+which is why `locomotion.tree.yaml` reads on any entity that names a `walk`
+and a `run`. A prop is the same file with less in it: a helmet has a mesh, an
 `attach` bone and the two numbers that put it down in the grass, and the loader
 *refuses* a rig or an animation on one.
 

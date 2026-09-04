@@ -1,0 +1,189 @@
+# The ghoul's leap: a pounce with the claws, from its own hexagon into the
+# next one and back.
+#
+# Seven keys. It coils — the crouch it already stands in dropping lower, the
+# arms drawn back behind it — holds a beat, and springs: the legs snap
+# straight and trail behind, the arms come forward and up, and the whole
+# animal is in the air and half a hexagon forward. It lands on the target
+# with the claws coming down, rakes them through, and hops back to its own
+# cell, which is where the clip leaves it.
+#
+# The forward drive in the root's `pos` is what carries the strike across the
+# gap: neighbouring hexagon centres are 1.73 m apart, so a leap that only
+# leaned would land on nothing. It is a metre of travel inside the pose — a
+# jump and a scramble back — rather than the creature being moved, so it
+# strikes and is still exactly where the grid says it is.
+#
+# The leg angles at every key with a foot on the ground were solved against
+# the rig so the soles sit on it: at the crouches the knees are folded to
+# nearly two radians and the ankles cancel the fold, which is what keeps a
+# hunched creature from standing on its toes. An arm hangs in the chest's
+# frame, and the chest is pitched forward by the whole bend of the spine, so
+# every arm key below is the bend taken back out at the shoulder plus where
+# the arm is meant to point: -1.4 at the stand hangs it a little forward of
+# straight down under a bend of about one radian.
+
+id: leap
+name: Leap attack
+rig: ../rigs/humanoid.rig.yaml
+duration: 1.15
+loop: hold
+
+events:
+  - { t: 0.55, name: strike }
+
+poses:
+  # The hunched stand it starts from: the same crouch the shamble holds.
+  - t: 0
+    bones:
+      root: { rot: [0.14, 0, 0], pos: [0, -0.17, 0] }
+      spine: [0.5, 0, 0]
+      chest: [0.4, 0, 0]
+      neck: [-0.38, 0, 0.14]
+      head: [-0.42, 0, 0.05]
+      armL: [-1.4, 0.05, 0.28]
+      armR: [-1.46, -0.05, -0.24]
+      forearmL: [-0.45, 0.1, 0.05]
+      forearmR: [-0.55, -0.1, -0.05]
+      handL: [-0.35, 0, 0.15]
+      handR: [-0.45, 0, -0.1]
+      hipL: [-0.79, 0, 0.1]
+      shinL: [1.22, 0, 0]
+      footL: [-0.58, 0.18, -0.08]
+      hipR: [-0.63, 0, -0.1]
+      shinR: [1.23, 0, 0]
+      footR: [-0.74, -0.18, 0.08]
+
+  # Coiled: lower still, weight back, arms drawn back and up behind the
+  # shoulders with the claws cocked, the face turned up at the target. Held
+  # flat so the spring reads as a release rather than a swing.
+  - t: 0.3
+    ease: flat
+    bones:
+      root: { rot: [0.32, 0, 0], pos: [0, -0.36, -0.12] }
+      spine: [0.75, 0, 0]
+      chest: [0.35, 0, 0]
+      neck: [-0.55, 0, 0.1]
+      head: [-0.55, 0, 0]
+      armL: [0.18, 0.2, 0.55]
+      armR: [0.22, -0.2, -0.5]
+      forearmL: [-1.3, 0, 0]
+      forearmR: [-1.3, 0, 0]
+      handL: [-0.6, 0, 0.2]
+      handR: [-0.6, 0, -0.2]
+      hipL: [-1.45, 0, 0.1]
+      shinL: [1.88, 0, 0]
+      footL: [-0.75, 0.18, -0.08]
+      hipR: [-1.16, 0, -0.1]
+      shinR: [1.94, 0, 0]
+      footR: [-1.1, -0.18, 0.08]
+
+  # Sprung: in the air, pitched forward, legs straight out behind with the
+  # toes pointed, arms thrown up and over with the claws leading.
+  - t: 0.45
+    bones:
+      root: { rot: [0.45, 0, 0], pos: [0, 0.22, 0.5] }
+      spine: [0.35, 0, 0]
+      chest: [0.25, 0, 0]
+      neck: [-0.4, 0, 0.05]
+      head: [-0.35, 0, 0]
+      armL: [-3.05, 0.1, 0.7]
+      armR: [-3.1, -0.1, -0.65]
+      forearmL: [-0.5, 0, 0]
+      forearmR: [-0.5, 0, 0]
+      handL: [-0.6, 0, 0.3]
+      handR: [-0.6, 0, -0.3]
+      hipL: [0.6, 0, 0.12]
+      shinL: [0.7, 0, 0]
+      footL: [0.6, 0.1, 0]
+      hipR: [0.75, 0, -0.12]
+      shinR: [0.6, 0, 0]
+      footR: [0.7, -0.1, 0]
+
+  # The strike: it lands a metre forward on folded legs with the claws
+  # coming down through the target. This is the frame a reach is measured
+  # from.
+  - t: 0.55
+    bones:
+      root: { rot: [0.36, 0, 0], pos: [0, -0.14, 0.95] }
+      spine: [0.7, 0, 0]
+      chest: [0.45, 0, 0]
+      neck: [-0.45, 0, 0.05]
+      head: [-0.4, 0, 0]
+      armL: [-2.1, 0.15, 0.45]
+      armR: [-2.15, -0.15, -0.4]
+      forearmL: [-0.9, 0, 0]
+      forearmR: [-0.9, 0, 0]
+      handL: [-0.9, 0, 0.25]
+      handR: [-0.9, 0, -0.25]
+      hipL: [-1.01, 0, 0.1]
+      shinL: [1.02, 0, 0]
+      footL: [-0.37, 0.18, -0.08]
+      hipR: [-0.76, 0, -0.1]
+      shinR: [1.07, 0, 0]
+      footR: [-0.67, -0.18, 0.08]
+
+  # Raked through: the arms sweep down and back past the hips, the body
+  # folds lower over the target, the head down after the claws.
+  - t: 0.72
+    bones:
+      root: { rot: [0.42, 0, 0], pos: [0, -0.28, 0.9] }
+      spine: [0.9, 0, 0]
+      chest: [0.4, 0, 0]
+      neck: [-0.6, 0, 0.1]
+      head: [-0.5, 0, 0.05]
+      armL: [-1.3, 0.2, 0.35]
+      armR: [-1.25, -0.2, -0.3]
+      forearmL: [-0.7, 0, 0]
+      forearmR: [-0.7, 0, 0]
+      handL: [-0.5, 0, 0.2]
+      handR: [-0.5, 0, -0.2]
+      hipL: [-1.4, 0, 0.1]
+      shinL: [1.6, 0, 0]
+      footL: [-0.62, 0.18, -0.08]
+      hipR: [-0.99, 0, -0.1]
+      shinR: [1.64, 0, 0]
+      footR: [-1.07, -0.18, 0.08]
+
+  # Halfway back: a hop, off the ground with the legs tucked under it, so
+  # the return to its own cell is a scramble rather than a slide.
+  - t: 0.92
+    bones:
+      root: { rot: [0.3, 0, 0], pos: [0, -0.04, 0.42] }
+      spine: [0.7, 0, 0]
+      chest: [0.4, 0, 0]
+      neck: [-0.5, 0, 0.1]
+      head: [-0.45, 0, 0.05]
+      armL: [-1.2, 0.1, 0.4]
+      armR: [-1.25, -0.1, -0.35]
+      forearmL: [-0.6, 0, 0]
+      forearmR: [-0.6, 0, 0]
+      handL: [-0.4, 0, 0.2]
+      handR: [-0.4, 0, -0.2]
+      hipL: [-1.3, 0, 0.12]
+      shinL: [1.9, 0, 0]
+      footL: [-0.2, 0.18, -0.08]
+      hipR: [-1.2, 0, -0.12]
+      shinR: [1.8, 0, 0]
+      footR: [-0.3, -0.18, 0.08]
+
+  # And down in its own cell, into the stand it started from.
+  - t: 1.15
+    bones:
+      root: { rot: [0.14, 0, 0], pos: [0, -0.17, 0] }
+      spine: [0.5, 0, 0]
+      chest: [0.4, 0, 0]
+      neck: [-0.38, 0, 0.14]
+      head: [-0.42, 0, 0.05]
+      armL: [-1.4, 0.05, 0.28]
+      armR: [-1.46, -0.05, -0.24]
+      forearmL: [-0.45, 0.1, 0.05]
+      forearmR: [-0.55, -0.1, -0.05]
+      handL: [-0.35, 0, 0.15]
+      handR: [-0.45, 0, -0.1]
+      hipL: [-0.79, 0, 0.1]
+      shinL: [1.22, 0, 0]
+      footL: [-0.58, 0.18, -0.08]
+      hipR: [-0.63, 0, -0.1]
+      shinR: [1.23, 0, 0]
+      footR: [-0.74, -0.18, 0.08]

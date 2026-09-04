@@ -68,8 +68,8 @@ blendTrees:
 **Blend trees link animations, and the entity says what an animation is.** A
 tree refers to `walk`; it does not carry a path. That way exactly one file
 names files, and a tree is a pure arrangement over named leaves — so
-`locomotion.tree.yaml` drives the wanderer and the ghoul without being
-duplicated or parameterised. A tree carrying its own clip paths would mean two
+`locomotion.tree.yaml` reads on any entity that names its leaves, without
+being duplicated or parameterised. A tree carrying its own clip paths would mean two
 files both naming files and both able to disagree about which walk was meant.
 
 ### A prop is an entity with less in it

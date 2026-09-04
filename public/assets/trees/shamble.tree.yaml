@@ -1,0 +1,35 @@
+# The ghoul's locomotion tree: one axis, from the hunched stand to the
+# shamble.
+#
+# The plain case beside the humanoid's locomotion tree: a single blend1d over
+# two leaves, because a ghoul has no run to blend towards and no guard or
+# lean to lay over the gait. The threshold on the axis is measured off the
+# shamble's own feet, as the wanderer's are, and the axis is calibrated the
+# same way, so the slider is in true metres per second.
+#
+# It refers to its leaves by NAME, not by path. The entity file says what
+# `walk` is.
+
+id: shamble
+label: Shamble tree
+rig: ../rigs/humanoid.rig.yaml
+fallbackCycle: walk
+
+parameters:
+  - name: speed
+    label: Speed
+    unit: m/s
+    min: 0
+    max: { speedOf: walk }
+    step: 0.01
+    initial: { speedOf: walk }
+    calibrated: true
+    hint: Calibrated, so the number on the slider is the speed it delivers
+
+root:
+  blend1d:
+    param: speed
+    label: speed, m/s
+    entries:
+      - { at: 0, node: { leaf: idle } }
+      - { at: { speedOf: walk }, node: { leaf: walk } }
