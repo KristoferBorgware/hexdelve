@@ -51,7 +51,15 @@ import {
 
 import type { ScriptHost } from '@hexdelve/scripting';
 
-import { ActorBehaviour, clamp, NOWHERE, turnTowards, wrapAngle, type Opponent } from './actor.js';
+import {
+	ActorBehaviour,
+	clamp,
+	NOWHERE,
+	topple,
+	turnTowards,
+	wrapAngle,
+	type Opponent,
+} from './actor.js';
 import { Swing } from './events.js';
 import { flyPose, FLAP_PERIOD, LUNGE_CONTACT, lungePose, perchPose } from './batpose.js';
 import { actionSeconds } from './pace.js';
@@ -76,6 +84,10 @@ const HOVER_LIFT = 0.62;
 
 /** What one of its bites takes off. The rules read it; it only announces it. */
 const BITE_DAMAGE = 2;
+
+/** Onto its side and nose down. A bat that stops flying does not land neatly. */
+const FALL_ROLL = 1.5;
+const FALL_PITCH = 0.4;
 
 /** How far the jaws get from the body, and how high. */
 export interface BiteReach {
@@ -372,6 +384,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	 * this is not the component's `update`.
 	 */
 	advance(dt: number, time: number): void {
+		this.advanceFall(dt);
 		const player = this.opponent;
 		const flight = this.flight;
 		let flapAmp = 1;
@@ -451,9 +464,19 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		 * and freezing them between turns would make the world look paused
 		 * rather than waiting.
 		 */
-		// The state is set before the wake or settle action starts, so this one
-		// line covers both ramps and the two steady values.
-		this.wake += ((this.state === 'asleep' ? 0 : 1) - this.wake) * Math.min(1, dt * 2.2);
+		/*
+		 * The state is set before the wake or settle action starts, so this one
+		 * line covers both ramps and the two steady values — and a fallen bat
+		 * is a third: whatever it was doing, its wings stop holding it up.
+		 *
+		 * Falling reuses the ramp rather than adding a path beside it, which is
+		 * most of why the fall is cheap here. `wake` already carries it down to
+		 * the ground and folds the wings into the perched pose; all a death adds
+		 * is the roll below, and a faster ramp because it drops rather than
+		 * settles.
+		 */
+		const wanted = this.falling || this.state === 'asleep' ? 0 : 1;
+		this.wake += (wanted - this.wake) * Math.min(1, dt * (this.falling ? 3.4 : 2.2));
 		const under = this.ground.groundAt(this.x, this.z) + HOVER_LIFT * this.wake;
 		this.y += (under - this.y) * Math.min(1, dt * 6);
 
@@ -480,6 +503,16 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 			const root = (this.pose.root ??= { rot: [0, 0, 0], pos: [0, 0, 0] });
 			root.pos ??= [0, 0, 0];
 			root.pos[2]! += this.lean;
+		}
+
+		/*
+		 * And over, if it is going down. No drop: `wake` has already brought it
+		 * to the ground above, so all that is left is to stop it lying there as
+		 * neatly as a bat that chose to perch.
+		 */
+		if (this.falling) {
+			const t = this.fall;
+			topple(this.pose, FALL_PITCH * t, FALL_ROLL * t, 0);
 		}
 	}
 

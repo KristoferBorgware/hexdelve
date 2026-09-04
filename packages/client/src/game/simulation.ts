@@ -536,19 +536,22 @@ export class Simulation {
 		/*
 		 * And a creature that has run out of hit points stops taking turns.
 		 *
-		 * `Character` announces the death; what to DO about it is the game's,
-		 * and for now the whole of it is that a dead thing does not act. It is
-		 * still drawn, standing where it fell, because a body that vanishes the
-		 * instant it dies is a worse lie than one that stays — and what should
-		 * really happen there is animation, which is this file's half of the
-		 * arrangement rather than a rule.
+		 * `Character` announces the death; what to DO about it is the game's.
+		 * Two things: it stops taking turns, and it falls over. The second is
+		 * an animation and belongs with the other animations rather than in a
+		 * rule — see `topple` in actor.ts — which is why the script says only
+		 * that it died and this decides what that looks like.
 		 */
 		this.scripts.on(Died, (death) => {
 			// By the OBJECT's name, which is what a script sees, rather than the
 			// turn member's: the man is `player` in the scene and `you` in the
 			// readout, and the two are different words on purpose.
 			const fallen = [this.player, this.bat].find((one) => one.object.name === death.who);
-			if (fallen && this.schedule.remove(fallen)) this.lastAction = `${fallen.name} fell`;
+			if (!fallen || !this.schedule.remove(fallen)) return;
+			this.lastAction = `${fallen.name} fell`;
+			// It stops taking turns, and it goes down. The first is the rule and
+			// the second is the picture; both belong here rather than in a script.
+			fallen.fell();
 		});
 
 		this.scripts.on(Missed, (miss) => {

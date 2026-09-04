@@ -22,6 +22,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { Damage, Simulation, type Cast } from '@hexdelve/client';
+import { HexInstances } from '@hexdelve/engine';
 import { scriptsFromBundle, type ScriptProvider } from '@hexdelve/scripting';
 import { axialDistance, axialNeighbours, type Axial } from '@hexdelve/shared';
 
@@ -152,6 +153,60 @@ describe('a blow, end to end', () => {
 		expect(healthOf(sim, sim.bat.object)).toBe(0);
 		expect(sim.schedule.members).not.toContain(sim.bat);
 		expect(sim.bat.bites, 'and bit nothing after it fell').toBeLessThan(4);
+	});
+
+	/*
+	 * The picture, not the rule. A creature that has been killed and looks
+	 * exactly like one that has not is worse than no death animation at all,
+	 * because the player cannot tell whether the blow worked — which is the one
+	 * thing a fight has to communicate.
+	 *
+	 * Checked as instances rather than as a flag: the bat is asked to draw
+	 * itself before and after it falls, and the two have to differ. A `fallen`
+	 * boolean that nothing read would pass a test of itself.
+	 */
+	it('draws a fallen creature differently from a standing one', () => {
+		const sim = yard();
+		// One frame first: a body draws from its solved pose, and nothing has
+		// solved one yet.
+		run(sim, 0.1);
+
+		const standing = new HexInstances(4096);
+		sim.bat.emit(standing, standing, false);
+		expect(standing.count).toBeGreaterThan(0);
+		const before = Float32Array.from(standing.data);
+
+		expect(sim.attack()).toBe(true);
+		run(sim, 40);
+		expect(healthOf(sim, sim.bat.object), 'it is dead').toBe(0);
+		expect(sim.bat.falling, 'and it was told so').toBe(true);
+
+		// Long enough for the fall to finish on the wall clock.
+		run(sim, 3);
+		expect(sim.bat.fall, 'the fall ran to the end').toBeGreaterThan(0.99);
+
+		const fallen = new HexInstances(4096);
+		sim.bat.emit(fallen, fallen, false);
+		expect(fallen.count, 'it is still drawn').toBe(standing.count);
+
+		let moved = 0;
+		for (let i = 0; i < before.length; i++) {
+			if (Math.abs(fallen.data[i]! - before[i]!) > 0.05) moved++;
+		}
+		expect(moved, 'most of it is somewhere else').toBeGreaterThan(before.length / 4);
+	});
+
+	it('leaves a fallen creature on the ground rather than in the air', () => {
+		const sim = yard();
+		expect(sim.attack()).toBe(true);
+		run(sim, 40);
+		run(sim, 3);
+
+		// Its wings stop holding it up, so it ends at ground level rather than
+		// at the height it hovers at. `wake` carries that, and dying drives it
+		// to nothing the same way falling asleep does.
+		const ground = sim.world.groundAt(sim.bat.x, sim.bat.z);
+		expect(sim.bat.y - ground).toBeLessThan(0.05);
 	});
 
 	it('puts the bat next to him before any of this is true', () => {
