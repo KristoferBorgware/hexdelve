@@ -159,10 +159,8 @@ if (p->total_winner) {
 ```
 
 A winner is therefore recorded as having died in town of old age with ten
-million gold, with any experience drain undone. That rewrite is also what
-makes the two `!p->total_winner && streq(p->died_from, ...)` tests in
-`enter_score` work: a winner who retires no longer has "Retiring" as a
-cause of death.
+million gold, with any experience drain undone — and, since `died_from` is
+no longer "Retiring", a winner passes `enter_score`'s retirement test.
 
 ---
 
