@@ -231,7 +231,7 @@ These are indexed by the *average* of the casting stats of the class's realms (`
 2. **Equipment.** For each body slot, for the object in it and then for each *curse* on that object (curses are implemented as hidden objects that contribute their own modifiers and flags):
    - object flags are collected (all of them for the real state, only known ones for `known_state`);
    - modifiers are added: STR/INT/WIS/DEX/CON to `stat_add`, STEALTH to the stealth skill, SEARCH ×5 to the search skill, INFRA to infravision, TUNNEL ×20 (plus 20/40/60 for DIG_1/2/3 diggers) to the digging skill, SPEED to speed, DAM_RED, BLOWS, SHOTS, MIGHT and MOVES to running totals;
-   - each modifier is multiplied by `p->obj_k->modifiers[...]`, which is 1 once the player knows that rune and 0 before, so an *unknown* modifier has no effect on the real state either (the player learns it the moment it matters, see the Objects chapter);
+   - each modifier is multiplied by `p->obj_k->modifiers[...]`, which is 1 once the player knows that rune and 0 before, so an *unknown* modifier has no effect on the real state either (the player learns it the moment it matters, see the Object Knowledge chapter);
    - element resist levels take the maximum over items, vulnerabilities (−1) are noted;
    - `ac += obj->ac`, `to_a += obj->to_a`, and `to_h`/`to_d` are added for everything *except* the weapon and launcher slots (their bonuses apply only to attacks made with them).
 3. **Shape.** `calc_shapechange()` adds the current shape's combat bonuses, skills, flags, stat and other modifiers and resistances (`shape.txt`, see 4.13).

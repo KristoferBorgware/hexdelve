@@ -70,7 +70,7 @@ Durations here are the *common* sources; the Player Stats chapter has the numeri
 
 `process_world()` runs every 10 game turns (once per normal-speed player turn). In this order it: applies poison (1 damage) and bleeding (1/2/3); handles bloodlust decay and `HEAL`; applies Black Breath; digests food; checks fainting and starvation; regenerates HP (if below maximum) and mana; calls `decrease_timeouts()`; burns light fuel; updates noise and scent; drains experience for `DRAIN_EXP` items; recharges rods and activations; runs curse effects whose timers expire; counts down Word of Recall and Deep Descent. Everything in this chapter therefore happens on the 10-game-turn clock regardless of the player's speed: a hasted character gets two actions per tick of poison, a slowed one half an action.
 
-`decrease_timeouts()`: every non-zero timed effect decreases by 1 per tick, except FOOD (handled by digestion), CUT, POISONED and STUN, which decrease by `adj_con_fix[CON] + 1` (1 at CON ≤ 13, 2 at 14–17, 3 at 18/00–18/49, 4 at 18/50–18/99, up to 10 at 18/200+), a Mortal Wound (0), and cuts on a ROCK player (0). Curse timers on worn items also count down here (Objects chapter).
+`decrease_timeouts()`: every non-zero timed effect decreases by 1 per tick, except FOOD (handled by digestion), CUT, POISONED and STUN, which decrease by `adj_con_fix[CON] + 1` (1 at CON ≤ 13, 2 at 14–17, 3 at 18/00–18/49, 4 at 18/50–18/99, up to 10 at 18/200+), a Mortal Wound (0), and cuts on a ROCK player (0). Curse timers on worn items also count down here (Object Generation chapter 15.7).
 
 Because effects tick per world turn, a duration of "20 + 1d20" from a potion is 20–40 player turns at normal speed, 40–80 actions for a +10 character.
 

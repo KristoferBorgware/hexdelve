@@ -210,7 +210,7 @@ Monster lore is learnt from projections: hitting a monster with fire teaches whe
 | COLD, ICE | Freeze lava back to floor (similar strength test) |
 | ACID, ELEC, and the rest | Nothing to terrain except destroying webs where coded |
 
-`project_o()` (with `PROJECT_ITEM`) offers every object on the grid to the type's handler: ACID, ELEC, FIRE, COLD, SOUND, SHARD, ICE, FORCE, PLASMA (fire + elec), METEOR (fire + cold) destroy objects whose kind `HATES_x` that element unless the object `IGNORE_x`; MANA destroys everything. Artifacts always survive ("is unaffected"). Mimics disguised as objects are revealed instead of destroyed. The `HATES_*` and `IGNORE_*` flags come from `object_base.txt` and item properties (Objects chapter).
+`project_o()` (with `PROJECT_ITEM`) offers every object on the grid to the type's handler: ACID, ELEC, FIRE, COLD, SOUND, SHARD, ICE, FORCE, PLASMA (fire + elec), METEOR (fire + cold) destroy objects whose kind `HATES_x` that element unless the object `IGNORE_x`; MANA destroys everything. Artifacts always survive ("is unaffected"). Mimics disguised as objects are revealed instead of destroyed. The `HATES_*` and `IGNORE_*` flags come from `object_base.txt` and item properties (Object Generation chapter).
 
 Objects in the player's pack are damaged by `inven_damage(p, type, cperc)`, called by the player-side handlers with `cperc = min(dam * 5, 300)` for the base elements (a chance of up to 3% per item, in units of 1/10,000): each vulnerable, non-equipped, non-artifact pack item is tested — weapons and armour that hate the element are *damaged* (−1 to-hit/to-dam, or −1 to-AC) instead of destroyed, rods have their chance quartered, and stacks lose each member independently.
 
