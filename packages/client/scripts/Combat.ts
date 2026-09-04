@@ -29,7 +29,7 @@
  * thing to want and none is knowable yet, so this is written to be replaced.
  */
 
-import { on, param, Script } from '@hexdelve/scripting';
+import { on, param, Script } from '@hexdelve/engine';
 
 import { CharacterRegistry } from './CharacterRegistry.js';
 import { Damage, Missed, Swing, type Point, type Reach } from './events.js';

@@ -19,7 +19,7 @@
  * since a built page has no files to save.
  */
 
-import type { ScriptHost, ScriptProvider } from '@hexdelve/scripting';
+import type { ScriptHost, ScriptProvider } from '@hexdelve/engine';
 
 import { compileScripts } from './compiler.js';
 import { scriptStore } from './store.js';

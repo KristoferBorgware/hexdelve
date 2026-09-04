@@ -20,7 +20,7 @@
  * is a change to both files and to every prefab that mentions it.
  */
 
-import { defineEvent } from '@hexdelve/scripting';
+import { defineEvent } from '@hexdelve/engine';
 
 /** Where something is, in world units. */
 export interface Point {

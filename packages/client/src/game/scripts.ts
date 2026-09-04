@@ -21,7 +21,8 @@
  * script happens to do nothing.
  */
 
-import { noScripts, scriptsFromBundle, type ScriptProvider } from '@hexdelve/scripting';
+import * as engine from '@hexdelve/engine';
+import { noScripts, scriptsFromBundle, type ScriptProvider } from '@hexdelve/engine';
 
 /** Where the bundle is served from, relative to the page. */
 export const SCRIPT_BUNDLE = 'scripts.js';
@@ -45,7 +46,7 @@ export async function loadScripts(options: LoadScriptsOptions = {}): Promise<Scr
 	try {
 		const response = await fetch(url);
 		if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-		return scriptsFromBundle(await response.text());
+		return scriptsFromBundle(await response.text(), engine);
 	} catch (error) {
 		log(
 			`cannot load ${url}, running with no scripts: ` +

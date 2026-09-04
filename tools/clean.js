@@ -18,7 +18,6 @@ const targets = [
 	'dist',
 	'packages/shared/dist',
 	'packages/engine/dist',
-	'packages/scripting/dist',
 	'packages/client/dist',
 	'packages/client/dist-app',
 	'packages/client/dist-lib',

@@ -11,10 +11,10 @@
  * into the build. See `SCRIPT_TYPES` in vite.assets.mts.
  *
  * They are named as if they were installed. `file:///node_modules/@hexdelve/
- * scripting/package.json` and the declarations beside it are what Node's
+ * engine/package.json` and the declarations beside it are what Node's
  * resolution algorithm — which is what the language service is configured to
  * use — walks up to find from `file:///scripts/Spin.ts`. So a script says
- * `import { Script } from '@hexdelve/scripting'`, exactly as it does on disk,
+ * `import { Script } from '@hexdelve/engine'`, exactly as it does on disk,
  * and nothing has to be rewritten for the editor's benefit.
  *
  * Loaded once. The declarations change when a package is rebuilt, which is not

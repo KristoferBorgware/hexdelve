@@ -18,7 +18,8 @@
  * which is why `alive` is on it, and why nothing here caches.
  */
 
-import type { GameObject, Scene } from '@hexdelve/engine';
+import type { GameObject } from '../scene/GameObject.js';
+import type { Scene } from '../scene/Scene.js';
 
 import type { GameEvent, Payload } from './events.js';
 

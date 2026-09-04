@@ -561,8 +561,8 @@ Three things make it more than a text box, and only the first is Monaco's:
 
 **The language service knows the SDK.** `/script-types.json` hands over the
 `dist/*.d.ts` of `@hexdelve/shared`, `@hexdelve/engine` and
-`@hexdelve/scripting`, named as though they were installed under
-`node_modules`, so `import { Script } from '@hexdelve/scripting'` resolves by
+`@hexdelve/engine`, named as though they were installed under
+`node_modules`, so `import { Script } from '@hexdelve/engine'` resolves by
 ordinary node resolution and `this.transform.` completes. They are the same
 declarations `npm run typecheck` uses, and a tree that has never been built
 says which package is missing rather than quietly offering nothing. The service

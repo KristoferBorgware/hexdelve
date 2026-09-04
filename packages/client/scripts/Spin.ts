@@ -7,7 +7,7 @@
  * checking that a save reaches a running game.
  */
 
-import { param, Script } from '@hexdelve/scripting';
+import { param, Script } from '@hexdelve/engine';
 
 export class Spin extends Script {
 	/** Radians a second. Negative turns the other way. */

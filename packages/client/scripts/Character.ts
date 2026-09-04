@@ -17,10 +17,10 @@
  * `@on(Damage)` is the exception, and the reason is that the host can see it.
  * A handler is declared on the class, so the host subscribes and unsubscribes
  * it without this script being able to forget — which is the whole argument for
- * the decorator, and it is written out in `@hexdelve/scripting`'s `events.ts`.
+ * the decorator, and it is written out in `@hexdelve/engine`'s `events.ts`.
  */
 
-import { on, param, Script } from '@hexdelve/scripting';
+import { on, param, Script } from '@hexdelve/engine';
 
 import { CharacterRegistry } from './CharacterRegistry.js';
 import { Damage, Died, type Blow, type Point } from './events.js';

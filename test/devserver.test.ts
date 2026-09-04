@@ -165,11 +165,11 @@ describe('the dev server', () => {
 			expect(types.missing).toEqual([]);
 
 			// The manifest matters as much as the declarations: it is what
-			// makes `@hexdelve/scripting` resolve by ordinary node resolution.
-			const manifest = types.files['node_modules/@hexdelve/scripting/package.json'];
+			// makes `@hexdelve/engine` resolve by ordinary node resolution.
+			const manifest = types.files['node_modules/@hexdelve/engine/package.json'];
 			expect(manifest).toContain('"types"');
 
-			const entry = types.files['node_modules/@hexdelve/scripting/dist/index.d.ts'];
+			const entry = types.files['node_modules/@hexdelve/engine/dist/index.d.ts'];
 			expect(entry).toContain('Script');
 		});
 	});
@@ -260,7 +260,7 @@ describe('the dev server', () => {
 		 */
 		it('puts a script, serves it back, and takes it away again', async () => {
 			const url = `${origin}/scripts/${SCRATCH_SCRIPT}`;
-			const body = "import { Script } from '@hexdelve/scripting';\n";
+			const body = "import { Script } from '@hexdelve/engine';\n";
 
 			const put = await fetch(url, { method: 'PUT', body });
 			expect(put.status).toBe(204);

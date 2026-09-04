@@ -65,7 +65,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HexdelveClient } from '@hexdelve/client';
 import type { BackendPreference } from '@hexdelve/engine';
-import type { ScriptProvider } from '@hexdelve/scripting';
+import type { ScriptProvider } from '@hexdelve/engine';
 
 import { compileScripts, type ScriptDiagnostic } from '../scripts/compiler.js';
 import { scriptNameProblem, scriptStem, scriptStore } from '../scripts/store.js';
@@ -81,7 +81,7 @@ function template(name: string): string {
  * ${stem}.
  */
 
-import { Script } from '@hexdelve/scripting';
+import { Script } from '@hexdelve/engine';
 
 export class ${stem} extends Script {
 	override tick(dt: number): void {}

@@ -46,7 +46,7 @@ import {
 import { handlersOf, type EventHandler, type GameEvent } from './events.js';
 import type { ScriptRuntime } from './handles.js';
 import type { Script, ScriptBinding } from './Script.js';
-import type { GameObject } from '@hexdelve/engine';
+import type { GameObject } from '../scene/GameObject.js';
 
 /** Where a host gets its classes. */
 export interface ScriptProvider {

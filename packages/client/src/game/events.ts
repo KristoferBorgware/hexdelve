@@ -23,7 +23,7 @@
  * is at the point of its arc.
  */
 
-import { defineEvent } from '@hexdelve/scripting';
+import { defineEvent } from '@hexdelve/engine';
 
 /*
  * The reach is `player.ts`'s, because that is where it is measured — off the

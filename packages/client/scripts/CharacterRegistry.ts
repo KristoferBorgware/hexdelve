@@ -24,7 +24,7 @@
  * the characters themselves.
  */
 
-import { Script } from '@hexdelve/scripting';
+import { Script } from '@hexdelve/engine';
 
 import type { Character } from './Character.js';
 

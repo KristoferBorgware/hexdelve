@@ -22,8 +22,9 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { Damage, Simulation, type Cast } from '@hexdelve/client';
+import * as engine from '@hexdelve/engine';
 import { HexInstances } from '@hexdelve/engine';
-import { scriptsFromBundle, type ScriptProvider } from '@hexdelve/scripting';
+import { scriptsFromBundle, type ScriptProvider } from '@hexdelve/engine';
 import { axialDistance, axialNeighbours, type Axial } from '@hexdelve/shared';
 
 import { bundleScripts } from '../tools/build-scripts.mjs';
@@ -40,7 +41,7 @@ describe('a blow, end to end', () => {
 	beforeAll(async () => {
 		cast = await loadYardCast();
 		systems = await openLibrary().system('systems/game.system.yaml');
-		scripts = scriptsFromBundle((await bundleScripts()).code);
+		scripts = scriptsFromBundle((await bundleScripts()).code, engine);
 	}, 120_000);
 
 	function yard(): Simulation {

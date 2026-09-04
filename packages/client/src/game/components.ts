@@ -39,7 +39,7 @@ import {
 	type Scene,
 } from '@hexdelve/engine';
 
-import { ScriptComponent, type ScriptHost } from '@hexdelve/scripting';
+import { ScriptComponent, type ScriptHost } from '@hexdelve/engine';
 
 import { Actor } from './actor.js';
 import { BoneFollow } from './bonefollow.js';

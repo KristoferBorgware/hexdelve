@@ -2,7 +2,7 @@
  * Compiling scripts in the browser, so a saved file reaches a running game.
  *
  * This is the editor's half of the scripting story and it lives here rather
- * than in `@hexdelve/scripting` for one reason: esbuild-wasm is a
+ * than in `@hexdelve/engine` for one reason: esbuild-wasm is a
  * multi-megabyte WebAssembly toolchain, and the client's whole promise is one
  * ES module with nothing to install. Nobody playing the game will ever compile
  * a script. So the client gets a table built at build time, the editor gets
@@ -17,7 +17,7 @@
  *   the entry      a generated module that re-exports every script file, so one
  *                  build produces one bundle with every class in it
  *   a script       served from the map by its path
- *   the SDK        `@hexdelve/scripting` is rewritten to read from a global
+ *   the SDK        `@hexdelve/engine` is rewritten to read from a global
  *                  this file sets before evaluating. Bundling the real package
  *                  would give the scripts their OWN copy of `Script`, and
  *                  `instanceof Script` would then be false for every one of
@@ -25,7 +25,7 @@
  *                  script at all.
  *
  * Running the result is not this file's job. `scriptsFromBundle` in
- * `@hexdelve/scripting` does it, and the shipped client uses the same call on a
+ * `@hexdelve/engine` does it, and the shipped client uses the same call on a
  * bundle compiled by `tools/build-scripts.mjs` — so the editor and the game are
  * running scripts through one code path, and only the compiling differs.
  *
@@ -48,13 +48,14 @@
 
 import * as esbuild from 'esbuild-wasm';
 import wasmURL from 'esbuild-wasm/esbuild.wasm?url';
+import * as engine from '@hexdelve/engine';
 import {
 	noScripts,
 	SCRIPT_SDK_MODULE,
 	scriptSdkShim,
 	scriptsFromBundle,
 	type ScriptProvider,
-} from '@hexdelve/scripting';
+} from '@hexdelve/engine';
 
 /** The one esbuild the page gets. Initialising twice is an error it throws. */
 let starting: Promise<void> | null = null;
@@ -124,7 +125,7 @@ export async function compileScripts(
 
 	let provider: ScriptProvider;
 	try {
-		provider = scriptsFromBundle(code);
+		provider = scriptsFromBundle(code, engine);
 	} catch (error) {
 		// A bundle that compiled and would not evaluate. There is no position
 		// to report: the failure is in code esbuild wrote, not in a line
@@ -167,7 +168,7 @@ async function bundle(sources: ReadonlyMap<string, string>): Promise<string> {
 		logLevel: 'silent',
 		target: 'es2022',
 		// The legacy decorator design, which is the one esbuild implements, and
-		// what `@on` in `@hexdelve/scripting` is written against.
+		// what `@on` in `@hexdelve/engine` is written against.
 		tsconfigRaw: {
 			compilerOptions: { experimentalDecorators: true, useDefineForClassFields: true },
 		},
@@ -216,7 +217,7 @@ function virtualFiles(sources: ReadonlyMap<string, string>): esbuild.Plugin {
 				namespace: 'sdk',
 			}));
 			build.onLoad({ filter: /.*/, namespace: 'sdk' }, () => ({
-				contents: scriptSdkShim(),
+				contents: scriptSdkShim(engine),
 				loader: 'js',
 			}));
 		},

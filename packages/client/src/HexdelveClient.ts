@@ -23,7 +23,7 @@ import {
 } from '@hexdelve/engine';
 import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
-import { noScripts, type ScriptProvider } from '@hexdelve/scripting';
+import { noScripts, type ScriptProvider } from '@hexdelve/engine';
 
 import { openAssets, type OpenAssetsOptions } from './assets/library.js';
 import { loadScripts } from './game/scripts.js';

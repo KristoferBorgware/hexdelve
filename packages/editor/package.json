@@ -16,7 +16,6 @@
 		"@emotion/styled": "^11.14.1",
 		"@hexdelve/client": "*",
 		"@hexdelve/engine": "*",
-		"@hexdelve/scripting": "*",
 		"@hexdelve/shared": "*",
 		"@mui/icons-material": "^9.4.0",
 		"@mui/material": "^9.4.0",

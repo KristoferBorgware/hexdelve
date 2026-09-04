@@ -60,7 +60,7 @@ import {
 	type Axial,
 } from '@hexdelve/shared';
 
-import type { ScriptHost } from '@hexdelve/scripting';
+import type { ScriptHost } from '@hexdelve/engine';
 
 import {
 	ActorBehaviour,

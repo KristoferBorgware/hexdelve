@@ -27,7 +27,7 @@
  * while anything else is moving.
  */
 
-import { noScripts, ScriptHost, type ScriptProvider } from '@hexdelve/scripting';
+import { noScripts, ScriptHost, type ScriptProvider } from '@hexdelve/engine';
 
 import {
 	HEX_FLAG_UNLIT,

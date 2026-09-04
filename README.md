@@ -53,8 +53,9 @@ built properly.
 ```
 packages/
   shared/       maths, hex coordinates, seeded random — no dependencies at all
-  engine/       WebGPU and WebGL2 rendering, camera, frame loop, the scene graph
-  scripting/    what game behaviour is written as, and the host that swaps it
+  engine/       WebGPU and WebGL2 rendering, camera, frame loop, the scene
+                graph, and scripting — what behaviour is written as and the
+                host that swaps it while the game runs
   client/       the game itself; the package built for external distribution
     scripts/    the game's behaviour, in no application's module graph: compiled
                 on its own and fetched, so a broken one cannot stop a build
@@ -128,6 +129,21 @@ depth to [-1, 1] and WebGPU to [0, 1], and a projection built for the wrong one
 loses the near half of the scene; and `info`, because a user is entitled to
 know which backend they got.
 
+It also holds **scripting** — `Script`, `ScriptComponent`, the host that swaps
+a class underneath a running game, parameters and events. That was a package
+of its own for a while, on the argument that the engine should not know what a
+script is. The argument does not survive contact: `actor` and `item` are the
+game's vocabulary and the engine has never heard of either, but a SCRIPT is the
+engine's own answer to how a game object gets behaviour, exactly as `Component`
+is. A script reaches game objects, components and events, all of them the
+engine's, and a boundary between them was a boundary protecting nobody.
+
+What must never follow it in: the compiler and the hot reload. Those are
+authoring tools, they live in the editor, and a runtime that shipped a
+multi-megabyte WebAssembly toolchain to everyone playing the game would have
+stopped being one. A script author imports `@hexdelve/engine` and gets what the
+declarations say — nothing curated, nothing hidden.
+
 **`@hexdelve/client`** is the game, and the package this is all ultimately for.
 Hand it a canvas, get a running world. Its whole dependency list is the engine
 and the shared maths — no framework, no bundler runtime, no CDN script — which
@@ -166,7 +182,7 @@ The **script view** is the newest, and it is that argument one step further:
 what it edits is not data but the client's own behaviour — the TypeScript in
 `packages/client/scripts`, in Monaco, saved back to the same URLs the hot-reload
 watcher reads. It is a language service rather than a text box because a script
-is code: the declarations of `@hexdelve/scripting` and everything it stands on
+is code: the declarations of `@hexdelve/engine` and everything it stands on
 are handed to the editor as though they were installed, so `this.transform.`
 completes and a misspelt field is underlined where it is written; the whole
 directory is given to the service rather than the open file, because a script

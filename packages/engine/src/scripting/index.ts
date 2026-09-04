@@ -1,5 +1,5 @@
 /*
- * @hexdelve/scripting — what game behaviour is written as, and what runs it.
+ * Scripting — what game behaviour is written as, and what runs it.
  *
  * A script is a component: derive from `Script`, put the file in the client's
  * `scripts/` directory, and name it from a prefab. The engine drives it through
@@ -21,7 +21,6 @@ export {
 } from './ScriptHost.js';
 export { noScripts, staticScripts } from './providers.js';
 export {
-	scriptSdk,
 	scriptSdkShim,
 	scriptsFromBundle,
 	SCRIPT_SDK_GLOBAL,

@@ -111,7 +111,6 @@ const SCRIPT_TYPES = 'script-types.json';
 const TYPE_PACKAGES: readonly { name: string; dir: string }[] = [
 	{ name: '@hexdelve/shared', dir: resolve(root, 'packages', 'shared') },
 	{ name: '@hexdelve/engine', dir: resolve(root, 'packages', 'engine') },
-	{ name: '@hexdelve/scripting', dir: resolve(root, 'packages', 'scripting') },
 	{ name: '@webgpu/types', dir: resolve(root, 'node_modules', '@webgpu', 'types') },
 ];
 

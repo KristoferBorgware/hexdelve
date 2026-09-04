@@ -35,7 +35,6 @@ const root = resolve(import.meta.dirname, '..');
 const assetRoot = join(root, 'public', 'assets');
 const engineDist = join(root, 'packages', 'engine', 'dist', 'index.js');
 const clientDist = join(root, 'packages', 'client', 'dist', 'index.js');
-const scriptingDist = join(root, 'packages', 'scripting', 'dist', 'index.js');
 
 /** Only these travel. A pack is asset text, not whatever else is in the tree. */
 const PACKABLE = /\.ya?ml$/;
@@ -53,7 +52,7 @@ async function walk(dir) {
 
 async function main() {
 	if (!existsSync(assetRoot)) throw new Error(`no asset tree at ${relative(root, assetRoot)}`);
-	for (const dist of [engineDist, clientDist, scriptingDist]) {
+	for (const dist of [engineDist, clientDist]) {
 		if (!existsSync(dist)) {
 			throw new Error(
 				`missing ${relative(root, dist)} — run \`npm run build:libs\` first, ` +
@@ -125,9 +124,10 @@ async function main() {
 	 * to `arcPad`, the system prefab went on setting `spread`, and the rule ran
 	 * at its default for as long as it took somebody to read the console.
 	 */
-	const { scriptsFromBundle, parametersOf } = await import(pathToFileURL(scriptingDist).href);
+	const engine = await import(pathToFileURL(engineDist).href);
+	const { scriptsFromBundle, parametersOf } = engine;
 	const { bundleScripts } = await import('./build-scripts.mjs');
-	const behaviour = scriptsFromBundle((await bundleScripts()).code);
+	const behaviour = scriptsFromBundle((await bundleScripts()).code, engine);
 	let uses = 0;
 	for (const { id, prefab } of [...entities, ...systems]) {
 		for (const use of prefabScripts(prefab)) {

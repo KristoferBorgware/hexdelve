@@ -14,11 +14,12 @@
  * the container rather than about the code.
  */
 
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import * as engine from '@hexdelve/engine';
 import { Component, GameObject, prefabScripts, Scene } from '@hexdelve/engine';
 import {
 	param,
@@ -32,12 +33,12 @@ import {
 	ScriptHost,
 	ScriptObject,
 	ScriptScene,
-	scriptSdk,
+	scriptSdkShim,
 	scriptsFromBundle,
 	staticScripts,
 	type ScriptClass,
 	type ScriptProvider,
-} from '@hexdelve/scripting';
+} from '@hexdelve/engine';
 
 import { bundleScripts, scriptDir } from '../tools/build-scripts.mjs';
 import { openLibrary } from './harness/assets.js';
@@ -496,7 +497,7 @@ describe('the scripts this build ships', () => {
 
 	beforeAll(async () => {
 		const built = await bundleScripts();
-		provider = scriptsFromBundle(built.code);
+		provider = scriptsFromBundle(built.code, engine);
 		files = [...built.files];
 	}, 120_000);
 
@@ -649,22 +650,54 @@ describe('the scripts this build ships', () => {
 		expect(checked, 'some prefab sets some parameter').toBeGreaterThan(0);
 	});
 
-	it('offers exactly the names the SDK shim re-exports', async () => {
-		// The tool writes the shim's export list out by hand, because it cannot
-		// import the package it is compiling against. This is what stops the two
-		// drifting: a name added to `scriptSdk` and not to the tool would be an
-		// import that resolves to undefined inside every script.
-		const source = await readFile(
-			resolve(import.meta.dirname, '..', 'tools', 'build-scripts.mjs'),
-			'utf8',
+	/*
+	 * A script may use anything the engine exports, and the shim is what makes
+	 * that true at run time as well as at compile time.
+	 *
+	 * There used to be a hand-written list here, and a test that it matched a
+	 * curated SDK. Both are gone: the shim is generated from the engine's own
+	 * exports, so there is no second copy to drift. What is worth checking is
+	 * the property that replaced it — that what a script can SEE is what a
+	 * script can USE, which is the whole reason the curated list went.
+	 */
+	it('offers a script every runtime name the engine exports', () => {
+		const shim = scriptSdkShim(engine);
+		const offered = new Set([...shim.matchAll(/^export const (\w+) =/gm)].map((one) => one[1]));
+
+		const runtime = Object.keys(engine).filter(
+			(name) => /^[A-Za-z_$][\w$]*$/.test(name) && name !== 'default',
 		);
-		const listed = /const SDK_NAMES = \[([^\]]*)\]/.exec(source)?.[1] ?? '';
-		const names = [...listed.matchAll(/'([^']+)'/g)].map((one) => one[1]);
-		expect(names.sort()).toEqual(Object.keys(scriptSdk).sort());
+		expect(runtime.length, 'the engine exports something').toBeGreaterThan(20);
+		for (const name of runtime) expect(offered, name).toContain(name);
 	});
 
+	it('lets a script import something that is not scripting at all', async () => {
+		// The point of the merge, checked rather than asserted: `Scene` is the
+		// engine's, was never part of the old four-name SDK, and a script that
+		// asks for it now both compiles and gets the real class.
+		const written = resolve(scriptDir, 'ProbeEngineReach.ts');
+		await writeFile(
+			written,
+			"import { Scene, Script } from '@hexdelve/engine';\n" +
+				'export class ProbeEngineReach extends Script {\n' +
+				'\toverride onLoad(): void {\n' +
+				'\t\tif (!(this.scene.raw instanceof Scene)) throw new Error("not a scene");\n' +
+				'\t}\n' +
+				'}\n',
+			'utf8',
+		);
+		try {
+			const built = await bundleScripts();
+			const reachable = scriptsFromBundle(built.code, engine);
+			const probe = reachable.resolve('ProbeEngineReach');
+			expect(probe, 'it compiled').not.toBeNull();
+		} finally {
+			await rm(written, { force: true });
+		}
+	}, 120_000);
+
 	it('reaches the SAME Script class the host checks against', () => {
-		// The bundle's `@hexdelve/scripting` import is rewritten to a global, so
+		// The bundle's `@hexdelve/engine` import is rewritten to a global, so
 		// that this is true. Bundling the real package instead would give the
 		// scripts their own copy and every `instanceof` here would be false.
 		const spin = provider.resolve('Spin')!;

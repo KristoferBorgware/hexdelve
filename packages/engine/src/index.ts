@@ -259,3 +259,19 @@ export { instanceTotal } from './renderer/types.js';
 
 export { WebGPURenderer } from './renderer/webgpu/WebGPURenderer.js';
 export { WebGL2Renderer } from './renderer/webgl2/WebGL2Renderer.js';
+
+/*
+ * Scripting: behaviour as a component, and the host that runs it.
+ *
+ * In the engine rather than beside it, because a script is not a game concept.
+ * `actor` and `item` are hexdelve's vocabulary and the engine has never heard
+ * of them; a SCRIPT is the engine's own answer to how a game object gets
+ * behaviour, the same way `Component` is. Splitting it out asked every reader
+ * to hold a boundary that protected nobody — the game and the engine go
+ * together here and always will.
+ *
+ * What is NOT here, and must not arrive: the compiler and the hot reload. Those
+ * are authoring tools, they live in the editor, and a production runtime that
+ * carried a WebAssembly toolchain would have stopped being one.
+ */
+export * from './scripting/index.js';

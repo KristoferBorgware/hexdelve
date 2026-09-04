@@ -3,7 +3,6 @@
 	"references": [
 		{ "path": "packages/shared" },
 		{ "path": "packages/engine" },
-		{ "path": "packages/scripting" },
 		{ "path": "packages/client" },
 		{ "path": "packages/editor" },
 		{ "path": "packages/desktop" }

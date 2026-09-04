@@ -9,11 +9,12 @@
  * the object it is on.
  */
 
-import { Component, type GameObject } from '@hexdelve/engine';
+import { Component } from '../scene/GameObject.js';
+import type { GameObject } from '../scene/GameObject.js';
 
 import type { ScriptHost } from './ScriptHost.js';
 import { ScriptObject, ScriptScene } from './handles.js';
-import type { Scene } from '@hexdelve/engine';
+import type { Scene } from '../scene/Scene.js';
 
 export interface ScriptComponentOptions {
 	readonly host: ScriptHost;

@@ -49,7 +49,7 @@ import {
 	type Random,
 } from '@hexdelve/shared';
 
-import type { ScriptHost } from '@hexdelve/scripting';
+import type { ScriptHost } from '@hexdelve/engine';
 
 import {
 	ActorBehaviour,
