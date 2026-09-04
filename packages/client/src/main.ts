@@ -58,7 +58,11 @@ try {
 		...(batSpeed !== undefined ? { batSpeed } : {}),
 	});
 
-	if (query.get('gear') === '1') for (const item of client.simulation.items) item.equip();
+	// `?gear=1` starts him already carrying it, so the guard stance and the
+	// worn props can be looked at without walking him round the yard first.
+	if (query.get('gear') === '1') {
+		for (const item of client.simulation.items) item.equip(client.simulation.player.object);
+	}
 
 	const info = client.info;
 

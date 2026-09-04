@@ -665,8 +665,8 @@ export class Player extends ActorBehaviour implements TurnTaker {
 			} else if (flight.kind === 'pickup' && flight.item) {
 				if (!flight.done && u >= STOOP_GRAB) {
 					flight.done = true;
-					// The whole of picking it up.
-					flight.item.equip();
+					// The whole of picking it up: it becomes part of him.
+					flight.item.equip(this.object);
 				}
 			}
 

@@ -42,6 +42,7 @@ import {
 import { ScriptComponent, type ScriptHost } from '@hexdelve/scripting';
 
 import { Actor } from './actor.js';
+import { BoneFollow } from './bonefollow.js';
 import { Item } from './items.js';
 
 /**
@@ -118,13 +119,23 @@ function itemFactory(context: ComponentContext): void {
 	const entity = entityOf(context);
 	context.fields.only('type', 'label');
 
+	const bone = entity.attach?.bone ?? 'root';
 	context.object.addComponent(Item, {
 		label: context.fields.get('label').textOr(entity.id),
-		bone: entity.attach?.bone ?? 'root',
+		bone,
 		model: entity.mesh.model(),
 		lift: entity.ground?.lift ?? 0,
 		tilt: entity.ground?.tilt ?? 0,
 	});
+
+	/*
+	 * And what it does when somebody is carrying it: sit on that bone. Added
+	 * here rather than named in the prefab because it is not a choice — a prop
+	 * declares the bone it belongs to in its own entity file, and a prop that
+	 * could be picked up and then not follow the hand would be a prop with a
+	 * missing line in it.
+	 */
+	context.object.addComponent(BoneFollow, { bone });
 }
 
 /**

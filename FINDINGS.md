@@ -136,42 +136,6 @@ one in the `.gitignore` comment, and nothing imports them. The alternative —
 renaming `public/assets` — is worse, because `/assets/rigs/humanoid.rig.yaml` is
 an address that appears inside the asset files themselves.
 
-### F-006 — Picking something up is still two drawing paths, not a re-parent
-
-**Kind:** cleanup
-**Milestone:** scripting
-**Priority:** medium
-**Effort:** medium
-**Found:** 2026-09-04, spawning the gear from its own prefabs
-**Where:** `Item.emit` in `packages/client/src/game/items.ts`, `Simulation.emit`
-
-**What happens.** An `Item` carries a `worn` flag and two ways of drawing
-itself. Worn, it emits through the wearer's `WorldPose` with the actor's
-position and yaw passed in; on the ground, it emits through one transform of
-its own built from a lift and a tilt. `Simulation.emit` picks between them by
-asking each item which it is.
-
-Both paths predate the object model. The item is now a component on a game
-object that has a transform and can have a parent, so being carried is
-expressible as what it actually is: the object moves under the hand's, and one
-drawing path serves both.
-
-**Why it matters.** Nothing is drawn wrong today. It matters because the second
-path is the reason a prop cannot be carried by anything except the one rig it
-was authored against — `emit` takes a pose and a bone name, so a helmet on a
-hellhound would need a `head` bone by that name and nothing checks. It also
-means an object's transform is not the truth about where a worn prop is, which
-is exactly the thing the object model was introduced to stop.
-
-**What would fix it.** A component that writes its object's local transform
-each frame from a named bone of the nearest actor above it — the shape the
-prefab reader's comment already describes and deliberately did not build.
-Equipping then becomes `hand.add(sword)`, dropping becomes `scene.root.add`,
-and `Item.emit` collapses to `model.emitDetached` through `object.world`. The
-ordering is the awkward part rather than the code: the bone follow has to run
-after the actor has solved its pose and before the scene solves, and today the
-simulation drives those two by hand.
-
 ### F-010 — A creature that has fallen is still drawn standing
 
 **Kind:** gap
@@ -575,3 +539,41 @@ the two agree: rename `spread` to `arcPad` in the prefab, or drop the line if
 knows every parameter a script declares, so a check that every `type: script`
 entry in `public/assets` names only parameters its class has would cover the
 whole tree in one assertion, and `test/prefab.test.ts` is where it belongs.
+
+### F-006 — Picking something up is still two drawing paths, not a re-parent
+
+**Kind:** cleanup
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-04, spawning the gear from its own prefabs
+**Where:** `Item.emit` in `packages/client/src/game/items.ts`, `Simulation.emit`
+**Closed:** 2026-09-04, fixed — a carried prop is a child of its carrier and
+`BoneFollow` writes its local transform from the bone
+
+**What happens.** An `Item` carries a `worn` flag and two ways of drawing
+itself. Worn, it emits through the wearer's `WorldPose` with the actor's
+position and yaw passed in; on the ground, it emits through one transform of
+its own built from a lift and a tilt. `Simulation.emit` picks between them by
+asking each item which it is.
+
+Both paths predate the object model. The item is now a component on a game
+object that has a transform and can have a parent, so being carried is
+expressible as what it actually is: the object moves under the hand's, and one
+drawing path serves both.
+
+**Why it matters.** Nothing is drawn wrong today. It matters because the second
+path is the reason a prop cannot be carried by anything except the one rig it
+was authored against — `emit` takes a pose and a bone name, so a helmet on a
+hellhound would need a `head` bone by that name and nothing checks. It also
+means an object's transform is not the truth about where a worn prop is, which
+is exactly the thing the object model was introduced to stop.
+
+**What would fix it.** A component that writes its object's local transform
+each frame from a named bone of the nearest actor above it — the shape the
+prefab reader's comment already describes and deliberately did not build.
+Equipping then becomes `hand.add(sword)`, dropping becomes `scene.root.add`,
+and `Item.emit` collapses to `model.emitDetached` through `object.world`. The
+ordering is the awkward part rather than the code: the bone follow has to run
+after the actor has solved its pose and before the scene solves, and today the
+simulation drives those two by hand.
