@@ -84,11 +84,11 @@ A trap is invisible until something sets `TRF_VISIBLE` on it. `square_reveal_tra
 if (!always && player->state.skills[SKILL_SEARCH] < trap->power) continue;
 ```
 
-This one line is the **only** use of `SKILL_SEARCH` in the entire game. It is called with `always = false` from `cave-map.c` and `cave-view.c` whenever a grid becomes seen — so spotting a trap costs nothing, takes no turn, and is purely a threshold test against a number rolled when the level was made — and with `always = true` from `effect_handler_DETECT_TRAPS()`, which is why detection finds everything regardless of skill. A character with low search walks onto traps they never had a chance of seeing.
+This one line is the **only** use of `SKILL_SEARCH` in the entire game. It is called with `always = false` from `cave-map.c` and `cave-view.c` whenever a grid becomes seen — so spotting a trap takes no turn and no action, and is a threshold test against a number rolled when the level was made — and with `always = true` from `effect_handler_DETECT_TRAPS()`, which is why detection finds everything regardless of skill. A character with low search walks onto traps they never had a chance of seeing.
 
 `search()`, run after every step by `player_handle_post_move()`, does *not* look for floor traps. It converts adjacent secret doors into closed doors with no roll at all and reveals traps on adjacent known chests, and it is skipped entirely while blind, confused, hallucinating or in the dark.
 
-Detection paints `SQUARE_DTRAP` over the area it covered. `square_dtrap_edge()` reports grids inside that area with a non-detected orthogonal neighbour, which is what the UI draws as the boundary of the detected region — the practical use of a Detect Traps scroll is that edge, not the traps themselves.
+Detection paints `SQUARE_DTRAP` over the area it covered. `square_dtrap_edge()` reports grids inside that area with a non-detected orthogonal neighbour, and the UI draws those grids as the boundary of the detected region, so the map shows how far the last detection reached as well as what it found.
 
 ## 14.5 Triggering — `hit_trap()`
 
@@ -114,11 +114,11 @@ For each trap on the grid, in list order:
 7. `TRF_PIT` calls `monster_swap()` to drag the player onto the trap's grid, then re-runs the post-move handling with trap evaluation off.
 8. `TRF_ONETIME` **or `one_in_(3)`** removes the trap; otherwise it becomes visible.
 
-Two consequences are worth stating plainly, because both are easy to get backwards:
+Two consequences follow from that ordering:
 
-**Steps 6 and 7 are outside the save branch.** Feather Fall is on the `save:` line of the trap door and all three pits, so it cancels the 2d8 fall damage, the spikes and the poison — and you still go down a level, and you are still moved into the pit. Feather Fall makes trap doors free, not harmless; it does not make them not happen.
+**Steps 6 and 7 are outside the save branch.** Feather Fall is on the `save:` line of the trap door and all three pits, so it cancels the 2d8 fall damage, the spikes and the poison. The level change and the move into the pit happen anyway: a save removes a trap door's damage and not its descent.
 
-**Two thirds of traps survive firing.** Only `ONETIME` kinds always vanish; everything else has a flat 1-in-3 chance of being consumed and otherwise stays, now visible. Walking back over your own confusion gas trap is a normal way to die.
+**Two thirds of traps survive firing.** Only `ONETIME` kinds always vanish; everything else has a flat 1-in-3 chance of being consumed and otherwise remains on the grid, now visible, and triggers again on the next step onto it.
 
 ## 14.6 The player traps
 
@@ -193,7 +193,7 @@ These are the same storage with `TRF_TRAP` absent, so nothing in 14.3–14.7 app
 if (randint1(z_info->glyph_hardness) < mon->race->level)  /* break-glyph:550 */
 ```
 
-so the chance to break it in one attempt is roughly `level / 550` — about 1 in 11 per attempt for a level-50 monster, and never for anything under level 1. The comment at the call site is the important part: *failure does not break the movement loop*, so a monster gets one roll per movement attempt per turn rather than one per turn. A glyph is a delay and a filter against low-level swarms, not a wall.
+so the chance to break it in one attempt is roughly `level / 550` — about 1 in 11 for a level-50 monster, and never for anything under level 1. A failed roll does not break the monster's movement loop, so a monster gets one roll per movement attempt rather than one per turn, and a glyph delays a strong monster by a turn or two while stopping a weak one outright.
 
 **Decoy** (`;` green, same flags) comes from `EF_GLYPH:DECOY`. Monsters that are `monster_is_decoyed()` path towards `cave_find_decoy()` instead of the player, and any monster reaching it destroys it in one action unless it is `RF_NEVER_BLOW`. It also dies on its own if the player moves further than `max_sight` from it (`player_leaving()`).
 
@@ -204,11 +204,11 @@ so the chance to break it in one attempt is roughly `level / 550` — about 1 in
 | `RF_PASS_WEB` monster | Ignores it entirely |
 | `RF_PASS_WALL` monster | Passes through, web intact |
 | Wall-destroying monster | Destroys the web, keeps its turn |
-| `RF_CLEAR_WEB` monster | Destroys the web, **costs the turn** |
+| `RF_CLEAR_WEB` monster | Destroys the web and **spends the turn** doing it |
 | Any other monster | Stuck; turn ends |
 | Player | Clears it and spends the move, from any movement command |
 
-So a web costs the player exactly one turn per web and costs most monsters every turn they spend in one — spiders web you to buy the rest of the pack a free approach.
+A web therefore takes one turn from the player per web crossed, and takes every turn from a monster that can neither pass nor clear it, which is what holds a webbed monster in place while the rest of its group closes.
 
 ## 14.9 Door locks
 
@@ -230,7 +230,7 @@ Chests carry their traps in the object's `pval` as a **bit set**, so one chest c
 
 `pick_chest_traps()` runs at object generation from the chest kind's level: `one_in_(10)` for no trap at all, otherwise one trap, plus a second above level 5 with probability `1/(1 + (65 − level)/10)`, plus a third above level 45 with probability `1/(65 − level)` and a fourth `one_in_(40)` after that. Duplicate picks simply OR into the same bit, so the deep-chest numbers are looser than they look.
 
-Opening (`do_cmd_open_chest()`) picks the lock at `chance = MAX(skills[SKILL_DISARM_PHYS] − pval, 2)`, with the same blind/dark and confused/hallucinating tenth-ing applied *twice* if both hold, and fires every armed trap on success unless the player is trap-safe. Disarming (`do_cmd_disarm_chest()`) uses physical skill for physical traps, magical for magical, and the **mean of the two** when the chest has both; success negates `pval` and pays `pval` experience, and, exactly as with floor traps, there are two rolls — succeed, fail safely, or set it off.
+Opening (`do_cmd_open_chest()`) picks the lock at `chance = MAX(skills[SKILL_DISARM_PHYS] − pval, 2)`, with the same blind/dark and confused/hallucinating tenth-ing applied *twice* if both hold, and fires every armed trap on success unless the player is trap-safe. Disarming (`do_cmd_disarm_chest()`) uses physical skill for physical traps, magical for magical, and the **mean of the two** when the chest has both; success negates `pval` and grants `pval` experience, and, exactly as with floor traps, there are two rolls — succeed, fail safely, or set it off.
 
 Contents are rolled at `origin_depth + 5` by `chest_death()`: one item for wooden chests, two for iron, three for steel, `randint1(3)` otherwise, all forced good and forced great for "Large" chests, with nested chests rejected and re-rolled.
 
