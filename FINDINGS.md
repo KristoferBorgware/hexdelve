@@ -187,6 +187,50 @@ each call site.
 
 ---
 
+### F-017 — The ground speed measurement cannot read a gait whose left and right feet land together
+
+**Kind:** gap
+**Milestone:** game
+**Priority:** low
+**Effort:** medium
+**Found:** 2026-09-04, giving the dire hellhound's gallop a contact schedule
+**Where:** `measureGroundSpeed` in `packages/engine/src/anim/measure.ts`, `feet` in `packages/engine/src/assets/rig.ts`
+
+**What happens.** `measureGroundSpeed` takes two feet and one contact phase,
+samples the pose at that phase and half a cycle later, and averages the
+travel of the first foot over the first half with the travel of the second
+foot over the second half. That is the whole of what a rig's `feet` pair
+means: two feet that alternate, half a cycle apart. A gallop's left and right
+hind paws do not alternate — they land a tenth of a cycle apart — so declared
+as the pair, the two halves of the average cancel and the measurement comes
+out near zero for a gait that is plainly travelling.
+
+The dire hellhound's rig works round this by naming one hind paw and one
+front paw as its `feet`, because in a gallop it is the hind pair and the
+front pair that alternate. The measurement then reads the gait correctly
+(about 2.2 m/s at `direhound.entity.yaml`'s `run`), but what the number
+means has quietly changed: it is the average of a hind paw's stride and a
+front paw's stride rather than of two mirror images, and the two are only
+equal because the pose function makes them so.
+
+**Why it matters.** Nobody yet. The dire hellhound has no blend tree, and its
+`feet` declaration is documented in its rig file. It matters the moment a
+second galloping or bounding creature is added, or the hellhound's trot is
+given a schedule, because each will have to rediscover that `feet` means
+"alternating pair" rather than "a left and a right", and a pair that does
+not alternate fails silently as a plausible-looking small number rather than
+as an error.
+
+**What would fix it.** Two options. The smaller is to let `contacts` carry
+one phase per foot and have the measurement read each foot from its own
+landing to its own lift-off, so any two planted feet measure, whichever way
+they are paired; `AnimationAsset.contacts` already holds a number per foot
+and only the first is read. The larger is to measure every foot the rig
+names and average all of them, which would also let a quadruped declare four
+feet. Either way, a pair that lands together should be refused or warned
+about rather than measured.
+
+
 ## Closed
 
 ### F-007 — A script with a syntax error stops the editor from booting

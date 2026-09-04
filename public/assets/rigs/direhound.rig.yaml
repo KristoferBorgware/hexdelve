@@ -1,0 +1,133 @@
+# The dire hellhound's rig.
+#
+# A quadruped built for weight rather than reach: the hellhound's shape — front
+# legs off the chest, hind legs off the hips, a spine bridging the two — with
+# thirty bones where the hellhound has twenty-five, and every one of the five
+# extra is a joint the animations move.
+#
+#   shoulderL/R   a scapula between the chest and each front leg. A dog has no
+#                 collarbone, so its shoulder blade slides on the ribcage and a
+#                 running dog's whole shoulder rocks with the stride. Hung off
+#                 this bone, the front leg swings from the withers rather than
+#                 from a point on the chest, which is what gives the gallop its
+#                 reach and the bite its hunch.
+#   neckA, neckB  two neck segments rather than one, because a heavy neck
+#                 curves: lowered for the stare and stretched for the bite, the
+#                 base and the poll turn through different angles.
+#   frontWrist*   the pastern, between the forearm and the paw. It folds the
+#                 paw back during the swing and lets it lie flat on the ground.
+#   backHock*     the metatarsus, hock to paw. This is the segment that makes a
+#                 hind leg read as a hind leg — the hock is the joint that
+#                 points backwards.
+#   tailC         a third tail segment, so the tail curves rather than kinks.
+#
+# The hind leg is bent at rest. Its offsets are angled — femur forward and
+# down, tibia back and down, metatarsus down — so the pose with every rotation
+# at zero is a standing dog, not a table. The front leg has the same treatment
+# in a smaller dose: humerus back and down from the point of the shoulder,
+# forearm straight, pastern a little forward. Rotations are still deltas from
+# that, so the rules below hold about the JOINT: `rot.x < 0` swings the chain
+# below it forward whichever way the bone points at rest.
+#
+# Conventions match the other rigs: it faces +Z, +X is its own left, +Y is up.
+# Where a chain hangs down like a limb (the four legs, the ears), the humanoid's
+# rule holds: rot.x < 0 swings it FORWARD, > 0 BACK; rot.z > 0 swings it out
+# towards +X. Where a chain runs forward like a spine (root, spineMid, chest,
+# neckA, neckB, head, jaw), the bat's rule holds instead: rot.x > 0 pitches the
+# tip DOWN, < 0 lifts it; rot.y > 0 turns it towards the animal's own left. The
+# tail runs backward, so on it rot.x > 0 lifts the tip and rot.y > 0 swings it
+# to the animal's RIGHT.
+
+id: direhound
+name: Dire hellhound
+
+metrics:
+  # Hip height at rest, the same role the humanoid's hipHeight plays. The
+  # withers stand higher than the croup, as a wolf's do.
+  hipHeight: 0.8
+  # Roughly the middle of the animal's mass, for a camera to look at.
+  standHeight: 0.72
+
+bones:
+  - { name: root, offset: [0, hipHeight, 0] }
+  - { name: spineMid, parent: root, offset: [0, 0.03, 0.32] }
+  - { name: chest, parent: spineMid, offset: [0, 0.07, 0.34] }
+
+  # The shoulder blades, high and wide on the chest: the widest point of the
+  # animal is here, not at the hips.
+  - { name: shoulderL, parent: chest, offset: [0.21, 0.05, 0.04] }
+  - { name: shoulderR, parent: chest, offset: [-0.21, 0.05, 0.04] }
+
+  - { name: neckA, parent: chest, offset: [0, 0.09, 0.22] }
+  - { name: neckB, parent: neckA, offset: [0, 0.03, 0.2] }
+  - { name: head, parent: neckB, offset: [0, 0, 0.17] }
+  - { name: jaw, parent: head, offset: [0, -0.07, 0.11] }
+  - { name: earL, parent: head, offset: [0.08, 0.11, -0.03] }
+  - { name: earR, parent: head, offset: [-0.08, 0.11, -0.03] }
+
+  # Front legs, four bones a side below the scapula: humerus, forearm,
+  # pastern, paw. The humerus runs back and down to the elbow, which sits
+  # under the withers; the forearm drops straight from there.
+  - { name: frontLegL, parent: shoulderL, offset: [0, -0.15, 0.03] }
+  - { name: frontShinL, parent: frontLegL, offset: [0, -0.28, -0.07] }
+  - { name: frontWristL, parent: frontShinL, offset: [0, -0.3, 0] }
+  - { name: frontPawL, parent: frontWristL, offset: [0, -0.15, 0.03] }
+  - { name: frontLegR, parent: shoulderR, offset: [0, -0.15, 0.03] }
+  - { name: frontShinR, parent: frontLegR, offset: [0, -0.28, -0.07] }
+  - { name: frontWristR, parent: frontShinR, offset: [0, -0.3, 0] }
+  - { name: frontPawR, parent: frontWristR, offset: [0, -0.15, 0.03] }
+
+  # Hind legs, four bones a side off the hips: femur, tibia, metatarsus, paw.
+  # The femur runs forward and down to the stifle, the tibia back and down to
+  # the hock, and the metatarsus drops from the hock to a paw that stands just
+  # behind the hip joint — the Z every dog stands on.
+  - { name: backLegL, parent: root, offset: [0.16, -0.02, -0.03] }
+  - { name: backShinL, parent: backLegL, offset: [0, -0.26, 0.17] }
+  - { name: backHockL, parent: backShinL, offset: [0, -0.24, -0.19] }
+  - { name: backPawL, parent: backHockL, offset: [0, -0.21, 0.04] }
+  - { name: backLegR, parent: root, offset: [-0.16, -0.02, -0.03] }
+  - { name: backShinR, parent: backLegR, offset: [0, -0.26, 0.17] }
+  - { name: backHockR, parent: backShinR, offset: [0, -0.24, -0.19] }
+  - { name: backPawR, parent: backHockR, offset: [0, -0.21, 0.04] }
+
+  # Three tail segments, drooping from the croup, so a lash travels down the
+  # tail as a wave rather than swinging it as one bar.
+  - { name: tailA, parent: root, offset: [0, 0.04, -0.18] }
+  - { name: tailB, parent: tailA, offset: [0, -0.06, -0.22] }
+  - { name: tailC, parent: tailB, offset: [0, -0.07, -0.2] }
+
+tips:
+  - { bone: jaw, to: [0, -0.03, 0.14] }
+  - { bone: earL, to: [0.02, 0.14, -0.05] }
+  - { bone: earR, to: [-0.02, 0.14, -0.05] }
+  - { bone: frontPawL, to: [0, -0.07, 0.13] }
+  - { bone: frontPawR, to: [0, -0.07, 0.13] }
+  - { bone: backPawL, to: [0, -0.07, 0.13] }
+  - { bone: backPawR, to: [0, -0.07, 0.13] }
+  - { bone: tailC, to: [0, -0.04, -0.18] }
+
+# Which pair a ground speed is measured off. The measurement wants two feet
+# that alternate, half a cycle apart. In a gallop the two hind paws land almost
+# together and the two front paws land almost together, so a left-and-right
+# pair does not alternate at all; what alternates is the hind pair against the
+# front pair. So the pair here is one hind paw and one front paw.
+feet: [backPawL, frontPawL]
+
+groups:
+  # One front leg, scapula to paw, and one hind leg, hip to paw — what the
+  # gait and the bite both walk, so a leg is not named its bones five times.
+  frontL: [shoulderL, frontLegL, frontShinL, frontWristL, frontPawL]
+  frontR: [shoulderR, frontLegR, frontShinR, frontWristR, frontPawR]
+  backL: [backLegL, backShinL, backHockL, backPawL]
+  backR: [backLegR, backShinR, backHockR, backPawR]
+  neck: [neckA, neckB, head]
+  tail: [tailA, tailB, tailC]
+
+anchors:
+  # Where the teeth meet, in the jaw bone's own space: the point a bite is
+  # measured to.
+  jawTip: { bone: jaw, at: [0, -0.02, 0.16] }
+
+view:
+  focusY: standHeight
+  frameDistance: 5.4

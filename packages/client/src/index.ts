@@ -154,6 +154,15 @@ export {
 	HOUND_STRIDE_PERIOD,
 	BITE_CONTACT as HOUND_BITE_CONTACT,
 } from './game/hellhoundpose.js';
+export {
+	runPose as direRunPose,
+	bitePose as direBitePose,
+	restPose as direRestPose,
+	DIRE_STRIDE_PERIOD,
+	DIRE_RUN_CONTACTS,
+	DIRE_BITE_CONTACT,
+	DIRE_CHAIN,
+} from './game/direhoundpose.js';
 export { LEG_LENGTH, HUMANOID_SKELETON } from './game/humanoid.js';
 export {
 	stridePose,
