@@ -79,22 +79,32 @@ public/assets/   served as themselves by both apps, and copied into both builds
   meshes/       hex prisms bound to bones
   clips/        keyframes, pose-major
   trees/        blend trees over animations the entity names
+  audio/        the ambience loops, and the generators that synthesise them
 docs/
   angband/      Angband's rules, read out of its source as a reference
   assets.md     the asset file format, and what is deliberately still code
   levelgen.md   the level generation stacks, what they measured, what is next
 tools/          the scripts that are run by hand rather than imported
-  audio/        ambience, and the generators that synthesise it — they produce
-                files, they are not files the game reads, which is why they
-                live here and not beside the asset tree under public/
 ```
 
-`tools/audio` holds the Node scripts that render three loops from scratch — no
-samples, no dependencies. The `.wav` files they produce are gitignored:
+`public/assets/audio` holds seven Node programs that render an ambience loop
+each from nothing — no samples, no dependencies, three minutes apiece and
+seamless. They sit beside the `.wav` files they write, because a render is only
+reproducible if you can find what rendered it, and because audio is an asset:
+the game will read it from `/assets/audio/` the way it reads a rig from
+`/assets/rigs/`.
 
 ```
-node tools/audio/dungeon-crawl.js
+npm run audio                    # every track that is not already rendered
+npm run audio -- --force         # every track, again
+npm run audio -- dungeon-crawl   # one of them
+npm run audio -- --list          # what there is, and what is on disk
 ```
+
+The `.wav` files are gitignored: ~30 MB each, and committing them would make
+the history a couple of hundred times larger than the source. The generators
+are not published either — they are source, and a build takes them back out of
+the asset tree it copies (see `audioSources` in `vite.assets.mts`).
 
 ## The packages
 
@@ -108,6 +118,7 @@ npm run typecheck       # every package, no output
 npm run build:pages     # build, then stage the whole site in dist/pages
 npm test                # every test in test/, once
 npm run assets          # pack public/assets into dist/assets.json, and check it
+npm run audio           # render the ambience loops into public/assets/audio
 npm run test:watch      # and again on every save
 ```
 

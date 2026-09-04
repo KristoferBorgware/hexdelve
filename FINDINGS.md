@@ -105,6 +105,38 @@ message. If it does not, the finding closes as an artefact of the container and
 `HOW-TO-TAKE-A-FRAME`-style guidance should say to force WebGL2 when driving the
 editor headlessly.
 
+### F-016 — A rendered ambience track is copied into every build output
+
+**Kind:** risk
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-04, moving the audio generators into `public/assets/audio`
+**Where:** `public/assets/audio/`, `packages/*/vite.config.ts` (`publicDir`),
+`tools/build-pages.js`
+
+**What happens.** The `.wav` renders sit in `public/assets/audio`, which is the
+`publicDir` both applications copy wholesale into their build output. One track
+is 21–30 MB. Seven of them is about 200 MB, and `npm run build:pages` stages the
+client's output and the editor's output side by side, so a full local build on a
+machine that has rendered everything writes roughly 600 MB and then offers it to
+`actions/upload-pages-artifact`.
+
+**Why it matters.** Nobody has been hurt yet, and CI cannot be: the renders are
+gitignored, so a clean checkout has none of them and every build there copies an
+empty directory. It is a local machine and a deploy that would notice — a
+`build:pages` that takes minutes instead of seconds, and an artefact upload that
+fails on size rather than on anything to do with the change that triggered it.
+The failure would arrive nowhere near its cause.
+
+**What would fix it.** Nothing, until something plays the audio: the right
+answer depends on how the game asks for a track. If it streams one at a time
+from `/assets/audio/`, the tracks want to be published but not all at once, and
+the fix is a manifest naming which ones ship and an extension of `audioSources`
+in `vite.assets.mts` to copy only those. If it turns out the audio should be
+served from somewhere else entirely — a release asset, a CDN — the fix is to
+stop copying the directory at all. Deciding now would be deciding without the
+one fact that settles it.
 
 
 ### F-016 — A file the dev server has just written is not served until Vite notices it
@@ -667,7 +699,12 @@ or drop the wrapper and let the subheader be the list item it already is.
 **Found:** 2026-09-03, moving the game's asset files under `public/`
 **Where:** `assets/audio/`, `public/assets/`
 **Closed:** 2026-09-04, fixed — the audio generators moved to `tools/audio`,
-which is where the scripts that are run by hand live
+which is where the scripts that are run by hand live. Reversed the same day:
+they moved on to `public/assets/audio`, beside the `.wav` files they write,
+because audio is an asset the game will read from `/assets/audio/` and a render
+is only reproducible if whatever rendered it can be found next to it. The
+finding itself stands closed either way — there is one `assets` now, and the
+audio is under it.
 
 **What happens.** `public/assets/` holds the rigs, meshes, clips and trees, is
 served by both apps at `/assets/` and is copied into both builds. `assets/` at
