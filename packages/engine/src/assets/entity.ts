@@ -28,8 +28,8 @@
  * WHY THE BLEND TREES LINK ANIMATIONS AND NOT THE OTHER WAY ROUND. A tree
  * refers to `walk`, and the entity is what says what `walk` is. That way the
  * files that list paths are exactly one — this one — and a tree is a pure
- * arrangement over named leaves, so the locomotion tree is the same file for
- * the wanderer and the ghoul. The alternative, a tree that carries its own
+ * arrangement over named leaves, so one locomotion tree reads on every entity
+ * that names its leaves. The alternative, a tree that carries its own
  * clip paths, would have the entity and the tree both naming files and both
  * able to disagree about which walk was meant.
  */

@@ -94,8 +94,11 @@ export function benchRig(entity: EntityAsset): BenchRig | null {
 		label: entity.name,
 		skeleton: rig.skeleton,
 		tips: rig.tips,
-		focusY: rig.view.focusY,
-		frameDistance: rig.view.frameDistance,
+		// The entity's own framing, which is the rig's unless the file says
+		// otherwise: a creature that stands crouched on a rig built upright
+		// has its middle lower than the rig's hips.
+		focusY: entity.view.focusY,
+		frameDistance: entity.view.frameDistance,
 		model: () => (built ??= entity.mesh.model()),
 		animations,
 	};

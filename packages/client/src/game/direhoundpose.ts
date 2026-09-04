@@ -27,6 +27,8 @@
 
 import { mixSparse, setSparse, type SparsePose } from '@hexdelve/engine';
 
+import { groundPath, plus, turn, twoLink, type Planar } from './planar.js';
+
 /*
  * The bones this gait was written against — see the note in batpose.ts for why
  * they travel with the function rather than being fetched. Pinned to
@@ -72,7 +74,7 @@ const PAIR_LAG = 0.4;
  *
  * Each entry is [y, z] of a bone's offset from its parent; x plays no part,
  * because every rotation in the gait is about x and the legs move in the
- * plane of the body.
+ * plane of the body — see planar.ts, which solves them.
  */
 export const DIRE_CHAIN = {
 	hipHeight: 0.8,
@@ -91,92 +93,6 @@ export const DIRE_CHAIN = {
 	pawHeight: 0.07,
 } as const;
 
-type Planar = readonly [number, number];
-
-/** [y, z] turned about x by `r`: rot.x > 0 pitches a forward vector down. */
-const turn = (v: Planar, r: number): Planar => {
-	const c = Math.cos(r);
-	const s = Math.sin(r);
-	return [v[0] * c - v[1] * s, v[0] * s + v[1] * c];
-};
-const plus = (a: Planar, b: Planar): Planar => [a[0] + b[0], a[1] + b[1]];
-const span = (v: Planar): number => Math.hypot(v[0], v[1]);
-/** How far a vector points forward of straight down, in radians. */
-const bearing = (v: Planar): number => Math.atan2(v[1], -v[0]);
-/** A vector of length `l` at that bearing. */
-const heading = (a: number, l: number): Planar => [-l * Math.cos(a), l * Math.sin(a)];
-
-/**
- * Two links from `from` to `target`, in the plane, solved for the rotation
- * each bone needs — the same triangle the engine's IK solves, in the one
- * plane a gait lives in.
- *
- * @param frame   the rotation of the frame the first link's offset is in
- * @param first   the first link's rest offset (the second bone's offset)
- * @param second  the second link's rest offset, already folded at any joint
- *                below the one being solved
- * @param bend    +1 puts the middle joint BEHIND the line from `from` to
- *                `target` (an elbow), -1 ahead of it (a stifle)
- * @returns the rotations of the two bones, and the shortfall in metres when
- *          the target is out of reach and the leg is left straight
- */
-function twoLink(
-	frame: number,
-	from: Planar,
-	first: Planar,
-	second: Planar,
-	target: Planar,
-	bend: number,
-): [number, number, number] {
-	const l1 = span(first);
-	const l2 = span(second);
-	const line: Planar = [target[0] - from[0], target[1] - from[1]];
-	const distance = span(line);
-	const along = bearing(line);
-
-	let a1: number;
-	let a2: number;
-	let short = 0;
-	if (distance >= l1 + l2) {
-		a1 = along;
-		a2 = along;
-		short = distance - (l1 + l2);
-	} else {
-		const cosine = (l1 * l1 + distance * distance - l2 * l2) / (2 * l1 * distance);
-		const open = Math.acos(Math.max(-1, Math.min(1, cosine)));
-		a1 = along - bend * open;
-		const mid = plus(from, heading(a1, l1));
-		a2 = bearing([target[0] - mid[0], target[1] - mid[1]]);
-	}
-	// A bone's bearing is its rest bearing less every rotation above it and
-	// its own, so each rotation is what is left over.
-	const r1 = bearing(first) - frame - a1;
-	const r2 = bearing(second) - (frame + r1) - a2;
-	return [r1, r2, short];
-}
-
-/**
- * Where a paw is at a phase of its own cycle, in the body's frame.
- *
- * Planted from pi / 2 to 3 pi / 2, moving back along the ground in a straight
- * line at a constant rate — which is what keeps the measured ground speed
- * honest and the paw from skating — and in the air for the other half,
- * carried forward on an arc that peaks mid-swing.
- */
-function pawPath(phase: number, restZ: number, halfStride: number, lift: number, amp: number): Planar {
-	const front = restZ + halfStride * amp;
-	const back = restZ - halfStride * amp;
-	let own = phase % (2 * PI);
-	if (own < 0) own += 2 * PI;
-	if (own >= PI / 2 && own <= 1.5 * PI) {
-		const u = (own - PI / 2) / PI;
-		return [DIRE_CHAIN.pawHeight, front - (front - back) * u];
-	}
-	const u = ((own + PI / 2) % (2 * PI)) / PI;
-	const eased = u * u * (3 - 2 * u);
-	return [DIRE_CHAIN.pawHeight + lift * amp * Math.sin(PI * u), back + (front - back) * eased];
-}
-
 /** The rotations of the spine, and where they put the two leg roots. */
 interface Trunk {
 	readonly root: Planar;
@@ -186,7 +102,7 @@ interface Trunk {
 }
 
 /**
- * One front leg, scapula to paw, with the paw put where `pawPath` says.
+ * One front leg, scapula to paw, with the paw put where `groundPath` says.
  *
  * The scapula rocks with the phase, a third of the humerus's swing, so the
  * reach comes from the withers rather than from a pivot on the ribs; the
@@ -218,7 +134,7 @@ function frontLeg(
 	at = plus(at, turn(DIRE_CHAIN.frontLeg, frame));
 
 	const lower = plus(DIRE_CHAIN.forearm, turn(DIRE_CHAIN.pastern, wrist));
-	const target = pawPath(phase, FRONT_PAW_Z, HALF_STRIDE, FRONT_LIFT, amp);
+	const target = groundPath(phase, FRONT_PAW_Z, HALF_STRIDE, FRONT_LIFT, DIRE_CHAIN.pawHeight, amp);
 	const [humerus, elbow] = twoLink(frame, at, DIRE_CHAIN.humerus, lower, target, 1);
 
 	// Flat on the ground while planted; in the air it hangs from the wrist,
@@ -256,7 +172,7 @@ function hindLeg(
 	const at = plus(trunk.root, turn(DIRE_CHAIN.backLeg, frame));
 
 	const lower = plus(DIRE_CHAIN.tibia, turn(DIRE_CHAIN.metatarsus, hock));
-	const target = pawPath(phase, BACK_PAW_Z, HALF_STRIDE, BACK_LIFT, amp);
+	const target = groundPath(phase, BACK_PAW_Z, HALF_STRIDE, BACK_LIFT, DIRE_CHAIN.pawHeight, amp);
 	const [femur, stifle] = twoLink(frame, at, DIRE_CHAIN.femur, lower, target, -1);
 
 	const level = -(frame + femur + stifle + hock);

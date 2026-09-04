@@ -50,6 +50,10 @@ import {
 	direRestPose,
 	direRunPose,
 	flyPose,
+	GHOUL_CHAIN,
+	SHAMBLE_CONTACTS,
+	SHAMBLE_PERIOD,
+	shamblePose,
 	HOUND_STRIDE_PERIOD,
 	houndRunPose,
 	LEG_LENGTH,
@@ -186,11 +190,44 @@ describe('entities', () => {
 		]);
 	});
 
-	it('gives the wanderer and the ghoul the same rig', async () => {
+	it('gives the wanderer and the ghoul the same rig, and nothing else', async () => {
 		const wanderer = await entity('wanderer');
 		const ghoul = await entity('ghoul');
 		expect(ghoul.rig).toBe(wanderer.rig);
 		expect(ghoul.mesh).not.toBe(wanderer.mesh);
+		// Its gait and its strike are its own: none of the wanderer's clips,
+		// and a tree over its own two states.
+		expect([...ghoul.animations.keys()]).toEqual(['idle', 'walk', 'leap']);
+		expect(ghoul.animations.get('walk')!.clip).toBeNull();
+		expect(ghoul.animations.get('leap')!.clip).not.toBeNull();
+		expect([...ghoul.blendTrees.keys()]).toEqual(['locomotion']);
+		expect(ghoul.blendTrees.get('locomotion')!.id).toBe('shamble');
+	});
+
+	it('the ghoul’s leap lands in the next hexagon, strikes there, and comes back', async () => {
+		const ghoul = await entity('ghoul');
+		const leap = ghoul.animations.get('leap')!;
+		const clip = leap.clip!;
+		expect(clip.loop).toBe('hold');
+		const strike = clip.events.find((event) => event.name === 'strike')!;
+		expect(strike).toBeDefined();
+		const rootAt = (t: number) => {
+			const pose = leap.sample(t, {});
+			return pose.root!.pos!;
+		};
+		// A metre forward at the strike, back in its own cell at the end.
+		expect(rootAt(strike.t)[2]).toBeGreaterThan(0.8);
+		expect(rootAt(strike.t)[2]).toBeLessThan(1.2);
+		expect(Math.abs(rootAt(0)[2])).toBeLessThan(0.05);
+		expect(Math.abs(rootAt(clip.duration)[2])).toBeLessThan(0.05);
+		// And the soles are on the ground at every key that stands on them.
+		for (const t of [0, 0.3, strike.t, 0.72, clip.duration]) {
+			const world = solveWorld(ghoul.rig!.skeleton, leap.sample(t, {}));
+			for (const foot of ['footL', 'footR']) {
+				expect(world[foot]!.p[1], `${foot} at ${t}s`).toBeGreaterThan(0.06);
+				expect(world[foot]!.p[1], `${foot} at ${t}s`).toBeLessThan(0.12);
+			}
+		}
 	});
 
 	it('gives a prop no rig, and a bone to hang from', async () => {
@@ -387,6 +424,48 @@ describe('the pose functions still agree with the rigs', () => {
 		const end = solveWorld(rig.skeleton, direBitePose(1, {}));
 		expect(Math.abs(start.root!.p[2])).toBeLessThan(0.2);
 		expect(Math.abs(end.root!.p[2])).toBeLessThan(0.1);
+	});
+
+	it('the shamble is solved on the humanoid rig’s own leg', async () => {
+		const rig = await readRig('humanoid');
+		const offset = (name: string): readonly [number, number] => {
+			const bone = rig.skeleton.find((candidate) => candidate.name === name)!;
+			return [bone.offset[1], bone.offset[2]];
+		};
+		expect(GHOUL_CHAIN.hipHeight).toBeCloseTo(rig.metrics.hipHeight!, 12);
+		for (const [copy, bone] of [
+			[GHOUL_CHAIN.hip, 'hipL'],
+			[GHOUL_CHAIN.thigh, 'shinL'],
+			[GHOUL_CHAIN.shin, 'footL'],
+		] as const) {
+			expect(copy[0], bone).toBeCloseTo(offset(bone)[0], 12);
+			expect(copy[1], bone).toBeCloseTo(offset(bone)[1], 12);
+		}
+	});
+
+	it('the shamble keeps every planted foot on the ground, and carries the ghoul forwards', async () => {
+		const rig = await readRig('humanoid');
+		for (const { foot, offset } of [
+			{ foot: 'footL', offset: 0 },
+			{ foot: 'footR', offset: Math.PI },
+		]) {
+			for (let i = 0; i <= 10; i++) {
+				const own = Math.PI / 2 + (Math.PI * i) / 10;
+				const world = solveWorld(rig.skeleton, shamblePose(own - offset, 1, 0, {}));
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeGreaterThan(0.07);
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeLessThan(0.11);
+			}
+		}
+		const ghoul = await entity('ghoul');
+		const walk = ghoul.animations.get('walk')!;
+		expect(walk.duration).toBeCloseTo(SHAMBLE_PERIOD, 12);
+		expect(walk.contacts).toEqual(SHAMBLE_CONTACTS);
+		expect(walk.speed()!.z).toBeGreaterThan(0.5);
+		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
+		// Every bone it writes is one the rig has.
+		for (const posed of [shamblePose(0.7, 1, 0.3, {}), shamblePose(0, 0, 2, {})]) {
+			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
 	});
 
 	it('every bone the dire hellhound’s poses write exists on its rig', async () => {

@@ -2,111 +2,227 @@
 #
 # Same bones, same trick, same rig as the wanderer — a body is still nothing
 # but the unit hex prism under a different scale and rotation, bound to a bone.
-# What changes is what gets hung on it: where he was built up in layers of
-# cloth, the ghoul is built down to what is left once most of them have rotted
-# away — a gaunt frame, bone showing through torn skin at the chest and one
-# cheek, and a single ragged wrap at the waist held on by a cord. Every clip
-# and the locomotion tree both read on him unchanged, because nothing here is
-# animated directly and the rig underneath is the wanderer's own.
+# What is hung on them is what is left of a man once most of him has gone:
+# a frame of long thin limbs with the bone showing at every joint, a ribcage
+# torn open at the sternum, one ragged wrap at the waist, and a face that is
+# more skull than face — the eyes sunk into pits with a glint at the bottom,
+# no nose, one cheek gone through to the bone, and a jaw hanging open on two
+# rows of teeth.
 #
-# Hands and feet end in claws rather than fingers and toes — three thin struts
-# fanned from the wrist and the ankle, the same primitive the wings and the
-# sword blade already use, not a new one.
+# The limbs are struts spanning their own bone by naming it — `to: { bone:
+# forearm* }` is that bone's rest offset — with a knob of bone at each joint
+# and a thin muscle or tendon laid beside the strut. The hands and feet end in
+# claws: a finger is a joint strut and a claw strut off the end of it, so the
+# fingers read as jointed rather than as a fan of spikes off the wrist.
+#
+# The eyes are drawn unlit, so the glint at the bottom of each pit reads from
+# every angle whatever the light is doing.
 
 id: ghoul
 name: Ghoul body
 rig: ../rigs/humanoid.rig.yaml
 
 constants:
-  # The five torn strips round the hem, at even angles from a quarter turn off
-  # the front — written as the fractions of a circle they are.
-  strip0: (0 / 5) * tau + 0.3
-  strip1: (1 / 5) * tau + 0.3
-  strip2: (2 / 5) * tau + 0.3
-  strip3: (3 / 5) * tau + 0.3
-  strip4: (4 / 5) * tau + 0.3
+  # Seven torn strips round the hem, at even angles from a fifth of a turn
+  # off the front — written as the fractions of a circle they are.
+  strip0: (0 / 7) * tau + 0.2
+  strip1: (1 / 7) * tau + 0.2
+  strip2: (2 / 7) * tau + 0.2
+  strip3: (3 / 7) * tau + 0.2
+  strip4: (4 / 7) * tau + 0.2
+  strip5: (5 / 7) * tau + 0.2
+  strip6: (6 / 7) * tau + 0.2
 
 palette:
-  skin: 0x8ea88a
-  skinDark: 0x71896f
-  bone: 0xe2d9bc
-  boneDark: 0xb9ad8d
-  wound: 0x38221e
-  eye: 0x120f0c
-  rag: 0xa9865a
-  ragDark: 0x836b47
-  cord: 0x4a3826
-  claw: 0xcdbd8d
-  hair: 0x413b34
+  skin: 0x7f9a7c
+  skinDark: 0x5c7360
+  skinPale: 0x9cb397
+  bone: 0xe4dcc2
+  boneDark: 0xbdb193
+  pit: 0x0b0a08
+  eye: 0xd8e24c
+  gum: 0x5a1a1a
+  tooth: 0xefe9d3
+  tongue: 0x7a2323
+  wound: 0x3a221e
+  rag: 0x8f7350
+  ragDark: 0x6b5439
+  cord: 0x40301f
+  claw: 0xd4c49a
+  hair: 0x2f2a25
 
 parts:
-  # Pelvis: nothing left to wear but one ragged wrap, tied on with a cord —
-  # there is no belt because there is no waistband it could sit on any more.
-  - { bone: root, at: [0, -0.02, 0], size: [0.185, 0.2, 0.15], color: rag }
-  - { bone: root, at: [0, 0.055, 0.01], size: [0.2, 0.05, 0.155], color: ragDark }
-  - { bone: root, at: [0, 0.015, 0.16], size: [0.05, 0.055, 0.018], color: cord }
-
-  # Torn strips at angles round the hem, the greave trick turned loose: a stack
-  # of plates reads as armour, a fan of scraps at uneven lengths and tilts
-  # reads as cloth that is falling apart rather than made that way.
-  - { bone: root, at: [sin(strip0) * 0.14, -0.135, cos(strip0) * 0.11], size: [0.038, 0.1, 0.016], euler: [0.15, strip0, -0.1], color: rag }
-  - { bone: root, at: [sin(strip1) * 0.14, -0.165, cos(strip1) * 0.11], size: [0.038, 0.145, 0.016], euler: [0.15, strip1, 0.1], color: ragDark }
-  - { bone: root, at: [sin(strip2) * 0.14, -0.135, cos(strip2) * 0.11], size: [0.038, 0.1, 0.016], euler: [0.15, strip2, -0.1], color: rag }
-  - { bone: root, at: [sin(strip3) * 0.14, -0.165, cos(strip3) * 0.11], size: [0.038, 0.145, 0.016], euler: [0.15, strip3, 0.1], color: ragDark }
-  - { bone: root, at: [sin(strip4) * 0.14, -0.135, cos(strip4) * 0.11], size: [0.038, 0.1, 0.016], euler: [0.15, strip4, -0.1], color: rag }
-
-  # Torso: a gaunt cage rather than a chest. The sternum has torn open and
-  # stayed that way, which is the wound the whole silhouette reads from — a
-  # dark cavity set back of the skin, with a course of exposed ribs crossing
-  # it, each a little shorter than the one above.
-  - { bone: spine, at: [0, 0.0, 0], size: [0.155, 0.22, 0.12], color: skin }
-  - { bone: chest, at: [0, 0.02, 0], size: [0.175, 0.32, 0.13], color: skin }
-  - { bone: chest, at: [-0.1, 0.15, 0.015], size: [0.09, 0.13, 0.11], color: skinDark }
-  - { bone: chest, at: [0.01, 0.03, 0.05], size: [0.09, 0.22, 0.028], color: wound }
-  - { bone: chest, at: [0.01, 0.16, 0.075], size: [0.075, 0.026, 0.018], color: bone }
-  - { bone: chest, at: [0.01, 0.16 - 1 * 0.09, 0.075], size: [0.075 - 1 * 0.006, 0.026, 0.018], color: boneDark }
-  - { bone: chest, at: [0.01, 0.16 - 2 * 0.09, 0.075], size: [0.075 - 2 * 0.006, 0.026, 0.018], color: bone }
-  - { bone: chest, at: [0.01, 0.16 - 3 * 0.09, 0.075], size: [0.075 - 3 * 0.006, 0.026, 0.018], color: boneDark }
-
-  # The one scrap of what was once a shirt, hanging off a shoulder that still
-  # has skin on it.
-  - { bone: chest, at: [-0.13, 0.1, 0.02], size: [0.058, 0.14, 0.09], euler: [0.1, 0, 0.35], color: ragDark }
-
-  # Neck and head: sunken eyes, a lipless jaw, bone showing through one torn
-  # cheek, and a few tufts of hair left over the rest of a bald skull.
-  - { bone: neck, at: [0, 0.0, 0], size: [0.058, 0.13, 0.058], color: skin }
-  - { bone: head, at: [0, 0.01, 0], size: [0.135, 0.19, 0.125], color: skin }
-  - { bone: head, at: [0.045, 0.03, 0.115], size: [0.032, 0.028, 0.02], color: eye }
-  - { bone: head, at: [-0.045, 0.03, 0.115], size: [0.032, 0.028, 0.02], color: eye }
-  - { bone: head, at: [0, -0.09, 0.09], size: [0.075, 0.045, 0.075], color: bone }
-  - { bone: head, at: [0, -0.075, 0.125], size: [0.07, 0.016, 0.02], color: boneDark }
-  - { bone: head, at: [0.075, -0.02, 0.06], size: [0.045, 0.055, 0.02], euler: [0, 0.3, 0], color: bone }
-  - { bone: head, at: [0.02, 0.12, -0.06], size: [0.05, 0.03, 0.05], color: hair }
-  - { bone: head, at: [-0.06, 0.1, -0.03], size: [0.03, 0.025, 0.03], color: hair }
-
-  # Arms: thin to the bone, bare, an elbow worn through — and hands that end
-  # in claws rather than fingers. The fan is uneven because the claw
-  # directions are not unit vectors: a claw is as long as its own vector says.
+  # Pelvis: a narrow bowl of bone with the hip crests standing proud of the
+  # skin, and the one ragged wrap tied on round it with a cord.
+  - { bone: root, at: [0, -0.03, 0], size: [0.15, 0.16, 0.11], color: skin }
+  - { bone: root, at: [0, 0.02, -0.08], size: [0.03, 0.06, 0.025], color: bone }
+  - { bone: root, at: [0, -0.06, 0.005], size: [0.165, 0.14, 0.125], color: rag }
+  - { bone: root, at: [0, 0.01, 0], size: [0.17, 0.025, 0.13], color: cord }
+  - { bone: root, at: [0.05, 0, 0.13], size: [0.03, 0.04, 0.02], color: cord }
   - sides: [L, R]
+    mirror: true
     parts:
-      - { bone: 'arm*', at: [0, -0.14, 0], size: [0.052, 0.3, 0.052], color: skin }
-      - { bone: 'arm*', at: [0, -0.3, 0], size: [0.038, 0.09, 0.038], color: bone }
-      - { bone: 'forearm*', at: [0, -0.13, 0], size: [0.045, 0.24, 0.045], color: skin }
-      - { bone: 'forearm*', at: [0, -0.26, 0], size: [0.05, 0.05, 0.05], color: skinDark }
-      - { bone: 'hand*', at: [0, -0.02, 0], size: [0.045, 0.06, 0.04], color: skin }
-      - { bone: 'hand*', from: [0, -0.05, 0.01], along: [-0.4, -1, 0.3], length: 0.09, radius: 0.013, color: claw, mirror: true }
-      - { bone: 'hand*', from: [0, -0.05, 0.01], along: [0, -1, 0.5], length: 0.09, radius: 0.013, color: claw, mirror: true }
-      - { bone: 'hand*', from: [0, -0.05, 0.01], along: [0.4, -1, 0.3], length: 0.09, radius: 0.013, color: claw, mirror: true }
+      - { bone: root, at: [0.12, 0.03, -0.01], size: [0.035, 0.07, 0.05], euler: [0, 0, -0.3], color: bone }
 
-  # Legs: bare and skeletal — one shin worn through to bone the same way the
-  # elbow is — and feet that end in claws the same way the hands do. These
-  # claws are symmetric about the centre line, so they do not mirror.
+  # Torn strips at angles round the hem, at uneven lengths and tilts, which
+  # is what reads as cloth falling apart rather than cloth made that way.
+  - { bone: root, at: [sin(strip0) * 0.14, -0.14, cos(strip0) * 0.11], size: [0.036, 0.1, 0.015], euler: [0.15, strip0, -0.1], color: rag }
+  - { bone: root, at: [sin(strip1) * 0.14, -0.17, cos(strip1) * 0.11], size: [0.036, 0.15, 0.015], euler: [0.15, strip1, 0.1], color: ragDark }
+  - { bone: root, at: [sin(strip2) * 0.14, -0.13, cos(strip2) * 0.11], size: [0.036, 0.09, 0.015], euler: [0.15, strip2, -0.1], color: rag }
+  - { bone: root, at: [sin(strip3) * 0.14, -0.18, cos(strip3) * 0.11], size: [0.036, 0.16, 0.015], euler: [0.15, strip3, 0.1], color: ragDark }
+  - { bone: root, at: [sin(strip4) * 0.14, -0.15, cos(strip4) * 0.11], size: [0.036, 0.11, 0.015], euler: [0.15, strip4, -0.1], color: rag }
+  - { bone: root, at: [sin(strip5) * 0.14, -0.16, cos(strip5) * 0.11], size: [0.036, 0.14, 0.015], euler: [0.15, strip5, 0.1], color: ragDark }
+  - { bone: root, at: [sin(strip6) * 0.14, -0.14, cos(strip6) * 0.11], size: [0.036, 0.1, 0.015], euler: [0.15, strip6, -0.1], color: rag }
+
+  # Waist: a gaunt column with the belly sunk in under the ribs, and the
+  # vertebrae standing out of the back in a row.
+  - { bone: spine, at: [0, 0, -0.01], size: [0.12, 0.2, 0.095], color: skin }
+  - { bone: spine, at: [0, -0.01, 0.075], size: [0.07, 0.14, 0.02], color: skinDark }
+  - { bone: spine, at: [0, 0.07, -0.09], size: [0.022, 0.035, 0.02], color: bone }
+  - { bone: spine, at: [0, 0, -0.09], size: [0.022, 0.035, 0.02], color: bone }
+  - { bone: spine, at: [0, -0.07, -0.085], size: [0.022, 0.035, 0.02], color: bone }
+
+  # The ribcage. A cage rather than a chest: the sternum has torn open and
+  # stayed that way, a dark cavity with three exposed ribs crossing it, and
+  # four ribs a side wrap round from it under the skin. Collarbones stand out
+  # above and the shoulder blades behind, and more vertebrae run down the
+  # back between them.
+  - { bone: chest, at: [0, 0.06, 0], size: [0.16, 0.3, 0.12], color: skin }
+  - { bone: chest, at: [0, 0.05, 0.075], size: [0.06, 0.2, 0.03], color: wound }
+  - { bone: chest, at: [0, 0.12, 0.085], size: [0.05, 0.016, 0.014], color: bone }
+  - { bone: chest, at: [0, 0.05, 0.085], size: [0.046, 0.016, 0.014], color: boneDark }
+  - { bone: chest, at: [0, -0.02, 0.085], size: [0.042, 0.016, 0.014], color: bone }
+  - { bone: chest, at: [0, 0.16, -0.12], size: [0.022, 0.035, 0.02], color: bone }
+  - { bone: chest, at: [0, 0.08, -0.12], size: [0.022, 0.035, 0.02], color: bone }
+  - { bone: chest, at: [0, 0, -0.115], size: [0.022, 0.035, 0.02], color: bone }
   - sides: [L, R]
+    mirror: true
     parts:
-      - { bone: 'hip*', at: [0, -0.2, 0], size: [0.07, 0.36, 0.07], color: skin }
-      - { bone: 'shin*', at: [0, -0.16, 0], size: [0.055, 0.3, 0.055], color: skin }
-      - { bone: 'shin*', at: [0, -0.05, 0.045], size: [0.03, 0.07, 0.014], euler: [0.15, 0, 0], color: bone }
-      - { bone: 'foot*', at: [0, -0.05, 0.03], size: [0.055, 0.06, 0.09], color: skinDark }
-      - { bone: 'foot*', from: [0, -0.075, 0.12], along: [-0.5, -0.3, 1], length: 0.1, radius: 0.013, color: claw }
-      - { bone: 'foot*', from: [0, -0.075, 0.12], along: [0, -0.2, 1], length: 0.1, radius: 0.013, color: claw }
-      - { bone: 'foot*', from: [0, -0.075, 0.12], along: [0.5, -0.3, 1], length: 0.1, radius: 0.013, color: claw }
+      - { bone: chest, at: [0.09, 0.14, 0.06], size: [0.075, 0.018, 0.02], euler: [0, -0.5, -0.15], color: bone }
+      - { bone: chest, at: [0.09, 0.075, 0.06], size: [0.075, 0.018, 0.02], euler: [0, -0.5, -0.15], color: boneDark }
+      - { bone: chest, at: [0.09, 0.01, 0.06], size: [0.072, 0.018, 0.02], euler: [0, -0.5, -0.15], color: bone }
+      - { bone: chest, at: [0.088, -0.055, 0.06], size: [0.068, 0.018, 0.02], euler: [0, -0.5, -0.15], color: boneDark }
+      - { bone: chest, at: [0.1, 0.24, 0.05], size: [0.09, 0.016, 0.016], euler: [0, 0.15, -0.2], color: bone }
+      - { bone: chest, at: [0.09, 0.15, -0.075], size: [0.05, 0.1, 0.02], euler: [0.1, 0, -0.25], color: skinDark }
+  # The one scrap of what was once a shirt, hanging off the right shoulder.
+  - { bone: chest, at: [-0.14, 0.2, 0], size: [0.05, 0.12, 0.08], euler: [0.1, 0, 0.35], color: ragDark }
+
+  # Neck: a thin column with the tendons standing out either side of it and
+  # a vertebra at the back.
+  - { bone: neck, at: [0, 0.02, 0], size: [0.045, 0.16, 0.045], color: skin }
+  - { bone: neck, at: [0, 0.05, -0.05], size: [0.02, 0.04, 0.02], color: bone }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: neck, at: [0.035, 0.04, 0.02], size: [0.012, 0.13, 0.012], euler: [0, 0, -0.15], color: skinDark }
+
+  # The head. A narrow skull with the bone bare on top, a heavy brow over
+  # two pits with an eye at the bottom of each, cheekbones standing out of
+  # hollow cheeks, a hole where the nose was, and the jaw hanging open.
+  - { bone: head, at: [0, 0.04, -0.01], size: [0.105, 0.19, 0.115], color: skin }
+  - { bone: head, at: [0, 0.13, -0.03], size: [0.085, 0.045, 0.095], color: bone }
+  - { bone: head, at: [0, 0.105, 0.06], size: [0.08, 0.03, 0.03], euler: [0.4, 0, 0], color: skinDark }
+  - { bone: head, at: [0, 0.075, 0.1], size: [0.1, 0.03, 0.03], euler: [0.3, 0, 0], color: skinDark }
+  - { bone: head, at: [0, 0.015, 0.12], size: [0.02, 0.035, 0.014], color: pit }
+  - { bone: head, at: [0, 0.04, 0.125], size: [0.016, 0.03, 0.012], euler: [0.3, 0, 0], color: bone }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: head, at: [0.045, 0.085, 0.095], size: [0.04, 0.025, 0.03], euler: [0.3, 0, -0.25], color: bone }
+      - { bone: head, at: [0.045, 0.045, 0.1], size: [0.036, 0.04, 0.03], color: pit }
+      - { bone: head, at: [0.045, 0.045, 0.125], size: [0.013, 0.012, 0.008], color: eye, unlit: true }
+      - { bone: head, at: [0.07, 0.02, 0.085], size: [0.028, 0.025, 0.03], euler: [0, 0.3, 0.2], color: bone }
+      - { bone: head, at: [0.08, -0.03, 0.05], size: [0.03, 0.08, 0.055], euler: [0, 0.25, 0.15], color: skinDark }
+
+  # The upper jaw and its teeth: a gum with six teeth hanging from it, the
+  # two at the corners longer than the rest.
+  - { bone: head, at: [0, -0.055, 0.085], size: [0.075, 0.05, 0.07], color: skin }
+  - { bone: head, at: [0, -0.085, 0.095], size: [0.065, 0.02, 0.06], color: gum }
+  - { bone: head, at: [0.045, -0.115, 0.13], size: [0.009, 0.045, 0.008], euler: [0.1, 0, -0.1], color: tooth }
+  - { bone: head, at: [0.027, -0.105, 0.135], size: [0.007, 0.03, 0.006], euler: [0.1, 0, 0], color: tooth }
+  - { bone: head, at: [0.009, -0.107, 0.137], size: [0.007, 0.032, 0.006], euler: [0.1, 0, 0], color: tooth }
+  - { bone: head, at: [-0.009, -0.105, 0.137], size: [0.007, 0.03, 0.006], euler: [0.1, 0, 0], color: tooth }
+  - { bone: head, at: [-0.027, -0.108, 0.135], size: [0.007, 0.034, 0.006], euler: [0.1, 0, 0], color: tooth }
+  - { bone: head, at: [-0.045, -0.115, 0.13], size: [0.009, 0.045, 0.008], euler: [0.1, 0, 0.1], color: tooth }
+
+  # The lower jaw, hanging: bone showing along the edge of it, the dark of
+  # the mouth and a tongue behind the lower teeth, which stand up to meet the
+  # upper ones — five, and two longer at the corners.
+  - { bone: head, at: [0, -0.11, 0.075], size: [0.045, 0.03, 0.045], color: pit }
+  - { bone: head, at: [0, -0.125, 0.06], size: [0.02, 0.014, 0.045], color: tongue }
+  - { bone: head, at: [0, -0.15, 0.06], size: [0.055, 0.04, 0.075], color: skin }
+  - { bone: head, at: [0, -0.165, 0.045], size: [0.05, 0.02, 0.06], color: bone }
+  - { bone: head, at: [0, -0.16, 0.1], size: [0.03, 0.03, 0.03], color: skinDark }
+  - { bone: head, at: [0, -0.13, 0.085], size: [0.05, 0.016, 0.055], color: gum }
+  - { bone: head, at: [0.035, -0.118, 0.12], size: [0.008, 0.04, 0.007], euler: [-0.1, 0, -0.1], color: tooth }
+  - { bone: head, at: [0.018, -0.118, 0.125], size: [0.006, 0.026, 0.006], euler: [-0.1, 0, 0], color: tooth }
+  - { bone: head, at: [0, -0.12, 0.127], size: [0.006, 0.028, 0.006], euler: [-0.1, 0, 0], color: tooth }
+  - { bone: head, at: [-0.018, -0.118, 0.125], size: [0.006, 0.026, 0.006], euler: [-0.1, 0, 0], color: tooth }
+  - { bone: head, at: [-0.035, -0.118, 0.12], size: [0.008, 0.04, 0.007], euler: [-0.1, 0, 0.1], color: tooth }
+
+  # One ear left, torn; the other side of the head gone through to the bone.
+  # And what is left of the hair, as four wisps off the back of the skull.
+  - { bone: head, at: [0.075, 0.03, -0.02], size: [0.02, 0.06, 0.035], euler: [0.1, 0.25, 0.25], color: skinDark }
+  - { bone: head, at: [-0.072, 0, 0.03], size: [0.025, 0.07, 0.05], euler: [0, -0.3, 0], color: bone }
+  - { bone: head, from: [0.03, 0.12, -0.08], along: [0.2, 0.3, -1], length: 0.09, radius: 0.008, color: hair }
+  - { bone: head, from: [-0.02, 0.1, -0.09], along: [-0.3, 0.1, -1], length: 0.11, radius: 0.008, color: hair }
+  - { bone: head, from: [0.05, 0.08, -0.07], along: [0.5, -0.2, -1], length: 0.08, radius: 0.008, color: hair }
+  - { bone: head, from: [-0.04, 0.13, -0.06], along: [-0.2, 0.5, -1], length: 0.07, radius: 0.008, color: hair }
+
+  # Arms: a strut along each bone, thin as the bone itself, a knob of bone at
+  # the shoulder, the elbow and the wrist, a tendon down the forearm, and the
+  # bone bare along the upper arm. The hand is a narrow palm and four
+  # jointed fingers, each a short strut with a long claw off the end, and a
+  # thumb claw off the side.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'arm*', from: [0, 0, 0], to: { bone: 'forearm*' }, radius: 0.03, color: skin }
+      - { bone: 'arm*', at: [0, -0.03, 0], size: [0.045, 0.08, 0.045], color: skin }
+      - { bone: 'arm*', at: [0.02, -0.17, 0], size: [0.018, 0.12, 0.014], euler: [0, 0, -0.1], color: bone }
+      - { bone: 'forearm*', at: [0, 0, 0], size: [0.036, 0.05, 0.036], color: boneDark }
+      - { bone: 'forearm*', from: [0, 0, 0], to: { bone: 'hand*' }, radius: 0.024, color: skin }
+      - { bone: 'forearm*', at: [0, -0.15, 0.02], size: [0.012, 0.22, 0.01], color: skinDark }
+      - { bone: 'hand*', at: [0, 0, 0], size: [0.028, 0.035, 0.024], color: bone }
+      - { bone: 'hand*', at: [0, -0.045, 0.005], size: [0.035, 0.07, 0.022], color: skin }
+      - { bone: 'hand*', at: [0, -0.085, 0.01], size: [0.038, 0.02, 0.02], color: skinDark }
+      - { bone: 'hand*', from: [-0.03, -0.09, 0.01], along: [-0.35, -1, 0.15], length: 0.06, radius: 0.01, color: skinDark }
+      - { bone: 'hand*', from: [-0.051, -0.15, 0.019], along: [-0.35, -0.8, 0.6], length: 0.08, radius: 0.008, color: claw }
+      - { bone: 'hand*', from: [-0.01, -0.09, 0.01], along: [-0.12, -1, 0.15], length: 0.065, radius: 0.01, color: skinDark }
+      - { bone: 'hand*', from: [-0.018, -0.155, 0.02], along: [-0.12, -0.8, 0.6], length: 0.09, radius: 0.008, color: claw }
+      - { bone: 'hand*', from: [0.01, -0.09, 0.01], along: [0.12, -1, 0.15], length: 0.065, radius: 0.01, color: skinDark }
+      - { bone: 'hand*', from: [0.018, -0.155, 0.02], along: [0.12, -0.8, 0.6], length: 0.09, radius: 0.008, color: claw }
+      - { bone: 'hand*', from: [0.03, -0.09, 0.01], along: [0.35, -1, 0.15], length: 0.06, radius: 0.01, color: skinDark }
+      - { bone: 'hand*', from: [0.051, -0.15, 0.019], along: [0.35, -0.8, 0.6], length: 0.08, radius: 0.008, color: claw }
+      - { bone: 'hand*', from: [0.03, -0.04, 0.015], along: [0.8, -0.6, 0.5], length: 0.05, radius: 0.009, color: skinDark }
+      - { bone: 'hand*', from: [0.07, -0.07, 0.04], along: [0.5, -0.6, 0.8], length: 0.06, radius: 0.007, color: claw }
+
+  # Legs: the same again. A strut along the thigh with a wasted muscle laid
+  # beside it and the femur bare on the outside, a knob at the knee, a strut
+  # down the shin with the bone ridged along its front and a calf behind, a
+  # knob at the ankle, and a long narrow foot ending in four clawed toes. The
+  # toes are symmetric about the foot's own centre line, so they do not
+  # mirror.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'hip*', from: [0, 0, 0], to: { bone: 'shin*' }, radius: 0.038, color: skin }
+      - { bone: 'hip*', at: [0, -0.16, -0.01], size: [0.045, 0.24, 0.045], color: skin }
+      - { bone: 'hip*', at: [0.03, -0.25, 0.01], size: [0.015, 0.1, 0.012], color: bone }
+      - { bone: 'shin*', at: [0, 0, 0.01], size: [0.045, 0.06, 0.045], color: boneDark }
+      - { bone: 'shin*', from: [0, 0, 0], to: { bone: 'foot*' }, radius: 0.028, color: skin }
+      - { bone: 'shin*', at: [0, -0.17, 0.03], size: [0.012, 0.28, 0.01], color: bone }
+      - { bone: 'shin*', at: [0, -0.12, -0.03], size: [0.03, 0.16, 0.03], color: skinDark }
+      - { bone: 'foot*', at: [0, 0, 0], size: [0.03, 0.04, 0.03], color: bone }
+      - { bone: 'foot*', at: [0, -0.045, 0.05], size: [0.04, 0.09, 0.09], color: skinDark }
+      - { bone: 'foot*', at: [0, -0.05, -0.03], size: [0.03, 0.08, 0.03], color: skin }
+      - mirror: false
+        parts:
+          - { bone: 'foot*', at: [-0.03, -0.07, 0.12], size: [0.012, 0.03, 0.02], color: skinDark }
+          - { bone: 'foot*', at: [-0.01, -0.07, 0.125], size: [0.012, 0.03, 0.02], color: skinDark }
+          - { bone: 'foot*', at: [0.01, -0.07, 0.125], size: [0.012, 0.03, 0.02], color: skinDark }
+          - { bone: 'foot*', at: [0.03, -0.07, 0.12], size: [0.012, 0.03, 0.02], color: skinDark }
+          - { bone: 'foot*', from: [-0.03, -0.075, 0.13], along: [-0.4, -0.35, 1], length: 0.1, radius: 0.01, color: claw }
+          - { bone: 'foot*', from: [-0.01, -0.075, 0.135], along: [-0.15, -0.35, 1], length: 0.1, radius: 0.01, color: claw }
+          - { bone: 'foot*', from: [0.01, -0.075, 0.135], along: [0.15, -0.35, 1], length: 0.1, radius: 0.01, color: claw }
+          - { bone: 'foot*', from: [0.03, -0.075, 0.13], along: [0.4, -0.35, 1], length: 0.1, radius: 0.01, color: claw }

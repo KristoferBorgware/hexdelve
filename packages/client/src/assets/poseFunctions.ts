@@ -32,6 +32,7 @@ import {
 	restPose as direRestPose,
 	runPose as direRunPose,
 } from '../game/direhoundpose.js';
+import { shamblePose, SHAMBLE_CONTACTS, SHAMBLE_PERIOD } from '../game/ghoulpose.js';
 import { bitePose, restPose, runPose } from '../game/hellhoundpose.js';
 import { stridePose, stridePeriod, STRIDE_CONTACTS, type Direction } from '../game/stride.js';
 
@@ -170,6 +171,22 @@ const direRest: PoseFunction = {
 };
 
 /**
+ * The ghoul's shamble, and the hunched stand it starts from. The wanderer's
+ * rig under a gait of its own: the legs are solved against the ground the
+ * way the dire hellhound's are, so the crouch never lifts a planted foot.
+ */
+const ghoulShamble: PoseFunction = {
+	id: 'ghoulShamble',
+	duration: SHAMBLE_PERIOD,
+	contacts: SHAMBLE_CONTACTS,
+	build: ({ args, duration }) => {
+		const amp = arg(args, 'amp', 1);
+		const moving = amp >= 0.02;
+		return (t, out) => shamblePose(moving ? (t / duration) * TAU : 0, amp, t, out);
+	},
+};
+
+/**
  * Every pose function this package owns.
  *
  * One registry, exported rather than constructed per caller, because two
@@ -187,4 +204,5 @@ export const poseFunctions = new PoseFunctionRegistry().register(
 	direRun,
 	direBite,
 	direRest,
+	ghoulShamble,
 );

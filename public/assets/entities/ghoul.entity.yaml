@@ -1,31 +1,38 @@
 # The ghoul.
 #
-# The same seventeen bones as the wanderer under a different body, so the tree,
-# the stride and every clip read on either one unchanged. That is the whole
-# argument for building a second body rather than a second rig, and here it is
-# as two lines that differ: a mesh, and a name.
+# The same seventeen bones as the wanderer under a different body — a mesh is
+# the only file a second body on the same rig needs — and none of the
+# wanderer's animations. A man walks upright; a ghoul goes hunched, on legs
+# that never straighten, and it does not cut with a sword, it leaps with its
+# claws. So its gait is its own pose function, its strike is its own clip, and
+# its tree blends the two states it has rather than the four a man has. What
+# the shared rig still buys is everything downstream of the pose: the visible
+# skeleton, the IK, the hit tests and the bench read it with nothing added.
 
 id: ghoul
 name: Ghoul
 kind: character
-blurb: Gaunt, clawed, mostly bone
+blurb: Gaunt, clawed, hunched — a skull with teeth on a frame of bone
 
 rig: ../rigs/humanoid.rig.yaml
 mesh: ../meshes/ghoul.mesh.yaml
 
 animations:
-  idle: { procedural: stride, label: Idle, args: { amp: 0 }, duration: tau / 1.8 }
-  walk: { procedural: stride, label: Walk, args: { amp: 1, gait: 0 }, sync: true }
-  run: { procedural: stride, label: Run, args: { amp: 1, gait: 1 }, sync: true }
-  guard: ../clips/guard.clip.yaml
-  slash: ../clips/slash.clip.yaml
-  duck: ../clips/duck.clip.yaml
-  upright: ../clips/upright.clip.yaml
-  leanLeft: ../clips/lean-left.clip.yaml
-  leanRight: ../clips/lean-right.clip.yaml
+  # The gait is one function at two settings: `amp` is the throttle between
+  # the hunched stand and a full shamble. Standing, it sways, breathes and
+  # twitches, and the duration is one breath.
+  idle: { procedural: ghoulShamble, label: Idle, args: { amp: 0 }, duration: tau / 1.7 }
+  walk: { procedural: ghoulShamble, label: Walk, args: { amp: 1 }, sync: true }
+  # And the keyframed half: the pounce.
+  leap: ../clips/leap.clip.yaml
 
 blendTrees:
-  locomotion: ../trees/locomotion.tree.yaml
+  locomotion: ../trees/shamble.tree.yaml
+
+# Where a bench looks. The rig's own focus is a standing man's hips; a ghoul
+# stands crouched with its head out in front, so its middle is lower.
+view:
+  focusY: 0.78
 
 # What it is when it is standing in the world: one object, with a body on it.
 # The body is the rig and the mesh above — an actor on a wanderer is the
