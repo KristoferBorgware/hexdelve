@@ -16,9 +16,9 @@ and how to write one. The open list stays in the order things were found.
 **Kind:** bug
 **Milestone:** game
 **Priority:** medium
-**Effort:** small
+**Effort:** medium
 **Found:** 2026-09-03, working out which contact schedule the hound's asset files should declare
-**Where:** `leg()` in `packages/client/src/game/hellhoundpose.ts`
+**Where:** `leg()` and `runPose()` in `packages/client/src/game/hellhoundpose.ts`, `measureGroundSpeed` in `packages/engine/src/anim/measure.ts`
 
 **What happens.** `leg()` writes the thigh swing as
 `setSparse(out, bones[0], [swing, 0, stance])` where
@@ -42,14 +42,35 @@ moment the hound is given a gait axis, because a threshold measured through the
 wrong sign is worse than an absent one. It is also visible now if anyone looks:
 the animal moonwalks.
 
-**What would fix it.** Negate `swing` in `leg()`, or state in the comment that
-this rig's convention is inverted and mean it. The comment currently claims the
-shape is "the humanoid's own ... carried over unchanged", which is what makes
-this look like a transcription slip rather than a decision. Once the two agree,
-`hellhound.entity.yaml` can declare `contacts: [0.25, 0.75]` on its `run`, the
-rig's `feet: [backPawR, backPawL]` starts meaning something, and the hound can
-have a blend tree in `public/assets/trees/` the way the bat does.
+**What would fix it.** Not what this entry first said, and the correction is
+the useful part.
 
+**[measured, 2026-09-04]** Negating `swing` in `leg()` changes the pose and does
+NOT change the measured ground speed. Both versions were built and measured:
+`0.6088159098633436` either way, identical to every digit. The reason is a
+symmetry — `runPose` gives `backL` the phase `theta + PI` and `backR` the phase
+`theta`, so negating the swing for all four legs maps the measured pair onto
+itself with the two legs swapped, and a measurement averaged over a whole cycle
+cannot see it.
+
+Two more things that measurement turned up, both of which have to be understood
+before this is worth attempting again:
+
+`measureGroundSpeed` returns exactly `0` for a single foot — `backPawR` alone,
+`backPawL` alone and `frontPawR` alone all measure zero, and only the pair reads
+anything. So it is measuring the alternation rather than the travel of one
+planted paw, and what it means for a quadruped is not obvious.
+
+The numbers above do not reconcile with the ones recorded when this was found
+(humanoid **+1.5580**, hound **−2.1019**). Measured the same afternoon through
+`stridePose` at `amp: 1, gait: 0` over `stridePeriod(1, 0)`, the humanoid comes
+out **−0.7738** and the hound **+0.6088** — the same disagreement in sign, at
+half the magnitude and with both signs flipped. Whoever picks this up should
+work out which sampling is right before trusting either pair of numbers.
+
+What still stands is the claim itself: the two gaits disagree in sign, so one of
+them travels the wrong way. What is now known is that the one-character fix is
+not the fix, and that the measurement has to be understood first.
 
 ### F-002 — WebGPU loses its device in the editor under software rasterisation
 
@@ -83,132 +104,6 @@ and rebuild on a fresh canvas rather than showing a dead viewport with a
 message. If it does not, the finding closes as an artefact of the container and
 `HOW-TO-TAKE-A-FRAME`-style guidance should say to force WebGL2 when driving the
 editor headlessly.
-
-
-### F-003 — The prop catalogue nests a list item inside a list item
-
-**Kind:** bug
-**Milestone:** unscheduled
-**Priority:** low
-**Effort:** small
-**Found:** 2026-09-04, reading the browser console while checking the benches load from the manifest
-**Where:** `PropCatalogue` in `packages/editor/src/components/PropCatalogue.tsx`
-
-**What happens.** Each catalogue group is a `<Box component="li">` wrapping a
-`<ListSubheader>`, and MUI renders `ListSubheader` as an `<li>` too. React logs
-`In HTML, <li> cannot be a descendant of <li>. This will cause a hydration
-error.` once per group, every time the props bench is opened.
-
-**Why it matters.** Nothing is drawn wrong and the editor is not server-rendered,
-so the hydration warning cannot bite. It matters because it is noise in the one
-console anybody watches while working on the editor, and a console with a
-standing error in it is a console people stop reading.
-
-**What would fix it.** Give the wrapper `component="li"` and the subheader
-`component="div"` — `ListSubheader` takes a `component` prop for exactly this —
-or drop the wrapper and let the subheader be the list item it already is.
-
-
-### F-005 — Two directories are called `assets` and only one of them is served
-
-**Kind:** cleanup
-**Milestone:** unscheduled
-**Priority:** low
-**Effort:** small
-**Found:** 2026-09-03, moving the game's asset files under `public/`
-**Where:** `assets/audio/`, `public/assets/`
-
-**What happens.** `public/assets/` holds the rigs, meshes, clips and trees, is
-served by both apps at `/assets/` and is copied into both builds. `assets/` at
-the repository root now holds only `audio/`, which is a directory of Node
-scripts that synthesise `.wav` files and is served by nothing. The two are told
-apart by their path and by nothing else.
-
-**Why it matters.** Nobody has been caught by it yet. It costs whoever is caught
-first about an hour, because both are plausible homes for a new asset and the
-wrong guess produces a file that loads locally and 404s in the build — or does
-not load at all and looks like a parser bug.
-
-**What would fix it.** Move the audio generators to `tools/audio/`, which is what
-`tools/` is for and what they are: they are run by hand to produce files that
-are `.gitignore`d. It is nine files, one line in the README's layout tree and
-one in the `.gitignore` comment, and nothing imports them. The alternative —
-renaming `public/assets` — is worse, because `/assets/rigs/humanoid.rig.yaml` is
-an address that appears inside the asset files themselves.
-
-### F-011 — The dev server hands out the repository, not only the asset tree
-
-**Kind:** risk
-**Milestone:** unscheduled
-**Priority:** low
-**Effort:** small
-**Found:** 2026-09-04, writing the dev-server tests and checking that a path cannot escape the asset directory
-**Where:** `packages/client/vite.config.ts` and `packages/editor/vite.config.ts`, neither of which sets `server.fs`
-
-**What happens.** The plugin's own guards hold. `/scripts/..%2f..%2fpackage.json`
-and `/assets/..%2f..%2fpackage.json` are both declined, and the escape is
-checked on what a path resolves to rather than on how it is spelt, so the
-percent-encoded spellings are refused along with the plain ones.
-
-What answers instead is Vite. `GET /package.json` returns the file, because a
-Vite dev server serves what is under its root and the root here is the whole
-repository. Anything a `fetch` normalises before sending — `../../package.json`
-among them — arrives as a plain path and never reaches the plugin at all.
-
-This is documented Vite behaviour rather than a hole in anything written here.
-`server.fs.deny` covers `.env`, `.env.*`, `*.{crt,pem}` and `**/.git/**` by
-default, and nothing else.
-
-**Why it matters.** Nobody today. A dev server is bound to localhost unless
-somebody passes `--host`, and the plugin's own header already says that is one
-flag away — the day somebody demos the editor off a laptop on a conference
-network, the asset tree is guarded and the source tree is not. There is nothing
-secret in this repository, so the cost is currently zero and the shape is what
-is worth recording: two different guards, one of them the plugin's and the
-strict one, the other Vite's and the permissive one.
-
-**What would fix it.** `server.fs.allow` in both configs, set to the directories
-the apps actually read — `public`, the packages they build from, and
-`node_modules`. Half an hour, and worth doing at the same moment somebody first
-wants `--host`, since that is when it stops being theoretical. A `server.fs.deny`
-list is the weaker alternative and would have to be guessed at rather than
-derived.
-
-
-### F-012 — The client uses `@hexdelve/scripting` without declaring that it does
-
-**Kind:** risk
-**Milestone:** scripting
-**Priority:** medium
-**Effort:** small
-**Found:** 2026-09-04, adding a desktop shell for the editor and reading every package manifest to see which ones name each other
-**Where:** `packages/client/package.json`, `packages/client/tsconfig.json`
-
-**What happens.** Seven files under `packages/client/src` import
-`@hexdelve/scripting` — `simulation.ts`, `components.ts`, `scripts.ts`,
-`player.ts`, `bathunt.ts`, `events.ts` and `HexdelveClient.ts`. The client's
-manifest lists two dependencies, `@hexdelve/engine` and `@hexdelve/shared`, and
-its `tsconfig.json` references the same two. Neither names the scripting
-package.
-
-It works anyway, for two reasons that are both accidents of the layout. npm
-hoists every workspace package into the root `node_modules`, so the import
-resolves whether or not it was asked for; and the root's `build:libs` script
-happens to list scripting before client, so its declarations are on disk by the
-time `tsc` wants them.
-
-**Why it matters.** Nobody yet. It costs the day somebody builds the client on
-its own — `npm run build -w @hexdelve/client` in a clean checkout, or a package
-list that grows and stops being in dependency order by luck — and gets an error
-about a package that is right there in the repository. It also means
-`tsc -b packages/client` does not rebuild scripting when scripting changes,
-which is the whole point of a project reference: the client can be typechecked
-against declarations that are one edit stale.
-
-**What would fix it.** Two lines. `"@hexdelve/scripting": "*"` in the client's
-dependencies, and `{ "path": "../scripting" }` in its tsconfig references.
-Neither changes what is built today; both stop it from depending on the order
-somebody wrote a script in.
 
 
 ---
@@ -579,3 +474,134 @@ and play this instead" exists and would be followed rather than invented.
 
 The rules half is already done and should stay done: what a death COSTS is the
 script's, and what it LOOKS like is the client's.
+
+### F-012 — The client uses `@hexdelve/scripting` without declaring that it does
+
+**Kind:** risk
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, adding a desktop shell for the editor and reading every package manifest to see which ones name each other
+**Where:** `packages/client/package.json`, `packages/client/tsconfig.json`
+**Closed:** 2026-09-04, fixed — the client declares the dependency and
+references the project, so `tsc -b packages/client` builds scripting first
+
+**What happens.** Seven files under `packages/client/src` import
+`@hexdelve/scripting` — `simulation.ts`, `components.ts`, `scripts.ts`,
+`player.ts`, `bathunt.ts`, `events.ts` and `HexdelveClient.ts`. The client's
+manifest lists two dependencies, `@hexdelve/engine` and `@hexdelve/shared`, and
+its `tsconfig.json` references the same two. Neither names the scripting
+package.
+
+It works anyway, for two reasons that are both accidents of the layout. npm
+hoists every workspace package into the root `node_modules`, so the import
+resolves whether or not it was asked for; and the root's `build:libs` script
+happens to list scripting before client, so its declarations are on disk by the
+time `tsc` wants them.
+
+**Why it matters.** Nobody yet. It costs the day somebody builds the client on
+its own — `npm run build -w @hexdelve/client` in a clean checkout, or a package
+list that grows and stops being in dependency order by luck — and gets an error
+about a package that is right there in the repository. It also means
+`tsc -b packages/client` does not rebuild scripting when scripting changes,
+which is the whole point of a project reference: the client can be typechecked
+against declarations that are one edit stale.
+
+**What would fix it.** Two lines. `"@hexdelve/scripting": "*"` in the client's
+dependencies, and `{ "path": "../scripting" }` in its tsconfig references.
+Neither changes what is built today; both stop it from depending on the order
+somebody wrote a script in.
+
+### F-011 — The dev server hands out the repository, not only the asset tree
+
+**Kind:** risk
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-04, writing the dev-server tests and checking that a path cannot escape the asset directory
+**Where:** `packages/client/vite.config.ts` and `packages/editor/vite.config.ts`, neither of which sets `server.fs`
+**Closed:** 2026-09-04, fixed — `server.fs.allow` in both configs, set to the
+three directories the apps actually read
+
+**What happens.** The plugin's own guards hold. `/scripts/..%2f..%2fpackage.json`
+and `/assets/..%2f..%2fpackage.json` are both declined, and the escape is
+checked on what a path resolves to rather than on how it is spelt, so the
+percent-encoded spellings are refused along with the plain ones.
+
+What answers instead is Vite. `GET /package.json` returns the file, because a
+Vite dev server serves what is under its root and the root here is the whole
+repository. Anything a `fetch` normalises before sending — `../../package.json`
+among them — arrives as a plain path and never reaches the plugin at all.
+
+This is documented Vite behaviour rather than a hole in anything written here.
+`server.fs.deny` covers `.env`, `.env.*`, `*.{crt,pem}` and `**/.git/**` by
+default, and nothing else.
+
+**Why it matters.** Nobody today. A dev server is bound to localhost unless
+somebody passes `--host`, and the plugin's own header already says that is one
+flag away — the day somebody demos the editor off a laptop on a conference
+network, the asset tree is guarded and the source tree is not. There is nothing
+secret in this repository, so the cost is currently zero and the shape is what
+is worth recording: two different guards, one of them the plugin's and the
+strict one, the other Vite's and the permissive one.
+
+**What would fix it.** `server.fs.allow` in both configs, set to the directories
+the apps actually read — `public`, the packages they build from, and
+`node_modules`. Half an hour, and worth doing at the same moment somebody first
+wants `--host`, since that is when it stops being theoretical. A `server.fs.deny`
+list is the weaker alternative and would have to be guessed at rather than
+derived.
+
+### F-003 — The prop catalogue nests a list item inside a list item
+
+**Kind:** bug
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-04, reading the browser console while checking the benches load from the manifest
+**Where:** `PropCatalogue` in `packages/editor/src/components/PropCatalogue.tsx`
+**Closed:** 2026-09-04, fixed — the subheader is a `div`, since it is already
+inside the list item that wraps it
+
+**What happens.** Each catalogue group is a `<Box component="li">` wrapping a
+`<ListSubheader>`, and MUI renders `ListSubheader` as an `<li>` too. React logs
+`In HTML, <li> cannot be a descendant of <li>. This will cause a hydration
+error.` once per group, every time the props bench is opened.
+
+**Why it matters.** Nothing is drawn wrong and the editor is not server-rendered,
+so the hydration warning cannot bite. It matters because it is noise in the one
+console anybody watches while working on the editor, and a console with a
+standing error in it is a console people stop reading.
+
+**What would fix it.** Give the wrapper `component="li"` and the subheader
+`component="div"` — `ListSubheader` takes a `component` prop for exactly this —
+or drop the wrapper and let the subheader be the list item it already is.
+
+### F-005 — Two directories are called `assets` and only one of them is served
+
+**Kind:** cleanup
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-03, moving the game's asset files under `public/`
+**Where:** `assets/audio/`, `public/assets/`
+**Closed:** 2026-09-04, fixed — the audio generators moved to `tools/audio`,
+which is where the scripts that are run by hand live
+
+**What happens.** `public/assets/` holds the rigs, meshes, clips and trees, is
+served by both apps at `/assets/` and is copied into both builds. `assets/` at
+the repository root now holds only `audio/`, which is a directory of Node
+scripts that synthesise `.wav` files and is served by nothing. The two are told
+apart by their path and by nothing else.
+
+**Why it matters.** Nobody has been caught by it yet. It costs whoever is caught
+first about an hour, because both are plausible homes for a new asset and the
+wrong guess produces a file that loads locally and 404s in the build — or does
+not load at all and looks like a parser bug.
+
+**What would fix it.** Move the audio generators to `tools/audio/`, which is what
+`tools/` is for and what they are: they are run by hand to produce files that
+are `.gitignore`d. It is nine files, one line in the README's layout tree and
+one in the `.gitignore` comment, and nothing imports them. The alternative —
+renaming `public/assets` — is worse, because `/assets/rigs/humanoid.rig.yaml` is
+an address that appears inside the asset files themselves.

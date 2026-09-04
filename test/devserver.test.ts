@@ -25,7 +25,7 @@ import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createServer, type ViteDevServer } from 'vite';
 
-import { assetIO, publicDir, scriptBundle, scriptTypes } from '../vite.assets.mts';
+import { assetIO, publicDir, scriptBundle, scriptTypes, servedDirs } from '../vite.assets.mts';
 
 const root = resolve(import.meta.dirname, '..');
 
@@ -62,7 +62,8 @@ describe('the dev server', () => {
 			// The plugins in the order both apps list them. The order is the
 			// thing under test as much as the handlers are.
 			plugins: [assetIO(), scriptBundle(), scriptTypes()],
-			server: { port: 0, strictPort: false, host: '127.0.0.1' },
+			// The same guard both apps set. It is part of what is under test.
+			server: { port: 0, strictPort: false, host: '127.0.0.1', fs: { allow: servedDirs } },
 		});
 		await server.listen();
 		const address = server.httpServer?.address();
@@ -170,6 +171,30 @@ describe('the dev server', () => {
 
 			const entry = types.files['node_modules/@hexdelve/scripting/dist/index.d.ts'];
 			expect(entry).toContain('Script');
+		});
+	});
+
+	/*
+	 * What a dev server will hand out at all.
+	 *
+	 * The plugin's own guards were never the gap: both spellings of an escape
+	 * are refused, because the check is on what a path resolves to rather than
+	 * on how it is spelt. Vite's default was — it serves what is under its
+	 * root, and the root is a package inside a repository.
+	 */
+	describe('the repository around the application', () => {
+		it('will not serve a file outside the directories the apps read', async () => {
+			for (const path of ['/package.json', '/package-lock.json', '/tsconfig.base.json']) {
+				const body = await (await get(path)).text();
+				expect(body, path).not.toContain('"name": "hexdelve"');
+			}
+		});
+
+		it('still serves the things they do read', async () => {
+			// The guard is only worth having if it did not also break the apps.
+			expect((await get('/assets/rigs/humanoid.rig.yaml')).status).toBe(200);
+			expect((await get('/scripts.js')).status).toBe(200);
+			expect((await get('/scripts/Spin.ts')).status).toBe(200);
 		});
 	});
 

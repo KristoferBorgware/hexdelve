@@ -9,7 +9,7 @@
 // runs straight back into bar 0 and combat does not politely restart. The one
 // thin passage is in the middle, where it belongs.
 //
-//   node assets/audio/combat.js [out.wav]
+//   node tools/audio/combat.js [out.wav]
 
 const path = require('path');
 

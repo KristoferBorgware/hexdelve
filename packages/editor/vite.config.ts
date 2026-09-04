@@ -7,7 +7,7 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-import { assetIO, bundleDir, publicDir, scriptTypes } from '../../vite.assets.mts';
+import { assetIO, bundleDir, publicDir, scriptTypes, servedDirs } from '../../vite.assets.mts';
 import { workspaceAliases } from '../../vite.workspace.mts';
 
 export default defineConfig({
@@ -42,5 +42,7 @@ export default defineConfig({
 	server: {
 		port: 5181,
 		strictPort: false,
+		// The repository is not the application. See `servedDirs`.
+		fs: { allow: servedDirs },
 	},
 });

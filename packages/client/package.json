@@ -29,6 +29,7 @@
 	},
 	"dependencies": {
 		"@hexdelve/engine": "*",
+		"@hexdelve/scripting": "*",
 		"@hexdelve/shared": "*"
 	},
 	"devDependencies": {

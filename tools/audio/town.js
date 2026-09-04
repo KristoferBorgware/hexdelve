@@ -10,7 +10,7 @@
 // the natural third and the flat seventh, so the two share a root but not a
 // mood.
 //
-//   node assets/audio/town.js [out.wav]
+//   node tools/audio/town.js [out.wav]
 
 const path = require('path');
 
