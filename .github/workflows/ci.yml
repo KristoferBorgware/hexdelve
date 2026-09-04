@@ -53,11 +53,12 @@ jobs:
         # this step says what it does rather than depending on a file two
         # directories up.
         #
-        # `--no-audit` is the one that matters. The audit request POSTs the
-        # whole tree and was measured at 276 seconds against about 20ms for
-        # every other request in the same install — a fixed cost paid whether
-        # npm installs four hundred packages or none, and the whole of the
-        # seven minutes this step used to take.
+        # `--no-audit` is the one that mattered. The audit POSTs the whole tree
+        # and waits, and during a registry incident on 2026-09-04 that request
+        # took 276 seconds against about 20ms for every other request in the
+        # same install — the whole of the seven minutes this step used to take.
+        # The outage passed; the reason not to depend on it did not. See the
+        # repository's .npmrc, which turns the same thing off for everybody.
         #
         # `--ignore-scripts` is a smaller saving. The only install script that
         # runs on Linux is electron-winstaller's, which prepares a Windows
