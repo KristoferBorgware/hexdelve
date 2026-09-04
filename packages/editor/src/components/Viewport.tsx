@@ -6,6 +6,10 @@
  * looking at exactly what a player would be looking at. There is no editor
  * renderer and no editor scene — only the client, in a box.
  *
+ * What it does NOT get from the client is the client's compiled scripts. An
+ * editor-hosted world runs only what this page compiled, out of the files it is
+ * showing — see `scripts: false` below, and `watch` above it.
+ *
  * The canvas is created here rather than rendered as JSX, which is worth a
  * word. A canvas hands out one kind of context and then that is what it is
  * forever: ask a canvas that has given out `webgpu` for `webgl2` and it
@@ -82,6 +86,21 @@ export function Viewport({
 		createClient({
 			canvas,
 			backend,
+			/*
+			 * No compiled bundle. `scripts: false` starts this world with no
+			 * behaviour on it at all, and everything it ends up running is
+			 * compiled here, in this page, out of the files the editor is
+			 * showing — by the watcher below, or by the script view.
+			 *
+			 * The default would fetch `scripts.js`, which is right for a
+			 * shipped client and wrong for an editor twice over: on a dev
+			 * server it is a compile of the same directory this page is about
+			 * to compile again, and in a BUILT editor — the Electron shell, or
+			 * the published page — it is a bundle frozen when the editor was
+			 * built, which has nothing to do with the project this window is
+			 * open on.
+			 */
+			scripts: false,
 			onDeviceLost: (reason) => {
 				if (disposed) return;
 				setError(reason);
@@ -99,8 +118,9 @@ export function Viewport({
 				/*
 				 * Hand this client's script host to the watcher, so a saved
 				 * script file reaches the yard without a rebuild. The client
-				 * came up on the table compiled into it; from here on it runs
-				 * whatever is on disk.
+				 * came up with nothing on it — see `scripts: false` above — so
+				 * this first compile is also what gives it its behaviour, and
+				 * every one after that is a save arriving.
 				 */
 				if (watch) {
 					stopWatching = watchScripts(client.simulation.scripts, (state) =>

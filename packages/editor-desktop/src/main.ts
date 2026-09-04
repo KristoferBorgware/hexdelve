@@ -34,15 +34,16 @@
  * the window a real origin, so every URL under it resolves as it does over
  * http and no part of the editor needs to know which host it is on.
  *
- * ## What is stale here, and why that is all right
+ * ## Why nothing here compiles a script
  *
- * `scripts.js` — the compiled bundle the client fetches for its behaviour —
- * comes out of the application, so on the first frame the yard runs the
- * scripts as they were when the editor was built. The editor's own watcher
- * then reads `scripts/` from the PROJECT, compiles it in the browser and
- * swaps it in, which is the same thing it does on a dev server. Compiling it
- * again in the main process would mean a second compiler in a third place, to
- * be correct for one frame.
+ * The window carries no compiled scripts and does not need to. An
+ * editor-hosted client is created with `scripts: false`, so it starts with no
+ * behaviour and gets all of it from the editor compiling `scripts/` — read
+ * from the PROJECT over this scheme — in the page. A bundle built into the
+ * application would be behaviour frozen when the editor was built, from
+ * whatever checkout built it, and compiling one here instead would put a
+ * second compiler in a third place to say what the page is about to say
+ * anyway.
  */
 
 import { readdir, readFile } from 'node:fs/promises';

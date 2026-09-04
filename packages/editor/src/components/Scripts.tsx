@@ -129,8 +129,18 @@ export function Scripts({ backend, running }: ScriptsProps) {
 	const [compile, setCompile] = useState<CompileState>(IDLE);
 	const [types, setTypes] = useState<ScriptTypesState | null>(null);
 	const [naming, setNaming] = useState<string | null>(null);
-	/** The world beside the code, once it has a renderer. Null while it starts. */
+	/**
+	 * The world beside the code, once it has a renderer. Null while it starts,
+	 * and null for good if it fails or the pane is hidden.
+	 *
+	 * Held twice on purpose. The state is what the view renders from; the ref is
+	 * what a compile finishing later reads, because a compile started before the
+	 * world existed must still swap into the world that exists when it lands.
+	 */
 	const [client, setClient] = useState<HexdelveClient | null>(null);
+	const world = useRef<HexdelveClient | null>(null);
+	/** The buffers, for an effect that must not run again when they change. */
+	const sources = useRef<ReadonlyMap<string, string>>(new Map());
 	const [showYard, setShowYard] = useState(true);
 	/**
 	 * What the world is running, and what the next compile falls back to.
@@ -142,6 +152,7 @@ export function Scripts({ backend, running }: ScriptsProps) {
 	const live = useRef<ScriptProvider | null>(null);
 
 	const writable = scriptStore.writable;
+	sources.current = buffers;
 	const names = useMemo(() => [...buffers.keys()].sort(), [buffers]);
 	const text = selected === null ? '' : (buffers.get(selected) ?? '');
 	const dirty = selected !== null && buffers.get(selected) !== saved.get(selected);
@@ -151,18 +162,10 @@ export function Scripts({ backend, running }: ScriptsProps) {
 	);
 
 	// Stable, because Viewport tears its client down when this identity changes.
-	const onClientReady = useCallback((next: HexdelveClient | null) => setClient(next), []);
-
-	/*
-	 * A world that has just started runs what the build compiled into it — the
-	 * files as they were on disk. If these buffers have been compiled since,
-	 * that is what belongs in it, so it is put there as soon as there is
-	 * something to put it in. This is what makes switching backend, or showing
-	 * the pane after hiding it, keep the change somebody was looking at.
-	 */
-	useEffect(() => {
-		if (client && live.current) client.simulation.scripts.reload(live.current);
-	}, [client]);
+	const onClientReady = useCallback((next: HexdelveClient | null) => {
+		world.current = next;
+		setClient(next);
+	}, []);
 
 	// Every script, once. The compiler needs all of them to build any of them —
 	// one bundle, so that a script can import its neighbour.
@@ -199,6 +202,20 @@ export function Scripts({ backend, running }: ScriptsProps) {
 	}, []);
 
 	/**
+	 * Put a compiled set of classes into a running world.
+	 *
+	 * The one place the count moves, because there are two ways a swap happens
+	 * and they are the same event: a compile finishing while a world is up, and
+	 * a world starting when something has already been compiled for it.
+	 */
+	const swapInto = useCallback((target: HexdelveClient, provider: ScriptProvider) => {
+		// Every instance is rebuilt behind its id, so the world is not
+		// restarted and nothing that points at a script is disturbed.
+		target.simulation.scripts.reload(provider);
+		setCompile((state) => ({ ...state, swaps: state.swaps + 1 }));
+	}, []);
+
+	/**
 	 * Compile the buffers, and put what comes out into the world beside them.
 	 *
 	 * The previous provider is handed to the compiler so that a failure leaves
@@ -211,26 +228,50 @@ export function Scripts({ backend, running }: ScriptsProps) {
 			setCompile((state) => ({ ...state, compiling: true }));
 			const result = await compileScripts(sources, live.current ?? undefined);
 
-			let swapped = false;
 			if (!result.error) {
 				live.current = result.provider;
-				// Every instance is rebuilt behind its id, so the world is not
-				// restarted and nothing that points at a script is disturbed.
-				client?.simulation.scripts.reload(result.provider);
-				swapped = client !== null;
+				// Read from the ref rather than from state: this may have
+				// started before there was a world, and what matters is the one
+				// there is now. When there is none, the effect below hands it
+				// over as soon as there is.
+				if (world.current) swapInto(world.current, result.provider);
 			}
 
 			setCompile((state) => ({
+				...state,
 				names: result.names,
 				error: result.error,
 				diagnostics: result.diagnostics,
 				compiling: false,
 				at: Date.now(),
-				swaps: state.swaps + (swapped ? 1 : 0),
 			}));
 		},
-		[client],
+		[swapInto],
 	);
+
+	/*
+	 * Compile once, as soon as there is something to compile.
+	 *
+	 * Not because there is a world to put it in — there may not be, and the
+	 * pane can be hidden or its renderer can fail — but because a compile is
+	 * the answer to "does this build", which is worth having on screen either
+	 * way. Guarded on `live`, so this is the first compile and not every one.
+	 */
+	useEffect(() => {
+		if (loading || live.current) return;
+		void build(sources.current);
+	}, [loading, build]);
+
+	/*
+	 * A world that has just started has NOTHING on it: an editor-hosted client
+	 * fetches no compiled bundle, so everything it runs is compiled here. So
+	 * whatever was last compiled is put into it as soon as it exists — which is
+	 * what makes switching backend, or showing the pane after hiding it, keep
+	 * the change somebody was looking at.
+	 */
+	useEffect(() => {
+		if (client && live.current) swapInto(client, live.current);
+	}, [client, swapInto]);
 
 	const save = useCallback(() => {
 		if (selected === null || !writable) return;

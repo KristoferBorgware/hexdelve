@@ -521,6 +521,16 @@ default in the source would never take effect.
 | the client | `scripts.js`, fetched and evaluated | no |
 | the editor | esbuild-wasm, in the browser | yes |
 
+The editor fetches no bundle at all: it creates its clients with
+`scripts: false`, so an editor-hosted world starts with no behaviour on it and
+everything it ends up running was compiled by the page it is in, from the files
+that page is showing. The default — fetching `scripts.js` — is right for a
+shipped client and wrong there twice: on a dev server it is a compile of the
+same directory the page is about to compile again, and in a BUILT editor it
+would be a bundle frozen when the editor was built, which has nothing to do
+with the project a window is later opened on. The editor's Vite config leaves
+`scriptBundle` out for the same reason.
+
 Only the editor carries the compiler. The client's whole promise is one ES
 module with nothing to install, and a multi-megabyte WebAssembly toolchain
 nobody playing the game will run has no business inside it. Both run what they

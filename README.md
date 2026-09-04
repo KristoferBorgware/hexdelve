@@ -176,7 +176,9 @@ so a file that will not build says so with the error on its own line.
 Beside the code is a **world** — the client again, the same component the yard
 view mounts — and every successful compile is swapped into it with
 `host.reload`, which rebuilds each instance behind its id and keeps the
-parameters somebody set. So a change to a number takes effect on a creature
+parameters somebody set. An editor-hosted world starts with nothing on it:
+`scripts: false`, so it never fetches a compiled bundle and runs only what this
+page compiled out of the files it is showing. So a change to a number takes effect on a creature
 that is mid-fight rather than on a fresh one that has forgotten the fight, and
 the transport in the toolbar drives it. It reloads on a COMPILE rather than on
 a save, which is the useful order — try the change, then keep it — and the

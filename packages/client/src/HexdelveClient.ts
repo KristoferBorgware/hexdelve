@@ -112,10 +112,14 @@ export interface ClientOptions {
 	/**
 	 * Where the compiled scripts come from.
 	 *
-	 * Left alone, the bundle is fetched from `scripts.js` beside the page. Pass
-	 * a provider to supply the classes directly — which is what the editor does,
-	 * since its provider compiles on every save — or `false` to run with no
-	 * behaviour at all.
+	 * Left alone, the bundle is fetched from `scripts.js` beside the page,
+	 * which is what a shipped client does. Pass a provider to supply the
+	 * classes directly, or `false` for a world with no behaviour on it — which
+	 * is what the EDITOR passes, because it compiles the script directory in
+	 * the page and reloads the host with the result. Fetching a bundle there
+	 * would mean running somebody else's compile of the same files for a
+	 * second, and in a built editor a compile from a different project
+	 * altogether.
 	 */
 	scripts?: ScriptProvider | string | false;
 	/**

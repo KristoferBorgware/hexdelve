@@ -150,6 +150,12 @@ export function assetIO(): Plugin {
  * honest — the running page has whatever is on disk now, with no build step to
  * forget — and it means a broken script answers with its own error on its own
  * route rather than stopping the page that asked for it.
+ *
+ * The CLIENT's config lists this and the editor's does not, which is the line
+ * between the two applications. A client runs behaviour somebody else
+ * compiled; the editor compiles the directory in the page and hands the
+ * classes to its own clients, so a bundle in an editor build would be
+ * behaviour frozen at the moment that editor was built.
  */
 export function scriptBundle(): Plugin {
 	return {
