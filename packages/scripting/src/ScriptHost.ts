@@ -43,7 +43,10 @@ import {
 	type ParameterMeta,
 	type ScriptClass,
 } from './parameters.js';
+import { handlersOf, type EventHandler, type GameEvent } from './events.js';
+import type { ScriptRuntime } from './handles.js';
 import type { Script, ScriptBinding } from './Script.js';
+import type { GameObject } from '@hexdelve/engine';
 
 /** Where a host gets its classes. */
 export interface ScriptProvider {
@@ -66,15 +69,26 @@ export interface LiveParameter extends ParameterMeta {
 interface Registration {
 	readonly id: number;
 	readonly typeName: string;
-	readonly binding: Omit<ScriptBinding, 'log'>;
+	readonly binding: Omit<ScriptBinding, 'log' | 'emit'>;
 	instance: Script | null;
 	/** Only what somebody actually set. See `parameters.ts` for why. */
 	readonly overrides: Record<string, unknown>;
+	/** What the live instance's class declared with `@on`. Empty when unloaded. */
+	handlers: readonly EventHandler[];
 	muted: boolean;
 }
 
-export class ScriptHost {
+export class ScriptHost implements ScriptRuntime {
 	private readonly registrations = new Map<number, Registration>();
+	/**
+	 * Which registrations answer which event, by event NAME.
+	 *
+	 * Filled when a script is built and emptied when it is unloaded, both from
+	 * the one list its class declared — which is the whole reason `@on` is a
+	 * decorator. Nothing a script does can leave a subscription behind, because
+	 * no script ever makes one.
+	 */
+	private readonly subscribers = new Map<string, Set<number>>();
 	private readonly log: (message: string) => void;
 	private provider: ScriptProvider;
 	private nextId = 1;
@@ -104,7 +118,7 @@ export class ScriptHost {
 	 */
 	register(
 		typeName: string,
-		binding: Omit<ScriptBinding, 'log'>,
+		binding: Omit<ScriptBinding, 'log' | 'emit'>,
 		overrides: Readonly<Record<string, unknown>> = {},
 	): number {
 		const registration: Registration = {
@@ -113,6 +127,7 @@ export class ScriptHost {
 			binding,
 			instance: null,
 			overrides: { ...overrides },
+			handlers: [],
 			muted: false,
 		};
 		this.registrations.set(registration.id, registration);
@@ -138,6 +153,18 @@ export class ScriptHost {
 		if (!registration) return;
 		this.registrations.delete(id);
 		this.unload(registration);
+	}
+
+	/**
+	 * The live script behind an id, or null.
+	 *
+	 * Null while its class is missing or its file is half-written, which is an
+	 * ordinary state rather than an error. Nothing should HOLD what this
+	 * returns: a hot reload replaces the instance, and a caller keeping one is
+	 * keeping the version that was replaced.
+	 */
+	scriptAt(id: number): Script | null {
+		return this.registrations.get(id)?.instance ?? null;
 	}
 
 	/** The exposed fields of one live script, with their current values. */
@@ -182,7 +209,102 @@ export class ScriptHost {
 		this.log(`reloaded: ${live} of ${registered} script(s) running`);
 	}
 
+	/**
+	 * Announce something to every script in the scene that handles it.
+	 *
+	 * Order is registration order, which is spawn order: the systems go into
+	 * the scene before the cast, so a system hears an event before the things
+	 * that came after it. Nothing should depend on that, and it is written down
+	 * so that anything which does is doing it knowingly.
+	 */
+	emit(event: GameEvent<unknown>, payload: unknown): void {
+		this.deliver(event, payload, null);
+	}
+
+	/** Announce something to the scripts on one object, and to nothing else. */
+	send(target: GameObject, event: GameEvent<unknown>, payload: unknown): void {
+		this.deliver(event, payload, target);
+	}
+
+	/**
+	 * The first live script of a class, on one object or anywhere.
+	 *
+	 * How a script asks a system a question, where an event announces an
+	 * answer. Null when the class is not running — which is an ordinary state,
+	 * not an error: a system whose file is half-written has no instance, and a
+	 * caller that cannot find it should carry on rather than throw.
+	 */
+	instance<T>(constructor: abstract new () => T, on?: GameObject): T | null {
+		for (const registration of this.registrations.values()) {
+			const instance = registration.instance;
+			if (!instance) continue;
+			if (on && registration.binding.object.raw !== on) continue;
+			if (instance instanceof constructor) return instance as T;
+		}
+		return null;
+	}
+
 	/* ------------------------------------------------------------ internals -- */
+
+	/**
+	 * Hand one event to whoever declared it.
+	 *
+	 * The subscriber set is copied before it is walked. A handler may destroy
+	 * the thing it was told about — the whole point of `Damage` is that it
+	 * sometimes is — and destroying it unsubscribes it, which would otherwise
+	 * be a set modified while it was being iterated.
+	 */
+	private deliver(event: GameEvent<unknown>, payload: unknown, on: GameObject | null): void {
+		const listening = this.subscribers.get(event.name);
+		if (!listening || listening.size === 0) return;
+
+		for (const id of [...listening]) {
+			const registration = this.registrations.get(id);
+			const instance = registration?.instance;
+			if (!registration || !instance || registration.muted) continue;
+			if (on && registration.binding.object.raw !== on) continue;
+
+			for (const handler of registration.handlers) {
+				if (handler.event !== event.name) continue;
+				const method = (instance as unknown as Record<string, unknown>)[handler.method];
+				if (typeof method !== 'function') continue;
+				try {
+					(method as (value: unknown) => void).call(instance, payload);
+				} catch (error) {
+					// The same rule as `tick`, and for the same reason: an event
+					// that arrives sixty times a second would otherwise fill the
+					// console with one script's bug.
+					registration.muted = true;
+					this.log(
+						`${this.where(registration)}.${handler.method} threw on '${event.name}',` +
+							` muted until reload: ${why(error)}`,
+					);
+				}
+			}
+		}
+	}
+
+	/** Put a built script's declared handlers into the subscriber index. */
+	private subscribe(registration: Registration): void {
+		const instance = registration.instance;
+		if (!instance) return;
+		registration.handlers = handlersOf(instance.constructor);
+		for (const handler of registration.handlers) {
+			let listening = this.subscribers.get(handler.event);
+			if (!listening) this.subscribers.set(handler.event, (listening = new Set()));
+			listening.add(registration.id);
+		}
+	}
+
+	/** And take exactly those back out again. */
+	private unsubscribe(registration: Registration): void {
+		for (const handler of registration.handlers) {
+			const listening = this.subscribers.get(handler.event);
+			listening?.delete(registration.id);
+			if (listening?.size === 0) this.subscribers.delete(handler.event);
+		}
+		registration.handlers = [];
+	}
 
 	private build(registration: Registration): void {
 		const constructor = this.provider.resolve(registration.typeName);
@@ -208,6 +330,7 @@ export class ScriptHost {
 		resolveParameters(instance);
 		instance.attach({
 			...registration.binding,
+			emit: (event, payload) => this.emit(event, payload),
 			log: (message) => this.log(`${this.where(registration)}: ${message}`),
 		});
 		applyParameters(instance, registration.overrides, (bad, known) =>
@@ -215,6 +338,9 @@ export class ScriptHost {
 		);
 
 		registration.instance = instance;
+		// Before `onLoad`, so a script that announces something as it starts is
+		// heard by scripts that were built before it.
+		this.subscribe(registration);
 		try {
 			instance.onLoad();
 		} catch (error) {
@@ -225,6 +351,7 @@ export class ScriptHost {
 
 	private unload(registration: Registration): void {
 		const instance = registration.instance;
+		this.unsubscribe(registration);
 		if (!instance) return;
 		registration.instance = null;
 		try {

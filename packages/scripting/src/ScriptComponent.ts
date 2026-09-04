@@ -21,7 +21,7 @@ export interface ScriptComponentOptions {
 	readonly script: string;
 	/** The scene it is in, for the handle a script reaches things through. */
 	readonly scene: Scene;
-	/** Values for the fields the script marked `@serialize`. */
+	/** Values for the fields the script declared with `param()`. */
 	readonly parameters?: Readonly<Record<string, unknown>>;
 }
 
@@ -38,7 +38,10 @@ export class ScriptComponent extends Component {
 		this.script = options.script;
 		this.id = options.host.register(
 			options.script,
-			{ object: new ScriptObject(object), scene: new ScriptScene(options.scene) },
+			{
+				object: new ScriptObject(object, options.host),
+				scene: new ScriptScene(options.scene, options.host),
+			},
 			options.parameters ?? {},
 		);
 	}

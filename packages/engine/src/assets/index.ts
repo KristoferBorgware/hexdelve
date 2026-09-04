@@ -28,6 +28,7 @@ export {
 
 export {
 	emptyPrefab,
+	prefabScripts,
 	prefabTypes,
 	readPrefabNode,
 	unknownComponent,

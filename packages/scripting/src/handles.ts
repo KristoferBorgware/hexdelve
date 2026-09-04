@@ -20,6 +20,25 @@
 
 import type { GameObject, Scene } from '@hexdelve/engine';
 
+import type { GameEvent, Payload } from './events.js';
+
+/**
+ * The part of the host a handle needs, and nothing else.
+ *
+ * An interface rather than the host itself so this file does not import it: the
+ * host already reaches these handles through `Script`, and a cycle between the
+ * two would be one more thing to hold in mind for no gain. It is also the exact
+ * list of what a handle can do that is not simply reading the object graph.
+ */
+export interface ScriptRuntime {
+	/** Deliver to every script anywhere that handles this event. */
+	emit(event: GameEvent<unknown>, payload: unknown): void;
+	/** Deliver to the scripts on one object, and to nothing else. */
+	send(target: GameObject, event: GameEvent<unknown>, payload: unknown): void;
+	/** The first live script of a class, on one object or anywhere. */
+	instance<T>(constructor: abstract new () => T, on?: GameObject): T | null;
+}
+
 /** Where something is and which way it is turned. */
 export class ScriptTransform {
 	constructor(private readonly target: GameObject) {}
@@ -71,7 +90,10 @@ export class ScriptTransform {
 
 /** One object in the scene, as a script sees it. */
 export class ScriptObject {
-	constructor(private readonly target: GameObject) {}
+	constructor(
+		private readonly target: GameObject,
+		private readonly runtime: ScriptRuntime,
+	) {}
 
 	get name(): string {
 		return this.target.name;
@@ -91,13 +113,33 @@ export class ScriptObject {
 	}
 
 	get parent(): ScriptObject | null {
-		return this.target.parent ? new ScriptObject(this.target.parent) : null;
+		return this.target.parent ? new ScriptObject(this.target.parent, this.runtime) : null;
 	}
 
 	/** The first object with this name underneath, or null. */
 	child(name: string): ScriptObject | null {
 		const found = this.target.find(name);
-		return found ? new ScriptObject(found) : null;
+		return found ? new ScriptObject(found, this.runtime) : null;
+	}
+
+	/**
+	 * Tell this object that something happened.
+	 *
+	 * Reaches the scripts on THIS object and nothing under it. A creature that
+	 * wants its parts to hear it should say so by sending to them.
+	 */
+	send<P>(event: GameEvent<P>, ...payload: Payload<P>): void {
+		this.runtime.send(this.target, event as GameEvent<unknown>, payload[0]);
+	}
+
+	/**
+	 * A script of this class on this object, or null.
+	 *
+	 * For asking a question, where an event is for announcing an answer: an
+	 * event is fire-and-forget and cannot hand anything back.
+	 */
+	script<T>(constructor: abstract new () => T): T | null {
+		return this.runtime.instance(constructor, this.target);
 	}
 
 	/** Take it out of the scene. Everything on it, and under it, is torn down. */
@@ -113,12 +155,27 @@ export class ScriptObject {
 
 /** The scene, as a script sees it. */
 export class ScriptScene {
-	constructor(private readonly target: Scene) {}
+	constructor(
+		private readonly target: Scene,
+		private readonly runtime: ScriptRuntime,
+	) {}
 
 	/** The first object anywhere with this name, or null. */
 	find(name: string): ScriptObject | null {
 		const found = this.target.find(name);
-		return found ? new ScriptObject(found) : null;
+		return found ? new ScriptObject(found, this.runtime) : null;
+	}
+
+	/**
+	 * The first script of this class anywhere in the scene, or null.
+	 *
+	 * How a script reaches a system. The systems are spawned once, before
+	 * anything else, so `scene.script(CharacterRegistry)` is a singleton lookup
+	 * that does not need a singleton: there is one because the prefab that
+	 * carries it is instantiated once.
+	 */
+	script<T>(constructor: abstract new () => T): T | null {
+		return this.runtime.instance(constructor);
 	}
 
 	get raw(): Scene {

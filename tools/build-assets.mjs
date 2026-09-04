@@ -35,6 +35,7 @@ const root = resolve(import.meta.dirname, '..');
 const assetRoot = join(root, 'public', 'assets');
 const engineDist = join(root, 'packages', 'engine', 'dist', 'index.js');
 const clientDist = join(root, 'packages', 'client', 'dist', 'index.js');
+const scriptingDist = join(root, 'packages', 'scripting', 'dist', 'index.js');
 
 /** Only these travel. A pack is asset text, not whatever else is in the tree. */
 const PACKABLE = /\.ya?ml$/;
@@ -52,7 +53,7 @@ async function walk(dir) {
 
 async function main() {
 	if (!existsSync(assetRoot)) throw new Error(`no asset tree at ${relative(root, assetRoot)}`);
-	for (const dist of [engineDist, clientDist]) {
+	for (const dist of [engineDist, clientDist, scriptingDist]) {
 		if (!existsSync(dist)) {
 			throw new Error(
 				`missing ${relative(root, dist)} — run \`npm run build:libs\` first, ` +
@@ -74,7 +75,9 @@ async function main() {
 	// The check. Loading an entity reads everything it links to, so walking the
 	// manifest touches the whole graph — and anything the manifest does NOT
 	// reach is reported rather than quietly shipped.
-	const { AssetLibrary, memoryIO, prefabTypes } = await import(pathToFileURL(engineDist).href);
+	const { AssetLibrary, memoryIO, prefabScripts, prefabTypes } = await import(
+		pathToFileURL(engineDist).href
+	);
 	const { poseFunctions, components } = await import(pathToFileURL(clientDist).href);
 
 	const library = new AssetLibrary(memoryIO(pack), { poseFunctions });
@@ -106,6 +109,28 @@ async function main() {
 		}
 	}
 
+	/*
+	 * And the script names, against the scripts this build actually compiles.
+	 *
+	 * A prefab naming a script that is not there spawns an object with nothing
+	 * on it — the host says so at run time and carries on, which is right for a
+	 * file somebody is halfway through writing and wrong for a build. A
+	 * misspelt `Charcter` is a creature that quietly cannot be hit, and that is
+	 * the sort of thing found a week later rather than here.
+	 */
+	const { scriptsFromBundle } = await import(pathToFileURL(scriptingDist).href);
+	const { bundleScripts } = await import('./build-scripts.mjs');
+	const behaviour = scriptsFromBundle((await bundleScripts()).code);
+	for (const { id, prefab } of [...entities, ...systems]) {
+		for (const name of prefabScripts(prefab)) {
+			if (!behaviour.resolve(name)) {
+				throw new Error(
+					`'${id}' names script '${name}'; this build compiles ${behaviour.names.sort().join(', ')}`,
+				);
+			}
+		}
+	}
+
 	const reached = new Set(library.paths);
 
 	const orphans = paths.filter((path) => !reached.has(path));
@@ -119,6 +144,7 @@ async function main() {
 			`into ${relative(root, out)}`,
 	);
 	console.log(`checked ${entities.length} entities: ${entities.map((one) => one.id).join(', ')}`);
+	console.log(`checked ${behaviour.names.length} script(s): ${behaviour.names.sort().join(', ')}`);
 	if (systems.length) {
 		console.log(`checked ${systems.length} system(s): ${systems.map((one) => one.id).join(', ')}`);
 	}

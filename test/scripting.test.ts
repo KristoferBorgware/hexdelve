@@ -14,7 +14,8 @@
  * the container rather than about the code.
  */
 
-import { readdir } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
@@ -22,9 +23,16 @@ import { Component, GameObject, Scene } from '@hexdelve/engine';
 import {
 	param,
 	parametersOf,
+	defineEvent,
+	handlersOf,
+	on,
+	type GameEvent,
 	Script,
 	ScriptComponent,
 	ScriptHost,
+	ScriptObject,
+	ScriptScene,
+	scriptSdk,
 	scriptsFromBundle,
 	staticScripts,
 	type ScriptClass,
@@ -59,25 +67,23 @@ class Counter extends Script {
 	}
 }
 
-function attach(host: ScriptHost, scene: Scene, name = 'Counter', parameters = {}): number {
-	const object = scene.spawn('subject');
-	return host.register(name, { object: handleFor(object), scene: sceneHandle(scene) }, parameters);
-}
-
-// The handles the host wants. Built here rather than exported from the package,
-// because building one is the component's job everywhere that is not a test.
-function handleFor(object: GameObject) {
-	return new (class {
-		get name() {
-			return object.name;
-		}
-		get raw() {
-			return object;
-		}
-	})() as never;
-}
-function sceneHandle(scene: Scene) {
-	return { raw: scene } as never;
+function attach(
+	host: ScriptHost,
+	scene: Scene,
+	name = 'Counter',
+	parameters = {},
+	on?: GameObject,
+): number {
+	const object = on ?? scene.spawn('subject');
+	// The real handles rather than stubs. Building one is the component's job
+	// everywhere that is not a test, but a stub would not carry the runtime the
+	// host reaches events and lookups through, which is half of what is checked
+	// below.
+	return host.register(
+		name,
+		{ object: new ScriptObject(object, host), scene: new ScriptScene(scene, host) },
+		parameters,
+	);
 }
 
 describe('running a script', () => {
@@ -267,6 +273,184 @@ describe('the component', () => {
 });
 
 /*
+ * The events, and the one promise the decorator exists to keep.
+ *
+ * A handler declared with `@on` is subscribed by the HOST, from the list the
+ * class carries, so a script cannot forget to unsubscribe it. Everything below
+ * is a way of asking whether that holds when things are destroyed, reloaded,
+ * inherited or throwing.
+ *
+ * The decorator is applied by HAND here rather than written as syntax, and the
+ * reason is worth knowing: vitest transforms with oxc and is not given the
+ * option that turns legacy decorators on, so `@on(...)` in this file would not
+ * compile. That is precisely why the scripts are compiled by esbuild instead
+ * and are not in any module graph. `@on` as syntax is covered further down,
+ * against the real script directory built the real way — which is the only
+ * place it needs to work.
+ */
+describe('events', () => {
+	const Poke = defineEvent<{ hard: number }>('poke');
+	const Shout = defineEvent('shout');
+
+	/** `@on(event) method() {}`, spelled out. */
+	function handles<T extends Script>(
+		target: abstract new (...args: never[]) => T,
+		event: GameEvent<unknown>,
+		method: keyof T & string,
+	): void {
+		const prototype = target.prototype as object;
+		const descriptor = Object.getOwnPropertyDescriptor(prototype, method);
+		expect(descriptor, `${target.name}.${method}`).toBeDefined();
+		on(event)(prototype, method, descriptor as never);
+	}
+
+	class Listener extends Script {
+		pokes: number[] = [];
+		shouts = 0;
+
+		poked(blow: { hard: number }): void {
+			this.pokes.push(blow.hard);
+		}
+
+		heard(): void {
+			this.shouts++;
+		}
+	}
+	handles(Listener, Poke, 'poked');
+	handles(Listener, Shout as GameEvent<unknown>, 'heard');
+
+	/** Inherits its base's handlers and adds one of its own. */
+	class LoudListener extends Listener {
+		echoes = 0;
+
+		echoed(): void {
+			this.echoes++;
+		}
+	}
+	handles(LoudListener, Shout as GameEvent<unknown>, 'echoed');
+
+	class Shouter extends Script {
+		override onLoad(): void {
+			this.emit(Shout);
+		}
+	}
+
+	class Angry extends Script {
+		poked(): void {
+			throw new Error('do not');
+		}
+	}
+	handles(Angry, Poke, 'poked');
+
+	function running(classes: Record<string, ScriptClass<Script>>) {
+		const { host: make, said } = quiet();
+		return { host: make(staticScripts(classes)), said, scene: new Scene() };
+	}
+
+	it('finds the handlers a class declared, its base classes included', () => {
+		expect(
+			handlersOf(Listener)
+				.map((one) => `${one.event} ${one.method}`)
+				.sort(),
+		).toEqual(['poke poked', 'shout heard']);
+		expect(
+			handlersOf(LoudListener)
+				.map((one) => one.method)
+				.sort(),
+		).toEqual(['echoed', 'heard', 'poked']);
+	});
+
+	it('delivers a broadcast to every script that declared it', () => {
+		const { host, scene } = running({ Listener });
+		const first = attach(host, scene, 'Listener');
+		const second = attach(host, scene, 'Listener');
+
+		host.emit(Poke as GameEvent<unknown>, { hard: 3 });
+		expect((host.scriptAt(first) as Listener).pokes).toEqual([3]);
+		expect((host.scriptAt(second) as Listener).pokes).toEqual([3]);
+	});
+
+	it('sends to the scripts on one object and to nothing else', () => {
+		const { host, scene } = running({ Listener });
+		const here = scene.spawn('here');
+		const there = scene.spawn('there');
+		const near = attach(host, scene, 'Listener', {}, here);
+		const far = attach(host, scene, 'Listener', {}, there);
+
+		host.send(here, Poke as GameEvent<unknown>, { hard: 7 });
+		expect((host.scriptAt(near) as Listener).pokes).toEqual([7]);
+		expect((host.scriptAt(far) as Listener).pokes).toEqual([]);
+	});
+
+	it('reaches a handler a subclass inherited, and one it added', () => {
+		const { host, scene } = running({ LoudListener });
+		const id = attach(host, scene, 'LoudListener');
+		host.emit(Shout as GameEvent<unknown>, undefined);
+		const one = host.scriptAt(id) as LoudListener;
+		expect(one.shouts, 'inherited').toBe(1);
+		expect(one.echoes, 'its own').toBe(1);
+	});
+
+	it('stops delivering to a script that has been destroyed', () => {
+		const { host, scene } = running({ Listener });
+		const id = attach(host, scene, 'Listener');
+		const one = host.scriptAt(id) as Listener;
+
+		host.destroy(id);
+		host.emit(Poke as GameEvent<unknown>, { hard: 1 });
+		// This test still holds the instance; nothing in the host does, which is
+		// the point.
+		expect(one.pokes).toEqual([]);
+	});
+
+	/*
+	 * The one that would fail if a script subscribed itself in `onLoad`. A
+	 * reload builds a NEW instance, and a script that had registered a callback
+	 * by hand would have left the old one subscribed as well — so the new
+	 * instance would see one poke and the old, unreachable one would see it too.
+	 */
+	it('does not double a handler across a hot reload', () => {
+		const { host, scene } = running({ Listener });
+		const id = attach(host, scene, 'Listener');
+		const before = host.scriptAt(id) as Listener;
+
+		host.reload(staticScripts({ Listener }));
+		const after = host.scriptAt(id) as Listener;
+		expect(after, 'the reload rebuilt it').not.toBe(before);
+
+		host.emit(Poke as GameEvent<unknown>, { hard: 2 });
+		expect(after.pokes, 'the new one').toEqual([2]);
+		expect(before.pokes, 'the replaced one').toEqual([]);
+	});
+
+	it('hears a script that announces something as it loads', () => {
+		const { host, scene } = running({ Listener, Shouter });
+		const heard = attach(host, scene, 'Listener');
+		attach(host, scene, 'Shouter');
+		expect((host.scriptAt(heard) as Listener).shouts).toBe(1);
+	});
+
+	it('mutes a handler that throws, and says which one', () => {
+		const { host, said, scene } = running({ Angry });
+		attach(host, scene, 'Angry');
+
+		host.emit(Poke as GameEvent<unknown>, { hard: 1 });
+		expect(host.census.muted).toBe(1);
+		expect(said.join('\n')).toMatch(/Angry on 'subject'\.poked threw on 'poke'/);
+	});
+
+	it('finds a live script by its class, anywhere or on one object', () => {
+		const { host, scene } = running({ Listener });
+		const here = scene.spawn('here');
+		attach(host, scene, 'Listener', {}, here);
+
+		expect(host.instance(Listener)).toBeInstanceOf(Listener);
+		expect(host.instance(Listener, here)).toBeInstanceOf(Listener);
+		expect(host.instance(Listener, scene.spawn('elsewhere'))).toBeNull();
+	});
+});
+
+/*
  * The real directory, compiled the way the client and the editor compile it.
  *
  * Nothing imports these files — that is the point of them, and it is why this
@@ -274,6 +458,20 @@ describe('the component', () => {
  * test that imported them would put them back in a module graph and would stop
  * being a test of what ships.
  */
+/**
+ * A compiled script, seen through the shape a test expects of it.
+ *
+ * Nothing here can import a script's TYPE, and that is a consequence worth
+ * knowing rather than a workaround: the scripts answer to their own tsconfig,
+ * the only one with `experimentalDecorators` on, so a type-only import would
+ * pull `Character.ts` into this file's typecheck and `@on` would not compile
+ * there. Naming the shape is what one compiler for the scripts costs.
+ */
+function shaped<T>(script: Script | null): T {
+	expect(script).not.toBeNull();
+	return script as unknown as T;
+}
+
 describe('the scripts this build ships', () => {
 	let provider: ScriptProvider;
 	let files: string[];
@@ -309,6 +507,102 @@ describe('the scripts this build ships', () => {
 		expect(spin).not.toBeNull();
 		expect(parametersOf(spin).map((one) => one.key)).toEqual(['speed']);
 		expect(parametersOf(spin)[0]!.type).toBe('number');
+	});
+
+	it('compiles `@on` as syntax, which is the whole reason for the build step', () => {
+		// vitest cannot transform a decorator, so this is the only place the
+		// syntax is exercised — and it is the only place it has to work.
+		const character = provider.resolve('Character');
+		expect(character, 'Character').not.toBeNull();
+		expect(handlersOf(character!).map((one) => `${one.event} ${one.method}`)).toEqual([
+			'damage hurt',
+		]);
+		expect(handlersOf(provider.resolve('Combat')!).map((one) => one.event)).toEqual(['swing']);
+	});
+
+	it('runs a swing through combat and takes the hit points off', () => {
+		const { host: make, said } = quiet();
+		const host = make(provider);
+		const scene = new Scene();
+
+		// The systems first, as the game spawns them: a character joins the
+		// register when it loads, so the register has to be there already.
+		const systems = scene.spawn('systems');
+		attach(host, scene, 'CharacterRegistry', {}, systems.add(new GameObject('characters')));
+		attach(host, scene, 'Combat', { spread: 1 }, systems.add(new GameObject('combat')));
+
+		const man = scene.spawn('wanderer');
+		const bat = scene.spawn('bat');
+		bat.transform.setPosition(0, 0, 1.5);
+		scene.solve();
+
+		attach(host, scene, 'Character', { hp: 20, faction: 'player', power: 5 }, man);
+		const hurt = attach(host, scene, 'Character', { hp: 6, faction: 'foe', power: 2 }, bat);
+
+		const registry = shaped<{ count: number }>(
+			host.instance(provider.resolve('CharacterRegistry') as never) as Script | null,
+		);
+		expect(registry.count, 'both characters joined the register').toBe(2);
+
+		// Facing the bat, which is straight down +Z from him.
+		host.emit({ name: 'swing' }, {
+			by: 'wanderer',
+			at: { x: 0, z: 0 },
+			facing: 0,
+			reach: 2,
+			amount: 5,
+		});
+		expect(shaped<{ health: number }>(host.scriptAt(hurt)).health).toBe(1);
+		expect(said.join('\n')).toMatch(/took 5 from wanderer, 1 left/);
+
+		// And again, which finishes it and is announced.
+		host.emit({ name: 'swing' }, {
+			by: 'wanderer',
+			at: { x: 0, z: 0 },
+			facing: 0,
+			reach: 2,
+			amount: 5,
+		});
+		expect(shaped<{ health: number }>(host.scriptAt(hurt)).health).toBe(0);
+	});
+
+	it('does not let a swing reach behind the swinger', () => {
+		const { host: make } = quiet();
+		const host = make(provider);
+		const scene = new Scene();
+		const systems = scene.spawn('systems');
+		attach(host, scene, 'CharacterRegistry', {}, systems.add(new GameObject('characters')));
+		attach(host, scene, 'Combat', { spread: 1 }, systems.add(new GameObject('combat')));
+
+		const bat = scene.spawn('bat');
+		bat.transform.setPosition(0, 0, 1.5);
+		scene.solve();
+		const id = attach(host, scene, 'Character', { hp: 6, faction: 'foe' }, bat);
+		const hurt = shaped<{ health: number }>(host.scriptAt(id));
+
+		// Facing the other way. The bat is behind him.
+		host.emit({ name: 'swing' }, {
+			by: 'wanderer',
+			at: { x: 0, z: 0 },
+			facing: Math.PI,
+			reach: 2,
+			amount: 5,
+		});
+		expect(hurt.health).toBe(6);
+	});
+
+	it('offers exactly the names the SDK shim re-exports', async () => {
+		// The tool writes the shim's export list out by hand, because it cannot
+		// import the package it is compiling against. This is what stops the two
+		// drifting: a name added to `scriptSdk` and not to the tool would be an
+		// import that resolves to undefined inside every script.
+		const source = await readFile(
+			resolve(import.meta.dirname, '..', 'tools', 'build-scripts.mjs'),
+			'utf8',
+		);
+		const listed = /const SDK_NAMES = \[([^\]]*)\]/.exec(source)?.[1] ?? '';
+		const names = [...listed.matchAll(/'([^']+)'/g)].map((one) => one[1]);
+		expect(names.sort()).toEqual(Object.keys(scriptSdk).sort());
 	});
 
 	it('reaches the SAME Script class the host checks against', () => {

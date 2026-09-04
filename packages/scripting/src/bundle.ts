@@ -39,6 +39,7 @@
 
 import { Script } from './Script.js';
 import { param } from './parameters.js';
+import { defineEvent, on } from './events.js';
 import type { ScriptClass } from './parameters.js';
 import type { ScriptProvider } from './ScriptHost.js';
 
@@ -54,7 +55,7 @@ export const SCRIPT_SDK_GLOBAL = '__HEXDELVE_SCRIPTING__';
  * is what stops it becoming the whole engine by degrees, and every name added
  * here is a name scripts may go on using.
  */
-export const scriptSdk: Readonly<Record<string, unknown>> = { Script, param };
+export const scriptSdk: Readonly<Record<string, unknown>> = { Script, param, defineEvent, on };
 
 /** The module text a compiler should serve for `@hexdelve/scripting`. */
 export function scriptSdkShim(): string {

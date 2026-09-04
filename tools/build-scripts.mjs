@@ -46,7 +46,7 @@ const SDK_MODULE = '@hexdelve/scripting';
 const SDK_GLOBAL = '__HEXDELVE_SCRIPTING__';
 
 /** What the SDK shim re-exports. Kept in step with `scriptSdk` by a test. */
-const SDK_NAMES = ['Script', 'param'];
+const SDK_NAMES = ['Script', 'param', 'defineEvent', 'on'];
 
 let started = null;
 

@@ -224,6 +224,7 @@ export {
 	instantiate,
 	loadSystem,
 	emptyPrefab,
+	prefabScripts,
 	prefabTypes,
 	readPrefabNode,
 	unknownComponent,

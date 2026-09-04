@@ -27,7 +27,15 @@ export {
 	SCRIPT_SDK_GLOBAL,
 	SCRIPT_SDK_MODULE,
 } from './bundle.js';
-export { ScriptObject, ScriptScene, ScriptTransform } from './handles.js';
+export { ScriptObject, ScriptScene, ScriptTransform, type ScriptRuntime } from './handles.js';
+export {
+	defineEvent,
+	handlersOf,
+	on,
+	type EventHandler,
+	type GameEvent,
+	type Payload,
+} from './events.js';
 export {
 	applyParameters,
 	parameterKeys,

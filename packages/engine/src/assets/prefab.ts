@@ -112,6 +112,25 @@ export function prefabTypes(node: PrefabNode, into: string[] = []): string[] {
 	return into;
 }
 
+/**
+ * Every script class a prefab names, anywhere underneath it.
+ *
+ * The engine has never heard of a script, and does not learn about one here:
+ * this reads the `script` field off a component of type `script`, which is a
+ * convention the game's own registry establishes. It is in the engine because
+ * walking a prefab is the engine's, and because the alternative — the build tool
+ * walking the tree itself — would be the same recursion written twice.
+ */
+export function prefabScripts(node: PrefabNode, into: string[] = []): string[] {
+	for (const component of node.components) {
+		if (component.type !== 'script') continue;
+		const named = component.fields.get('script').textOr('');
+		if (named && !into.includes(named)) into.push(named);
+	}
+	for (const child of node.children) prefabScripts(child, into);
+	return into;
+}
+
 /** A prefab with nothing on it: one object, named, with no components. */
 export function emptyPrefab(name: string): PrefabNode {
 	return { name, at: ZERO, euler: ZERO, components: [], children: [] };

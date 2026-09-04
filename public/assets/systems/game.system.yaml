@@ -18,9 +18,17 @@ object:
   components: []
 
   children:
-    # Nothing draws this. It is here so there is a script running in the yard
-    # from the first frame — a place to watch a save arrive, and the shape a
-    # real system will take when there is one to write.
-    - name: spinner
+    # Who is in the world. Everything that goes looking for a character looks
+    # here, and a character puts itself in when it loads. It is a child rather
+    # than a component on `systems` so that each system is one object with one
+    # name, which is what the editor's tree will show.
+    - name: characters
       components:
-        - { type: script, script: Spin, speed: 0.5 }
+        - { type: script, script: CharacterRegistry }
+
+    # The one place that knows what a swing hits. A swing is announced, this
+    # works out what was in front of it, and whatever that was hears about it
+    # as damage — so nothing that deals damage has to know what can take it.
+    - name: combat
+      components:
+        - { type: script, script: Combat, spread: 1 }

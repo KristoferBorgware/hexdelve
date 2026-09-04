@@ -195,7 +195,18 @@ describe('the entities that ship', () => {
 		const library = openLibrary();
 		for (const entity of await library.index()) {
 			const wanted = entity.kind === 'prop' ? 'item' : 'actor';
-			expect(prefabTypes(entity.prefab), entity.id).toEqual([wanted]);
+			expect(prefabTypes(entity.prefab), entity.id).toContain(wanted);
+		}
+	});
+
+	it('makes every character something that can be hit, and no prop one', async () => {
+		const library = openLibrary();
+		for (const entity of await library.index()) {
+			const types = prefabTypes(entity.prefab);
+			// A prop is a thing lying in the grass. Giving one hit points would
+			// put a sword in the register of characters, where everything that
+			// goes looking for something to hit would find it.
+			expect(types.includes('script'), entity.id).toBe(entity.kind !== 'prop');
 		}
 	});
 

@@ -20,22 +20,25 @@
  * here is worth writing down, because the answer is not "decorators do not
  * work".
  *
- * There are two kinds. The TC39 STANDARD ones — `(value, context)` — are what
- * TypeScript emits by default, and oxc, which is what Vite 8 transforms with,
- * does not implement them: a file carrying one is passed through untransformed
- * and then fails to parse as JavaScript. The LEGACY ones — `(target, key)`,
- * the pre-standard design — oxc does implement, behind
- * `oxc: { transform: { decorator: { legacy: true } } }`, and they compile
- * correctly in a Vite build.
+ * Decorators DO work here. Scripts are compiled by esbuild and by nothing else,
+ * and `@on(Damage)` in `events.ts` is one — see its header for what a decorator
+ * buys where it fits. What follows is why it does not fit a parameter, and the
+ * answer is about FIELDS rather than about decorators.
  *
- * Three things stand in the way of taking that road. Legacy decorators want
- * `useDefineForClassFields: false`, which is a change to how EVERY class field
- * in this repository initialises, made for one file's syntax. Vitest does not
- * pass that oxc option through to its own transform, so a decorated field
- * would compile in the app and fail in the tests. And the option would have to
- * be repeated in the browser compiler as well, which makes the script format
- * hostage to three build tools agreeing — the wrong shape for a file whose
- * whole point is that it can be edited and reloaded.
+ * The kind esbuild implements is the LEGACY design, `(target, key)`. A legacy
+ * decorator on a field is handed the prototype and the name and nothing else.
+ * It never sees `= 1.5`. So the default would have to be written twice —
+ * `@serialize({ default: 1.5 }) speed = 1.5` — and the two would drift, which
+ * is exactly the duplication this file exists to remove.
+ *
+ * And a field under ES2022 semantics is defined on the INSTANCE, so an accessor
+ * a decorator installed on the prototype is shadowed and never runs. Undoing
+ * that means `useDefineForClassFields: false`, a change to how every class field
+ * in this repository initialises, made for one file's syntax.
+ *
+ * A method has neither problem: it is already on the prototype, and it carries
+ * no value to lose. That is the whole of the difference between this file and
+ * `events.ts`.
  *
  * So a parameter declares itself by its VALUE instead. `param(1.5, { min: 0 })`
  * returns something that is typed as a number and is, until the host resolves

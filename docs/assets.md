@@ -455,8 +455,9 @@ be written twice, in the decorator and in the initialiser, and the two would
 drift. Declaring by value asks nothing of any compiler, keeps the default in one
 place, and stays typed — `param(1)` is a number everywhere in the script.
 
-None of that applies to a method, which already lives on the prototype. See
-**Events** below, where a decorator is the right tool.
+None of that applies to a method, which is already on the prototype and carries
+no value to lose. See **Events** below, where a decorator is the right tool and
+is used.
 
 ### The scripts are not in the module graph
 
@@ -522,6 +523,68 @@ and swaps; a compile error leaves the previous scripts running and says so.
 **esbuild strips types without checking them.** A script with a type error
 compiles and runs in the editor, and only `tsc` objects. That is what makes the
 reload fast, and it is why `npm run typecheck` covers the scripts directory.
+
+### Events
+
+Scripts talk to each other by announcing things, not by calling each other.
+
+```ts
+export const Damage = defineEvent<{ amount: number; from: string }>('damage');
+
+export class Character extends Script {
+  @on(Damage)
+  hurt(blow: Blow): void { ... }
+}
+```
+
+`target.send(Damage, { amount: 3, from: 'wanderer' })` reaches the scripts on one
+object; `this.emit(Died, { who })` reaches every script in the scene that
+declared it. Events are matched by their **name**, not by token identity, so a
+hot reload — which rebuilds every token in the bundle — does not lose them.
+
+For a question rather than an announcement, `scene.script(CharacterRegistry)`
+and `object.script(Character)` hand back the live instance: an event is
+fire-and-forget and cannot return anything.
+
+The swing in the yard is the shape this exists for.
+
+| | |
+|---|---|
+| whoever swung | `emit(Swing, { at, facing, reach, amount })` |
+| `Combat` | `@on(Swing)` → asks the registry what is in front → `target.send(Damage)` |
+| `Character` | `@on(Damage)` → takes the hit points off |
+
+None of the three knows the other two, so a trap or a falling rock is a fourth
+script and no change to the rest.
+
+**This one is a decorator, and a parameter is not.** A handler carries no value
+and lives on the prototype, so nothing is shadowed and nothing is written twice.
+What it buys is that the host can *enumerate* what a script subscribed to, and
+therefore always take back exactly what it put in. The alternative is
+`bus.on(...)` in `onLoad` and `bus.off(...)` in `onDestroy` — every handler in
+two places, the second of which gets forgotten, and a forgotten one doubles on
+every hot reload. Hot-reload symmetry stops being a discipline and becomes a
+property.
+
+Legacy decorators are what esbuild implements, and the scripts are compiled by
+esbuild alone. That is the other half of taking them out of the module graph:
+`@on` never reaches oxc or vitest, so no application build has to agree about
+it. Tests in `test/` apply the decorator by hand for the same reason, and the
+syntax itself is covered against the real compiled directory.
+
+### The systems
+
+`public/assets/systems/game.system.yaml` is instantiated once, before anything
+else, and it carries the things there is exactly one of.
+
+| object | script | what it is for |
+|---|---|---|
+| `characters` | `CharacterRegistry` | who is in the world; a character joins it in `onLoad` |
+| `combat` | `Combat` | the one place that knows what a swing hits |
+
+A character joining the register is written out by hand, `onLoad` against
+`onDestroy`, because the register is somebody else's data structure. Only the
+handlers get the host's help.
 
 ## What is left in code, and why
 

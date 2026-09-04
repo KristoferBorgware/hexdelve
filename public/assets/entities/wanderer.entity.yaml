@@ -41,3 +41,6 @@ blendTrees:
 object:
   components:
     - { type: actor }
+    # What it is in a fight. The numbers are the character's, not the rig's, so
+    # tuning a creature is editing this file rather than a script.
+    - { type: script, script: Character, hp: 20, faction: player, power: 5 }
