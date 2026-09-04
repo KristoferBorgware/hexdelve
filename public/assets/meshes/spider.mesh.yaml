@@ -1,0 +1,169 @@
+# The spider: hexagonal prisms hung on its own rig.
+#
+# Built the way every other body in this project is — the unit hex prism
+# under a different scale and rotation, bound to a bone — and nearly all of
+# it is legs. Each leg is three struts spanning their own bones by naming
+# them, so re-sloping a segment in the rig moves the strut with it, with a
+# knob of shell at each joint, a paler band above each knee and ankle, and a
+# few bristles standing off the femur and the tibia.
+#
+# The bands and the bristles sit part way along a bone, and a strut's end
+# has to be a plain vector, so the constants below are the rig's own segment
+# rises and runs and the four bearings' cosines and sines, and a band's start
+# is written as a fraction of the segment it sits on.
+#
+# The body is green shell over a paler underside, the abdomen carries the
+# yellow-green warning marks a thing this poisonous advertises with, and the
+# eight eyes and the drop of venom on each fang are drawn unlit, so they read
+# from every angle.
+
+id: spider
+name: Spider body
+rig: ../rigs/spider.rig.yaml
+
+constants:
+  femurOut: 0.48 * cos(deg(45))
+  femurRise: 0.48 * sin(deg(45))
+  tibiaOut: 0.5 * cos(deg(25))
+  tibiaDrop: 0.5 * sin(deg(25))
+  c1: cos(deg(55))
+  s1: sin(deg(55))
+  c2: cos(deg(20))
+  s2: sin(deg(20))
+  c3: cos(deg(-20))
+  s3: sin(deg(-20))
+  c4: cos(deg(-55))
+  s4: sin(deg(-55))
+
+palette:
+  shell: 0x3d6b38
+  shellDark: 0x274a26
+  shellLight: 0x6a9a4a
+  mark: 0xa6d24a
+  belly: 0x557a45
+  leg: 0x2c4a2a
+  band: 0x9bc64a
+  joint: 0x1f3a1e
+  bristle: 0x1a2e19
+  fang: 0x141a14
+  venom: 0xb8ff5c
+  eye: 0xd4ff66
+  spinneret: 0x3a5a36
+
+parts:
+  # The body: a shell with a darker plate on top, a mark at the fovea, a
+  # plate down each side, a paler underside, and the waist to the abdomen.
+  - { bone: root, at: [0, 0.02, 0.02], size: [0.22, 0.18, 0.26], color: shell }
+  - { bone: root, at: [0, 0.1, 0.02], size: [0.15, 0.04, 0.2], color: shellDark }
+  - { bone: root, at: [0, 0.125, 0], size: [0.04, 0.02, 0.06], color: mark }
+  - { bone: root, at: [0, -0.07, 0.03], size: [0.14, 0.05, 0.2], color: belly }
+  - { bone: root, at: [0, 0.01, -0.24], size: [0.06, 0.06, 0.06], color: joint }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: root, at: [0.17, 0, 0], size: [0.05, 0.12, 0.2], euler: [0, 0, 0.3], color: shellDark }
+
+  # The abdomen: a sac lying along the body and carried tail-up, on a
+  # paler underside, with a darker saddle along the top, the warning marks
+  # down the saddle and a spot on each flank, and the spinnerets at the
+  # back. The lying prisms are turned a sixth first so a flat faces up and
+  # another down, and the marks are pitched to sit on the tilted saddle.
+  - { bone: abdomen, at: [0, 0.06, -0.15], size: [0.32, 0.5, 0.3], euler: [deg(100), deg(30), 0], color: shell }
+  - { bone: abdomen, at: [0, 0.1, -0.43], size: [0.22, 0.14, 0.2], euler: [deg(100), deg(30), 0], color: shell }
+  - { bone: abdomen, at: [0, -0.06, -0.15], size: [0.26, 0.44, 0.26], euler: [deg(100), deg(30), 0], color: belly }
+  - { bone: abdomen, at: [0, 0.17, -0.15], size: [0.2, 0.42, 0.2], euler: [deg(100), deg(30), 0], color: shellDark }
+  - { bone: abdomen, at: [0, 0.322, 0], size: [0.05, 0.02, 0.06], euler: [deg(10), 0, 0], color: mark }
+  - { bone: abdomen, at: [0, 0.348, -0.15], size: [0.045, 0.02, 0.055], euler: [deg(10), 0, 0], color: mark }
+  - { bone: abdomen, at: [0, 0.374, -0.3], size: [0.035, 0.02, 0.045], euler: [deg(10), 0, 0], color: mark }
+  - { bone: abdomen, from: [0, 0.02, -0.48], along: [0, -0.3, -1], length: 0.08, radius: 0.015, color: spinneret }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: abdomen, at: [0.09, 0.336, -0.08], size: [0.03, 0.02, 0.05], euler: [deg(10), 0.4, 0], color: mark }
+      - { bone: abdomen, at: [0.09, 0.362, -0.23], size: [0.025, 0.02, 0.04], euler: [deg(10), 0.3, 0], color: mark }
+      - { bone: abdomen, at: [0.3, 0.08, -0.1], size: [0.04, 0.05, 0.06], color: mark }
+      - { bone: abdomen, from: [0.04, 0.03, -0.47], along: [0.3, -0.4, -1], length: 0.07, radius: 0.013, color: spinneret }
+
+  # The head: an eye turret on top of the face, eight eyes on it — two big
+  # ones at the front and six small round them — and a pedipalp either side
+  # of the fangs, each two segments and a tip.
+  - { bone: head, at: [0, 0.04, 0], size: [0.1, 0.09, 0.09], color: shellDark }
+  - { bone: head, at: [0, -0.02, 0.06], size: [0.09, 0.08, 0.06], color: shell }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: head, at: [0.028, 0.06, 0.085], size: [0.022, 0.024, 0.014], color: eye, unlit: true }
+      - { bone: head, at: [0.06, 0.05, 0.06], size: [0.014, 0.016, 0.01], euler: [0, 0.6, 0], color: eye, unlit: true }
+      - { bone: head, at: [0.02, 0.09, 0.075], size: [0.01, 0.01, 0.008], color: eye, unlit: true }
+      - { bone: head, at: [0.045, 0.085, 0.06], size: [0.01, 0.01, 0.008], euler: [0, 0.5, 0], color: eye, unlit: true }
+      - { bone: head, from: [0.06, -0.04, 0.08], along: [0.3, -0.7, 1], length: 0.14, radius: 0.02, color: leg }
+      - { bone: head, from: [0.094, -0.118, 0.19], along: [0.1, -1, 0.4], length: 0.1, radius: 0.016, color: leg }
+      - { bone: head, at: [0.103, -0.21, 0.227], size: [0.02, 0.025, 0.02], color: joint }
+
+  # The fangs: a base of shell each, a fang curving in and down to a point,
+  # and a drop of venom at the point.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'fang*', at: [0, -0.03, 0.01], size: [0.03, 0.08, 0.035], color: shellDark }
+      - { bone: 'fang*', from: [0, -0.06, 0.02], along: [-0.25, -1, 0.35], length: 0.1, radius: 0.014, color: fang }
+      - { bone: 'fang*', at: [-0.023, -0.152, 0.052], size: [0.012, 0.014, 0.012], color: venom, unlit: true }
+
+  # The legs. Each is the same twelve pieces: a knob at the coxa, the femur
+  # strut with a band above the knee and two bristles, the knee, the tibia
+  # strut with a band above the ankle and a bristle, the ankle, the tarsus
+  # strut, and the claw at the tip.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'coxa1*', at: [0, 0, 0], size: [0.05, 0.06, 0.05], color: joint }
+      - { bone: 'coxa1*', from: [0, 0, 0], to: { bone: 'tibia1*' }, radius: 0.038, color: leg }
+      - { bone: 'coxa1*', from: [femurOut * c1 * 0.8, femurRise * 0.8, femurOut * s1 * 0.8], to: { bone: 'tibia1*' }, radius: 0.046, color: band }
+      - { bone: 'coxa1*', from: [femurOut * c1 * 0.35, femurRise * 0.35, femurOut * s1 * 0.35], along: [0, 1, 0], length: 0.05, radius: 0.008, color: bristle }
+      - { bone: 'coxa1*', from: [femurOut * c1 * 0.6, femurRise * 0.6, femurOut * s1 * 0.6], along: [0, 1, 0], length: 0.045, radius: 0.008, color: bristle }
+      - { bone: 'tibia1*', at: [0, 0, 0], size: [0.045, 0.05, 0.045], color: joint }
+      - { bone: 'tibia1*', from: [0, 0, 0], to: { bone: 'tarsus1*' }, radius: 0.03, color: leg }
+      - { bone: 'tibia1*', from: [tibiaOut * c1 * 0.8, -tibiaDrop * 0.8, tibiaOut * s1 * 0.8], to: { bone: 'tarsus1*' }, radius: 0.036, color: band }
+      - { bone: 'tibia1*', from: [tibiaOut * c1 * 0.45, -tibiaDrop * 0.45, tibiaOut * s1 * 0.45], along: [0, 1, 0], length: 0.045, radius: 0.007, color: bristle }
+      - { bone: 'tarsus1*', at: [0, 0, 0], size: [0.035, 0.04, 0.035], color: joint }
+      - { bone: 'tarsus1*', from: [0, 0, 0], to: { bone: 'tip1*' }, radius: 0.022, color: leg }
+      - { bone: 'tip1*', at: [0, -0.01, 0], size: [0.03, 0.04, 0.03], color: joint }
+
+      - { bone: 'coxa2*', at: [0, 0, 0], size: [0.05, 0.06, 0.05], color: joint }
+      - { bone: 'coxa2*', from: [0, 0, 0], to: { bone: 'tibia2*' }, radius: 0.038, color: leg }
+      - { bone: 'coxa2*', from: [femurOut * c2 * 0.8, femurRise * 0.8, femurOut * s2 * 0.8], to: { bone: 'tibia2*' }, radius: 0.046, color: band }
+      - { bone: 'coxa2*', from: [femurOut * c2 * 0.35, femurRise * 0.35, femurOut * s2 * 0.35], along: [0, 1, 0], length: 0.05, radius: 0.008, color: bristle }
+      - { bone: 'coxa2*', from: [femurOut * c2 * 0.6, femurRise * 0.6, femurOut * s2 * 0.6], along: [0, 1, 0], length: 0.045, radius: 0.008, color: bristle }
+      - { bone: 'tibia2*', at: [0, 0, 0], size: [0.045, 0.05, 0.045], color: joint }
+      - { bone: 'tibia2*', from: [0, 0, 0], to: { bone: 'tarsus2*' }, radius: 0.03, color: leg }
+      - { bone: 'tibia2*', from: [tibiaOut * c2 * 0.8, -tibiaDrop * 0.8, tibiaOut * s2 * 0.8], to: { bone: 'tarsus2*' }, radius: 0.036, color: band }
+      - { bone: 'tibia2*', from: [tibiaOut * c2 * 0.45, -tibiaDrop * 0.45, tibiaOut * s2 * 0.45], along: [0, 1, 0], length: 0.045, radius: 0.007, color: bristle }
+      - { bone: 'tarsus2*', at: [0, 0, 0], size: [0.035, 0.04, 0.035], color: joint }
+      - { bone: 'tarsus2*', from: [0, 0, 0], to: { bone: 'tip2*' }, radius: 0.022, color: leg }
+      - { bone: 'tip2*', at: [0, -0.01, 0], size: [0.03, 0.04, 0.03], color: joint }
+
+      - { bone: 'coxa3*', at: [0, 0, 0], size: [0.05, 0.06, 0.05], color: joint }
+      - { bone: 'coxa3*', from: [0, 0, 0], to: { bone: 'tibia3*' }, radius: 0.038, color: leg }
+      - { bone: 'coxa3*', from: [femurOut * c3 * 0.8, femurRise * 0.8, femurOut * s3 * 0.8], to: { bone: 'tibia3*' }, radius: 0.046, color: band }
+      - { bone: 'coxa3*', from: [femurOut * c3 * 0.35, femurRise * 0.35, femurOut * s3 * 0.35], along: [0, 1, 0], length: 0.05, radius: 0.008, color: bristle }
+      - { bone: 'coxa3*', from: [femurOut * c3 * 0.6, femurRise * 0.6, femurOut * s3 * 0.6], along: [0, 1, 0], length: 0.045, radius: 0.008, color: bristle }
+      - { bone: 'tibia3*', at: [0, 0, 0], size: [0.045, 0.05, 0.045], color: joint }
+      - { bone: 'tibia3*', from: [0, 0, 0], to: { bone: 'tarsus3*' }, radius: 0.03, color: leg }
+      - { bone: 'tibia3*', from: [tibiaOut * c3 * 0.8, -tibiaDrop * 0.8, tibiaOut * s3 * 0.8], to: { bone: 'tarsus3*' }, radius: 0.036, color: band }
+      - { bone: 'tibia3*', from: [tibiaOut * c3 * 0.45, -tibiaDrop * 0.45, tibiaOut * s3 * 0.45], along: [0, 1, 0], length: 0.045, radius: 0.007, color: bristle }
+      - { bone: 'tarsus3*', at: [0, 0, 0], size: [0.035, 0.04, 0.035], color: joint }
+      - { bone: 'tarsus3*', from: [0, 0, 0], to: { bone: 'tip3*' }, radius: 0.022, color: leg }
+      - { bone: 'tip3*', at: [0, -0.01, 0], size: [0.03, 0.04, 0.03], color: joint }
+
+      - { bone: 'coxa4*', at: [0, 0, 0], size: [0.05, 0.06, 0.05], color: joint }
+      - { bone: 'coxa4*', from: [0, 0, 0], to: { bone: 'tibia4*' }, radius: 0.038, color: leg }
+      - { bone: 'coxa4*', from: [femurOut * c4 * 0.8, femurRise * 0.8, femurOut * s4 * 0.8], to: { bone: 'tibia4*' }, radius: 0.046, color: band }
+      - { bone: 'coxa4*', from: [femurOut * c4 * 0.35, femurRise * 0.35, femurOut * s4 * 0.35], along: [0, 1, 0], length: 0.05, radius: 0.008, color: bristle }
+      - { bone: 'coxa4*', from: [femurOut * c4 * 0.6, femurRise * 0.6, femurOut * s4 * 0.6], along: [0, 1, 0], length: 0.045, radius: 0.008, color: bristle }
+      - { bone: 'tibia4*', at: [0, 0, 0], size: [0.045, 0.05, 0.045], color: joint }
+      - { bone: 'tibia4*', from: [0, 0, 0], to: { bone: 'tarsus4*' }, radius: 0.03, color: leg }
+      - { bone: 'tibia4*', from: [tibiaOut * c4 * 0.8, -tibiaDrop * 0.8, tibiaOut * s4 * 0.8], to: { bone: 'tarsus4*' }, radius: 0.036, color: band }
+      - { bone: 'tibia4*', from: [tibiaOut * c4 * 0.45, -tibiaDrop * 0.45, tibiaOut * s4 * 0.45], along: [0, 1, 0], length: 0.045, radius: 0.007, color: bristle }
+      - { bone: 'tarsus4*', at: [0, 0, 0], size: [0.035, 0.04, 0.035], color: joint }
+      - { bone: 'tarsus4*', from: [0, 0, 0], to: { bone: 'tip4*' }, radius: 0.022, color: leg }
+      - { bone: 'tip4*', at: [0, -0.01, 0], size: [0.03, 0.04, 0.03], color: joint }

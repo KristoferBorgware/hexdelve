@@ -12,6 +12,7 @@ entities:
   - ./entities/hellhound.entity.yaml
   - ./entities/direhound.entity.yaml
   - ./entities/zombie.entity.yaml
+  - ./entities/spider.entity.yaml
   - ./entities/helmet.entity.yaml
   - ./entities/sword.entity.yaml
   - ./entities/shield.entity.yaml

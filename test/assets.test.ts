@@ -9,7 +9,7 @@
  *
  * What is left here is the three things that outlive the migration.
  *
- * The files LOAD, and to the shapes the game expects: nine entities, four
+ * The files LOAD, and to the shapes the game expects: ten entities, five
  * rigs, the trees measuring their own thresholds. A file that stopped parsing
  * would be found by the render test too, but only as a blank picture.
  *
@@ -60,6 +60,14 @@ import {
 	SHUFFLE_CONTACTS,
 	SHUFFLE_PERIOD,
 	shufflePose,
+	SPIDER_CHAIN,
+	SPIDER_RUN_CONTACTS,
+	SPIDER_RUN_PERIOD,
+	SPIDER_TIP,
+	SPIDER_TIPS,
+	SPIT_AT,
+	spiderRunPose,
+	spiderSpitPose,
 	HOUND_STRIDE_PERIOD,
 	houndRunPose,
 	LEG_LENGTH,
@@ -162,6 +170,28 @@ describe('rigs', () => {
 		expect(rig.groups.frontL).toEqual(['shoulderL', 'frontLegL', 'frontShinL', 'frontWristL', 'frontPawL']);
 	});
 
+	it('the spider radiates eight legs of three segments and a tip from one body', async () => {
+		const rig = await readRig('spider');
+		expect(rig.bones).toHaveLength(37);
+		const bone = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!;
+		for (const n of [1, 2, 3, 4]) {
+			for (const side of ['L', 'R']) {
+				expect(bone(`coxa${n}${side}`).parent).toBe('root');
+				expect(bone(`tibia${n}${side}`).parent).toBe(`coxa${n}${side}`);
+				expect(bone(`tarsus${n}${side}`).parent).toBe(`tibia${n}${side}`);
+				expect(bone(`tip${n}${side}`).parent).toBe(`tarsus${n}${side}`);
+				// The knee is above the body and the tip below it.
+				expect(bone(`tibia${n}${side}`).offset[1]).toBeGreaterThan(0);
+				expect(bone(`tip${n}${side}`).offset[1]).toBeLessThan(0);
+			}
+			// The right side is the left with x negated.
+			expect(bone(`tibia${n}R`).offset[0]).toBeCloseTo(-bone(`tibia${n}L`).offset[0], 12);
+		}
+		expect(rig.feet).toEqual(['tip1L', 'tip1R']);
+		expect(rig.anchors.spit!.bone).toBe('head');
+		expect(rig.groups.leg3R).toEqual(['coxa3R', 'tibia3R', 'tarsus3R', 'tip3R']);
+	});
+
 	it('refuses a child that comes before its parent', () => {
 		const source = ['id: bad', 'bones:', '  - { name: hand, parent: arm, offset: [0, 0, 0] }'].join('\n');
 		expect(() => loadRig(source, 'bad.rig.yaml')).toThrow(/must precede/);
@@ -191,6 +221,7 @@ describe('entities', () => {
 			'hellhound',
 			'direhound',
 			'zombie',
+			'spider',
 			'helmet',
 			'sword',
 			'shield',
@@ -591,6 +622,79 @@ describe('the pose functions still agree with the rigs', () => {
 		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
 		for (const posed of [shufflePose(0.7, 1, 0.3, {}), shufflePose(0, 0, 2, {})]) {
 			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
+	});
+
+	it('the scuttle is solved on the spider rig’s own legs', async () => {
+		const rig = await readRig('spider');
+		const offset = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!.offset;
+		expect(SPIDER_CHAIN.bodyHeight).toBeCloseTo(rig.metrics.bodyHeight!, 12);
+		SPIDER_CHAIN.legs.forEach((leg, i) => {
+			const n = i + 1;
+			expect([...offset(`coxa${n}L`)]).toEqual([...leg.coxa]);
+			const c = Math.cos(leg.azimuth);
+			const s = Math.sin(leg.azimuth);
+			const femur = offset(`tibia${n}L`);
+			expect(femur[0]).toBeCloseTo(SPIDER_CHAIN.femur.out * c, 9);
+			expect(femur[1]).toBeCloseTo(SPIDER_CHAIN.femur.rise, 9);
+			expect(femur[2]).toBeCloseTo(SPIDER_CHAIN.femur.out * s, 9);
+			const tibia = offset(`tarsus${n}L`);
+			expect(tibia[0]).toBeCloseTo(SPIDER_CHAIN.tibia.out * c, 9);
+			expect(tibia[1]).toBeCloseTo(-SPIDER_CHAIN.tibia.drop, 9);
+			const tarsus = offset(`tip${n}L`);
+			expect(tarsus[0]).toBeCloseTo(SPIDER_CHAIN.tarsus.out * c, 9);
+			expect(tarsus[1]).toBeCloseTo(-SPIDER_CHAIN.tarsus.drop, 9);
+		});
+		// The tips stand on the ground at rest, which is what the solve
+		// reproduces: standing, every joint is within a whisker of rest.
+		const stand = spiderRunPose(0, 0, 0, {});
+		for (const bone of Object.keys(stand)) {
+			if (!bone.startsWith('coxa') && !bone.startsWith('tibia')) continue;
+			for (const value of stand[bone]!.rot!) expect(Math.abs(value), bone).toBeLessThan(0.02);
+		}
+	});
+
+	it('the scuttle keeps every planted tip on the ground and carries the spider forwards, fast', async () => {
+		const rig = await readRig('spider');
+		for (const tip of SPIDER_TIPS) {
+			// The tip's own set: the left first and third with the right second
+			// and fourth run at theta, the rest half a cycle on.
+			const n = Number(tip[3]);
+			const left = tip.endsWith('L');
+			const first = (n === 1 || n === 3) === left;
+			const offset = first ? 0 : Math.PI;
+			for (let i = 0; i <= 10; i++) {
+				const own = Math.PI / 2 + (Math.PI * i) / 10;
+				const world = solveWorld(rig.skeleton, spiderRunPose(own - offset, 1, 0, {}));
+				expect(world[tip]!.p[1], `${tip} at ${i}/10 of its stance`).toBeGreaterThan(SPIDER_TIP - 0.015);
+				expect(world[tip]!.p[1], `${tip} at ${i}/10 of its stance`).toBeLessThan(SPIDER_TIP + 0.015);
+			}
+		}
+		const spider = await entity('spider');
+		const run = spider.animations.get('run')!;
+		expect(run.duration).toBeCloseTo(SPIDER_RUN_PERIOD, 12);
+		expect(run.contacts).toEqual(SPIDER_RUN_CONTACTS);
+		expect(run.speed()!.z).toBeGreaterThan(1.5);
+		expect(Math.abs(run.speed()!.x)).toBeLessThan(0.05);
+		for (const posed of [spiderRunPose(0.7, 1, 0.3, {}), spiderRunPose(0, 0, 2, {}), spiderSpitPose(0.4, {})]) {
+			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
+	});
+
+	it('the spider rears to spit on its back legs, and settles', async () => {
+		const rig = await readRig('spider');
+		const at = (u: number) => solveWorld(rig.skeleton, spiderSpitPose(u, {}));
+		const reared = at(SPIT_AT);
+		// The front pair well off the ground, the back pair still on it, the
+		// body pitched up at the front.
+		for (const tip of ['tip1L', 'tip1R']) expect(reared[tip]!.p[1], tip).toBeGreaterThan(0.3);
+		for (const tip of ['tip3L', 'tip3R', 'tip4L', 'tip4R']) {
+			expect(reared[tip]!.p[1], tip).toBeGreaterThan(SPIDER_TIP - 0.02);
+			expect(reared[tip]!.p[1], tip).toBeLessThan(SPIDER_TIP + 0.02);
+		}
+		expect(reared.head!.p[1]).toBeGreaterThan(at(0).head!.p[1] + 0.1);
+		for (const u of [0, 1]) {
+			for (const tip of SPIDER_TIPS) expect(Math.abs(at(u)[tip]!.p[1] - SPIDER_TIP), `${tip} at ${u}`).toBeLessThan(0.02);
 		}
 	});
 

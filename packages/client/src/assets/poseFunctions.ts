@@ -41,6 +41,7 @@ import {
 	shamblePose,
 } from '../game/ghoulpose.js';
 import { bitePose, restPose, runPose } from '../game/hellhoundpose.js';
+import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from '../game/spiderpose.js';
 import { stridePose, stridePeriod, STRIDE_CONTACTS, type Direction } from '../game/stride.js';
 import { SHUFFLE_CONTACTS, SHUFFLE_PERIOD, shufflePose } from '../game/zombiepose.js';
 
@@ -218,6 +219,26 @@ const zombieShuffle: PoseFunction = {
 	},
 };
 
+/** The spider's scuttle, and its stand: two sets of four legs, each solved onto the ground. */
+const spiderRun: PoseFunction = {
+	id: 'spiderRun',
+	duration: SPIDER_RUN_PERIOD,
+	contacts: SPIDER_RUN_CONTACTS,
+	build: ({ args, duration }) => {
+		const amp = arg(args, 'amp', 1);
+		const moving = amp >= 0.02;
+		return (t, out) => spiderRunPose(moving ? (t / duration) * TAU : 0, amp, t, out);
+	},
+};
+
+/** The spider's strike: rear, spit, settle. */
+const spiderSpit: PoseFunction = {
+	id: 'spiderSpit',
+	duration: 1.1,
+	loop: false,
+	build: ({ duration }) => (t, out) => spiderSpitPose(t / duration, out),
+};
+
 /**
  * Every pose function this package owns.
  *
@@ -239,4 +260,6 @@ export const poseFunctions = new PoseFunctionRegistry().register(
 	ghoulShamble,
 	ghoulScramble,
 	zombieShuffle,
+	spiderRun,
+	spiderSpit,
 );
