@@ -98,7 +98,7 @@ Every effect in `list-effects.h`, with what its handler does (`effect-handler-ge
 | DRAIN_MANA | Drains `value` SP; a monster caster heals 6 × the SP drained. |
 | RESTORE_MANA | Restores `value` SP, or all if no value. |
 | REMOVE_CURSE | Pick a cursed item and a curse of it; if `strength >= curse power` the curse is removed; a power of 100+ is permanent; otherwise the item becomes FRAGILE, and a fragile item is destroyed with 1 in 4 chance (5d5 damage to the player). |
-| RECALL / DEEP_DESCENT / ALTER_REALITY | Set the recall timer to 15 + 1d20 turns; set `deep_descent` to 3 + 1d4 turns, after which the player drops to `max_depth + 5` (stopping at a quest level); regenerate the current level. World Loop chapter. |
+| RECALL / DEEP_DESCENT / ALTER_REALITY | Set the recall timer to `15 + randint0(20)` = 15–34 ticks (150–340 game turns), or cancel it if already set; set `deep_descent` to `3 + 1d4` ticks, after which the player drops to `max_depth + 5` (stopping at a quest level); regenerate the current level. World Loop chapter. |
 | MAP_AREA | Memorises all non-wall grids and their adjacent walls in a rectangle of ±y/±x (from `effect-yx` or the dice: Sense Surroundings maps 22×44 grids, or 44×88 at level 30+), except NO_MAP grids (vaults). |
 | READ_MINDS | MAP_AREA around every monster currently detected. |
 | DETECT_TRAPS / DOORS / STAIRS / ORE / GOLD / OBJECTS | Reveal the things in the ±y/±x rectangle (typically 22 × 40); traps also mark the rectangle DTRAP (the "trap-detected" border). SENSE_GOLD / SENSE_OBJECTS show that *something* is there without identifying it. |
