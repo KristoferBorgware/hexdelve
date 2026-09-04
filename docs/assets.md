@@ -445,11 +445,17 @@ export class Spin extends Script {
 }
 ```
 
-`@serialize() speed = 1` is the obvious spelling and does not work here: Vite 8
-transforms with oxc, which does not accept decorators, so a script carrying one
-fails to parse before any of the runtime runs. Declaring by value asks nothing
-of the compiler, keeps the default in one place, and stays typed — `param(1)`
-is a number everywhere in the script.
+`@serialize() speed = 1` is the obvious spelling, and the reason it is not used
+is worth stating precisely. Vite 8 transforms with oxc, which implements the
+*legacy* decorators (`(target, key)`) but not the TC39 *standard* ones that
+TypeScript emits by default — a standard decorator is passed through
+untransformed and then fails to parse as JavaScript. Legacy ones do compile,
+behind `oxc: { transform: { decorator: { legacy: true } } }`, at the price of
+`useDefineForClassFields: false` across the whole repository, an option vitest
+does not pass through to its own transform, and the same flag repeated in the
+browser compiler. Declaring by value asks nothing of any compiler, keeps the
+default in one place, and stays typed — `param(1)` is a number everywhere in
+the script.
 
 ### The component holds a number
 
