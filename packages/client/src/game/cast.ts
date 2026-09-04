@@ -33,12 +33,22 @@ export interface CastOptions {
 	readonly enemy?: string;
 	/** What is lying about, in the order they are placed. Props, so no rigs. */
 	readonly props?: readonly string[];
+	/**
+	 * Loaded, and not placed.
+	 *
+	 * What a script spawns during play — an arrow, a mote, a dropped torch.
+	 * Reading an entity takes a fetch and a tick cannot wait for one, so
+	 * anything a script may ask for is loaded with the cast and waits.
+	 */
+	readonly spawnable?: readonly string[];
 }
 
 export interface Cast {
 	readonly player: EntityAsset;
 	readonly enemy: EntityAsset;
 	readonly props: readonly EntityAsset[];
+	/** Loaded for a script to spawn, and not placed in the yard. */
+	readonly spawnable: readonly EntityAsset[];
 }
 
 /**
@@ -69,6 +79,15 @@ export async function loadCast(library: AssetLibrary, options: CastOptions = {})
 		player: need(options.player ?? YARD_PLAYER, 'character'),
 		enemy: need(options.enemy ?? YARD_ENEMY, 'character'),
 		props: (options.props ?? YARD_PROPS).map((id) => need(id, 'prop')),
+		spawnable: (options.spawnable ?? []).map((id) => {
+			const entity = byId.get(id);
+			if (!entity) {
+				throw new Error(
+					`no entity '${id}' in the manifest; it has ${all.map((one) => one.id).join(', ')}`,
+				);
+			}
+			return entity;
+		}),
 	};
 }
 

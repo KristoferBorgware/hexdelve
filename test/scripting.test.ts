@@ -321,6 +321,48 @@ describe('a script as a component', () => {
 		expect(host.census.registered).toBe(0);
 	});
 
+	it('spawns through the host, which is given the game its spawner', () => {
+		const { said } = quiet();
+		const scene = new Scene();
+		const asked: { id: string; yaw: number | undefined }[] = [];
+		const host = new ScriptHost(staticScripts({ Counter }), {
+			log: (message) => said.push(message),
+			spawn: (id, placement) => {
+				asked.push({ id, yaw: placement.yaw });
+				const made = scene.spawn(id, placement.parent ?? undefined);
+				if (placement.at) made.transform.setPosition(placement.at.x, placement.at.y, placement.at.z);
+				return made;
+			},
+		});
+
+		const arrow = host.spawn('arrow', { at: { x: 1, y: 2, z: 3 }, yaw: 0.5 });
+		expect(arrow, 'it came back built').not.toBeNull();
+		expect(asked).toEqual([{ id: 'arrow', yaw: 0.5 }]);
+		expect(arrow!.transform.position[0]).toBe(1);
+		expect(scene.find('arrow'), 'and it is in the scene').toBe(arrow);
+	});
+
+	it('says so, and hands back nothing, where the game spawns nothing', () => {
+		const { host: make, said } = quiet();
+		const host = make(staticScripts({ Counter }));
+
+		expect(host.spawn('arrow')).toBeNull();
+		expect(said.join('\n')).toMatch(/nothing here spawns, and a script asked for 'arrow'/);
+	});
+
+	it('carries on when a spawner throws', () => {
+		const { said } = quiet();
+		const host = new ScriptHost(staticScripts({ Counter }), {
+			log: (message) => said.push(message),
+			spawn: () => {
+				throw new Error('no such entity');
+			},
+		});
+
+		expect(host.spawn('arrow')).toBeNull();
+		expect(said.join('\n')).toMatch(/spawning 'arrow' failed: no such entity/);
+	});
+
 	it('is found by its own class, like any other component', () => {
 		const { host: make } = quiet();
 		const host = make(staticScripts({ Counter }));

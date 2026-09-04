@@ -633,6 +633,15 @@ on one object; `this.emit(Died, { who })` reaches every script in the scene that
 declared it. Events are matched by their **name**, not by token identity, so a
 hot reload — which rebuilds every token in the bundle — does not lose them.
 
+A script puts a new object in the world with `this.spawn(id, { at, yaw, parent })`,
+where `id` names an entity the game loaded. It comes back built — prefab read,
+components attached, its own scripts running — so the caller reads a component
+off it and sets what it needs. The host cannot do this itself: an id names an
+entity, an entity carries a prefab, and a prefab is read against the component
+factories the game owns, so the game hands the host a spawner. The entity has
+to be loaded already, since a tick cannot wait for a fetch — `CastOptions`
+takes a `spawnable` list for entities that are loaded and not placed.
+
 For a question rather than an announcement, look the script up as the component
 it is: `scene.getComponent(CharacterRegistry)` for the one system there is,
 `object.getComponent(Character)` for the thing in front of you. An event is

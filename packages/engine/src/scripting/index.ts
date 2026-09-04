@@ -21,6 +21,8 @@ export {
 	type LiveParameter,
 	type ScriptHostOptions,
 	type ScriptProvider,
+	type ScriptSpawner,
+	type SpawnPlacement,
 } from './ScriptHost.js';
 export { noScripts, staticScripts } from './providers.js';
 export {

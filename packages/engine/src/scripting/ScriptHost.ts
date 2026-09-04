@@ -70,7 +70,38 @@ export interface ScriptProvider {
 export interface ScriptHostOptions {
 	/** Where the host's own complaints go. Defaults to the console. */
 	readonly log?: (message: string) => void;
+	/**
+	 * How a name becomes an object in the scene.
+	 *
+	 * Absent where nothing spawns, and a script that asks then gets null. The
+	 * host cannot do this itself: an id names an entity, an entity carries a
+	 * prefab, and a prefab is read against a registry of component factories
+	 * the game owns. Whoever built the world knows all three — see
+	 * `Simulation` in the client, which passes one in.
+	 */
+	readonly spawn?: ScriptSpawner;
 }
+
+/** Where a spawned object goes, and what it is called. */
+export interface SpawnPlacement {
+	/** Where it starts, in world units. Defaults to the origin. */
+	readonly at?: { readonly x: number; readonly y: number; readonly z: number };
+	/** Which way it faces, in radians about +Y. */
+	readonly yaw?: number;
+	/** What it hangs under. Defaults to the scene root. */
+	readonly parent?: GameObject | null;
+	/** What to call it in the tree. Defaults to whatever the entity is called. */
+	readonly name?: string;
+}
+
+/**
+ * Turn an entity id into an object in the scene.
+ *
+ * Synchronous, so a script can spawn something in the middle of a tick and use
+ * what comes back. The entity has to be loaded already: reading one takes a
+ * fetch, and a tick cannot wait for it.
+ */
+export type ScriptSpawner = (id: string, placement: SpawnPlacement) => GameObject | null;
 
 /** One exposed field, with the value it currently holds. */
 export interface LiveParameter extends ParameterMeta {
@@ -114,6 +145,7 @@ export class ScriptHost {
 	 */
 	private readonly listeners = new Map<string, Set<(payload: never) => void>>();
 	private readonly log: (message: string) => void;
+	private readonly spawner: ScriptSpawner | null;
 	private provider: ScriptProvider;
 	/** True while a reload is swapping instances, when a detach is not a death. */
 	private swapping = false;
@@ -121,6 +153,7 @@ export class ScriptHost {
 	constructor(provider: ScriptProvider, options: ScriptHostOptions = {}) {
 		this.provider = provider;
 		this.log = options.log ?? ((message) => console.warn(`[script] ${message}`));
+		this.spawner = options.spawn ?? null;
 	}
 
 	/** How many scripts are registered, and how many of those are running. */
@@ -225,6 +258,27 @@ export class ScriptHost {
 	/** Announce something to the scripts on one object, and to nothing else. */
 	send(target: GameObject, event: GameEvent<unknown>, payload: unknown): void {
 		this.deliver(event, payload, target);
+	}
+
+	/**
+	 * Put a new object in the scene, by the name of the entity it is made from.
+	 *
+	 * Null when this host was built without a spawner, or when the name is not
+	 * one the game loaded. Both are reported and neither throws: a script that
+	 * asks for something that is not there carries on, the way one whose class
+	 * is missing does.
+	 */
+	spawn(id: string, placement: SpawnPlacement = {}): GameObject | null {
+		if (!this.spawner) {
+			this.log(`nothing here spawns, and a script asked for '${id}'`);
+			return null;
+		}
+		try {
+			return this.spawner(id, placement);
+		} catch (error) {
+			this.log(`spawning '${id}' failed: ${why(error)}`);
+			return null;
+		}
 	}
 
 	/**
@@ -428,6 +482,7 @@ export class ScriptHost {
 			scene: registration.scene,
 			emit: (event, payload) => this.emit(event, payload),
 			send: (target, event, payload) => this.send(target, event, payload),
+			spawn: (id, placement) => this.spawn(id, placement),
 			log: (message) => this.log(`${this.where(registration)}: ${message}`),
 			failed: (where, error, detail) =>
 				this.log(

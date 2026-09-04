@@ -54,6 +54,7 @@ import type { GameObject } from '../GameObject.js';
 import type { Scene } from '../Scene.js';
 
 import type { GameEvent, Payload } from '../../scripting/events.js';
+import type { ScriptSpawner, SpawnPlacement } from '../../scripting/ScriptHost.js';
 
 /** What the host gives a script once it has been built. */
 export interface ScriptBinding {
@@ -62,6 +63,8 @@ export interface ScriptBinding {
 	readonly emit: (event: GameEvent<unknown>, payload: unknown) => void;
 	/** Announce to the scripts on one object, and to nothing else. */
 	readonly send: (target: GameObject, event: GameEvent<unknown>, payload: unknown) => void;
+	/** Put a new object in the scene, by the entity it is made from. */
+	readonly spawn: ScriptSpawner;
 	/** Where a script's own messages go, tagged with which script said them. */
 	readonly log: (message: string) => void;
 	/** Told when this script threw, so the host can report it. */
@@ -127,6 +130,21 @@ export abstract class Script extends Component {
 	/** Announce something to the scripts on one object, and to nothing else. */
 	protected send<P>(target: GameObject, event: GameEvent<P>, ...payload: Payload<P>): void {
 		this.binding.send(target, event as GameEvent<unknown>, payload[0]);
+	}
+
+	/**
+	 * Put a new object in the scene, by the name of the entity it is made from.
+	 *
+	 * The object comes back built: its prefab has been read, its components
+	 * attached, and any scripts on it loaded. A script that wants to set
+	 * something on it reads a component off it —
+	 * `arrow.getComponent(Projectile)`.
+	 *
+	 * Null when the game spawns nothing, or when it has not loaded an entity of
+	 * that name. The host says which.
+	 */
+	protected spawn(id: string, placement: SpawnPlacement = {}): GameObject | null {
+		return this.binding.spawn(id, placement);
 	}
 
 	onLoad(): void {}
