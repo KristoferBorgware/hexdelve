@@ -27,9 +27,8 @@
  * while anything else is moving.
  */
 
-import { ScriptHost, staticScripts, type ScriptProvider } from '@hexdelve/scripting';
+import { noScripts, ScriptHost, type ScriptProvider } from '@hexdelve/scripting';
 
-import { scripts } from '../scripts/index.js';
 import {
 	HEX_FLAG_UNLIT,
 	HexInstances,
@@ -109,9 +108,12 @@ export interface SimulationOptions {
 	/**
 	 * Where the scripts come from.
 	 *
-	 * A table built at build time, by default — the client ships its scripts
-	 * and cannot reload them. The editor hands in one that compiles instead,
-	 * which is the whole of the difference between the two.
+	 * Nothing, by default. The scripts are not in this package's module graph —
+	 * they are compiled apart from it and fetched, which is what `HexdelveClient`
+	 * does before it builds one of these. A caller that has not loaded them gets
+	 * a world with no behaviour on it rather than a failure, for the same reason
+	 * the host tolerates a script whose class is missing: one absent script must
+	 * not take out a scene.
 	 */
 	scripts?: ScriptProvider;
 	seed?: number;
@@ -330,7 +332,7 @@ export class Simulation {
 		 * spawned. It is handed a provider rather than finding one: which
 		 * classes exist is a question about the build, not about the game.
 		 */
-		this.scripts = new ScriptHost(options.scripts ?? staticScripts(scripts));
+		this.scripts = new ScriptHost(options.scripts ?? noScripts);
 
 		this.systems = this.scene.spawn('systems');
 		for (const system of options.systems ?? []) {

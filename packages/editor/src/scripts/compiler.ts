@@ -24,10 +24,10 @@
  *                  them — which is the check the host uses to know it has a
  *                  script at all.
  *
- * The result is evaluated with `new Function`, not `import()`. A CommonJS
- * bundle that requires nothing and reads its SDK from a global needs no module
- * loader, no blob URL and no import map, which is what makes the same code path
- * work in a browser, in Node and in the test runner.
+ * Running the result is not this file's job. `scriptsFromBundle` in
+ * `@hexdelve/scripting` does it, and the shipped client uses the same call on a
+ * bundle compiled by `tools/build-scripts.mjs` — so the editor and the game are
+ * running scripts through one code path, and only the compiling differs.
  *
  * ## What a failure does
  *
@@ -41,24 +41,11 @@ import * as esbuild from 'esbuild-wasm';
 import wasmURL from 'esbuild-wasm/esbuild.wasm?url';
 import {
 	noScripts,
-	Script,
-	param,
-	type ScriptClass,
+	SCRIPT_SDK_MODULE,
+	scriptSdkShim,
+	scriptsFromBundle,
 	type ScriptProvider,
 } from '@hexdelve/scripting';
-
-/** The module specifier scripts import, and the global the shim reads. */
-const SDK_MODULE = '@hexdelve/scripting';
-const SDK_GLOBAL = '__HEXDELVE_SCRIPTING__';
-
-/**
- * What a compiled script may import.
- *
- * Deliberately short. Everything here is something a script is written
- * against; anything else it needs it reaches through its handles, which is
- * what keeps this list from becoming the whole engine by degrees.
- */
-const SDK: Record<string, unknown> = { Script, param };
 
 /** The one esbuild the page gets. Initialising twice is an error it throws. */
 let starting: Promise<void> | null = null;
@@ -106,32 +93,14 @@ export async function compileScripts(
 		return { provider: previous, error: message(error), names: previous.names };
 	}
 
-	let exported: Record<string, unknown>;
+	let provider: ScriptProvider;
 	try {
-		exported = evaluate(code);
+		provider = scriptsFromBundle(code);
 	} catch (error) {
 		return { provider: previous, error: message(error), names: previous.names };
 	}
 
-	const table = new Map<string, ScriptClass<Script>>();
-	for (const [name, value] of Object.entries(exported)) {
-		// `prototype instanceof Script` rather than a duck-typed check: the SDK
-		// shim above exists precisely so this comparison is against the same
-		// class object the host holds.
-		if (typeof value === 'function' && value.prototype instanceof Script) {
-			table.set(name, value as ScriptClass<Script>);
-		}
-	}
-
-	const names = [...table.keys()];
-	return {
-		provider: {
-			resolve: (typeName) => table.get(typeName) ?? null,
-			names,
-		},
-		error: null,
-		names,
-	};
+	return { provider, error: null, names: provider.names };
 }
 
 async function bundle(sources: ReadonlyMap<string, string>): Promise<string> {
@@ -142,6 +111,11 @@ async function bundle(sources: ReadonlyMap<string, string>): Promise<string> {
 		write: false,
 		logLevel: 'silent',
 		target: 'es2022',
+		// The legacy decorator design, which is the one esbuild implements, and
+		// what `@on` in `@hexdelve/scripting` is written against.
+		tsconfigRaw: {
+			compilerOptions: { experimentalDecorators: true, useDefineForClassFields: true },
+		},
 		plugins: [virtualFiles(sources)],
 	});
 	const output = result.outputFiles?.[0];
@@ -182,12 +156,12 @@ function virtualFiles(sources: ReadonlyMap<string, string>): esbuild.Plugin {
 				return { path, namespace: 'user' };
 			});
 
-			build.onResolve({ filter: new RegExp(`^${escape(SDK_MODULE)}$`) }, () => ({
+			build.onResolve({ filter: new RegExp(`^${escape(SCRIPT_SDK_MODULE)}$`) }, () => ({
 				path: 'sdk',
 				namespace: 'sdk',
 			}));
 			build.onLoad({ filter: /.*/, namespace: 'sdk' }, () => ({
-				contents: sdkShim(),
+				contents: scriptSdkShim(),
 				loader: 'js',
 			}));
 		},
@@ -203,36 +177,6 @@ function resolveRelative(importer: string, request: string): string {
 		else parts.push(step);
 	}
 	return parts.join('/');
-}
-
-function sdkShim(): string {
-	const lines = Object.keys(SDK).map(
-		(name) => `export const ${name} = sdk[${JSON.stringify(name)}];`,
-	);
-	return `const sdk = globalThis[${JSON.stringify(SDK_GLOBAL)}];\n${lines.join('\n')}\n`;
-}
-
-/**
- * Run a self-contained CommonJS bundle and hand back its exports.
- *
- * It reads its SDK from a global set here and requires nothing, so it needs no
- * loader — which is what keeps this one line the same in a browser, in Node and
- * under the test runner.
- */
-function evaluate(code: string): Record<string, unknown> {
-	(globalThis as Record<string, unknown>)[SDK_GLOBAL] = SDK;
-	const module = { exports: {} as Record<string, unknown> };
-	const refuse = (name: string): never => {
-		throw new Error(`a script cannot require('${name}')`);
-	};
-	// eslint-disable-next-line @typescript-eslint/no-implied-eval
-	const factory = new Function('module', 'exports', 'require', code) as (
-		module: { exports: Record<string, unknown> },
-		exports: Record<string, unknown>,
-		require: (name: string) => never,
-	) => void;
-	factory(module, module.exports, refuse);
-	return module.exports;
 }
 
 function escape(text: string): string {

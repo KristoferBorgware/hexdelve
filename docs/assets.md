@@ -432,7 +432,7 @@ components:
   - { type: script, script: Spin, speed: 0.5 }
 ```
 
-The class lives in `packages/client/src/scripts/`, derives from `Script`, and
+The class lives in `packages/client/scripts/`, derives from `Script`, and
 gets `onLoad` / `tick(dt)` / `onDestroy`. Every field beyond `type` and
 `script` in the record is a parameter, checked against what the class declared
 and named if it is not one.
@@ -446,16 +446,41 @@ export class Spin extends Script {
 ```
 
 `@serialize() speed = 1` is the obvious spelling, and the reason it is not used
-is worth stating precisely. Vite 8 transforms with oxc, which implements the
-*legacy* decorators (`(target, key)`) but not the TC39 *standard* ones that
-TypeScript emits by default — a standard decorator is passed through
-untransformed and then fails to parse as JavaScript. Legacy ones do compile,
-behind `oxc: { transform: { decorator: { legacy: true } } }`, at the price of
-`useDefineForClassFields: false` across the whole repository, an option vitest
-does not pass through to its own transform, and the same flag repeated in the
-browser compiler. Declaring by value asks nothing of any compiler, keeps the
-default in one place, and stays typed — `param(1)` is a number everywhere in
-the script.
+is specific to *fields*. A field declaration under ES2022 semantics is a
+`defineProperty` on the instance, so an accessor a legacy decorator installed on
+the prototype is shadowed and never runs — which is what `useDefineForClassFields:
+false` exists to undo. Worse, a legacy field decorator is handed the prototype
+and the name and nothing else: it cannot see `= 1`, so the default would have to
+be written twice, in the decorator and in the initialiser, and the two would
+drift. Declaring by value asks nothing of any compiler, keeps the default in one
+place, and stays typed — `param(1)` is a number everywhere in the script.
+
+None of that applies to a method, which already lives on the prototype. See
+**Events** below, where a decorator is the right tool.
+
+### The scripts are not in the module graph
+
+Nothing imports `packages/client/scripts/`. `tools/build-scripts.mjs` compiles
+the directory into one self-contained CommonJS bundle; the client fetches
+`scripts.js` beside the page and evaluates it, the way it fetches an asset. In
+development the Vite plugin compiles the same directory on request, so a running
+page has whatever is on disk now and there is no build step to forget.
+
+Three things follow, and each is a reason for it.
+
+**A broken script is a failure of the script step, named.** It used to be a page
+that would not load: the client imported its own script table, so every
+application build parsed every script, and a half-typed file stopped the editor
+from starting.
+
+**There is no table to keep in step.** The directory is the list. Adding a file
+ships a script.
+
+**The scripts answer to one compiler.** esbuild does it in the tool and again in
+the editor; Vite and vitest never see them. That is what lets a script use
+syntax the applications do not — decorators, in particular — without every build
+tool in the repository having to agree about it first. `packages/client/scripts/tsconfig.json`
+is where that syntax is declared, and `npm run typecheck` covers it.
 
 ### The component holds a number
 
@@ -476,15 +501,21 @@ default in the source would never take effect.
 
 | | classes from | reloads |
 |---|---|---|
-| the client | a table compiled into the build | no |
+| the client | `scripts.js`, fetched and evaluated | no |
 | the editor | esbuild-wasm, in the browser | yes |
 
 Only the editor carries the compiler. The client's whole promise is one ES
 module with nothing to install, and a multi-megabyte WebAssembly toolchain
-nobody playing the game will run has no business inside it.
+nobody playing the game will run has no business inside it. Both run what they
+end up with through the same `scriptsFromBundle`, so only the compiling
+differs.
+
+A client that cannot read its bundle runs without behaviour and says so, rather
+than failing to start. That is the same discipline as the rules below: one
+absent script must not take out a scene.
 
 The editor reads the same files the client ships — the dev server serves
-`packages/client/src/scripts` as text at `/scripts/` — so what is hot-reloaded
+`packages/client/scripts` as text at `/scripts/` — so what is hot-reloaded
 is what is shipped, rather than a copy that can drift. Saving a file recompiles
 and swaps; a compile error leaves the previous scripts running and says so.
 

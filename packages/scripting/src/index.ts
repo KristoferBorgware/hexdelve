@@ -20,6 +20,13 @@ export {
 	type ScriptProvider,
 } from './ScriptHost.js';
 export { noScripts, staticScripts } from './providers.js';
+export {
+	scriptSdk,
+	scriptSdkShim,
+	scriptsFromBundle,
+	SCRIPT_SDK_GLOBAL,
+	SCRIPT_SDK_MODULE,
+} from './bundle.js';
 export { ScriptObject, ScriptScene, ScriptTransform } from './handles.js';
 export {
 	applyParameters,

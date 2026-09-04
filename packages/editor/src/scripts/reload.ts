@@ -4,7 +4,7 @@
  * Three things have to line up for a save to reach a running game, and only
  * the middle one is interesting.
  *
- *   read      the dev server serves the client's `src/scripts` as text; this
+ *   read      the dev server serves `packages/client/scripts` as text; this
  *             fetches the list and then each file.
  *   compile   `compiler.ts`, in the browser.
  *   swap      `host.reload(provider)`, which rebuilds every instance behind

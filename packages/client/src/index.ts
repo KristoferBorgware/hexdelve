@@ -177,6 +177,14 @@ export {
  * embedder gets a working one rather than an empty one.
  */
 export { poseFunctions } from './assets/poseFunctions.js';
+
+/*
+ * Reading the compiled scripts. They are not in this package's module graph —
+ * `tools/build-scripts.mjs` compiles them and the client fetches the result —
+ * so an embedder that wants behaviour either lets the client fetch it or loads
+ * it with this and hands the provider in.
+ */
+export { loadScripts, SCRIPT_BUNDLE, type LoadScriptsOptions } from './game/scripts.js';
 export {
 	openAssets,
 	openPackedAssets,

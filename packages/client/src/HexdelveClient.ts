@@ -23,7 +23,10 @@ import {
 } from '@hexdelve/engine';
 import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
+import { noScripts, type ScriptProvider } from '@hexdelve/scripting';
+
 import { openAssets, type OpenAssetsOptions } from './assets/library.js';
+import { loadScripts } from './game/scripts.js';
 import { loadCast, type Cast, type CastOptions } from './game/cast.js';
 import { Controls } from './input/Controls.js';
 import {
@@ -38,6 +41,23 @@ const VIEW_HEIGHT = 5.5;
 
 /** The one-of-a-kind objects, spawned before anything that registers with them. */
 const SYSTEM_PREFAB = 'systems/game.system.yaml';
+
+/**
+ * What `options.scripts` means, resolved to a provider.
+ *
+ * Three spellings for one thing, and each has a caller: the default fetches,
+ * a string fetches from somewhere else, a provider is handed straight through
+ * (the editor's, which recompiles on every save), and `false` is a world with
+ * no behaviour on it.
+ */
+function loadProvider(
+	choice: ScriptProvider | string | false | undefined,
+): Promise<ScriptProvider> {
+	if (choice === false) return Promise.resolve(noScripts);
+	if (choice === undefined) return loadScripts();
+	if (typeof choice === 'string') return loadScripts({ url: choice });
+	return Promise.resolve(choice);
+}
 
 /**
  * The sphere the shadow map covers: the whole yard, plus enough height for the
@@ -89,6 +109,15 @@ export interface ClientOptions {
 	cast?: CastOptions;
 	/** The system prefab to spawn once. Defaults to the game's own. */
 	systemPrefab?: string;
+	/**
+	 * Where the compiled scripts come from.
+	 *
+	 * Left alone, the bundle is fetched from `scripts.js` beside the page. Pass
+	 * a provider to supply the classes directly — which is what the editor does,
+	 * since its provider compiles on every save — or `false` to run with no
+	 * behaviour at all.
+	 */
+	scripts?: ScriptProvider | string | false;
 	/**
 	 * Called if the GPU takes the renderer's device away. The client stops its
 	 * loop when this happens; recovering means disposing it and creating a new
@@ -165,6 +194,12 @@ export class HexdelveClient {
 		 * rather than two.
 		 */
 		const systems = assets.system(options.systemPrefab ?? SYSTEM_PREFAB);
+		/*
+		 * The scripts, read beside them. Compiled apart from this package and
+		 * fetched like an asset — see `game/scripts.ts` for why they are not
+		 * simply imported.
+		 */
+		const behaviour = loadProvider(options.scripts);
 
 		const renderer = await createRenderer({
 			canvas: options.canvas,
@@ -177,8 +212,8 @@ export class HexdelveClient {
 			},
 		});
 
-		const [cast, system] = await Promise.all([casting, systems]);
-		box.client = new HexdelveClient(options, renderer, assets, cast, [system]);
+		const [cast, system, scripts] = await Promise.all([casting, systems, behaviour]);
+		box.client = new HexdelveClient(options, renderer, assets, cast, [system], scripts);
 		return box.client;
 	}
 
@@ -188,6 +223,7 @@ export class HexdelveClient {
 		assets: AssetLibrary,
 		cast: Cast,
 		systems: readonly SystemAsset[],
+		scripts: ScriptProvider,
 	) {
 		this.canvas = options.canvas;
 		this.renderer = renderer;
@@ -212,6 +248,7 @@ export class HexdelveClient {
 		this.simulationOptions = {
 			cast,
 			systems,
+			scripts,
 			...(options.seed !== undefined ? { seed: options.seed } : {}),
 			...(options.toggles ? { toggles: options.toggles } : {}),
 			...(options.playerSpeed !== undefined ? { playerSpeed: options.playerSpeed } : {}),

@@ -15,9 +15,8 @@
  */
 
 import { readdir } from 'node:fs/promises';
-import { resolve } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { Component, GameObject, Scene } from '@hexdelve/engine';
 import {
@@ -26,11 +25,13 @@ import {
 	Script,
 	ScriptComponent,
 	ScriptHost,
+	scriptsFromBundle,
 	staticScripts,
 	type ScriptClass,
 	type ScriptProvider,
 } from '@hexdelve/scripting';
-import { scripts } from '../packages/client/src/scripts/index.js';
+
+import { bundleScripts, scriptDir } from '../tools/build-scripts.mjs';
 
 /** A host that says nothing, so a test can read what it would have said. */
 function quiet(): { host: (provider: ScriptProvider) => ScriptHost; said: string[] } {
@@ -265,30 +266,56 @@ describe('the component', () => {
 	});
 });
 
+/*
+ * The real directory, compiled the way the client and the editor compile it.
+ *
+ * Nothing imports these files — that is the point of them, and it is why this
+ * suite reaches them through the build tool rather than through an import. A
+ * test that imported them would put them back in a module graph and would stop
+ * being a test of what ships.
+ */
 describe('the scripts this build ships', () => {
-	it('lists every file in the directory', async () => {
-		const directory = resolve(import.meta.dirname, '..', 'packages', 'client', 'src', 'scripts');
-		const files = (await readdir(directory))
-			.filter((name) => name.endsWith('.ts') && name !== 'index.ts')
-			.map((name) => name.replace(/\.ts$/, ''))
+	let provider: ScriptProvider;
+	let files: string[];
+
+	beforeAll(async () => {
+		const built = await bundleScripts();
+		provider = scriptsFromBundle(built.code);
+		files = [...built.files];
+	}, 120_000);
+
+	it('compiles every file in the directory into one bundle', async () => {
+		const onDisk = (await readdir(scriptDir))
+			.filter((name) => name.endsWith('.ts'))
 			.sort();
 
-		// The table is written out rather than globbed, because a glob is
-		// Vite's and the client is built twice. This is what stops the list
-		// drifting from the directory beside it.
-		expect(Object.keys(scripts).sort()).toEqual(files);
+		// There is no table to keep in step any more: the directory IS the list,
+		// which is half of why the scripts were taken out of the module graph.
+		expect(files).toEqual(onDisk);
 	});
 
 	it('exports a class that is a Script, under its own name', () => {
-		for (const [name, constructor] of Object.entries(scripts)) {
-			expect(constructor.prototype, name).toBeInstanceOf(Script);
-			expect(constructor.name, name).toBe(name);
+		expect(provider.names.length).toBeGreaterThan(0);
+		for (const name of provider.names) {
+			const constructor = provider.resolve(name);
+			expect(constructor, name).not.toBeNull();
+			expect(constructor!.prototype, name).toBeInstanceOf(Script);
+			expect(constructor!.name, name).toBe(name);
 		}
 	});
 
 	it('declares the parameters a prefab may set', () => {
-		const spin = scripts.Spin as ScriptClass;
+		const spin = provider.resolve('Spin') as ScriptClass;
+		expect(spin).not.toBeNull();
 		expect(parametersOf(spin).map((one) => one.key)).toEqual(['speed']);
 		expect(parametersOf(spin)[0]!.type).toBe('number');
+	});
+
+	it('reaches the SAME Script class the host checks against', () => {
+		// The bundle's `@hexdelve/scripting` import is rewritten to a global, so
+		// that this is true. Bundling the real package instead would give the
+		// scripts their own copy and every `instanceof` here would be false.
+		const spin = provider.resolve('Spin')!;
+		expect(new spin()).toBeInstanceOf(Script);
 	});
 });

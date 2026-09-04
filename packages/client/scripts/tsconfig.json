@@ -1,0 +1,25 @@
+{
+	"extends": "../../../tsconfig.base.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"types": [],
+
+		/*
+		 * The scripts are compiled by esbuild, here and in the editor, and by
+		 * nothing else — which is why this config exists at all. They are not in
+		 * any application's module graph, so `tsc` would never see them without
+		 * being pointed at them, and a script with a type error would ship.
+		 *
+		 * `experimentalDecorators` is the legacy decorator design, the one
+		 * esbuild implements. It is set HERE rather than in the base config
+		 * because it is a property of the scripts, not of the repository: no
+		 * package's source uses a decorator, and none should have to care that
+		 * these files do.
+		 */
+		"experimentalDecorators": true
+	},
+	"include": ["**/*.ts"]
+}

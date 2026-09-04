@@ -7,13 +7,13 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-import { assetIO, bundleDir, publicDir } from '../../vite.assets.mts';
+import { assetIO, bundleDir, publicDir, scriptBundle } from '../../vite.assets.mts';
 import { workspaceAliases } from '../../vite.workspace.mts';
 
 export default defineConfig({
 	base: './',
 	// The editor authors these files, so its dev server is the one that writes.
-	plugins: [react(), assetIO()],
+	plugins: [react(), assetIO(), scriptBundle()],
 	resolve: { alias: workspaceAliases },
 	/*
 	 * One asset tree, served by both apps and copied into both builds — see

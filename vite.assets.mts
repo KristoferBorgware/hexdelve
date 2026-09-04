@@ -36,19 +36,26 @@ const root = import.meta.dirname;
 export const publicDir = resolve(root, 'public');
 
 /**
- * The client's scripts, served as TEXT so the editor can compile them.
+ * The client's scripts, which no application imports.
  *
- * They are ordinary TypeScript inside the client's source, compiled into both
- * of its builds like anything else. What this route adds is the other way of
- * reading them: the editor fetches the source and compiles it in the browser,
- * which is what makes a saved file reach a running game without a rebuild.
+ * They are compiled apart from both apps — by `tools/build-scripts.mjs` for a
+ * shipped client, in the browser for the editor's hot reload — and they answer
+ * on two routes here, one for each of those readers.
  *
- * Serving them from where they already live rather than copying them into
- * `public/` is the whole point — a copy would be the same script twice, and the
- * one the editor was hot-reloading would not be the one the client shipped.
+ *   GET /scripts/          the file names, and then each file's SOURCE, which
+ *                          is what the editor compiles and watches
+ *   GET /scripts.js        the whole directory COMPILED, which is what the
+ *                          client fetches and runs
+ *
+ * Serving them from where they live rather than copying them into `public/` is
+ * the point: a copy would be the same script twice, and the one the editor was
+ * hot-reloading would not be the one the client ran.
  */
-const scriptRoot = resolve(root, 'packages', 'client', 'src', 'scripts');
+const scriptRoot = resolve(root, 'packages', 'client', 'scripts');
 const SCRIPTS = 'scripts';
+
+/** The compiled bundle's address, and the name it is emitted under in a build. */
+const SCRIPT_BUNDLE = 'scripts.js';
 
 /** Where the asset files live inside it, and the URL prefix they answer on. */
 const ASSETS = 'assets';
@@ -78,6 +85,56 @@ export function assetIO(): Plugin {
 			server.middlewares.use(`/${SCRIPTS}`, scripts);
 		},
 	};
+}
+
+/**
+ * The compiled scripts, served in development and emitted into a build.
+ *
+ * Unlike `assetIO` this is NOT development-only, and the difference is the
+ * whole point of it. Nothing imports the scripts, so without this a built page
+ * would have no behaviour on it at all: the build hook compiles the directory
+ * once and emits `scripts.js` beside the page, and the client fetches it the
+ * way it fetches an asset.
+ *
+ * In development it compiles on request instead. That keeps `npm run dev`
+ * honest — the running page has whatever is on disk now, with no build step to
+ * forget — and it means a broken script answers with its own error on its own
+ * route rather than stopping the page that asked for it.
+ */
+export function scriptBundle(): Plugin {
+	return {
+		name: 'hexdelve:script-bundle',
+		configureServer(server) {
+			server.middlewares.use(`/${SCRIPT_BUNDLE}`, (request, response, next) => {
+				const method = request.method ?? 'GET';
+				if (method !== 'GET' && method !== 'HEAD') {
+					next();
+					return;
+				}
+				void compileScripts().then(
+					(code) => {
+						response.setHeader('content-type', 'text/javascript; charset=utf-8');
+						// Compiled fresh on every request, so it must not be kept.
+						response.setHeader('cache-control', 'no-store');
+						response.end(code);
+					},
+					(error: unknown) => fail(response, 500, why(error)),
+				);
+			});
+		},
+		async generateBundle() {
+			this.emitFile({ type: 'asset', fileName: SCRIPT_BUNDLE, source: await compileScripts() });
+		},
+	};
+}
+
+/** `tools/build-scripts.mjs`, which is ESM and has no types of its own. */
+async function compileScripts(): Promise<string> {
+	const tool = (await import('./tools/build-scripts.mjs')) as {
+		bundleScripts: () => Promise<{ code: string }>;
+	};
+	const { code } = await tool.bundleScripts();
+	return code;
 }
 
 const handle: Connect.NextHandleFunction = (request, response, next) => {
@@ -132,7 +189,7 @@ const scripts: Connect.NextHandleFunction = (request, response, next) => {
 	if (path === '/' || path === '') {
 		void readdir(scriptRoot)
 			.then((names) => {
-				const list = names.filter((name) => name.endsWith('.ts') && name !== 'index.ts');
+				const list = names.filter((name) => name.endsWith('.ts'));
 				response.setHeader('content-type', 'application/json; charset=utf-8');
 				response.end(JSON.stringify(list.sort()));
 			})
@@ -250,8 +307,12 @@ function done(response: import('node:http').ServerResponse): void {
 	response.end();
 }
 
-function fail(response: import('node:http').ServerResponse, code: number, why: string): void {
+function fail(response: import('node:http').ServerResponse, code: number, reason: string): void {
 	response.statusCode = code;
 	response.setHeader('content-type', 'text/plain; charset=utf-8');
-	response.end(why);
+	response.end(reason);
+}
+
+function why(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
 }

@@ -304,7 +304,7 @@ export function Inspector({ client, scripts }: InspectorProps) {
 					) : (
 						<Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
 							Reloaded {scripts.generation}x. Saving a file in
-							<code> packages/client/src/scripts</code> swaps them here.
+							<code> packages/client/scripts</code> swaps them here.
 						</Typography>
 					)}
 				</>
