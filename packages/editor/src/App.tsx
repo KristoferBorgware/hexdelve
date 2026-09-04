@@ -1,5 +1,5 @@
 /*
- * The editor shell: a toolbar, and one of six views under it.
+ * The editor shell: a toolbar, and one of seven views under it.
  *
  * The YARD is the game, in a box — the client, unchanged, doing what a player
  * would see. The three BENCHES are the other thing an editor is for: one
@@ -13,16 +13,22 @@
  * of them quickly. All three have scenes of their own for that reason and no
  * other.
  *
- * The ASSETS view is the odd one out, and the newest. Every other view here
- * previews something the code decided; that one edits the decision — the YAML
- * under public/assets, through the dev server, which is the only host in this
- * project that can write a file. It is also where the editor admits it cannot:
- * the built page published to Pages reads the same files and says so.
+ * The ASSETS view is the odd one out. Every other view here previews something
+ * the code decided; that one edits the decision — the YAML under public/assets,
+ * through a host that can write a file. It is also where the editor admits when
+ * it cannot: the built page published to Pages reads the same files and says so.
+ *
+ * The SCRIPTS view is the newest, and it is that argument carried one step
+ * further: what it edits is not data but the client's own behaviour, in the
+ * same `packages/client/scripts` a text editor would open, compiled by the same
+ * call the yard's hot reload uses. It has a language service in it rather than
+ * a text box, because a script is code and a text box has nothing to say about
+ * code.
  *
  * The level bench is the one with no clock, which is why the transport is
  * disabled while it is up rather than left there doing nothing: a level does not
- * move, it is redrawn when something about it changes. The vault and asset views
- * are the same case for the same reason.
+ * move, it is redrawn when something about it changes. The vault, asset and
+ * script views are the same case for the same reason — see `STILL` below.
  *
  * The backend selector and the transport are shared, and sit here rather than
  * being buried in a settings dialog on purpose. Two renderers that are meant to
@@ -45,6 +51,7 @@ import type { HexdelveClient } from '@hexdelve/client';
 import type { BackendPreference } from '@hexdelve/engine';
 
 import { Assets } from './components/Assets.js';
+import { Scripts } from './components/Scripts.js';
 import { Bench } from './components/Bench.js';
 import { PropBenchView } from './components/PropBenchView.js';
 import { Inspector } from './components/Inspector.js';
@@ -54,7 +61,10 @@ import { SceneOutline } from './components/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
 import type { ScriptWatchState } from './scripts/reload.js';
 
-type View = 'yard' | 'bench' | 'props' | 'levels' | 'vaults' | 'assets';
+type View = 'yard' | 'bench' | 'props' | 'levels' | 'vaults' | 'assets' | 'scripts';
+
+/** The views with nothing moving in them, where a transport would be furniture. */
+const STILL: readonly View[] = ['levels', 'vaults', 'assets', 'scripts'];
 
 export function App() {
 	const [client, setClient] = useState<HexdelveClient | null>(null);
@@ -92,6 +102,7 @@ export function App() {
 					>
 						<ToggleButton value="yard">Yard</ToggleButton>
 						<ToggleButton value="assets">Assets</ToggleButton>
+						<ToggleButton value="scripts">Scripts</ToggleButton>
 						<ToggleButton value="bench">Character</ToggleButton>
 						<ToggleButton value="props">Props</ToggleButton>
 						<ToggleButton value="levels">Level</ToggleButton>
@@ -113,7 +124,7 @@ export function App() {
 
 					<Tooltip
 						title={
-							view === 'levels' || view === 'vaults' || view === 'assets'
+							STILL.includes(view)
 								? 'Nothing here has a frame loop to run'
 								: running
 									? 'Pause the frame loop'
@@ -124,7 +135,7 @@ export function App() {
 							<Button
 								size="small"
 								variant="outlined"
-								disabled={view === 'levels' || view === 'vaults' || view === 'assets'}
+								disabled={STILL.includes(view)}
 								startIcon={running ? <PauseIcon /> : <PlayArrowIcon />}
 								onClick={() => setRunning((value) => !value)}
 							>
@@ -153,6 +164,7 @@ export function App() {
 				{view === 'levels' && <Levels backend={backend} />}
 				{view === 'vaults' && <Vaults />}
 				{view === 'assets' && <Assets />}
+				{view === 'scripts' && <Scripts />}
 			</Box>
 		</Box>
 	);

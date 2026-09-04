@@ -1,20 +1,23 @@
 /*
  * Opening the asset library, wherever this is running.
  *
- * Three hosts, one call. What differs between them is not how the files are
- * read — that is `fetch` everywhere, including in Electron, which registers a
- * privileged `app://` scheme precisely so it can be — but whether anything is
- * allowed to write, and that is decided here rather than guessed at each call
- * site.
+ * One call, whichever host it is. What differs between them is not how the
+ * files are read — that is `fetch` everywhere, including in Electron, which
+ * registers a privileged `app://` scheme precisely so it can be — but whether
+ * anything is allowed to write, and that is decided here rather than guessed
+ * at each call site.
  *
  *   dev server   `import.meta.env.DEV`, or `writable: true` said outright.
  *                Writes are a PUT back to the same URL, handled by the plugin
- *                in vite.assets.mts. This is the one host that authors.
+ *                in vite.assets.mts.
  *   browser      a built page, on Pages or anywhere else. Read-only, and the
  *                editor says so rather than offering a save that cannot work.
- *   Electron     also read-only: the desktop shell wraps the client, not the
- *                editor, so nothing in it authors anything. It is otherwise
- *                indistinguishable from the browser, which is the point.
+ *   Electron     whichever the shell says. The shell around the CLIENT exposes
+ *                no writer and is read-only, indistinguishable from a browser
+ *                tab, which is the point of it; the shell around the EDITOR
+ *                exposes one, and writes land on the project directory that
+ *                window was opened on. Either way the reading is the same
+ *                `fetch` over `app://` — see `desktop.ts`.
  *
  * `new AssetLibrary(io)` is still perfectly usable and reads a rig, a mesh or
  * a clip without any help. What it cannot do is resolve `procedural: stride`,
@@ -31,6 +34,7 @@ import {
 	type AssetLibraryOptions,
 } from '@hexdelve/engine';
 
+import { desktopBridge, desktopIO } from './desktop.js';
 import { poseFunctions } from './poseFunctions.js';
 
 /** Where the manifest listing every entity lives, relative to the asset root. */
@@ -49,8 +53,9 @@ export interface OpenAssetsOptions extends AssetLibraryOptions {
 	/** Where the asset files are. Defaults to `assets`, relative to the page. */
 	readonly baseUrl?: string;
 	/**
-	 * Allow writing. Defaults to true on a Vite dev server and false
-	 * everywhere else, which is the honest answer in both cases — see above.
+	 * Allow writing. Defaults to true on a Vite dev server and in a desktop
+	 * shell that exposes a writer, and false everywhere else, which is the
+	 * honest answer in each case — see above.
 	 */
 	readonly writable?: boolean;
 	/** Somewhere other than HTTP to read from — a pack, a disk, a test. */
@@ -71,8 +76,22 @@ function onDevServer(): boolean {
 
 export function openAssets(options: OpenAssetsOptions = {}): AssetLibrary {
 	const { baseUrl = ASSET_BASE, writable, io, ...rest } = options;
-	const backend = io ?? fetchIO(baseUrl, { writable: writable ?? onDevServer() });
+	const backend = io ?? openAssetIO(baseUrl, writable);
 	return new AssetLibrary(backend, { poseFunctions, ...rest });
+}
+
+/**
+ * Which backend this host gets.
+ *
+ * The order matters: a caller that said `writable: false` gets a read-only
+ * backend even in the editor's desktop shell, because a view that must not
+ * write should not be handed a writer it can be talked into using.
+ */
+function openAssetIO(baseUrl: string, writable: boolean | undefined): AssetIO {
+	const files = desktopBridge()?.files ?? null;
+	const allowed = writable ?? (files !== null || onDevServer());
+	if (files && allowed) return desktopIO(baseUrl, files);
+	return fetchIO(baseUrl, { writable: allowed });
 }
 
 /**

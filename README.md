@@ -56,10 +56,16 @@ packages/
   engine/       WebGPU and WebGL2 rendering, camera, frame loop, the scene graph
   scripting/    what game behaviour is written as, and the host that swaps it
   client/       the game itself; the package built for external distribution
-  editor/       React and Material UI shell: the client in a viewport, plus a
-                benches for one rig, one piece of gear, one generated level
-                and one hand-drawn vault
+    scripts/    the game's behaviour, in no application's module graph: compiled
+                on its own and fetched, so a broken one cannot stop a build
+  editor/       React and Material UI shell: the client in a viewport, benches
+                for one rig, one piece of gear, one generated level and one
+                hand-drawn vault, and Monaco over the asset files and the
+                scripts
   desktop/      Electron wrapper around the client's build
+  editor-desktop/
+                Electron wrapper around the editor's build, and the only host
+                besides a dev server that can write a file
 labs/           one folder per lab, each a standalone page
   shared/       the code the labs are built from
 public/assets/   served as themselves by both apps, and copied into both builds
@@ -95,6 +101,7 @@ node assets/audio/dungeon-crawl.js
 npm install
 npm run dev:editor      # the editor: the yard, and the two benches
 npm run dev:client      # the client on its own
+npm run dev:editor-desktop   # the editor in Electron, which can write files
 npm run build           # every package
 npm run typecheck       # every package, no output
 npm run build:pages     # build, then stage the whole site in dist/pages
@@ -103,7 +110,7 @@ npm run assets          # pack public/assets into dist/assets.json, and check it
 npm run test:watch      # and again on every save
 ```
 
-npm workspaces, so one `npm install` at the root wires the five packages
+npm workspaces, so one `npm install` at the root wires the seven packages
 together. Every package is `strict` TypeScript against one `tsconfig.base.json`,
 and they are joined by project references, so `tsc -b` builds them in
 dependency order and typechecking one typechecks what it stands on.
@@ -139,7 +146,7 @@ renderer toggle is in the toolbar rather than a settings dialog, because two
 backends meant to draw the same picture only stay that way if switching is one
 click during ordinary work.
 
-It has six views. The **yard** is the client, in a box: no editor renderer and
+It has seven views. The **yard** is the client, in a box: no editor renderer and
 no editor scene, so whatever the editor can do to the world an embedder can do
 too. The four **benches** are the exception, and say why in their own name — a
 bench is one subject, alone, held still, which is exactly what a running world
@@ -149,11 +156,35 @@ and they build nothing of their own: the skeletons, the bodies, the clips and
 the gear all come out of the client, so what reads well on a bench is what the
 game draws.
 
-The **assets view** is the odd one out and the newest: every other view
-previews something the code decided, and that one edits the decision. It lists
-the YAML under `public/assets`, shows which IO backend it reached them through
-and whether that backend can write, and saves a changed file back through the
-dev server. See [docs/assets.md](docs/assets.md).
+The **assets view** is the odd one out: every other view previews something the
+code decided, and that one edits the decision. It lists the YAML under
+`public/assets`, shows which IO backend it reached them through and whether that
+backend can write, and saves a changed file back through it. See
+[docs/assets.md](docs/assets.md).
+
+The **script view** is the newest, and it is that argument one step further:
+what it edits is not data but the client's own behaviour — the TypeScript in
+`packages/client/scripts`, in Monaco, saved back to the same URLs the hot-reload
+watcher reads. It is a language service rather than a text box because a script
+is code: the declarations of `@hexdelve/scripting` and everything it stands on
+are handed to the editor as though they were installed, so `this.transform.`
+completes and a misspelt field is underlined where it is written; the whole
+directory is given to the service rather than the open file, because a script
+imports its neighbour. Saving compiles through the same call the watcher makes,
+so a file that will not build says so with the error on its own line. What a
+save does not do is reach into a running game — the yard is not mounted while
+this view is up, and it picks the change up from its watcher when it comes back.
+
+**`@hexdelve/editor-desktop`** is that editor in an Electron window, and it
+exists for one reason: an editor that cannot write to a disk is a viewer.
+Reading is unchanged — the window serves its page from a real `app://` origin,
+so `fetch` reaches the files as it does over http — and the difference is that
+the two trees the editor authors are served from a PROJECT DIRECTORY rather
+than from inside the application, and a bridge in the preload can write to
+them. The project is `HEXDELVE_PROJECT`, or the one picked last time, or the
+checkout the shell was built in, or asked for; File → Open Project changes it,
+and the window title is the directory, because what a person needs to know from
+a window that writes to a disk is which disk.
 
 The **character bench** puts a rig on a stand with a clock. Pick a subject, pick
 an animation, play it, scrub it, slow it down, ghost the body to see the rig
@@ -359,7 +390,7 @@ statements of what a wanderer is still exist, so they can be checked against
 each other, and a mesh that mirrors the wrong axis fails there rather than
 being noticed later by somebody looking at a character with one ear.
 
-### One IO model for three hosts
+### One IO model for every host
 
 The files are fetched, which raises the question Electron usually answers
 badly. Loaded with `loadFile` its window would be a `file://` document with an
@@ -379,8 +410,17 @@ editor cannot save here" something the type system knows and the UI shows.
 |---|---|---|
 | dev server | `fetch` | a `PUT` back to the same URL, into `public/assets` |
 | a built page | `fetch` | none — a static page has nowhere to put a file |
-| Electron | `fetch` over `app://` | none — the shell wraps the client, which authors nothing |
+| the client's Electron shell | `fetch` over `app://` | none — that shell wraps the client, which authors nothing |
+| the editor's Electron shell | `fetch` over `app://` | an IPC call to the main process, into the project directory |
 | memory | a map | the same map: a pack, or a test |
+
+The last row is the one exception to "a file has one address", and it is forced
+rather than chosen: `app://` is answered by a handler inside the main process,
+not by a server, so there is nothing for a PUT to arrive at. What crosses the
+bridge is a scope and a name inside it — never a path — so the page can ask for
+"the script called `Spin.ts`" and cannot ask for `/etc`, because it does not
+know where the scripts are. The main process does, and checks that what it
+resolved is still inside the tree it meant.
 
 The editor's **Assets** view is the file list, the file, and a save button. It
 edits the actual bytes rather than offering a form, because these documents
@@ -444,7 +484,7 @@ nothing reads them.
 A real range would have to be maintained instead of meaning anything. Pin
 `"0.1.0"` and bumping one package sends npm to the registry for the old version
 of a package that was never published there, so `npm install` dies on a 404
-until all six numbers are edited together; `npm version --workspaces` does not
+until all seven numbers are edited together; `npm version --workspaces` does not
 help, because it bumps the version fields and leaves the sibling specs behind.
 
 `*` is only wrong for a package that gets published, where it would mean "any

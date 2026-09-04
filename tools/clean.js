@@ -18,6 +18,7 @@ const targets = [
 	'dist',
 	'packages/shared/dist',
 	'packages/engine/dist',
+	'packages/scripting/dist',
 	'packages/client/dist',
 	'packages/client/dist-app',
 	'packages/client/dist-lib',
@@ -25,6 +26,8 @@ const targets = [
 	'packages/editor/dist-types',
 	'packages/desktop/dist',
 	'packages/desktop/release',
+	'packages/editor-desktop/dist',
+	'packages/editor-desktop/release',
 ];
 
 let removed = 0;

@@ -15,6 +15,13 @@
  * rig's hip height moves every mesh hung on it, and a view still holding the
  * old objects would be showing a character that no longer exists.
  *
+ * The pane itself was a `<textarea>`, with a comment saying a file did not need
+ * a code editor to be shown. That was true while the editor did not have one.
+ * It has one now — the scripts made it necessary — and pointing this view at it
+ * costs nothing and buys the things a textarea never had: a folded document,
+ * matched brackets, a column of line numbers, and a find box for a rig file
+ * that is four hundred lines of bones.
+ *
  * When the host cannot write, it says so and leaves the text read-only. The
  * published editor is that host, and an editor offering a save that silently
  * does nothing is worse than one that admits what it is.
@@ -38,6 +45,8 @@ import RestoreIcon from '@mui/icons-material/Restore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { backendLabel, library, useAssets } from '../assets/library.js';
+import { ASSET_ROOT } from '../monaco/uris.js';
+import { CodeEditor } from './CodeEditor.js';
 
 /** `rigs/humanoid.rig.yaml` sorts and reads better grouped by its directory. */
 function group(path: string): string {
@@ -238,34 +247,17 @@ export function Assets() {
 				)}
 
 				{/*
-				 * A plain textarea rather than a code editor component. It is
-				 * the file, it is monospaced, and it does not need a
-				 * three-hundred-kilobyte dependency to be one.
+				 * The file, in the editor the scripts brought with them. `selected` is
+				 * the document identity, so switching files keeps each one's cursor and
+				 * its undo history — see CodeEditor, which owns that rule.
 				 */}
-				<Box
-					component="textarea"
+				<CodeEditor
+					uri={`${ASSET_ROOT}${selected ?? 'nothing'}`}
+					language="yaml"
 					value={text}
 					readOnly={!writable}
-					spellCheck={false}
-					onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setText(event.target.value)}
-					sx={{
-						flex: 1,
-						minHeight: 0,
-						// A textarea has an intrinsic `cols` width and will sit at it
-						// inside a flex column, however much room is going spare.
-						width: '100%',
-						boxSizing: 'border-box',
-						border: 0,
-						outline: 'none',
-						resize: 'none',
-						p: 2,
-						fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-						fontSize: 12.5,
-						lineHeight: 1.55,
-						tabSize: 2,
-						color: 'text.primary',
-						backgroundColor: writable ? 'background.paper' : 'action.hover',
-					}}
+					onChange={setText}
+					onSave={writable ? save : undefined}
 				/>
 
 				<Stack

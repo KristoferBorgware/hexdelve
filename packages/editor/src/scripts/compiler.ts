@@ -35,6 +35,15 @@
  * itself; that is the difference between an editor somebody can work in and
  * one that goes blank every time a file is half-typed. The host's own rules
  * handle the rest — see its header.
+ *
+ * It reports itself TWICE, in two shapes, because there are two readers. The
+ * message is one string for a panel to show. The diagnostics are the same
+ * errors with the file and the position esbuild put on them, which is what the
+ * code editor turns into a red squiggle on the line that is wrong. Neither is
+ * derived from the other by parsing text: esbuild hands over structured
+ * errors, and throwing that structure away only to recover it with a regular
+ * expression is how a stray colon in an error message becomes a marker on
+ * line 0 of a file that does not exist.
  */
 
 import * as esbuild from 'esbuild-wasm';
@@ -62,10 +71,25 @@ function start(): Promise<void> {
 	return starting;
 }
 
+/** One error, where the compiler put it. */
+export interface ScriptDiagnostic {
+	/** The script it is in, named as the store names it, or null. */
+	readonly file: string | null;
+	/** One-based, as an editor counts. */
+	readonly line: number;
+	/** Zero-based, as esbuild counts. */
+	readonly column: number;
+	/** How many characters it covers, when the compiler said. */
+	readonly length: number;
+	readonly text: string;
+}
+
 export interface CompileResult {
 	readonly provider: ScriptProvider;
 	/** What went wrong, or null. The previous provider stands when this is set. */
 	readonly error: string | null;
+	/** The same failure, placed — empty when nothing failed, or when it had no place. */
+	readonly diagnostics: readonly ScriptDiagnostic[];
 	/** The class names the bundle produced. */
 	readonly names: readonly string[];
 }
@@ -82,7 +106,7 @@ export async function compileScripts(
 	previous: ScriptProvider = noScripts,
 ): Promise<CompileResult> {
 	if (sources.size === 0) {
-		return { provider: noScripts, error: null, names: [] };
+		return { provider: noScripts, error: null, diagnostics: [], names: [] };
 	}
 
 	let code: string;
@@ -90,17 +114,48 @@ export async function compileScripts(
 		await start();
 		code = await bundle(sources);
 	} catch (error) {
-		return { provider: previous, error: message(error), names: previous.names };
+		return {
+			provider: previous,
+			error: message(error),
+			diagnostics: diagnose(error),
+			names: previous.names,
+		};
 	}
 
 	let provider: ScriptProvider;
 	try {
 		provider = scriptsFromBundle(code);
 	} catch (error) {
-		return { provider: previous, error: message(error), names: previous.names };
+		// A bundle that compiled and would not evaluate. There is no position
+		// to report: the failure is in code esbuild wrote, not in a line
+		// anybody typed.
+		return { provider: previous, error: message(error), diagnostics: [], names: previous.names };
 	}
 
-	return { provider, error: null, names: provider.names };
+	return { provider, error: null, diagnostics: [], names: provider.names };
+}
+
+/**
+ * esbuild's own errors, in the terms the editor names files by.
+ *
+ * The paths come back namespaced — `user:Combat.ts`, because that is the
+ * namespace the virtual plugin resolved them into — and the editor knows the
+ * file as `Combat.ts`, so the prefix comes off here rather than at every
+ * reader.
+ */
+function diagnose(error: unknown): ScriptDiagnostic[] {
+	const errors = (error as { errors?: esbuild.Message[] }).errors;
+	if (!Array.isArray(errors)) return [];
+	return errors.map((problem) => {
+		const at = problem.location;
+		return {
+			file: at ? at.file.replace(/^user:/, '') : null,
+			line: at?.line ?? 1,
+			column: at?.column ?? 0,
+			length: at?.length ?? 0,
+			text: problem.text,
+		};
+	});
 }
 
 async function bundle(sources: ReadonlyMap<string, string>): Promise<string> {
@@ -183,7 +238,14 @@ function escape(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * What went wrong, said the way a script author would say it.
+ *
+ * esbuild names the files by the namespace the virtual plugin put them in, so
+ * an error reads `user:Combat.ts:31:8`. The namespace is an implementation
+ * detail of this file and means nothing to whoever is reading the message.
+ */
 function message(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return String(error);
+	const text = error instanceof Error ? error.message : String(error);
+	return text.replace(/\buser:/g, '');
 }

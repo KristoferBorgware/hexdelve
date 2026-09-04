@@ -26,12 +26,18 @@
  *                where the editor authors.
  *   browser      read-only. A static build on Pages has nowhere to put a file
  *                and no business pretending otherwise.
- *   Electron     read-only, for now. The shell wraps the client, not the
- *                editor, so nothing in it authors anything.
+ *   Electron     depends on which shell. The one around the client is
+ *                read-only, because the client authors nothing; the one around
+ *                the editor writes, through a bridge its preload exposes,
+ *                because a desktop editor with no disk would be pointless.
+ *                A PUT cannot serve there — `app://` is served by a handler in
+ *                the main process, not by a server — so the write is an IPC
+ *                call while the read stays a fetch, which is exactly the split
+ *                this interface exists to express.
  *   memory       writable. Tests, and a packed build held in one object.
  *
  * A backend names itself in `kind`, because the first question anybody asks a
- * failing save is which of the four they were talking to.
+ * failing save is which of them it was talking to.
  */
 
 /** Reading is required, writing is a capability. */
@@ -45,7 +51,7 @@ export interface AssetIO {
 	readonly writer: AssetWriter | null;
 }
 
-export type AssetIOKind = 'fetch' | 'dev-server' | 'memory';
+export type AssetIOKind = 'fetch' | 'dev-server' | 'desktop' | 'memory';
 
 export interface AssetWriter {
 	write(path: string, text: string): Promise<void>;

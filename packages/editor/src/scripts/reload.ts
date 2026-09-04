@@ -4,8 +4,8 @@
  * Three things have to line up for a save to reach a running game, and only
  * the middle one is interesting.
  *
- *   read      the dev server serves `packages/client/scripts` as text; this
- *             fetches the list and then each file.
+ *   read      `store.ts`, which knows which host this is and how to reach the
+ *             files on it. The reading is the same fetch everywhere.
  *   compile   `compiler.ts`, in the browser.
  *   swap      `host.reload(provider)`, which rebuilds every instance behind
  *             its id — so nothing that points at a script has to be rebuilt,
@@ -22,9 +22,7 @@
 import type { ScriptHost, ScriptProvider } from '@hexdelve/scripting';
 
 import { compileScripts } from './compiler.js';
-
-/** Where the dev server serves the client's scripts from, as text. */
-const SCRIPTS = 'scripts';
+import { scriptStore } from './store.js';
 
 export interface ScriptWatchState {
 	/** What is running now. */
@@ -37,30 +35,6 @@ export interface ScriptWatchState {
 }
 
 export type ScriptWatchListener = (state: ScriptWatchState) => void;
-
-/**
- * Read every script the dev server is serving.
- *
- * A cache-buster on each request: the whole point is to read what is on disk
- * NOW, and a browser that helpfully served the copy it already had would make
- * the reload a no-op in exactly the case it exists for.
- */
-async function readSources(): Promise<Map<string, string>> {
-	const stamp = Date.now();
-	const listing = await fetch(`${SCRIPTS}/?t=${stamp}`);
-	if (!listing.ok) throw new Error(`cannot list ${SCRIPTS}/: ${listing.status}`);
-	const names = (await listing.json()) as string[];
-
-	const sources = new Map<string, string>();
-	await Promise.all(
-		names.map(async (name) => {
-			const file = await fetch(`${SCRIPTS}/${name}?t=${stamp}`);
-			if (!file.ok) throw new Error(`cannot read ${name}: ${file.status}`);
-			sources.set(name, await file.text());
-		}),
-	);
-	return sources;
-}
 
 /**
  * Keep a host's scripts in step with the files on disk.
@@ -98,7 +72,7 @@ export function watchScripts(host: ScriptHost, notify: ScriptWatchListener): () 
 		state({ compiling: true });
 
 		try {
-			const sources = await readSources();
+			const sources = await scriptStore.readAll();
 			const result = await compileScripts(sources, provider ?? undefined);
 			if (!live) return;
 

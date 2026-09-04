@@ -1,0 +1,27 @@
+appId: se.borgware.hexdelve.editor
+productName: Hexdelve Editor
+copyright: Copyright © KristoferBorgware
+
+directories:
+  output: release
+  buildResources: build
+
+# The shell plus the editor's web build. The editor bundle already contains the
+# client and the engine, so nothing else from the workspace has to travel — and
+# the project it edits is not packaged at all, because it is somebody's checkout
+# rather than part of this application.
+files:
+  - dist/**/*
+  - package.json
+extraResources:
+  - from: ../editor/dist
+    to: app/editor
+
+mac:
+  category: public.app-category.developer-tools
+  target: [dmg, zip]
+win:
+  target: [nsis]
+linux:
+  target: [AppImage]
+  category: Development

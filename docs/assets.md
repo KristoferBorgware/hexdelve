@@ -276,10 +276,11 @@ the moment either was being looked at.
 
 ## The IO model
 
-Three hosts have to read these files and they have almost nothing in common: a
-browser tab, a Vite dev server, and an Electron window whose page is not served
-over http at all. What they share is a path in and a string out, so that is the
-whole of `AssetIO`, and every host difference lives in one small object.
+Four hosts have to read these files and they have almost nothing in common: a
+browser tab, a Vite dev server, and two Electron windows whose pages are not
+served over http at all. What they share is a path in and a string out, so that
+is the whole of `AssetIO`, and every host difference lives in one small
+object.
 
 **Reading is `fetch` everywhere, Electron included.** That is the part worth
 arguing for. Loaded with `loadFile`, the desktop window's page would be a
@@ -302,12 +303,22 @@ by pressing a button.
 |---|---|---|
 | `dev-server` | `fetch` | a `PUT` to the same URL, handled by `vite.assets.mts` |
 | `fetch` — a built page | `fetch` | none: a static page has nowhere to put a file |
-| Electron | `fetch` over `app://` | none: the shell wraps the client, which authors nothing |
+| `fetch` — the client's Electron shell | `fetch` over `app://` | none: that shell wraps the client, which authors nothing |
+| `desktop` — the editor's Electron shell | `fetch` over `app://` | an IPC call to the main process, which owns the project directory |
 | `memory` | a map | the same map — a pack, or a test |
 
 A file has one address, so a write is a PUT to the URL the GET came from rather
 than a second endpoint: an editor that read from one place and wrote to another
 would have two ways to be pointed at the wrong tree.
+
+The `desktop` row is the one exception, and it is forced rather than chosen.
+`app://` is answered by a handler inside the main process, not by a server, so
+there is nothing for a PUT to arrive at — the write has to be an IPC call. What
+crosses it is a SCOPE and a name inside it, never a path: the page can say "the
+asset called `rigs/humanoid.rig.yaml`" and cannot say `/etc`, because it does
+not know where the asset tree is. The main process does, and checks that what
+it resolved is still inside it. See `packages/editor-desktop/src/files.ts`, and
+`desktop.ts` in the client for the page's half.
 
 The dev plugin is `apply: 'serve'` and therefore cannot exist in a build. It
 refuses anything but `.yaml`, caps a body at a megabyte, and resolves each path
@@ -352,6 +363,11 @@ added a link between two kinds.
 When the host cannot write, the view says so and leaves the text read-only. The
 published editor is that host. An editor offering a save that silently does
 nothing is worse than one that admits what it is.
+
+The pane itself is Monaco, which arrived with the script view and is used here
+for the same reason a rig file is four hundred lines long: line numbers, a find
+box and matched brackets are worth having in a document that size. It is still
+the actual bytes.
 
 ## The reader
 
@@ -523,6 +539,35 @@ and swaps; a compile error leaves the previous scripts running and says so.
 **esbuild strips types without checking them.** A script with a type error
 compiles and runs in the editor, and only `tsc` objects. That is what makes the
 reload fast, and it is why `npm run typecheck` covers the scripts directory.
+
+### Writing one in the editor
+
+The **Scripts** view is that directory, in Monaco, with a save button. It reads
+and writes through the same URLs the watcher reads — `PUT /scripts/Spin.ts` on
+a dev server, an IPC call in the desktop editor, nothing at all on a built page,
+which says so — so a script edited here is the file on disk and not a copy.
+
+Three things make it more than a text box, and only the first is Monaco's:
+
+**The language service knows the SDK.** `/script-types.json` hands over the
+`dist/*.d.ts` of `@hexdelve/shared`, `@hexdelve/engine` and
+`@hexdelve/scripting`, named as though they were installed under
+`node_modules`, so `import { Script } from '@hexdelve/scripting'` resolves by
+ordinary node resolution and `this.transform.` completes. They are the same
+declarations `npm run typecheck` uses, and a tree that has never been built
+says which package is missing rather than quietly offering nothing. The service
+is given the whole script directory rather than the open file, because a script
+imports its neighbour and a service with one file would report that line as an
+error in code that compiles.
+
+**Saving compiles.** Through `compileScripts`, which is the call the watcher
+makes, so a file that will not build says so here — with esbuild's own position,
+as a marker on the line rather than a sentence about a bundle.
+
+**A save does not reach a running game.** The yard is unmounted while this view
+is up, so the file lands on the disk and the yard picks it up from its watcher
+when it comes back. That is one viewport refresh rather than none, and it is
+what the editor is actually doing: writing files that something else reads.
 
 ### Events
 

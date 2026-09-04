@@ -7,13 +7,18 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
-import { assetIO, bundleDir, publicDir, scriptBundle } from '../../vite.assets.mts';
+import { assetIO, bundleDir, publicDir, scriptBundle, scriptTypes } from '../../vite.assets.mts';
 import { workspaceAliases } from '../../vite.workspace.mts';
 
 export default defineConfig({
 	base: './',
-	// The editor authors these files, so its dev server is the one that writes.
-	plugins: [react(), assetIO(), scriptBundle()],
+	/*
+	 * The editor authors these files, so its dev server is the one that writes.
+	 * `scriptTypes` is the editor's alone: it is what the code editor's language
+	 * service is given to know what a `Script` is, and the client has no code
+	 * editor in it.
+	 */
+	plugins: [react(), assetIO(), scriptBundle(), scriptTypes()],
 	resolve: { alias: workspaceAliases },
 	/*
 	 * One asset tree, served by both apps and copied into both builds — see

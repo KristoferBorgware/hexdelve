@@ -204,6 +204,20 @@ export {
 } from './assets/library.js';
 
 /*
+ * The desktop bridge. Exported because the editor writes SCRIPTS through the
+ * same object it writes assets through, and it should name it rather than
+ * reach into `window` and hope.
+ */
+export {
+	desktopBridge,
+	desktopIO,
+	plainly,
+	type DesktopBridge,
+	type DesktopFiles,
+	type DesktopScope,
+} from './assets/desktop.js';
+
+/*
  * The asset types, re-exported so an embedder or the editor need not import
  * @hexdelve/engine alongside this package just to name what it was handed.
  */
