@@ -1,0 +1,135 @@
+# The spider's rig.
+#
+# Nothing here hangs from anything. A humanoid is a stack with limbs hanging
+# off it and a hound is a bridge with legs under it; a spider is a body with
+# eight legs radiating out of it, each pointing along its own bearing round
+# the body and each the same three segments — a femur out and up to a knee
+# high above the body, a tibia out and down from the knee, a tarsus down to a
+# tip on the ground. The tip is a bone of its own, so the tarsus spans it by
+# name and a ground speed is read off the point that actually touches the
+# ground rather than off the ankle above it.
+#
+# The legs are written as one set of lengths and slopes and four bearings,
+# so every offset below is an expression over them: leg 1 points forward of
+# sideways, leg 4 back of it, and the right side is the left with x negated.
+# Re-slope the tibia and every leg follows.
+#
+# Two more bones than the legs: the abdomen behind the body, and a head at
+# the front carrying the eyes and the two fangs, which are bones so the spit
+# can spread and snap them.
+#
+# Conventions: it faces +Z, +X is its own left, +Y is up. The body and the
+# head run forward, so on them rot.x > 0 pitches the tip DOWN and rot.y > 0
+# turns towards the animal's left; the abdomen runs backward, so on it
+# rot.x > 0 lifts the tip. The legs point along their own bearings, and no
+# single rotation axis is theirs — the pose function builds each joint's
+# rotation about the axis that leg's own plane turns on and converts it, so
+# nothing below is written to a per-leg sign rule.
+
+id: spider
+name: Spider
+
+metrics:
+  # Where the body sits at rest: the height a tip on the ground reaches up
+  # to through a tarsus, a tibia and a femur.
+  bodyHeight: 0.4
+  # Roughly the middle of the animal's mass, for a camera to look at.
+  standHeight: 0.42
+  # One leg: three segments, each a length and a slope.
+  femurLen: 0.48
+  femurUp: deg(45)
+  tibiaLen: 0.5
+  tibiaDown: deg(25)
+  tarsusLen: 0.5
+  tarsusDown: deg(70)
+  # The four bearings, from straight out sideways round towards the front.
+  a1: deg(55)
+  a2: deg(20)
+  a3: deg(-20)
+  a4: deg(-55)
+  # The three segments' rises and runs, for the offsets below.
+  femurOut: femurLen * cos(femurUp)
+  femurRise: femurLen * sin(femurUp)
+  tibiaOut: tibiaLen * cos(tibiaDown)
+  tibiaDrop: tibiaLen * sin(tibiaDown)
+  tarsusOut: tarsusLen * cos(tarsusDown)
+  tarsusDrop: tarsusLen * sin(tarsusDown)
+
+bones:
+  - { name: root, offset: [0, bodyHeight, 0] }
+  - { name: abdomen, parent: root, offset: [0, 0.03, -0.3] }
+  - { name: head, parent: root, offset: [0, -0.01, 0.26] }
+  - { name: fangL, parent: head, offset: [0.05, -0.05, 0.1] }
+  - { name: fangR, parent: head, offset: [-0.05, -0.05, 0.1] }
+
+  # Leg 1, the front pair, pointing forward of sideways.
+  - { name: coxa1L, parent: root, offset: [0.12, -0.02, 0.16] }
+  - { name: tibia1L, parent: coxa1L, offset: [femurOut * cos(a1), femurRise, femurOut * sin(a1)] }
+  - { name: tarsus1L, parent: tibia1L, offset: [tibiaOut * cos(a1), -tibiaDrop, tibiaOut * sin(a1)] }
+  - { name: tip1L, parent: tarsus1L, offset: [tarsusOut * cos(a1), -tarsusDrop, tarsusOut * sin(a1)] }
+  - { name: coxa1R, parent: root, offset: [-0.12, -0.02, 0.16] }
+  - { name: tibia1R, parent: coxa1R, offset: [-femurOut * cos(a1), femurRise, femurOut * sin(a1)] }
+  - { name: tarsus1R, parent: tibia1R, offset: [-tibiaOut * cos(a1), -tibiaDrop, tibiaOut * sin(a1)] }
+  - { name: tip1R, parent: tarsus1R, offset: [-tarsusOut * cos(a1), -tarsusDrop, tarsusOut * sin(a1)] }
+
+  # Leg 2, a little forward of sideways.
+  - { name: coxa2L, parent: root, offset: [0.13, -0.02, 0.06] }
+  - { name: tibia2L, parent: coxa2L, offset: [femurOut * cos(a2), femurRise, femurOut * sin(a2)] }
+  - { name: tarsus2L, parent: tibia2L, offset: [tibiaOut * cos(a2), -tibiaDrop, tibiaOut * sin(a2)] }
+  - { name: tip2L, parent: tarsus2L, offset: [tarsusOut * cos(a2), -tarsusDrop, tarsusOut * sin(a2)] }
+  - { name: coxa2R, parent: root, offset: [-0.13, -0.02, 0.06] }
+  - { name: tibia2R, parent: coxa2R, offset: [-femurOut * cos(a2), femurRise, femurOut * sin(a2)] }
+  - { name: tarsus2R, parent: tibia2R, offset: [-tibiaOut * cos(a2), -tibiaDrop, tibiaOut * sin(a2)] }
+  - { name: tip2R, parent: tarsus2R, offset: [-tarsusOut * cos(a2), -tarsusDrop, tarsusOut * sin(a2)] }
+
+  # Leg 3, a little back of sideways.
+  - { name: coxa3L, parent: root, offset: [0.13, -0.02, -0.05] }
+  - { name: tibia3L, parent: coxa3L, offset: [femurOut * cos(a3), femurRise, femurOut * sin(a3)] }
+  - { name: tarsus3L, parent: tibia3L, offset: [tibiaOut * cos(a3), -tibiaDrop, tibiaOut * sin(a3)] }
+  - { name: tip3L, parent: tarsus3L, offset: [tarsusOut * cos(a3), -tarsusDrop, tarsusOut * sin(a3)] }
+  - { name: coxa3R, parent: root, offset: [-0.13, -0.02, -0.05] }
+  - { name: tibia3R, parent: coxa3R, offset: [-femurOut * cos(a3), femurRise, femurOut * sin(a3)] }
+  - { name: tarsus3R, parent: tibia3R, offset: [-tibiaOut * cos(a3), -tibiaDrop, tibiaOut * sin(a3)] }
+  - { name: tip3R, parent: tarsus3R, offset: [-tarsusOut * cos(a3), -tarsusDrop, tarsusOut * sin(a3)] }
+
+  # Leg 4, the back pair, pointing back of sideways.
+  - { name: coxa4L, parent: root, offset: [0.12, -0.02, -0.15] }
+  - { name: tibia4L, parent: coxa4L, offset: [femurOut * cos(a4), femurRise, femurOut * sin(a4)] }
+  - { name: tarsus4L, parent: tibia4L, offset: [tibiaOut * cos(a4), -tibiaDrop, tibiaOut * sin(a4)] }
+  - { name: tip4L, parent: tarsus4L, offset: [tarsusOut * cos(a4), -tarsusDrop, tarsusOut * sin(a4)] }
+  - { name: coxa4R, parent: root, offset: [-0.12, -0.02, -0.15] }
+  - { name: tibia4R, parent: coxa4R, offset: [-femurOut * cos(a4), femurRise, femurOut * sin(a4)] }
+  - { name: tarsus4R, parent: tibia4R, offset: [-tibiaOut * cos(a4), -tibiaDrop, tibiaOut * sin(a4)] }
+  - { name: tip4R, parent: tarsus4R, offset: [-tarsusOut * cos(a4), -tarsusDrop, tarsusOut * sin(a4)] }
+
+tips:
+  - { bone: head, to: [0, -0.02, 0.12] }
+  - { bone: fangL, to: [-0.02, -0.09, 0.04] }
+  - { bone: fangR, to: [0.02, -0.09, 0.04] }
+  - { bone: abdomen, to: [0, -0.03, -0.32] }
+
+# Which pair a ground speed is measured off. A spider runs on two sets of
+# four — the first and third legs of one side with the second and fourth of
+# the other, then the rest — so the two front tips alternate half a cycle
+# apart, which is what the measurement wants.
+feet: [tip1L, tip1R]
+
+groups:
+  # Each leg, body to tip — what the gait walks, so a leg is not named its
+  # bones four times over.
+  leg1L: [coxa1L, tibia1L, tarsus1L, tip1L]
+  leg1R: [coxa1R, tibia1R, tarsus1R, tip1R]
+  leg2L: [coxa2L, tibia2L, tarsus2L, tip2L]
+  leg2R: [coxa2R, tibia2R, tarsus2R, tip2R]
+  leg3L: [coxa3L, tibia3L, tarsus3L, tip3L]
+  leg3R: [coxa3R, tibia3R, tarsus3R, tip3R]
+  leg4L: [coxa4L, tibia4L, tarsus4L, tip4L]
+  leg4R: [coxa4R, tibia4R, tarsus4R, tip4R]
+
+anchors:
+  # Where the venom leaves, between the fangs, in the head's own space.
+  spit: { bone: head, at: [0, -0.06, 0.16] }
+
+view:
+  focusY: standHeight
+  frameDistance: 5.8

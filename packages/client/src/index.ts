@@ -175,6 +175,16 @@ export {
 } from './game/ghoulpose.js';
 export { shufflePose, ZOMBIE_SOLE, SHUFFLE_PERIOD, SHUFFLE_CONTACTS } from './game/zombiepose.js';
 export {
+	runPose as spiderRunPose,
+	spitPose as spiderSpitPose,
+	SPIDER_CHAIN,
+	SPIDER_TIP,
+	SPIDER_RUN_PERIOD,
+	SPIDER_RUN_CONTACTS,
+	SPIT_AT,
+	TIP_NAMES as SPIDER_TIPS,
+} from './game/spiderpose.js';
+export {
 	LEG_LENGTH,
 	HUMANOID_SKELETON,
 	HUMANOID_CHAIN,

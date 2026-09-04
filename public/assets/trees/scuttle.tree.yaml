@@ -1,0 +1,34 @@
+# The spider's locomotion tree: one axis, from the stand to the scuttle.
+#
+# The plain case beside the humanoid's locomotion tree: a single blend1d over
+# two leaves, because a spider has one gait and nothing to lay over it. The
+# threshold on the axis is measured off the scuttle's own front tips, and the
+# axis is calibrated the same way the wanderer's is, so the slider is in true
+# metres per second.
+#
+# It refers to its leaves by NAME, not by path. The entity file says what
+# `run` is.
+
+id: scuttle
+label: Scuttle tree
+rig: ../rigs/spider.rig.yaml
+fallbackCycle: run
+
+parameters:
+  - name: speed
+    label: Speed
+    unit: m/s
+    min: 0
+    max: { speedOf: run }
+    step: 0.01
+    initial: { speedOf: run }
+    calibrated: true
+    hint: Calibrated, so the number on the slider is the speed it delivers
+
+root:
+  blend1d:
+    param: speed
+    label: speed, m/s
+    entries:
+      - { at: 0, node: { leaf: idle } }
+      - { at: { speedOf: run }, node: { leaf: run } }
