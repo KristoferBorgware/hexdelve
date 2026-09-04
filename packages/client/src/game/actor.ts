@@ -24,6 +24,7 @@
 
 import {
 	Component,
+	setSparse,
 	solveWorld,
 	type Model,
 	type Skeleton,
@@ -126,6 +127,30 @@ export class Actor extends Component {
 
 export const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
 
+/** How long a body takes to go down. Long enough to read, short enough to end. */
+export const FALL_SECONDS = 1.1;
+
+/**
+ * Tip a posed body over about its root, and set it down as it goes.
+ *
+ * Applied to the ROOT of a pose that has already been built, so whatever the
+ * body was doing when it died is what it falls out of — a stride mid-step, a
+ * cut half-thrown. Rewriting the pose instead would need a death animation per
+ * thing that can die, and there is not one yet.
+ *
+ * The drop is a root offset rather than a change to the object's position: the
+ * object's Y is the ground it stands on, and moving it would be moving the
+ * creature rather than slumping it.
+ */
+export function topple(pose: SparsePose, pitch: number, roll: number, drop: number): void {
+	const root = pose['root'] ?? setSparse(pose, 'root', [0, 0, 0], [0, 0, 0]);
+	if (!root.rot) root.rot = [0, 0, 0];
+	if (!root.pos) root.pos = [0, 0, 0];
+	root.rot[0] = (root.rot[0] ?? 0) + pitch;
+	root.rot[2] = (root.rot[2] ?? 0) + roll;
+	root.pos[1] = (root.pos[1] ?? 0) - drop;
+}
+
 const TAU = Math.PI * 2;
 
 export function wrapAngle(a: number): number {
@@ -196,6 +221,9 @@ export abstract class ActorBehaviour extends Component {
 	/** The body this drives. Required: a behaviour with nothing to move is a bug. */
 	readonly body: Actor;
 
+	/** Seconds since it started going down, or -1 while it is still standing. */
+	private fallClock = -1;
+
 	constructor(object: GameObject) {
 		super(object);
 		const body = object.getComponent(Actor);
@@ -203,6 +231,40 @@ export abstract class ActorBehaviour extends Component {
 			throw new Error(`'${object.name}' needs an actor component before a behaviour on it`);
 		}
 		this.body = body;
+	}
+
+	/**
+	 * Tip it over. Whatever kept it alive has decided it is done.
+	 *
+	 * What a death COSTS is a script's business and is settled before this is
+	 * called; what it LOOKS like is this file's, and the two are kept apart on
+	 * purpose. Calling it twice is not an error — an event can be announced
+	 * more than once and a body cannot fall over twice.
+	 */
+	fell(): void {
+		if (this.fallClock < 0) this.fallClock = 0;
+	}
+
+	/** Whether it has been told to go down, whether or not it has landed yet. */
+	get falling(): boolean {
+		return this.fallClock >= 0;
+	}
+
+	/**
+	 * How far through the fall it is: 0 upright, 1 lying still.
+	 *
+	 * Eased rather than linear, so it lets go and then settles instead of
+	 * rotating at a constant rate like a door.
+	 */
+	get fall(): number {
+		if (this.fallClock < 0) return 0;
+		const t = clamp(this.fallClock / FALL_SECONDS, 0, 1);
+		return t * t * (3 - 2 * t);
+	}
+
+	/** Advance the fall. Called from `advance`, on the wall clock like the rest. */
+	protected advanceFall(dt: number): void {
+		if (this.fallClock >= 0) this.fallClock += dt;
 	}
 
 	get skeleton(): Skeleton {

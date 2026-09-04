@@ -62,7 +62,14 @@ import {
 
 import type { ScriptHost } from '@hexdelve/scripting';
 
-import { ActorBehaviour, clamp, NOWHERE, wrapAngle, type Opponent } from './actor.js';
+import {
+	ActorBehaviour,
+	clamp,
+	NOWHERE,
+	topple,
+	wrapAngle,
+	type Opponent,
+} from './actor.js';
 import { Swing } from './events.js';
 
 import type { Item } from './items.js';
@@ -84,6 +91,13 @@ const FORWARD: Direction = { x: 0, z: 1 };
 
 /** What one of his cuts takes off. The rules read it; he only announces it. */
 const BLOW_DAMAGE = 5;
+
+/** Face down and a quarter turn over, which is a man falling rather than a plank. */
+const FALL_PITCH = 1.45;
+const FALL_ROLL = 0.35;
+
+/** How much of his hip height he loses on the way down. */
+const FALL_SETTLE = 0.78;
 
 /**
  * How fast he comes round to the hexagon he is stepping into. Fast, because a
@@ -263,6 +277,8 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	path: Axial[] = [];
 
 	private readonly ground: World;
+	/** Where his hips rest, which is how far there is to fall. */
+	private readonly hipHeight: number;
 	private readonly items: Item[];
 	private readonly scripts: ScriptHost | null;
 	/**
@@ -342,6 +358,8 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		const rig = options.rig;
 		this.bones = rig.bones;
 		this.clips = options.clips;
+		// How far there is to slump, off his own rig rather than a number here.
+		this.hipHeight = rig.metrics.hipHeight ?? 0.9;
 
 		/*
 		 * The guard masks. The shield arm holds it out whatever his legs are
@@ -637,6 +655,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	 * `resolveTurns` before this ran; what happens here is the picture of them.
 	 */
 	advance(dt: number, elapsed: number): void {
+		this.advanceFall(dt);
 		const flight = this.flight;
 		let moving = false;
 
@@ -665,8 +684,8 @@ export class Player extends ActorBehaviour implements TurnTaker {
 			} else if (flight.kind === 'pickup' && flight.item) {
 				if (!flight.done && u >= STOOP_GRAB) {
 					flight.done = true;
-					// The whole of picking it up.
-					flight.item.equip();
+					// The whole of picking it up: it becomes part of him.
+					flight.item.equip(this.object);
 				}
 			}
 
@@ -845,6 +864,19 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		}
 
 		denseToSparse(this.bones, this.playerPose, this.pose);
+
+		/*
+		 * And then, if he is going down, he goes down out of whatever that was.
+		 *
+		 * Forward and a little to the side rather than straight back, which is
+		 * what a man does when his legs stop rather than what a plank does. The
+		 * drop is most of a hip height, so he comes to rest on the grass instead
+		 * of lying in the air where his hips used to be.
+		 */
+		if (this.falling) {
+			const t = this.fall;
+			topple(this.pose, FALL_PITCH * t, FALL_ROLL * t, this.hipHeight * FALL_SETTLE * t);
+		}
 	}
 
 	/**

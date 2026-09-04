@@ -53,6 +53,7 @@ import { clipOf, type Cast } from './cast.js';
 import { components, type SpawnExtras } from './components.js';
 import { spawnEntity } from './spawn.js';
 import { BatHunt, LOSE_RANGE, WAKE_RANGE } from './bathunt.js';
+import { BoneFollow } from './bonefollow.js';
 import { Item } from './items.js';
 import { SECONDS_PER_GAME_TURN } from './pace.js';
 import { Player, type PlayerStats } from './player.js';
@@ -436,6 +437,17 @@ export class Simulation {
 		 */
 		this.schedule = new Schedule<TurnTaker>([this.player, this.bat]);
 
+		/*
+		 * Compose the world transforms once before anybody asks for one.
+		 *
+		 * Everything above has written LOCAL transforms — the gear where it
+		 * lies, the two creatures where they start — and a world transform is
+		 * what those become when the scene composes them. Without this, an item
+		 * asked where it is before the first frame answers with the origin,
+		 * which is the sort of thing that looks like a pathing bug.
+		 */
+		this.scene.solve();
+
 		this.focus.x = this.player.x;
 		this.focus.z = this.player.z;
 		this.focus.y = this.player.y + this.hipHeight + 0.1;
@@ -524,19 +536,22 @@ export class Simulation {
 		/*
 		 * And a creature that has run out of hit points stops taking turns.
 		 *
-		 * `Character` announces the death; what to DO about it is the game's,
-		 * and for now the whole of it is that a dead thing does not act. It is
-		 * still drawn, standing where it fell, because a body that vanishes the
-		 * instant it dies is a worse lie than one that stays — and what should
-		 * really happen there is animation, which is this file's half of the
-		 * arrangement rather than a rule.
+		 * `Character` announces the death; what to DO about it is the game's.
+		 * Two things: it stops taking turns, and it falls over. The second is
+		 * an animation and belongs with the other animations rather than in a
+		 * rule — see `topple` in actor.ts — which is why the script says only
+		 * that it died and this decides what that looks like.
 		 */
 		this.scripts.on(Died, (death) => {
 			// By the OBJECT's name, which is what a script sees, rather than the
 			// turn member's: the man is `player` in the scene and `you` in the
 			// readout, and the two are different words on purpose.
 			const fallen = [this.player, this.bat].find((one) => one.object.name === death.who);
-			if (fallen && this.schedule.remove(fallen)) this.lastAction = `${fallen.name} fell`;
+			if (!fallen || !this.schedule.remove(fallen)) return;
+			this.lastAction = `${fallen.name} fell`;
+			// It stops taking turns, and it goes down. The first is the rule and
+			// the second is the picture; both belong here rather than in a script.
+			fallen.fell();
 		});
 
 		this.scripts.on(Missed, (miss) => {
@@ -596,6 +611,20 @@ export class Simulation {
 		this.bat.advance(dt, this.elapsed);
 		this.bat.solve();
 
+		/*
+		 * And then whatever is being carried, which has to be here and nowhere
+		 * else. A bone follow reads a pose the actors have just solved and
+		 * writes a local transform the scene is about to compose, so it sits
+		 * between the two — put in `update` with the other components it would
+		 * read last frame's pose and every prop would lag the body holding it
+		 * by a frame.
+		 *
+		 * The second solve is the cost of that, and it is a handful of objects
+		 * rather than a scene graph.
+		 */
+		for (const item of this.items) item.object.getComponent(BoneFollow)?.follow();
+		this.scene.solve();
+
 		if (this.toggles.follow) {
 			const pull = Math.min(1, dt * 2.4);
 			this.focus.x += (this.player.x - this.focus.x) * pull;
@@ -625,17 +654,9 @@ export class Simulation {
 		this.player.emit(opaque, blended, ghost);
 		this.bat.emit(opaque, blended, ghost);
 
-		for (const item of this.items) {
-			item.emit(
-				ghost ? blended : opaque,
-				this.player.world,
-				this.player.x,
-				this.player.y,
-				this.player.z,
-				this.player.yaw,
-				ghost ? 0.34 : 1,
-			);
-		}
+		// One path, whether it is on a head or in the grass: the object's world
+		// transform says where it is, and that is the whole of the difference.
+		for (const item of this.items) item.emit(ghost ? blended : opaque, ghost ? 0.34 : 1);
 
 		this.world.emitSmoke(blended, this.elapsed);
 		this.motes.emit(blended, this.elapsed);

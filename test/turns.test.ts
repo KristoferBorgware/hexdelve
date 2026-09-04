@@ -45,6 +45,8 @@ import {
 	type TurnMember,
 } from '@hexdelve/client';
 
+import { HexInstances } from '@hexdelve/engine';
+
 import { loadYardCast } from './harness/assets.js';
 
 describe('the energy table', () => {
@@ -351,12 +353,92 @@ describe('the yard', () => {
 		const sword = sim.items.find((i) => i.label === 'sword')!;
 		expect(sword.worn).toBe(false);
 
-		expect(sim.pickCell(sword.cell)).toBe(true);
+		// Where it is LYING, read before he sets off. A carried thing's cell is
+		// wherever the carrier is, so after the walk this is no longer a fact
+		// about the grass.
+		const lying = { ...sword.cell };
+
+		expect(sim.pickCell(lying)).toBe(true);
 		run(sim, 14);
 
-		expect(sim.player.cell).toEqual(sword.cell);
+		expect(sim.player.cell).toEqual(lying);
 		expect(sword.worn).toBe(true);
 		expect(sim.player.armed).toBe(true);
+	});
+
+	/*
+	 * The equivalence the change rests on, checked rather than reasoned about.
+	 *
+	 * The arrangement this replaced drew a worn prop by handing the model the
+	 * wearer's pose and a bone name; it now draws it from the prop object's own
+	 * world transform, which the scene composed from that same bone. Those are
+	 * the same two operations in the same order — parent times bone times part —
+	 * so the picture must be identical, and this is what says so. A difference
+	 * here is a prop that has moved on screen, which is the one thing this was
+	 * not allowed to do.
+	 *
+	 * Compared with a tolerance rather than exactly, because the two orders
+	 * associate the multiplications differently and the last bit of a float32
+	 * is allowed to disagree.
+	 */
+	it('draws a carried prop exactly where the old two-path arrangement did', () => {
+		const sim = new Simulation({ cast, seed: 37 });
+		const sword = sim.items.find((i) => i.label === 'sword')!;
+
+		expect(sim.pickCell({ ...sword.cell })).toBe(true);
+		run(sim, 14);
+		expect(sword.worn, 'he picked it up').toBe(true);
+
+		// The new path: one draw call, off the object's world transform.
+		const now = new HexInstances(256);
+		sword.emit(now);
+		expect(now.count, 'the sword drew something').toBeGreaterThan(0);
+
+		// The old one: the model, the wearer's pose, and the wearer's placement.
+		const before = new HexInstances(256);
+		sword.model.emit(
+			before,
+			sim.player.world,
+			sim.player.x,
+			sim.player.y,
+			sim.player.z,
+			sim.player.yaw,
+		);
+
+		expect(now.count).toBe(before.count);
+		const a = now.data;
+		const b = before.data;
+		let worst = 0;
+		for (let i = 0; i < a.length; i++) worst = Math.max(worst, Math.abs(a[i]! - b[i]!));
+		expect(worst, 'every float of every instance').toBeLessThan(1e-5);
+	});
+
+	/*
+	 * The other half of the same change, and the one worth having: being
+	 * carried is being a child of the carrier, so the sword's own place in the
+	 * world moves with him. Under the arrangement this replaced its transform
+	 * stayed where it was dropped for ever, and only the drawing knew better.
+	 */
+	it('carries what it picked up, in the scene rather than only in the picture', () => {
+		const sim = new Simulation({ cast, seed: 37 });
+		const sword = sim.items.find((i) => i.label === 'sword')!;
+
+		expect(sim.pickCell({ ...sword.cell })).toBe(true);
+		run(sim, 14);
+		expect(sword.worn).toBe(true);
+		expect(sword.object.parent).toBe(sim.player.object);
+
+		const carried = { x: sword.x, z: sword.z };
+		expect(Math.hypot(carried.x - sim.player.x, carried.z - sim.player.z)).toBeLessThan(1.5);
+
+		// Walk him somewhere else. The sword goes too, because it is part of him.
+		const away = { q: sim.player.cell.q - 2, r: sim.player.cell.r };
+		expect(sim.pickCell(away)).toBe(true);
+		run(sim, 14);
+
+		expect(sim.player.cell).toEqual(away);
+		expect(Math.hypot(sword.x - sim.player.x, sword.z - sim.player.z)).toBeLessThan(1.5);
+		expect(Math.hypot(sword.x - carried.x, sword.z - carried.z)).toBeGreaterThan(1);
 	});
 
 	it('lets the bat take two hexagons for every one of his', () => {
