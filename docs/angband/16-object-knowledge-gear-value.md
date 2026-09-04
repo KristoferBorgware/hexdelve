@@ -140,4 +140,4 @@ so an item's gold value is quadratic in its power rating. Ammunition and plain b
 
 Items without variable power take the kind's `cost:` field directly, with wands and staves adding `cost * charges / 20`. Unaware flavoured items get a flat guess by tval — 5 for food, 20 for potions and scrolls, 45 for rings and amulets, 50 for wands, 70 for staves, 90 for rods — which is why every unidentified potion is valued alike whatever it turns out to be.
 
-The value the player sees is computed from `obj->known` rather than the object, so an item's apparent price rises as its runes are learned. Store buying and selling prices are derived from this figure (Stores chapter).
+The value the player sees is computed from `obj->known` rather than the object, so an item's apparent price rises as its runes are learned. Store buying and selling prices are derived from this figure (Town and Stores chapter).

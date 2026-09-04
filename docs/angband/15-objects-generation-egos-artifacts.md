@@ -198,7 +198,7 @@ Under the `birth_no_selling` option every dungeon gold find is multiplied by fiv
 | Monster drops | `mon_create_drop()` (Monsters chapter 13.6) |
 | Chests | `chest_death()` at `origin_depth + 5`, forced good (Traps chapter 14.10) |
 | Acquirement | `acquirement()` — `good = true`, `extra_roll = true`, so two extra artifact rolls |
-| Stores | Their own stocking rules (Stores chapter) |
+| Stores | Their own stocking rules (Town and Stores chapter) |
 
 The `dun-gen:amt-room:9`, `amt-item:3` and `amt-gold:3` constants are the means of those normal distributions; other cave profiles substitute their own counts, and the labyrinth and cavern generators are markedly poorer than the classic one.
 

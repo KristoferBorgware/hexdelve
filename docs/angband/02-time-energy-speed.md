@@ -124,7 +124,7 @@ Shield bashes can add 25–75% of a turn when the player stumbles (`attempt_shie
 
 ## 2.7 Days and nights
 
-`is_daytime()` is true for the first half of each 100,000-game-turn day (`turn % 100000 < 50000`). The town is fully lit by day and dark by night (`cave_illuminate()` at each dawn and dusk, with the messages "The sun has risen/fallen"); the change is only noticed while the player is in the town. Every `10 * store_turns` = 10,000 game turns spent in the dungeon, `daycount` increments so that the stores can turn over their stock when the player returns (see the Stores chapter). Ambient sounds play every quarter day.
+`is_daytime()` is true for the first half of each 100,000-game-turn day (`turn % 100000 < 50000`). The town is fully lit by day and dark by night (`cave_illuminate()` at each dawn and dusk, with the messages "The sun has risen/fallen"); the change is only noticed while the player is in the town. Every `10 * store_turns` = 10,000 game turns spent in the dungeon, `daycount` increments so that the stores can turn over their stock when the player returns (see the Town and Stores chapter). Ambient sounds play every quarter day.
 
 ## 2.8 Resting
 
