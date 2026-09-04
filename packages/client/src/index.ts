@@ -166,13 +166,25 @@ export {
 export {
 	shamblePose,
 	scramblePose,
-	GHOUL_CHAIN,
+	GHOUL_SOLE,
+	GHOUL_PALM,
 	SHAMBLE_PERIOD,
 	SHAMBLE_CONTACTS,
 	SCRAMBLE_PERIOD,
 	SCRAMBLE_CONTACTS,
 } from './game/ghoulpose.js';
-export { LEG_LENGTH, HUMANOID_SKELETON } from './game/humanoid.js';
+export { shufflePose, ZOMBIE_SOLE, SHUFFLE_PERIOD, SHUFFLE_CONTACTS } from './game/zombiepose.js';
+export {
+	LEG_LENGTH,
+	HUMANOID_SKELETON,
+	HUMANOID_CHAIN,
+	solveLeg,
+	solveArm,
+	shoulderOf,
+	type Step,
+	type Trunk,
+	type SolvedLimb,
+} from './game/humanoid.js';
 export {
 	stridePose,
 	stridePeriod,

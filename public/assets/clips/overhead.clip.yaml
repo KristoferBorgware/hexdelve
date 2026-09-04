@@ -1,0 +1,149 @@
+# The zombie's overhead slash: both arms up over the head, and brought down
+# together.
+#
+# Five keys. From the slump it stands in, it rears: the trunk arches back
+# and both arms go up and over behind the head with the elbows bent and the
+# nails out — a slow, heavy wind-up, held a beat so the blow reads as a
+# release. Then everything comes down at once: the trunk folds forward, the
+# arms swing over the top and straighten through the target, and the body
+# lunges half a metre into it on the left foot with the right leg stretched
+# out behind on its toes. The follow-through carries the hands on past the
+# thighs, and it straightens back into the slump, slowly, stepping back into
+# its own cell.
+#
+# The lunge in the root's `pos` is what carries the blow across the gap, as
+# the hound's bite and the ghoul's leap do: neighbouring hexagon centres are
+# 1.73 m apart, so a chop from a standing man would land on nothing. It is
+# half a metre of travel inside the pose and back again, so it strikes and is
+# still exactly where the grid says it is.
+#
+# The leg angles at every key were solved against the rig so the soles sit on
+# the ground: the trailing right leg at the blow is straight and up on its
+# toes, which is why its ankle is keyed above the other's. An arm hangs in the
+# chest's frame, so each arm key is the bend of the trunk taken back out at
+# the shoulder plus where the arm is meant to point: at the top of the
+# wind-up the trunk leans back and the arms point up and a little behind,
+# and at the blow the trunk is folded forward and the arms point forward and
+# down.
+
+id: overhead
+name: Overhead slash
+rig: ../rigs/humanoid.rig.yaml
+duration: 1.4
+loop: hold
+
+events:
+  - { t: 0.62, name: slash }
+
+poses:
+  # The slump it stands in: right arm out, left hanging, head hung to the
+  # right.
+  - t: 0
+    bones:
+      root: { rot: [0.06, 0, 0], pos: [0, -0.06, 0] }
+      spine: [0.18, 0, 0]
+      chest: [0.12, 0, 0]
+      neck: [0.1, 0, -0.08]
+      head: [0.12, 0, -0.3]
+      armL: [-0.26, 0, 0.12]
+      armR: [-1.66, -0.1, -0.15]
+      forearmL: [-0.15, 0, 0]
+      forearmR: [-0.45, 0, 0]
+      handL: [0.1, 0, 0.05]
+      handR: [0.7, 0, -0.1]
+      hipL: [-0.36, 0, 0.04]
+      shinL: [0.65, 0, 0]
+      footL: [-0.35, 0.05, -0.03]
+      hipR: [-0.32, 0, -0.1]
+      shinR: [0.65, 0, 0]
+      footR: [-0.39, -0.25, 0.05]
+
+  # Reared: the trunk arched back, both arms up and over behind the head with
+  # the elbows bent, the face up. Held flat, so the blow is a release.
+  - t: 0.45
+    ease: flat
+    bones:
+      root: { rot: [0, 0, 0], pos: [0, -0.04, -0.05] }
+      spine: [-0.15, 0, 0]
+      chest: [-0.1, 0, 0]
+      neck: [-0.2, 0, 0]
+      head: [-0.25, 0, -0.1]
+      armL: [-2.69, 0, 0.25]
+      armR: [-2.69, 0, -0.25]
+      forearmL: [-0.9, 0, 0]
+      forearmR: [-0.9, 0, 0]
+      handL: [-0.3, 0, 0.1]
+      handR: [-0.3, 0, -0.1]
+      hipL: [-0.27, 0, 0.04]
+      shinL: [0.44, 0, 0]
+      footL: [-0.17, 0.05, -0.03]
+      hipR: [-0.24, 0, -0.1]
+      shinR: [0.46, 0, 0]
+      footR: [-0.22, -0.25, 0.05]
+
+  # The blow: the trunk folded forward, both arms straight and swinging
+  # down through the target, the body lunged half a metre onto the left
+  # foot with the right leg stretched behind on its toes. This is the frame
+  # a reach is measured from.
+  - t: 0.62
+    bones:
+      root: { rot: [0.25, 0, 0], pos: [0, -0.12, 0.5] }
+      spine: [0.55, 0, 0]
+      chest: [0.3, 0, 0]
+      neck: [0.15, 0, -0.05]
+      head: [0.2, 0, -0.15]
+      armL: [-1.45, 0, 0.2]
+      armR: [-1.45, 0, -0.2]
+      forearmL: [-0.05, 0, 0]
+      forearmR: [-0.05, 0, 0]
+      handL: [-0.4, 0, 0.05]
+      handR: [-0.4, 0, -0.05]
+      hipL: [-0.77, 0, 0.04]
+      shinL: [1.03, 0, 0]
+      footL: [-0.51, 0.05, -0.03]
+      hipR: [0.09, 0, -0.1]
+      shinR: [0.71, 0, 0]
+      footR: [-0.5, -0.25, 0.05]
+
+  # Follow-through: the hands carry on past the thighs and the body folds
+  # over them.
+  - t: 0.75
+    bones:
+      root: { rot: [0.3, 0, 0], pos: [0, -0.16, 0.48] }
+      spine: [0.65, 0, 0]
+      chest: [0.3, 0, 0]
+      neck: [0.2, 0, -0.05]
+      head: [0.25, 0, -0.2]
+      armL: [-0.95, 0, 0.15]
+      armR: [-0.95, 0, -0.15]
+      forearmL: [-0.2, 0, 0]
+      forearmR: [-0.2, 0, 0]
+      handL: [-0.2, 0, 0]
+      handR: [-0.2, 0, 0]
+      hipL: [-0.94, 0, 0.04]
+      shinL: [1.22, 0, 0]
+      footL: [-0.58, 0.05, -0.03]
+      hipR: [-0.1, 0, -0.1]
+      shinR: [1.08, 0, 0]
+      footR: [-0.68, -0.25, 0.05]
+
+  # And back into the slump, slowly, stepping back into its own cell.
+  - t: 1.4
+    bones:
+      root: { rot: [0.06, 0, 0], pos: [0, -0.06, 0] }
+      spine: [0.18, 0, 0]
+      chest: [0.12, 0, 0]
+      neck: [0.1, 0, -0.08]
+      head: [0.12, 0, -0.3]
+      armL: [-0.26, 0, 0.12]
+      armR: [-1.66, -0.1, -0.15]
+      forearmL: [-0.15, 0, 0]
+      forearmR: [-0.45, 0, 0]
+      handL: [0.1, 0, 0.05]
+      handR: [0.7, 0, -0.1]
+      hipL: [-0.36, 0, 0.04]
+      shinL: [0.65, 0, 0]
+      footL: [-0.35, 0.05, -0.03]
+      hipR: [-0.32, 0, -0.1]
+      shinR: [0.65, 0, 0]
+      footR: [-0.39, -0.25, 0.05]

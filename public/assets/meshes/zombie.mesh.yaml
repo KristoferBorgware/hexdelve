@@ -1,0 +1,196 @@
+# The zombie: hexagonal prisms on the humanoid rig.
+#
+# Same bones, same trick, same rig as the wanderer and the ghoul. Where the
+# ghoul is a frame with the flesh gone from it, the zombie is a body the
+# flesh is still going from: a man in the clothes he was buried in, with the
+# rot through to the bone in places — the left side of the skull, the left
+# shoulder, the left forearm, the right thigh and shin, a hole in the right
+# side of the belly with the ribs across it — and the skin gone dark and
+# hanging in strips at the edges of each. The eyes are red, the lips are gone
+# and the teeth behind them are filed to points.
+#
+# The two arms and the two legs differ, so they are written out one at a time
+# rather than as a sided group; only the hands and the teeth mirror. Where a
+# limb has rotted to the bone it is a thin strut spanning its own bone by
+# naming it — `to: { bone: handL }` is that bone's rest offset — with the
+# strips of what is left hung beside it.
+#
+# The eyes are drawn unlit, so they glow the same red from every angle and
+# under every light.
+
+id: zombie
+name: Zombie body
+rig: ../rigs/humanoid.rig.yaml
+
+palette:
+  skin: 0x6f7d5e
+  skinDark: 0x55614a
+  skinRot: 0x45392f
+  bone: 0xd9d2bb
+  boneDark: 0xb3ab92
+  gore: 0x5a1f1a
+  mouth: 0x1a0b0a
+  gum: 0x3d1512
+  tooth: 0xe6e0cf
+  eye: 0xff2a1c
+  shirt: 0x5b5f66
+  shirtDark: 0x44474d
+  trouser: 0x3d3a44
+  trouserDark: 0x2c2a31
+  boot: 0x3a2f28
+  bootDark: 0x2a211c
+  hair: 0x2a2622
+  nail: 0xcfc6ad
+
+parts:
+  # Pelvis: the trousers, what is left of a belt, the right hip bone through
+  # a hole in them, and scraps of torn cloth hanging off the hem.
+  - { bone: root, at: [0, -0.03, 0], size: [0.22, 0.22, 0.16], color: trouser }
+  - { bone: root, at: [0, 0.06, 0.005], size: [0.235, 0.05, 0.17], color: trouserDark }
+  - { bone: root, at: [-0.19, 0.02, 0.03], size: [0.03, 0.07, 0.05], euler: [0, 0, 0.3], color: bone }
+  - { bone: root, at: [0.14, -0.15, 0.06], size: [0.04, 0.1, 0.02], euler: [0.1, 0.4, 0.1], color: trouserDark }
+  - { bone: root, at: [-0.1, -0.16, -0.08], size: [0.045, 0.12, 0.02], euler: [-0.1, -0.5, -0.1], color: trouserDark }
+  - { bone: root, at: [0.05, -0.14, -0.1], size: [0.03, 0.08, 0.02], euler: [-0.1, 0.2, 0.05], color: trouser }
+
+  # Waist: the shirt, and the hole rotted through the right side of the belly
+  # — a dark cavity with three ribs across it and the shirt torn back round
+  # its edge.
+  - { bone: spine, at: [0, 0, 0], size: [0.2, 0.22, 0.15], color: shirt }
+  - { bone: spine, at: [-0.07, 0, 0.145], size: [0.075, 0.15, 0.02], color: gore }
+  - { bone: spine, at: [-0.07, 0.05, 0.165], size: [0.06, 0.014, 0.012], euler: [0, 0, -0.15], color: bone }
+  - { bone: spine, at: [-0.07, 0, 0.165], size: [0.056, 0.014, 0.012], euler: [0, 0, -0.1], color: boneDark }
+  - { bone: spine, at: [-0.07, -0.05, 0.165], size: [0.052, 0.014, 0.012], euler: [0, 0, -0.15], color: bone }
+  - { bone: spine, at: [-0.145, 0.02, 0.15], size: [0.03, 0.17, 0.025], euler: [0, 0, 0.1], color: shirtDark }
+  - { bone: spine, at: [-0.02, 0.095, 0.15], size: [0.055, 0.02, 0.025], color: shirtDark }
+  - { bone: spine, at: [-0.03, -0.095, 0.15], size: [0.05, 0.02, 0.025], euler: [0, 0, 0.2], color: shirtDark }
+  - { bone: spine, at: [0, 0.06, -0.14], size: [0.02, 0.03, 0.015], color: bone }
+  - { bone: spine, at: [0, -0.04, -0.14], size: [0.02, 0.03, 0.015], color: bone }
+
+  # Chest: the shirt, a stain down the front of it, the collar, and the left
+  # shoulder where the sleeve and the flesh under it have gone.
+  - { bone: chest, at: [0, 0.03, 0], size: [0.24, 0.3, 0.17], color: shirt }
+  - { bone: chest, at: [0, 0, 0.16], size: [0.08, 0.2, 0.015], color: shirtDark }
+  - { bone: chest, at: [0, 0.2, 0], size: [0.13, 0.06, 0.12], color: shirtDark }
+  - { bone: chest, at: [0.2, 0.1, 0], size: [0.05, 0.12, 0.1], color: skinDark }
+  - { bone: chest, at: [0.1, 0.24, 0.05], size: [0.09, 0.016, 0.016], euler: [0, 0.15, -0.2], color: bone }
+  - { bone: chest, at: [0.19, 0.03, 0.06], size: [0.03, 0.06, 0.025], euler: [0.2, 0.3, 0.3], color: skinRot }
+
+  # Neck: skin, a flap of it hanging loose, and a vertebra through the back.
+  - { bone: neck, at: [0, 0.02, 0], size: [0.065, 0.14, 0.065], color: skin }
+  - { bone: neck, at: [0.04, 0.05, 0.03], size: [0.025, 0.06, 0.02], euler: [0.3, 0.3, 0.2], color: skinRot }
+  - { bone: neck, at: [0, 0.06, -0.05], size: [0.022, 0.05, 0.02], color: bone }
+
+  # The head. A skull with the skin still on most of it, the left side gone
+  # to bone, a heavy brow over two red eyes, the nose rotted to a hole, the
+  # left cheek gone dark, and the lips gone from a mouth hanging open on
+  # pointed teeth. One ear.
+  - { bone: head, at: [0, 0.02, 0], size: [0.15, 0.2, 0.14], color: skin }
+  - { bone: head, at: [0.12, 0.06, -0.01], size: [0.03, 0.12, 0.1], euler: [0, 0, 0.05], color: bone }
+  - { bone: head, at: [0, 0.12, -0.01], size: [0.13, 0.05, 0.12], color: skinDark }
+  - { bone: head, at: [-0.04, 0.15, -0.05], size: [0.03, 0.03, 0.04], color: hair }
+  - { bone: head, at: [0.02, 0.16, -0.02], size: [0.025, 0.025, 0.035], color: hair }
+  - { bone: head, from: [-0.05, 0.14, -0.08], along: [-0.3, 0.2, -1], length: 0.08, radius: 0.008, color: hair }
+  - { bone: head, at: [0, 0.075, 0.11], size: [0.13, 0.03, 0.03], euler: [0.25, 0, 0], color: skinDark }
+  - { bone: head, at: [0, 0, 0.135], size: [0.022, 0.032, 0.012], color: mouth }
+  - { bone: head, at: [0, 0.03, 0.14], size: [0.018, 0.028, 0.012], euler: [0.3, 0, 0], color: bone }
+  - { bone: head, at: [0.115, -0.02, 0.07], size: [0.025, 0.06, 0.05], euler: [0, 0.3, 0.1], color: skinRot }
+  - { bone: head, at: [-0.115, -0.02, 0.07], size: [0.025, 0.07, 0.05], euler: [0, -0.3, -0.1], color: skinDark }
+  - { bone: head, at: [-0.135, 0.03, -0.01], size: [0.015, 0.05, 0.03], color: skinDark }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: head, at: [0.05, 0.04, 0.115], size: [0.032, 0.036, 0.03], color: mouth }
+      - { bone: head, at: [0.05, 0.04, 0.135], size: [0.02, 0.018, 0.01], color: eye, unlit: true }
+
+  # The upper jaw: skin, the gum bare where the lip was, and six teeth filed
+  # to points, the two at the corners longest.
+  - { bone: head, at: [0, -0.07, 0.09], size: [0.09, 0.045, 0.07], color: skin }
+  - { bone: head, at: [0, -0.095, 0.1], size: [0.075, 0.018, 0.06], color: gum }
+  - { bone: head, at: [0.045, -0.118, 0.13], size: [0.009, 0.04, 0.008], euler: [0.1, 0, -0.1], color: tooth }
+  - { bone: head, at: [0.027, -0.112, 0.135], size: [0.007, 0.03, 0.006], euler: [0.1, 0, 0], color: tooth }
+  - { bone: head, at: [0.009, -0.113, 0.137], size: [0.007, 0.032, 0.006], euler: [0.1, 0, 0], color: tooth }
+  - { bone: head, at: [-0.009, -0.112, 0.137], size: [0.007, 0.03, 0.006], euler: [0.1, 0, 0], color: tooth }
+  - { bone: head, at: [-0.027, -0.114, 0.135], size: [0.007, 0.034, 0.006], euler: [0.1, 0, 0], color: tooth }
+  - { bone: head, at: [-0.045, -0.118, 0.13], size: [0.009, 0.04, 0.008], euler: [0.1, 0, 0.1], color: tooth }
+
+  # The lower jaw, hanging: the dark of the mouth and a tongue behind five
+  # teeth standing up to meet the upper ones, the chin bone through the skin.
+  - { bone: head, at: [0, -0.115, 0.075], size: [0.05, 0.03, 0.05], color: mouth }
+  - { bone: head, at: [0, -0.13, 0.06], size: [0.022, 0.014, 0.045], color: gore }
+  - { bone: head, at: [0, -0.155, 0.065], size: [0.07, 0.04, 0.075], color: skin }
+  - { bone: head, at: [0, -0.17, 0.09], size: [0.035, 0.025, 0.03], color: bone }
+  - { bone: head, at: [0, -0.135, 0.09], size: [0.06, 0.016, 0.055], color: gum }
+  - { bone: head, at: [0.035, -0.123, 0.125], size: [0.008, 0.036, 0.007], euler: [-0.1, 0, -0.1], color: tooth }
+  - { bone: head, at: [0.018, -0.124, 0.13], size: [0.006, 0.026, 0.006], euler: [-0.1, 0, 0], color: tooth }
+  - { bone: head, at: [0, -0.125, 0.132], size: [0.006, 0.028, 0.006], euler: [-0.1, 0, 0], color: tooth }
+  - { bone: head, at: [-0.018, -0.124, 0.13], size: [0.006, 0.026, 0.006], euler: [-0.1, 0, 0], color: tooth }
+  - { bone: head, at: [-0.035, -0.123, 0.125], size: [0.008, 0.036, 0.007], euler: [-0.1, 0, 0.1], color: tooth }
+
+  # The left arm: the shoulder bare to the bone, the upper arm mostly flesh
+  # with the rot spreading down it, and the forearm gone to the bone with two
+  # strips of skin still hanging off it.
+  - { bone: armL, at: [0, -0.02, 0], size: [0.06, 0.09, 0.06], color: bone }
+  - { bone: armL, from: [0, 0, 0], to: { bone: forearmL }, radius: 0.04, color: skin }
+  - { bone: armL, at: [0.02, -0.15, 0.02], size: [0.03, 0.12, 0.025], color: skinRot }
+  - { bone: armL, at: [-0.02, -0.26, -0.01], size: [0.025, 0.08, 0.02], euler: [0.2, 0, 0.2], color: skinDark }
+  - { bone: forearmL, at: [0, 0, 0], size: [0.045, 0.05, 0.045], color: boneDark }
+  - { bone: forearmL, from: [0, 0, 0], to: { bone: handL }, radius: 0.02, color: bone }
+  - { bone: forearmL, at: [0.02, -0.12, 0.01], size: [0.015, 0.16, 0.012], euler: [0.1, 0, 0.15], color: skinRot }
+  - { bone: forearmL, at: [-0.02, -0.18, -0.01], size: [0.012, 0.1, 0.012], euler: [-0.1, 0, -0.2], color: skinDark }
+
+  # The right arm: still in its sleeve, the skin below it sloughing in a
+  # flap, a dark patch on the forearm.
+  - { bone: armR, at: [0, -0.04, 0], size: [0.075, 0.14, 0.075], color: shirt }
+  - { bone: armR, at: [0, -0.1, 0], size: [0.078, 0.03, 0.078], color: shirtDark }
+  - { bone: armR, from: [0, 0, 0], to: { bone: forearmR }, radius: 0.045, color: skin }
+  - { bone: armR, at: [-0.03, -0.25, 0.02], size: [0.02, 0.08, 0.015], euler: [0.2, 0, -0.3], color: skinRot }
+  - { bone: forearmR, at: [0, 0, 0], size: [0.05, 0.05, 0.05], color: skinDark }
+  - { bone: forearmR, from: [0, 0, 0], to: { bone: handR }, radius: 0.04, color: skin }
+  - { bone: forearmR, at: [-0.02, -0.15, 0.02], size: [0.025, 0.1, 0.02], color: skinRot }
+
+  # The hands: a palm facing the body, four straight fingers ending in nails
+  # filed to points, and a thumb ahead of them.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'hand*', at: [0, 0, 0], size: [0.03, 0.035, 0.026], color: skinDark }
+      - { bone: 'hand*', at: [0, -0.045, 0.005], size: [0.024, 0.07, 0.04], color: skin }
+      - { bone: 'hand*', from: [0, -0.08, -0.03], along: [-0.1, -1, -0.2], length: 0.06, radius: 0.01, color: skin }
+      - { bone: 'hand*', from: [-0.006, -0.14, -0.042], along: [-0.2, -1, -0.15], length: 0.035, radius: 0.007, color: nail }
+      - { bone: 'hand*', from: [0, -0.08, -0.01], along: [-0.1, -1, -0.05], length: 0.065, radius: 0.01, color: skin }
+      - { bone: 'hand*', from: [-0.0065, -0.145, -0.013], along: [-0.2, -1, -0.05], length: 0.04, radius: 0.007, color: nail }
+      - { bone: 'hand*', from: [0, -0.08, 0.01], along: [-0.1, -1, 0.05], length: 0.065, radius: 0.01, color: skin }
+      - { bone: 'hand*', from: [-0.0065, -0.145, 0.013], along: [-0.2, -1, 0.05], length: 0.04, radius: 0.007, color: nail }
+      - { bone: 'hand*', from: [0, -0.08, 0.03], along: [-0.1, -1, 0.2], length: 0.06, radius: 0.01, color: skin }
+      - { bone: 'hand*', from: [-0.006, -0.14, 0.042], along: [-0.2, -1, 0.15], length: 0.035, radius: 0.007, color: nail }
+      - { bone: 'hand*', from: [-0.015, -0.035, 0.03], along: [-0.5, -0.7, 0.7], length: 0.045, radius: 0.009, color: skin }
+      - { bone: 'hand*', from: [-0.037, -0.066, 0.061], along: [-0.5, -0.8, 0.5], length: 0.03, radius: 0.007, color: nail }
+
+  # The left leg: trousers to the knee, the leg bare and blotched below where
+  # the cloth has torn away, and the one boot still on.
+  - { bone: hipL, from: [0, 0, 0], to: { bone: shinL }, radius: 0.06, color: trouser }
+  - { bone: hipL, at: [0, -0.2, 0], size: [0.09, 0.36, 0.09], color: trouser }
+  - { bone: shinL, at: [0, -0.08, 0], size: [0.08, 0.16, 0.08], color: trouser }
+  - { bone: shinL, at: [0.02, -0.17, 0.03], size: [0.03, 0.06, 0.02], euler: [0.2, 0.3, 0.1], color: trouserDark }
+  - { bone: shinL, at: [0, -0.24, 0], size: [0.06, 0.18, 0.06], color: skin }
+  - { bone: shinL, at: [0.03, -0.2, 0.02], size: [0.02, 0.08, 0.02], color: skinRot }
+  - { bone: footL, at: [0, -0.06, 0.01], size: [0.09, 0.1, 0.1], color: boot }
+  - { bone: footL, at: [0, -0.075, 0.12], size: [0.08, 0.07, 0.08], color: bootDark }
+
+  # The right leg: the trouser leg torn off at the thigh, the thigh and shin
+  # rotted to the bone with the last of the flesh hanging off them, and a
+  # bare foot with the bone through the top of it.
+  - { bone: hipR, at: [0, -0.14, 0], size: [0.088, 0.24, 0.088], color: trouser }
+  - { bone: hipR, at: [-0.03, -0.27, 0.02], size: [0.035, 0.05, 0.02], euler: [0.1, -0.3, -0.2], color: trouserDark }
+  - { bone: hipR, from: [0, 0, 0], to: { bone: shinR }, radius: 0.035, color: bone }
+  - { bone: hipR, at: [-0.03, -0.32, 0], size: [0.03, 0.1, 0.03], color: skinRot }
+  - { bone: shinR, at: [0, 0, 0.01], size: [0.05, 0.06, 0.05], color: boneDark }
+  - { bone: shinR, from: [0, 0, 0], to: { bone: footR }, radius: 0.025, color: bone }
+  - { bone: shinR, at: [0.02, -0.15, -0.02], size: [0.02, 0.2, 0.018], euler: [0, 0, 0.1], color: skinDark }
+  - { bone: shinR, at: [-0.025, -0.25, 0.01], size: [0.015, 0.08, 0.012], euler: [0.1, 0, -0.2], color: skinRot }
+  - { bone: footR, at: [0, -0.05, 0.04], size: [0.06, 0.08, 0.09], color: skinDark }
+  - { bone: footR, at: [0, -0.03, 0.05], size: [0.03, 0.02, 0.05], color: bone }
+  - { bone: footR, at: [-0.03, -0.075, 0.13], size: [0.014, 0.03, 0.022], color: skin }
+  - { bone: footR, at: [-0.01, -0.075, 0.135], size: [0.014, 0.03, 0.022], color: skin }
+  - { bone: footR, at: [0.01, -0.075, 0.135], size: [0.014, 0.03, 0.022], color: skinDark }
+  - { bone: footR, at: [0.03, -0.075, 0.13], size: [0.014, 0.03, 0.022], color: skin }

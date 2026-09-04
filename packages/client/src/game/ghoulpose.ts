@@ -33,61 +33,30 @@
 
 import { setSparse, type SparsePose } from '@hexdelve/engine';
 
-import { groundPath, plus, turn, twoLink, type Planar } from './planar.js';
+import { HUMANOID_CHAIN, solveArm, solveLeg, type Step, type Trunk } from './humanoid.js';
 
 const PI = Math.PI;
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /**
- * The rest offsets of the chains the gaits are solved on, in the y-z plane —
- * copied from `humanoid.rig.yaml` and pinned to it by `test/assets.test.ts`,
- * for the same reason the stride carries its own leg length: a planted foot
- * is a statement about a particular skeleton.
+ * Where the ghoul's ankle and wrist sit with the sole and the palm on the
+ * ground: the depth of its own foot and hand. The chain they are solved on
+ * is the rig's, in humanoid.ts.
  */
-export const GHOUL_CHAIN = {
-	hipHeight: 0.92,
-	hip: [-0.04, 0],
-	/** How far out from the centre line each hip joint sits. */
-	hipWidth: 0.16,
-	thigh: [-0.41, 0],
-	shin: [-0.35, 0],
-	/** Where the ankle sits with the sole on the ground: the foot's own depth. */
-	soleHeight: 0.09,
-	spine: [0.14, 0],
-	chest: [0.22, 0],
-	shoulder: [0.12, 0],
-	upperArm: [-0.34, 0],
-	forearm: [-0.3, 0],
-	/** Where the wrist sits with the palm flat on the ground. */
-	palmHeight: 0.05,
-} as const;
+export const GHOUL_SOLE = 0.09;
+export const GHOUL_PALM = 0.05;
 
-/** How a limb's planted end travels: where it rests, how far, how high. */
-interface Step {
-	readonly restZ: number;
-	readonly halfStride: number;
-	readonly lift: number;
-	/** How far the knees turn out, in radians. */
+/** How far out the ghoul turns its knees on each gait. */
+interface Stance {
+	readonly step: Step;
 	readonly splay: number;
 }
 
-/** The rotations of the spine, and where they put the hips. */
-interface Trunk {
-	readonly root: Planar;
-	readonly rootRot: number;
-	readonly spineRot: number;
-	readonly chestRot: number;
-}
-
 /**
- * One leg, hip to foot, with the foot put where `groundPath` says.
- *
- * The knee is solved for whatever the hips are doing, so the sole stays on
- * the ground through the stance however low the crouch drops; in the air the
- * toes drag, pointing down. The hips roll with a lurch, which lifts one hip
- * joint and drops the other by the width of the pelvis, and the solve is in
- * the plane, so that lift goes in as a change of height.
+ * One leg, hip to foot, with the foot put where the step says. Knees out and
+ * feet splayed: the bow-legged stance of something that stands on bent legs
+ * all the time. In the air the toes drag, pointing down.
  */
 function leg(
 	out: SparsePose,
@@ -97,47 +66,19 @@ function leg(
 	side: number,
 	trunk: Trunk,
 	roll: number,
-	step: Step,
+	stance: Stance,
 ): void {
-	// How far into its swing the foot is: nothing at all when standing.
-	const swing = Math.pow(Math.max(0, Math.cos(phase)), 0.8) * clamp01(amp);
-
-	const hipAt = plus(
-		plus(trunk.root, turn(GHOUL_CHAIN.hip, trunk.rootRot)),
-		[side * GHOUL_CHAIN.hipWidth * Math.sin(roll), 0],
-	);
-	const target = groundPath(phase, step.restZ, step.halfStride, step.lift, GHOUL_CHAIN.soleHeight, amp);
-	const [hip, knee] = twoLink(trunk.rootRot, hipAt, GHOUL_CHAIN.thigh, GHOUL_CHAIN.shin, target, -1);
-
-	const level = -(trunk.rootRot + hip + knee);
-	const foot = level * (1 - 0.6 * swing) + 0.45 * swing;
-
-	// Knees out and feet splayed: the bow-legged stance of something that
-	// stands on bent legs all the time.
-	setSparse(out, bones[0], [hip, 0, step.splay * side]);
-	setSparse(out, bones[1], [knee, 0, 0]);
+	const solved = solveLeg(phase, amp, side, trunk, roll, stance.step, GHOUL_SOLE);
+	const foot = solved.level * (1 - 0.6 * solved.swing) + 0.45 * solved.swing;
+	setSparse(out, bones[0], [solved.upper, 0, stance.splay * side]);
+	setSparse(out, bones[1], [solved.lower, 0, 0]);
 	setSparse(out, bones[2], [foot, 0.18 * side, -0.08 * side]);
 }
 
-/** Forward kinematics down the spine to a shoulder joint, and the frame there. */
-function shoulderOf(trunk: Trunk): { at: Planar; frame: number } {
-	let frame = trunk.rootRot;
-	let at = plus(trunk.root, turn(GHOUL_CHAIN.spine, frame));
-	frame += trunk.spineRot;
-	at = plus(at, turn(GHOUL_CHAIN.chest, frame));
-	frame += trunk.chestRot;
-	at = plus(at, turn(GHOUL_CHAIN.shoulder, frame));
-	return { at, frame };
-}
-
 /**
- * One arm, shoulder to hand, with the hand put where `groundPath` says — a
- * front leg, for the scramble.
- *
- * The elbow is solved to point back, which is how an arm bears weight, and
- * the hand is turned palm down and laid flat with the fingers forward while
- * it is planted; in the air it hangs off the wrist and the fingers curl
- * under.
+ * One arm, shoulder to hand, as a front leg. The hand is turned palm down
+ * and laid flat with the fingers forward while it is planted; in the air it
+ * hangs off the wrist and the fingers curl under.
  */
 function arm(
 	out: SparsePose,
@@ -148,21 +89,11 @@ function arm(
 	trunk: Trunk,
 	step: Step,
 ): void {
-	const swing = Math.pow(Math.max(0, Math.cos(phase)), 0.8) * clamp01(amp);
-
-	const { at, frame } = shoulderOf(trunk);
-	const target = groundPath(phase, step.restZ, step.halfStride, step.lift, GHOUL_CHAIN.palmHeight, amp);
-	const [upper, elbow] = twoLink(frame, at, GHOUL_CHAIN.upperArm, GHOUL_CHAIN.forearm, target, 1);
-
-	// Flat: the hand's own rotation takes out everything above it and a
-	// quarter turn more, so the fingers lie forward along the ground.
-	const flat = -PI / 2 - (frame + upper + elbow);
-	const hand = flat + 0.9 * swing;
-
-	setSparse(out, bones[0], [upper, 0, 0.15 * side]);
-	setSparse(out, bones[1], [elbow, 0, 0]);
+	const solved = solveArm(phase, amp, trunk, step, GHOUL_PALM);
+	setSparse(out, bones[0], [solved.upper, 0, 0.15 * side]);
+	setSparse(out, bones[1], [solved.lower, 0, 0]);
 	// Palm down: a quarter turn about the forearm, inwards.
-	setSparse(out, bones[2], [hand, -side * (PI / 2), 0]);
+	setSparse(out, bones[2], [solved.level + 0.9 * solved.swing, -side * (PI / 2), 0]);
 }
 
 /* ---------------------------------------------------------------- shamble -- */
@@ -181,7 +112,7 @@ export const SHAMBLE_CONTACTS: readonly [number, number] = [0.25, 0.75];
 const HUNCH = { crouch: 0.22, root: 0.25, spine: 0.55, chest: 0.45, neck: -0.45, head: -0.5 };
 
 /** A shuffle, not a step: short, and barely off the ground. */
-const SHAMBLE_STEP: Step = { restZ: 0, halfStride: 0.24, lift: 0.1, splay: 0.1 };
+const SHAMBLE_STANCE: Stance = { step: { restZ: 0, halfStride: 0.24, lift: 0.1 }, splay: 0.1 };
 
 /**
  * The shamble, and the stand it starts from.
@@ -209,7 +140,7 @@ export function shamblePose(theta: number, amp: number, time = 0, out: SparsePos
 	 */
 	const rootRot = HUNCH.root + 0.03 * amp * Math.cos(2 * theta);
 	const roll = 0.07 * amp * sinT + 0.03 * sway;
-	const rootY = GHOUL_CHAIN.hipHeight - HUNCH.crouch - 0.02 * amp * (1 - Math.cos(2 * theta));
+	const rootY = HUMANOID_CHAIN.hipHeight - HUNCH.crouch - 0.02 * amp * (1 - Math.cos(2 * theta));
 	const trunk: Trunk = {
 		root: [rootY, 0],
 		rootRot,
@@ -220,11 +151,11 @@ export function shamblePose(theta: number, amp: number, time = 0, out: SparsePos
 		out,
 		'root',
 		[rootRot, 0.08 * amp * sinT, roll],
-		[0.035 * amp * sinT + 0.02 * sway, rootY - GHOUL_CHAIN.hipHeight, 0],
+		[0.035 * amp * sinT + 0.02 * sway, rootY - HUMANOID_CHAIN.hipHeight, 0],
 	);
 
-	leg(out, ['hipL', 'shinL', 'footL'], theta, amp, 1, trunk, roll, SHAMBLE_STEP);
-	leg(out, ['hipR', 'shinR', 'footR'], theta + PI, amp, -1, trunk, roll, SHAMBLE_STEP);
+	leg(out, ['hipL', 'shinL', 'footL'], theta, amp, 1, trunk, roll, SHAMBLE_STANCE);
+	leg(out, ['hipR', 'shinR', 'footR'], theta + PI, amp, -1, trunk, roll, SHAMBLE_STANCE);
 
 	// The fold: spine and chest over, neck and head back up, the chest
 	// heaving and the shoulders rolling with the lurch.
@@ -268,8 +199,8 @@ export const SCRAMBLE_CONTACTS: readonly [number, number] = [0.25, 0.75];
 const CRAWL = { crouch: 0.56, root: 0.55, spine: 0.5, chest: 0.35, neck: -0.65, head: -0.6 };
 
 /** Feet under the hips, hands out ahead under the shoulders. */
-const CRAWL_FOOT: Step = { restZ: -0.02, halfStride: 0.28, lift: 0.14, splay: 0.3 };
-const CRAWL_HAND: Step = { restZ: 0.46, halfStride: 0.2, lift: 0.12, splay: 0 };
+const CRAWL_STANCE: Stance = { step: { restZ: -0.02, halfStride: 0.28, lift: 0.14 }, splay: 0.3 };
+const CRAWL_HAND: Step = { restZ: 0.46, halfStride: 0.2, lift: 0.12 };
 
 /**
  * The scramble: on all fours, diagonal pairs — the left foot with the right
@@ -294,7 +225,7 @@ export function scramblePose(theta: number, amp: number, time = 0, out: SparsePo
 	const hump = 0.06 * amp * Math.cos(2 * theta);
 	const rootRot = CRAWL.root - hump;
 	const trunk: Trunk = {
-		root: [GHOUL_CHAIN.hipHeight - CRAWL.crouch - dip, 0],
+		root: [HUMANOID_CHAIN.hipHeight - CRAWL.crouch - dip, 0],
 		rootRot,
 		spineRot: CRAWL.spine + hump,
 		chestRot: CRAWL.chest + 0.5 * hump + 0.02 * still * breath,
@@ -303,13 +234,13 @@ export function scramblePose(theta: number, amp: number, time = 0, out: SparsePo
 		out,
 		'root',
 		[rootRot, 0.05 * amp * sinT, 0.04 * amp * sinT],
-		[0.02 * amp * sinT, trunk.root[0] - GHOUL_CHAIN.hipHeight, 0],
+		[0.02 * amp * sinT, trunk.root[0] - HUMANOID_CHAIN.hipHeight, 0],
 	);
 	setSparse(out, 'spine', [trunk.spineRot, -0.04 * amp * sinT, 0]);
 	setSparse(out, 'chest', [trunk.chestRot, -0.06 * amp * sinT, 0]);
 
-	leg(out, ['hipL', 'shinL', 'footL'], theta, amp, 1, trunk, 0, CRAWL_FOOT);
-	leg(out, ['hipR', 'shinR', 'footR'], theta + PI, amp, -1, trunk, 0, CRAWL_FOOT);
+	leg(out, ['hipL', 'shinL', 'footL'], theta, amp, 1, trunk, 0, CRAWL_STANCE);
+	leg(out, ['hipR', 'shinR', 'footR'], theta + PI, amp, -1, trunk, 0, CRAWL_STANCE);
 	arm(out, ['armR', 'forearmR', 'handR'], theta, amp, -1, trunk, CRAWL_HAND);
 	arm(out, ['armL', 'forearmL', 'handL'], theta + PI, amp, 1, trunk, CRAWL_HAND);
 

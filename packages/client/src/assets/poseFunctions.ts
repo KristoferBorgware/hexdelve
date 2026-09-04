@@ -42,6 +42,7 @@ import {
 } from '../game/ghoulpose.js';
 import { bitePose, restPose, runPose } from '../game/hellhoundpose.js';
 import { stridePose, stridePeriod, STRIDE_CONTACTS, type Direction } from '../game/stride.js';
+import { SHUFFLE_CONTACTS, SHUFFLE_PERIOD, shufflePose } from '../game/zombiepose.js';
 
 const TAU = Math.PI * 2;
 
@@ -205,6 +206,18 @@ const ghoulScramble: PoseFunction = {
 	},
 };
 
+/** The zombie's shuffle, and its stand: one leg stepping, the other dragged. */
+const zombieShuffle: PoseFunction = {
+	id: 'zombieShuffle',
+	duration: SHUFFLE_PERIOD,
+	contacts: SHUFFLE_CONTACTS,
+	build: ({ args, duration }) => {
+		const amp = arg(args, 'amp', 1);
+		const moving = amp >= 0.02;
+		return (t, out) => shufflePose(moving ? (t / duration) * TAU : 0, amp, t, out);
+	},
+};
+
 /**
  * Every pose function this package owns.
  *
@@ -225,4 +238,5 @@ export const poseFunctions = new PoseFunctionRegistry().register(
 	direRest,
 	ghoulShamble,
 	ghoulScramble,
+	zombieShuffle,
 );

@@ -9,7 +9,7 @@
  *
  * What is left here is the three things that outlive the migration.
  *
- * The files LOAD, and to the shapes the game expects: eight entities, four
+ * The files LOAD, and to the shapes the game expects: nine entities, four
  * rigs, the trees measuring their own thresholds. A file that stopped parsing
  * would be found by the render test too, but only as a blank picture.
  *
@@ -50,13 +50,16 @@ import {
 	direRestPose,
 	direRunPose,
 	flyPose,
-	GHOUL_CHAIN,
+	HUMANOID_CHAIN,
 	SCRAMBLE_CONTACTS,
 	SCRAMBLE_PERIOD,
 	scramblePose,
 	SHAMBLE_CONTACTS,
 	SHAMBLE_PERIOD,
 	shamblePose,
+	SHUFFLE_CONTACTS,
+	SHUFFLE_PERIOD,
+	shufflePose,
 	HOUND_STRIDE_PERIOD,
 	houndRunPose,
 	LEG_LENGTH,
@@ -187,6 +190,7 @@ describe('entities', () => {
 			'bat',
 			'hellhound',
 			'direhound',
+			'zombie',
 			'helmet',
 			'sword',
 			'shield',
@@ -205,6 +209,44 @@ describe('entities', () => {
 		expect(ghoul.animations.get('leap')!.clip).not.toBeNull();
 		expect([...ghoul.blendTrees.keys()]).toEqual(['locomotion']);
 		expect(ghoul.blendTrees.get('locomotion')!.id).toBe('shamble');
+	});
+
+	it('gives the zombie the humanoid rig, a shuffle, and an overhead slash', async () => {
+		const wanderer = await entity('wanderer');
+		const zombie = await entity('zombie');
+		expect(zombie.rig).toBe(wanderer.rig);
+		expect([...zombie.animations.keys()]).toEqual(['idle', 'walk', 'slash']);
+		expect(zombie.animations.get('walk')!.clip).toBeNull();
+		expect(zombie.blendTrees.get('locomotion')!.id).toBe('shuffle');
+
+		const slash = zombie.animations.get('slash')!;
+		const clip = slash.clip!;
+		expect(clip.loop).toBe('hold');
+		const blow = clip.events.find((event) => event.name === 'slash')!;
+		expect(blow).toBeDefined();
+		const world = (t: number) => solveWorld(zombie.rig!.skeleton, slash.sample(t, {}));
+		// Both arms up over the head at the top of the wind-up, both hands
+		// down and out in front at the blow, a lunge forward and back.
+		const reared = world(0.45);
+		for (const hand of ['handL', 'handR']) expect(reared[hand]!.p[1], hand).toBeGreaterThan(reared.head!.p[1]);
+		const struck = world(blow.t);
+		for (const hand of ['handL', 'handR']) {
+			expect(struck[hand]!.p[1], hand).toBeLessThan(struck.chest!.p[1]);
+			expect(struck[hand]!.p[2], hand).toBeGreaterThan(1.0);
+		}
+		expect(struck.root!.p[2]).toBeGreaterThan(0.4);
+		expect(Math.abs(world(0).root!.p[2])).toBeLessThan(0.05);
+		expect(Math.abs(world(clip.duration).root!.p[2])).toBeLessThan(0.05);
+		// Soles on the ground where it stands, and the leading foot planted
+		// through the blow.
+		for (const t of [0, 0.45, clip.duration]) {
+			for (const foot of ['footL', 'footR']) {
+				expect(world(t)[foot]!.p[1], `${foot} at ${t}s`).toBeGreaterThan(0.07);
+				expect(world(t)[foot]!.p[1], `${foot} at ${t}s`).toBeLessThan(0.13);
+			}
+		}
+		expect(struck.footL!.p[1]).toBeGreaterThan(0.07);
+		expect(struck.footL!.p[1]).toBeLessThan(0.13);
 	});
 
 	it('the ghoul’s leap lands in the next hexagon, strikes there, and comes back', async () => {
@@ -439,24 +481,24 @@ describe('the pose functions still agree with the rigs', () => {
 		expect(Math.abs(end.root!.p[2])).toBeLessThan(0.1);
 	});
 
-	it('the shamble is solved on the humanoid rig’s own leg', async () => {
+	it('the chain the ghoul and the zombie are solved on is the humanoid rig’s own', async () => {
 		const rig = await readRig('humanoid');
 		const offset = (name: string): readonly [number, number] => {
 			const bone = rig.skeleton.find((candidate) => candidate.name === name)!;
 			return [bone.offset[1], bone.offset[2]];
 		};
-		expect(GHOUL_CHAIN.hipHeight).toBeCloseTo(rig.metrics.hipHeight!, 12);
+		expect(HUMANOID_CHAIN.hipHeight).toBeCloseTo(rig.metrics.hipHeight!, 12);
 		const hipL = rig.skeleton.find((candidate) => candidate.name === 'hipL')!;
-		expect(GHOUL_CHAIN.hipWidth).toBeCloseTo(hipL.offset[0], 12);
+		expect(HUMANOID_CHAIN.hipWidth).toBeCloseTo(hipL.offset[0], 12);
 		for (const [copy, bone] of [
-			[GHOUL_CHAIN.hip, 'hipL'],
-			[GHOUL_CHAIN.thigh, 'shinL'],
-			[GHOUL_CHAIN.shin, 'footL'],
-			[GHOUL_CHAIN.spine, 'spine'],
-			[GHOUL_CHAIN.chest, 'chest'],
-			[GHOUL_CHAIN.shoulder, 'armL'],
-			[GHOUL_CHAIN.upperArm, 'forearmL'],
-			[GHOUL_CHAIN.forearm, 'handL'],
+			[HUMANOID_CHAIN.hip, 'hipL'],
+			[HUMANOID_CHAIN.thigh, 'shinL'],
+			[HUMANOID_CHAIN.shin, 'footL'],
+			[HUMANOID_CHAIN.spine, 'spine'],
+			[HUMANOID_CHAIN.chest, 'chest'],
+			[HUMANOID_CHAIN.shoulder, 'armL'],
+			[HUMANOID_CHAIN.upperArm, 'forearmL'],
+			[HUMANOID_CHAIN.forearm, 'handL'],
 		] as const) {
 			expect(copy[0], bone).toBeCloseTo(offset(bone)[0], 12);
 			expect(copy[1], bone).toBeCloseTo(offset(bone)[1], 12);
@@ -514,6 +556,40 @@ describe('the pose functions still agree with the rigs', () => {
 		expect(run.speed()!.z).toBeGreaterThan(walk.speed()!.z);
 		expect(Math.abs(run.speed()!.x)).toBeLessThan(0.05);
 		for (const posed of [scramblePose(0.7, 1, 0.3, {}), scramblePose(0, 0, 2, {})]) {
+			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
+	});
+
+	it('the shuffle drags a foot, keeps both on the ground, and is slower than the shamble', async () => {
+		const rig = await readRig('humanoid');
+		let dragged = 0;
+		let stepped = 0;
+		for (const { foot, offset } of [
+			{ foot: 'footL', offset: 0 },
+			{ foot: 'footR', offset: Math.PI },
+		]) {
+			for (let i = 0; i <= 10; i++) {
+				const own = Math.PI / 2 + (Math.PI * i) / 10;
+				const world = solveWorld(rig.skeleton, shufflePose(own - offset, 1, 0, {}));
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeGreaterThan(0.08);
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeLessThan(0.12);
+			}
+			// How high each foot is carried mid-swing: the right barely leaves the ground.
+			const lifted = solveWorld(rig.skeleton, shufflePose(-offset, 1, 0, {}))[foot]!.p[1];
+			if (foot === 'footL') stepped = lifted;
+			else dragged = lifted;
+		}
+		expect(dragged).toBeLessThan(stepped - 0.03);
+
+		const zombie = await entity('zombie');
+		const ghoul = await entity('ghoul');
+		const walk = zombie.animations.get('walk')!;
+		expect(walk.duration).toBeCloseTo(SHUFFLE_PERIOD, 12);
+		expect(walk.contacts).toEqual(SHUFFLE_CONTACTS);
+		expect(walk.speed()!.z).toBeGreaterThan(0.3);
+		expect(walk.speed()!.z).toBeLessThan(ghoul.animations.get('walk')!.speed()!.z);
+		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
+		for (const posed of [shufflePose(0.7, 1, 0.3, {}), shufflePose(0, 0, 2, {})]) {
 			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
 		}
 	});
