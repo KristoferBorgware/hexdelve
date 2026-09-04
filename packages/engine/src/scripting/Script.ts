@@ -28,27 +28,25 @@
  * is subscribed and unsubscribed by the host, because it can enumerate them.
  * See `events.ts` for why that is worth a decorator.
  *
- * That symmetry is the whole reason hot reload can work at all. A script that
- * cleans up after itself can be swapped for a new one mid-frame; a script that
- * leaves something behind cannot, and will double whatever it left every time
- * the file is saved.
+ * The pair is what makes a swap safe. A script that takes back in `onDestroy`
+ * what it put somewhere in `onLoad` leaves nothing for the next instance to
+ * double.
  *
  * ## What a reload means for anything holding a script
  *
- * A reload builds a NEW instance and puts it where the old one was. Anything
- * that cached the old one is holding a corpse. Scripts are safe by
- * construction — `onLoad` runs again on the new instance, so a lookup cached
- * there is refreshed — but code that is NOT rebuilt by a reload (the game's
- * own components, the simulation, a listener) must look a script up when it
- * needs it rather than hold one.
+ * A reload builds a NEW instance and puts it where the old one was, so a
+ * reference taken before the reload names an instance that is no longer
+ * attached. Scripts are refreshed by their own lifecycle: `onLoad` runs again
+ * on the new instance, so a lookup cached there is current. Code that a reload
+ * does not rebuild — the game's own components, the simulation, a listener —
+ * looks a script up when it needs one.
  *
- * ## Why `update` and `onDetach` are not for overriding
+ * ## `update` and `onDetach` belong to this class
  *
- * They are `Component`'s hooks and this class spends them: `update` is where a
- * script that throws is muted rather than left shouting sixty times a second,
- * and `onDetach` is where the host is told the script is gone. A script that
- * overrode either would silently lose the discipline the whole scripting layer
- * rests on, so the pair it gets instead is `tick` and `onDestroy`.
+ * They are `Component`'s hooks, and this class uses them: `update` mutes a
+ * script that throws, `onDetach` runs `onDestroy` and tells the host. A script
+ * writes `tick` and `onDestroy` instead, and overriding either of the first
+ * pair drops the handling around them.
  */
 
 import { Component } from '../scene/GameObject.js';
@@ -138,11 +136,11 @@ export abstract class Script extends Component {
 	onDestroy(): void {}
 
 	/**
-	 * `Component.update`, spent on the failure rule. Do not override.
+	 * `Component.update`, which carries the failure rule. Do not override.
 	 *
-	 * A script that throws is muted until the next reload: left running it
-	 * throws every frame and the console becomes useless, and killed outright
-	 * it cannot be fixed by saving the file.
+	 * A script that throws stops being ticked until the next reload, which
+	 * builds a new instance that is not muted. Saving the file is what brings
+	 * it back.
 	 */
 	override update(dt: number): void {
 		if (this.muted || !this.bound) return;
@@ -154,11 +152,11 @@ export abstract class Script extends Component {
 	}
 
 	/**
-	 * `Component.onDetach`, spent on the teardown pair. Do not override.
+	 * `Component.onDetach`, which carries the teardown pair. Do not override.
 	 *
-	 * `onDestroy` first, while the object is still reachable — a script that
-	 * put itself in a register has to be able to find its way back out — and
-	 * the host after, so it stops counting a script that is gone.
+	 * `onDestroy` first, while the object is still reachable, so a script that
+	 * put itself in a register can find its way back out. The host after, so it
+	 * stops counting a script that is gone.
 	 */
 	override onDetach(): void {
 		try {

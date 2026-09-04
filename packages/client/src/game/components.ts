@@ -154,12 +154,11 @@ function scriptFactory(context: ComponentContext): void {
 
 	const name = context.fields.need('script').text();
 	/*
-	 * Through the host rather than `addComponent`, and this is the one place
-	 * the difference shows. Every other component here is built from data the
-	 * reader has already loaded; a script is built from a CLASS, found by name
-	 * in a bundle that was compiled separately and can be replaced while the
-	 * game runs. The host is what owns that lookup and that replacement — see
-	 * `ScriptHost`. What comes out is an ordinary component on the object.
+	 * Through the host rather than `addComponent`. Every other component here
+	 * is built from data the reader has already loaded; a script is built from
+	 * a CLASS, found by name in a bundle compiled separately, which the host
+	 * can replace while the game runs. What comes out is an ordinary component
+	 * on the object.
 	 */
 	scripts.host.attach(context.object, name, {
 		scene: scripts.scene,

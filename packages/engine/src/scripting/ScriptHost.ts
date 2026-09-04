@@ -396,13 +396,12 @@ export class ScriptHost {
 			 *
 			 * It is the ordinary state of a world the editor has just made: an
 			 * editor-hosted client fetches no bundle and gets its classes from
-			 * the compile that follows a moment later. Complaining once per
-			 * script about that would put four lines in the console every time
-			 * somebody switched backend, and the reload says what happened.
+			 * the compile that follows a moment later. The reload reports what
+			 * it started.
 			 *
-			 * A build that has SOME classes and not this one is a different
-			 * thing — a typo in a prefab, or a file that will not compile — and
-			 * that is worth a line naming what it does have.
+			 * A build that has SOME classes and not this one is a typo in a
+			 * prefab, or a file that will not compile, and gets a line naming
+			 * what it does have.
 			 */
 			if (this.provider.names.length > 0) {
 				this.log(

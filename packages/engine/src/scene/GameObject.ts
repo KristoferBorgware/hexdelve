@@ -188,10 +188,10 @@ export class GameObject {
 	/**
 	 * Put one component where another is, keeping its place in the list.
 	 *
-	 * Order is not decoration: components update in it, and `getComponent`
-	 * answers with the first match. So a hot reload, which replaces a script
-	 * instance with a newly compiled one, swaps it IN PLACE rather than removing
-	 * and appending — otherwise every save would quietly reorder the object.
+	 * Components update in list order and `getComponent` answers with the first
+	 * match, so the position is part of what a component has. A hot reload,
+	 * which replaces a script instance with a newly compiled one, uses this to
+	 * keep the object's order across a save.
 	 *
 	 * The old one is detached and the new one attached, in that order, so the
 	 * pair sees the same list it would see for an ordinary remove and add.
