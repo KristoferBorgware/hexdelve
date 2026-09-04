@@ -63,7 +63,7 @@ describe('a blow, end to end', () => {
 	function registry(sim: Simulation): { all: readonly unknown[]; count: number } {
 		const constructor = scripts.resolve('CharacterRegistry');
 		expect(constructor, 'the build compiles a CharacterRegistry').not.toBeNull();
-		const found = sim.scripts.instance(constructor as never);
+		const found = sim.scene.getComponent(constructor as never);
 		expect(found, 'the system prefab put one in the scene').not.toBeNull();
 		return found as unknown as { all: readonly unknown[]; count: number };
 	}

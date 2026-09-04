@@ -229,9 +229,24 @@ describe('the dev server', () => {
 			expect(put.status).toBe(204);
 			expect(await readFile(onDisk, 'utf8')).toBe(body);
 
-			// And back out through the same address it was written to, which is
-			// the whole argument for it being one address rather than two.
-			expect(await (await get(`/assets/${SCRATCH}`)).text()).toBe(body);
+			/*
+			 * And back out through the same address it was written to, which is
+			 * the whole argument for it being one address rather than two.
+			 *
+			 * Waited for rather than asked once, and the wait is F-016 rather than
+			 * politeness: Vite scans publicDir into a set at startup and its public
+			 * middleware serves nothing that is not in it, so a file created a
+			 * millisecond ago is served only once the watcher has fired. Asked too
+			 * early, the request falls through to the single-page fallback and the
+			 * answer is a page of HTML with a 200 on it — which is what made this
+			 * case fail about one full-suite run in three.
+			 */
+			let served = '';
+			for (let tries = 0; tries < 50 && served !== body; tries++) {
+				served = await (await get(`/assets/${SCRATCH}`)).text();
+				if (served !== body) await new Promise((wake) => setTimeout(wake, 20));
+			}
+			expect(served).toBe(body);
 
 			const gone = await fetch(url(), { method: 'DELETE' });
 			expect(gone.status).toBe(204);

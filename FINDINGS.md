@@ -106,6 +106,53 @@ message. If it does not, the finding closes as an artefact of the container and
 editor headlessly.
 
 
+
+### F-016 — A file the dev server has just written is not served until Vite notices it
+
+**Kind:** bug
+**Milestone:** unscheduled
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, chasing a dev-server test that failed about one run in three
+**Where:** `assetIO` in `vite.assets.mts`, the `GET` branch of `handle`
+
+**What happens.** The plugin answers a `PUT` by writing the file and returning
+204. A `GET` for the same URL a moment later can come back as
+`<!DOCTYPE html>` with a 200 on it.
+
+The reason is in Vite rather than in the plugin. Vite scans `publicDir` ONCE at
+startup into a set, and its public middleware skips any path that is not in it —
+`servePublicMiddleware` checks `publicFiles.has(...)` before serving anything.
+The set is kept up to date by the file watcher, so a file that was created a
+millisecond ago is served only after chokidar has fired `add`. Until then the
+request falls through to the single-page fallback, which answers with the page.
+
+The plugin's own 404 guard does not catch this, because the file DOES exist: it
+checks the disk, finds it, and calls `next()` — which is exactly the wrong
+answer for the one moment the set is stale.
+
+Only a file that is NEW is affected. Overwriting one that was there at startup
+works, because its path is already in the set.
+
+**Why it matters.** Nobody yet, and the reason is narrow: the asset view can
+only overwrite files, since there is no way to create one from the editor. The
+day it grows a "new asset" button, saving one and reloading the library reads
+back a page of HTML, and the error the author sees is the YAML reader
+complaining about a `<` on line one — which is precisely the failure the 404
+guard was written to prevent, arriving through the door beside it.
+
+It also makes `test/devserver.test.ts` flaky: its round-trip case fails roughly
+one full-suite run in three, and passes every time the file is run alone. A test
+that fails only under load is a test people learn to re-run.
+
+**What would fix it.** Serve the asset from the plugin instead of delegating to
+Vite. The GET branch already resolves the path and stats it to decide about the
+404; reading the file and answering with it — rather than calling `next()` — is
+a few lines more, removes the dependency on a watcher entirely, and makes the
+dev server answer for the asset tree the way the static host it stands in for
+does. The `content-type` would have to be set by extension, which for this tree
+is `.yaml` and nothing else.
+
 ---
 
 ## Closed

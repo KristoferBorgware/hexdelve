@@ -3,8 +3,8 @@
  *
  * A script is a component whose class can be replaced underneath it while the
  * game runs. Everything hard about that is a promise to somebody: to the
- * component, that its id keeps meaning the same script; to whoever set a
- * parameter, that their value survives; to whoever is editing, that a file
+ * object, that the new instance stands where the old one stood; to whoever set
+ * a parameter, that their value survives; to whoever is editing, that a file
  * which does not compile does not take the running game down with it; and to
  * the console, that a script throwing sixty times a second is silenced rather
  * than shouted.
@@ -29,10 +29,7 @@ import {
 	on,
 	type GameEvent,
 	Script,
-	ScriptComponent,
 	ScriptHost,
-	ScriptObject,
-	ScriptScene,
 	scriptSdkShim,
 	scriptsFromBundle,
 	staticScripts,
@@ -52,6 +49,9 @@ function quiet(): { host: (provider: ScriptProvider) => ScriptHost; said: string
 	};
 }
 
+/** An ordinary component, for checking a script sits among them properly. */
+class Marker extends Component {}
+
 class Counter extends Script {
 	rate = param(1, { min: 0, max: 10 });
 	static loads = 0;
@@ -69,23 +69,35 @@ class Counter extends Script {
 	}
 }
 
+/**
+ * Put a script on an object, and hand back both.
+ *
+ * `script` is a getter rather than a value, and that is the point of the
+ * helper: a reload builds a NEW instance where the old one stood, so a test
+ * holding the first one would be asserting about the version that was
+ * replaced — the exact mistake everything outside the scripts has to avoid.
+ */
 function attach(
 	host: ScriptHost,
 	scene: Scene,
 	name = 'Counter',
 	parameters = {},
 	on?: GameObject,
-): number {
+): { object: GameObject; readonly script: Script | null } {
 	const object = on ?? scene.spawn('subject');
-	// The real handles rather than stubs. Building one is the component's job
-	// everywhere that is not a test, but a stub would not carry the runtime the
-	// host reaches events and lookups through, which is half of what is checked
-	// below.
-	return host.register(
-		name,
-		{ object: new ScriptObject(object, host), scene: new ScriptScene(scene, host) },
-		parameters,
-	);
+	host.attach(object, name, { scene, parameters });
+	return {
+		object,
+		get script(): Script | null {
+			return object.getComponent(Script);
+		},
+	};
+}
+
+/** The script on an object, which every test here knows is there. */
+function live<T extends Script>(subject: { readonly script: Script | null }): T {
+	expect(subject.script).not.toBeNull();
+	return subject.script as T;
 }
 
 describe('running a script', () => {
@@ -94,18 +106,27 @@ describe('running a script', () => {
 		const { host: make } = quiet();
 		const host = make(staticScripts({ Counter }));
 		const scene = new Scene();
-		const id = attach(host, scene);
+		attach(host, scene);
 
 		expect(Counter.loads).toBe(1);
-		host.tick(id, 0.5);
+		// Through the scene, because a script is a component and that is how a
+		// component is ticked. Nothing calls the host to advance one.
+		scene.update(0.5);
 		expect(host.census).toEqual({ registered: 1, live: 1, muted: 0 });
 	});
 
 	it('takes a parameter from whoever spawned it', () => {
 		const { host: make } = quiet();
 		const host = make(staticScripts({ Counter }));
-		const id = attach(host, new Scene(), 'Counter', { rate: 4 });
-		expect(host.parameters(id).find((one) => one.key === 'rate')?.value).toBe(4);
+		const subject = attach(host, new Scene(), 'Counter', { rate: 4 });
+		expect(host.parameters(live(subject)).find((one) => one.key === 'rate')?.value).toBe(4);
+	});
+
+	it('names what it does have when the class is not there', () => {
+		const { host: make, said } = quiet();
+		const host = make(staticScripts({ Counter }));
+		attach(host, new Scene(), 'Wnader');
+		expect(said.join('\n')).toMatch(/no script named 'Wnader'.*this build has Counter/s);
 	});
 
 	it('names what it has when a parameter is not one', () => {
@@ -119,15 +140,24 @@ describe('running a script', () => {
 		const { host: make, said } = quiet();
 		const host = make(staticScripts({}));
 		const scene = new Scene();
-		const id = attach(host, scene);
+		const subject = attach(host, scene);
 
 		expect(host.census).toEqual({ registered: 1, live: 0, muted: 0 });
-		expect(said.join('\n')).toMatch(/no script named 'Counter'.*this build has nothing/s);
+		// Nothing was attached, which is what a missing class means now: the
+		// registration is the intention, and there is no component yet.
+		expect(subject.script).toBeNull();
+		/*
+		 * And says nothing. A build with no classes at all is not a build
+		 * missing this one: it is a world the editor has just made, which gets
+		 * its classes from the compile a moment later. Four lines per client
+		 * would be four lines every time somebody switched backend.
+		 */
+		expect(said, 'nothing to complain about yet').toEqual([]);
 
 		// The file compiled. Nothing was re-registered; it simply started.
 		host.reload(staticScripts({ Counter }));
 		expect(host.census.live).toBe(1);
-		expect(host.parameters(id)).toHaveLength(1);
+		expect(host.parameters(live(subject))).toHaveLength(1);
 	});
 });
 
@@ -139,41 +169,66 @@ describe('a hot reload', () => {
 		rate = param(9);
 	}
 
-	it('keeps the id, and rebuilds the instance', () => {
+	it('rebuilds the instance where the old one stood', () => {
 		Counter.loads = 0;
 		Counter.destroys = 0;
 		const { host: make } = quiet();
 		const host = make(staticScripts({ Counter }));
-		const id = attach(host, new Scene());
+		const scene = new Scene();
+		const subject = attach(host, scene);
+		const object = subject.object;
+		const before = live(subject);
+		// A component beside it, and after it, so that a swap that appended
+		// instead of replacing would show up as a changed order.
+		const marker = object.addComponent(Marker);
 
 		host.reload(staticScripts({ Counter }));
 
 		expect(Counter.destroys).toBe(1);
 		expect(Counter.loads).toBe(2);
 		expect(host.census).toEqual({ registered: 1, live: 1, muted: 0 });
-		// The same id means the same script; a component never saw the swap.
-		expect(host.parameters(id)).toHaveLength(1);
+		expect(live(subject), 'a new instance').not.toBe(before);
+		expect(object.components, 'in the same place').toEqual([subject.script, marker]);
+		expect(host.parameters(live(subject))).toHaveLength(1);
+	});
+
+	it('takes the component out when the class stops being there', () => {
+		const { host: make } = quiet();
+		const host = make(staticScripts({ Counter }));
+		const scene = new Scene();
+		const subject = attach(host, scene);
+		expect(subject.script, 'running to begin with').not.toBeNull();
+
+		// The file stopped compiling. What was running comes off the object,
+		// and the registration stays: the next reload that produces the class
+		// starts it again, which is the same rule as a class that never arrived.
+		host.reload(staticScripts({}));
+		expect(subject.script).toBeNull();
+		expect(host.census).toEqual({ registered: 1, live: 0, muted: 0 });
+
+		host.reload(staticScripts({ Counter }));
+		expect(subject.script, 'and back when it compiles').not.toBeNull();
 	});
 
 	it('keeps a value somebody set', () => {
 		const { host: make } = quiet();
 		const host = make(staticScripts({ Counter: Slow }));
-		const id = attach(host, new Scene(), 'Counter', { rate: 7 });
+		const subject = attach(host, new Scene(), 'Counter', { rate: 7 });
 
 		host.reload(staticScripts({ Counter: Fast }));
-		expect(host.parameters(id).find((one) => one.key === 'rate')?.value).toBe(7);
+		expect(host.parameters(live(subject)).find((one) => one.key === 'rate')?.value).toBe(7);
 	});
 
 	it('adopts a new default nobody had overridden', () => {
 		const { host: make } = quiet();
 		const host = make(staticScripts({ Counter: Slow }));
-		const id = attach(host, new Scene());
-		expect(host.parameters(id)[0]!.value).toBe(1);
+		const subject = attach(host, new Scene());
+		expect(host.parameters(live(subject))[0]!.value).toBe(1);
 
 		// Editing the default in the source is supposed to take effect. It only
 		// can because the host keeps overrides rather than every value.
 		host.reload(staticScripts({ Counter: Fast }));
-		expect(host.parameters(id)[0]!.value).toBe(9);
+		expect(host.parameters(live(subject))[0]!.value).toBe(9);
 	});
 
 	it('un-mutes a script that had thrown', () => {
@@ -185,11 +240,12 @@ describe('a hot reload', () => {
 		}
 		const { host: make, said } = quiet();
 		const host = make(staticScripts({ Angry }));
-		const id = attach(host, new Scene(), 'Angry');
+		const scene = new Scene();
+		attach(host, scene, 'Angry');
 
-		host.tick(id, 0.1);
+		scene.update(0.1);
 		expect(host.census.muted).toBe(1);
-		host.tick(id, 0.1); // silent: it says it once, not sixty times a second
+		scene.update(0.1); // silent: it says it once, not sixty times a second
 		expect(said.filter((line) => line.includes('boom'))).toHaveLength(1);
 
 		Angry.explode = false;
@@ -207,8 +263,9 @@ describe('when a script misbehaves', () => {
 		}
 		const { host: make, said } = quiet();
 		const host = make(staticScripts({ Bad }));
-		const id = attach(host, new Scene(), 'Bad');
-		host.tick(id, 0.1);
+		const scene = new Scene();
+		attach(host, scene, 'Bad');
+		scene.update(0.1);
 
 		expect(said.join('\n')).toMatch(/Bad on 'subject'\.tick threw, muted until reload: nope/);
 		expect(host.census).toEqual({ registered: 1, live: 1, muted: 1 });
@@ -224,17 +281,17 @@ describe('when a script misbehaves', () => {
 		const host = make(staticScripts({ Bad, Counter }));
 		const scene = new Scene();
 		attach(host, scene, 'Bad');
-		const good = attach(host, scene, 'Counter');
+		attach(host, scene, 'Counter');
 
 		expect(said.join('\n')).toMatch(/\.onLoad threw/);
-		host.tick(good, 0.1);
+		scene.update(0.1);
 		expect(host.census).toEqual({ registered: 2, live: 2, muted: 1 });
 	});
 
 	it('survives one that will not construct', () => {
 		class Broken extends Script {
-			constructor() {
-				super();
+			constructor(object: GameObject) {
+				super(object);
 				throw new Error('cannot');
 			}
 		}
@@ -246,31 +303,48 @@ describe('when a script misbehaves', () => {
 	});
 });
 
-describe('the component', () => {
-	it('ticks its script through the scene, and tears it down with the object', () => {
+describe('a script as a component', () => {
+	it('ticks with the scene, and is torn down with the object', () => {
 		Counter.destroys = 0;
 		const { host: make } = quiet();
 		const host = make(staticScripts({ Counter }));
 		const scene = new Scene();
-		const object = scene.spawn('thing');
-		object.addComponent(ScriptComponent, { host, scene, script: 'Counter', parameters: { rate: 2 } });
+		const subject = attach(host, scene, 'Counter', { rate: 2 }, scene.spawn('thing'));
 
 		scene.update(0.5);
 		expect(host.census.live).toBe(1);
+		expect(live<Counter>(subject).total, 'it ticked at the rate it was given').toBe(1);
 
-		object.destroy();
+		subject.object.destroy();
 		expect(Counter.destroys).toBe(1);
+		// The registration goes with the component. Nothing would rebuild it.
 		expect(host.census.registered).toBe(0);
 	});
 
-	it('is a component like any other, so a prefab can put one anywhere', () => {
+	it('is found by its own class, like any other component', () => {
 		const { host: make } = quiet();
 		const host = make(staticScripts({ Counter }));
 		const scene = new Scene();
 		const object = scene.spawn('thing');
-		const component = object.addComponent(ScriptComponent, { host, scene, script: 'Counter' });
-		expect(component).toBeInstanceOf(Component);
-		expect(object.getComponent(ScriptComponent)).toBe(component);
+		const subject = attach(host, scene, 'Counter', {}, object);
+
+		const script = live<Counter>(subject);
+		expect(script).toBeInstanceOf(Component);
+		expect(object.getComponent(Counter), 'by its own class').toBe(script);
+		expect(object.getComponent(Script), 'by the base class').toBe(script);
+		expect(scene.getComponent(Counter), 'anywhere in the scene').toBe(script);
+	});
+
+	it('is reachable from a child, the way a prop reaches the body carrying it', () => {
+		const { host: make } = quiet();
+		const host = make(staticScripts({ Counter }));
+		const scene = new Scene();
+		const body = scene.spawn('body');
+		const subject = attach(host, scene, 'Counter', {}, body);
+		const hand = scene.spawn('hand', body);
+
+		expect(hand.getComponentInParent(Counter)).toBe(live(subject));
+		expect(body.getComponentInChildren(Counter)).toBe(live(subject));
 	});
 });
 
@@ -368,8 +442,8 @@ describe('events', () => {
 		const second = attach(host, scene, 'Listener');
 
 		host.emit(Poke as GameEvent<unknown>, { hard: 3 });
-		expect((host.scriptAt(first) as Listener).pokes).toEqual([3]);
-		expect((host.scriptAt(second) as Listener).pokes).toEqual([3]);
+		expect(live<Listener>(first).pokes).toEqual([3]);
+		expect(live<Listener>(second).pokes).toEqual([3]);
 	});
 
 	it('sends to the scripts on one object and to nothing else', () => {
@@ -380,25 +454,25 @@ describe('events', () => {
 		const far = attach(host, scene, 'Listener', {}, there);
 
 		host.send(here, Poke as GameEvent<unknown>, { hard: 7 });
-		expect((host.scriptAt(near) as Listener).pokes).toEqual([7]);
-		expect((host.scriptAt(far) as Listener).pokes).toEqual([]);
+		expect(live<Listener>(near).pokes).toEqual([7]);
+		expect(live<Listener>(far).pokes).toEqual([]);
 	});
 
 	it('reaches a handler a subclass inherited, and one it added', () => {
 		const { host, scene } = running({ LoudListener });
-		const id = attach(host, scene, 'LoudListener');
+		const subject = attach(host, scene, 'LoudListener');
 		host.emit(Shout as GameEvent<unknown>, undefined);
-		const one = host.scriptAt(id) as LoudListener;
+		const one = live<LoudListener>(subject);
 		expect(one.shouts, 'inherited').toBe(1);
 		expect(one.echoes, 'its own').toBe(1);
 	});
 
 	it('stops delivering to a script that has been destroyed', () => {
 		const { host, scene } = running({ Listener });
-		const id = attach(host, scene, 'Listener');
-		const one = host.scriptAt(id) as Listener;
+		const subject = attach(host, scene, 'Listener');
+		const one = live<Listener>(subject);
 
-		host.destroy(id);
+		subject.object.destroy();
 		host.emit(Poke as GameEvent<unknown>, { hard: 1 });
 		// This test still holds the instance; nothing in the host does, which is
 		// the point.
@@ -413,11 +487,11 @@ describe('events', () => {
 	 */
 	it('does not double a handler across a hot reload', () => {
 		const { host, scene } = running({ Listener });
-		const id = attach(host, scene, 'Listener');
-		const before = host.scriptAt(id) as Listener;
+		const subject = attach(host, scene, 'Listener');
+		const before = live<Listener>(subject);
 
 		host.reload(staticScripts({ Listener }));
-		const after = host.scriptAt(id) as Listener;
+		const after = live<Listener>(subject);
 		expect(after, 'the reload rebuilt it').not.toBe(before);
 
 		host.emit(Poke as GameEvent<unknown>, { hard: 2 });
@@ -429,7 +503,7 @@ describe('events', () => {
 		const { host, scene } = running({ Listener, Shouter });
 		const heard = attach(host, scene, 'Listener');
 		attach(host, scene, 'Shouter');
-		expect((host.scriptAt(heard) as Listener).shouts).toBe(1);
+		expect(live<Listener>(heard).shouts).toBe(1);
 	});
 
 	it('mutes a handler that throws, and says which one', () => {
@@ -441,14 +515,16 @@ describe('events', () => {
 		expect(said.join('\n')).toMatch(/Angry on 'subject'\.poked threw on 'poke'/);
 	});
 
-	it('finds a live script by its class, anywhere or on one object', () => {
+	it('is found by its class, anywhere or on one object', () => {
 		const { host, scene } = running({ Listener });
 		const here = scene.spawn('here');
 		attach(host, scene, 'Listener', {}, here);
 
-		expect(host.instance(Listener)).toBeInstanceOf(Listener);
-		expect(host.instance(Listener, here)).toBeInstanceOf(Listener);
-		expect(host.instance(Listener, scene.spawn('elsewhere'))).toBeNull();
+		// Through the object model, which is where every other component is
+		// found. The host has no lookup of its own to keep in step.
+		expect(scene.getComponent(Listener)).toBeInstanceOf(Listener);
+		expect(here.getComponent(Listener)).toBeInstanceOf(Listener);
+		expect(scene.spawn('elsewhere').getComponent(Listener)).toBeNull();
 	});
 });
 
@@ -559,18 +635,18 @@ describe('the scripts this build ships', () => {
 		const hurt = attach(host, scene, 'Character', { hp: 6, faction: 'foe', power: 2 }, bat);
 
 		const registry = shaped<{ count: number }>(
-			host.instance(provider.resolve('CharacterRegistry') as never) as Script | null,
+			scene.getComponent(provider.resolve('CharacterRegistry') as never) as Script | null,
 		);
 		expect(registry.count, 'both characters joined the register').toBe(2);
 
 		// Facing the bat, which is straight down +Z from him.
 		host.emit({ name: 'swing' }, swingAt(0, 5));
-		expect(shaped<{ health: number }>(host.scriptAt(hurt)).health).toBe(1);
+		expect(shaped<{ health: number }>(hurt.script).health).toBe(1);
 		expect(said.join('\n')).toMatch(/took 5 from wanderer, 1 left/);
 
 		// And again, which finishes it and is announced.
 		host.emit({ name: 'swing' }, swingAt(0, 5));
-		expect(shaped<{ health: number }>(host.scriptAt(hurt)).health).toBe(0);
+		expect(shaped<{ health: number }>(hurt.script).health).toBe(0);
 	});
 
 	it('does not let a swing reach behind the swinger', () => {
@@ -584,8 +660,8 @@ describe('the scripts this build ships', () => {
 		const bat = scene.spawn('bat');
 		bat.transform.setPosition(0, 0, 1.5);
 		scene.solve();
-		const id = attach(host, scene, 'Character', { hp: 6, faction: 'foe' }, bat);
-		const hurt = shaped<{ health: number }>(host.scriptAt(id));
+		const subject = attach(host, scene, 'Character', { hp: 6, faction: 'foe' }, bat);
+		const hurt = shaped<{ health: number }>(subject.script);
 
 		// Facing the other way. The bat is behind him.
 		host.emit({ name: 'swing' }, swingAt(Math.PI, 5));
@@ -681,7 +757,7 @@ describe('the scripts this build ships', () => {
 			"import { Scene, Script } from '@hexdelve/engine';\n" +
 				'export class ProbeEngineReach extends Script {\n' +
 				'\toverride onLoad(): void {\n' +
-				'\t\tif (!(this.scene.raw instanceof Scene)) throw new Error("not a scene");\n' +
+				'\t\tif (!(this.scene instanceof Scene)) throw new Error("not a scene");\n' +
 				'\t}\n' +
 				'}\n',
 			'utf8',
@@ -701,6 +777,6 @@ describe('the scripts this build ships', () => {
 		// that this is true. Bundling the real package instead would give the
 		// scripts their own copy and every `instanceof` here would be false.
 		const spin = provider.resolve('Spin')!;
-		expect(new spin()).toBeInstanceOf(Script);
+		expect(new spin(new GameObject('probe'))).toBeInstanceOf(Script);
 	});
 });

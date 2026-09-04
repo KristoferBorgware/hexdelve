@@ -135,7 +135,8 @@ export interface PrefabScript {
  * Naming `script` here is the engine naming its own concept, not the engine
  * learning a game's vocabulary. `actor` and `item` are hexdelve's and the
  * engine has never heard of either; a SCRIPT is the engine's answer to how a
- * game object gets behaviour, and `ScriptComponent` is a few directories away.
+ * game object gets behaviour, and `Script` is a `Component` a few directories
+ * away.
  *
  * This comment used to claim the opposite, while the line below it hardcoded
  * the string twice. It was written when scripting was a package beside the

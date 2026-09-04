@@ -129,8 +129,8 @@ depth to [-1, 1] and WebGPU to [0, 1], and a projection built for the wrong one
 loses the near half of the scene; and `info`, because a user is entitled to
 know which backend they got.
 
-It also holds **scripting** — `Script`, `ScriptComponent`, the host that swaps
-a class underneath a running game, parameters and events. That was a package
+It also holds **scripting** — `Script`, which is a `Component` like any other,
+the host that swaps a class underneath a running game, parameters and events. That was a package
 of its own for a while, on the argument that the engine should not know what a
 script is. The argument does not survive contact: `actor` and `item` are the
 game's vocabulary and the engine has never heard of either, but a SCRIPT is the

@@ -18,7 +18,7 @@
  * point of having the tree in the first place.
  */
 
-import { GameObject } from './GameObject.js';
+import { GameObject, type Component } from './GameObject.js';
 
 export interface SceneOptions {
 	/** What the root is called. Only matters when something goes looking. */
@@ -45,6 +45,23 @@ export class Scene {
 	/** Every object in the scene, parents before children, the root first. */
 	all(): GameObject[] {
 		return [...this.root.walk()];
+	}
+
+	/**
+	 * The first component of this type anywhere in the scene, or null.
+	 *
+	 * How anything reaches a system: the systems are spawned once, before the
+	 * cast, so this is a singleton lookup that needs no singleton — there is one
+	 * because the prefab carrying it is instantiated once. Scripts are ordinary
+	 * components, so this finds them too.
+	 */
+	getComponent<T extends Component>(ctor: abstract new (...args: never[]) => T): T | null {
+		return this.root.getComponentInChildren(ctor);
+	}
+
+	/** Every component of this type in the scene, parents before children. */
+	getComponents<T extends Component>(ctor: abstract new (...args: never[]) => T): T[] {
+		return this.root.getComponentsInChildren(ctor);
 	}
 
 	/**

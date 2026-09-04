@@ -167,10 +167,42 @@ export class GameObject {
 		ctor: ComponentClass<T, A>,
 		...args: A
 	): T {
-		const component = new ctor(this, ...args);
+		return this.attachComponent(new ctor(this, ...args));
+	}
+
+	/**
+	 * Attach one that is already built.
+	 *
+	 * For a component whose construction is somebody else's business — a script,
+	 * whose class is found by name in a compiled bundle and whose parameters are
+	 * applied before it may run. `addComponent` is this with the construction
+	 * done here, which is what every component that can be built from its
+	 * arguments should use.
+	 */
+	attachComponent<T extends Component>(component: T): T {
 		this.componentList.push(component);
 		component.onAttach();
 		return component;
+	}
+
+	/**
+	 * Put one component where another is, keeping its place in the list.
+	 *
+	 * Order is not decoration: components update in it, and `getComponent`
+	 * answers with the first match. So a hot reload, which replaces a script
+	 * instance with a newly compiled one, swaps it IN PLACE rather than removing
+	 * and appending — otherwise every save would quietly reorder the object.
+	 *
+	 * The old one is detached and the new one attached, in that order, so the
+	 * pair sees the same list it would see for an ordinary remove and add.
+	 */
+	replaceComponent(existing: Component, next: Component): boolean {
+		const at = this.componentList.indexOf(existing);
+		if (at < 0) return false;
+		this.componentList[at] = next;
+		existing.onDetach();
+		next.onAttach();
+		return true;
 	}
 
 	/** The first component of this type, or null. */
@@ -198,6 +230,30 @@ export class GameObject {
 			if (found) return found;
 		}
 		return null;
+	}
+
+	/**
+	 * The first component of this type on this object or anywhere under it.
+	 *
+	 * Depth-first, parents before children, which is the order everything else
+	 * here walks in — so "the first" means the same thing as it does in
+	 * `update` and in `walk`.
+	 */
+	getComponentInChildren<T extends Component>(
+		ctor: abstract new (...args: never[]) => T,
+	): T | null {
+		for (const object of this.walk()) {
+			const found = object.getComponent(ctor);
+			if (found) return found;
+		}
+		return null;
+	}
+
+	/** Every component of this type on this object and everything under it. */
+	getComponentsInChildren<T extends Component>(ctor: abstract new (...args: never[]) => T): T[] {
+		const found: T[] = [];
+		for (const object of this.walk()) found.push(...object.getComponents(ctor));
+		return found;
 	}
 
 	/** Detach one component, firing its `onDetach`. */

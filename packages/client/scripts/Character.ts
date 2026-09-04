@@ -61,11 +61,10 @@ export class Character extends Script {
 
 	/** Where a blow has to reach to connect with it. */
 	get where(): Point {
-		return {
-			x: this.transform.worldX,
-			y: this.transform.worldY + this.lift,
-			z: this.transform.worldZ,
-		};
+		// Where the last solve put it, which is the object's own `world` — the
+		// local transform is where it is relative to whatever carries it.
+		const at = this.object.world.position;
+		return { x: at[0], y: at[1] + this.lift, z: at[2] };
 	}
 
 	override onLoad(): void {
@@ -99,6 +98,6 @@ export class Character extends Script {
 	 * the editor's character view depend on the whole game being present.
 	 */
 	private get registry(): CharacterRegistry | null {
-		return this.scene.script(CharacterRegistry);
+		return this.scene.getComponent(CharacterRegistry);
 	}
 }
