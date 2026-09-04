@@ -199,6 +199,29 @@ export class Node {
 		return this.present ? this.vec3() : fallback;
 	}
 
+	/**
+	 * Every key except the ones named, as plain values.
+	 *
+	 * The escape hatch for a record whose shape is not this reader's to know.
+	 * A script component's fields belong to the script it names — the reader
+	 * has never heard of `speed`, and checking it against the class that
+	 * declared it is the host's job, done by name and with a list of what the
+	 * script does have. Everywhere else, `only` is the right tool and this is
+	 * the wrong one.
+	 */
+	rest(...except: readonly string[]): Record<string, unknown> {
+		const out: Record<string, unknown> = {};
+		for (const [key, child] of this.entriesOrEmpty()) {
+			if (!except.includes(key)) out[key] = child.raw();
+		}
+		return out;
+	}
+
+	/** This node's value, as the file wrote it. */
+	raw(): unknown {
+		return this.value;
+	}
+
 	/** A map of name to number — a blend mask, a palette, a set of metrics. */
 	numbers(): Record<string, number> {
 		const out: Record<string, number> = {};

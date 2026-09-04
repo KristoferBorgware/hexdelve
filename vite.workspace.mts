@@ -34,5 +34,6 @@ const packages = resolve(import.meta.dirname, 'packages');
 export const workspaceAliases: Alias[] = [
 	{ find: /^@hexdelve\/shared$/, replacement: resolve(packages, 'shared/src/index.ts') },
 	{ find: /^@hexdelve\/engine$/, replacement: resolve(packages, 'engine/src/index.ts') },
+	{ find: /^@hexdelve\/scripting$/, replacement: resolve(packages, 'scripting/src/index.ts') },
 	{ find: /^@hexdelve\/client$/, replacement: resolve(packages, 'client/src/index.ts') },
 ];

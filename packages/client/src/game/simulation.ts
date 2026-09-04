@@ -27,6 +27,9 @@
  * while anything else is moving.
  */
 
+import { ScriptHost, staticScripts, type ScriptProvider } from '@hexdelve/scripting';
+
+import { scripts } from '../scripts/index.js';
 import {
 	HEX_FLAG_UNLIT,
 	HexInstances,
@@ -47,7 +50,7 @@ import {
 
 import { buildWorld, type World } from '../scene/world.js';
 import { clipOf, type Cast } from './cast.js';
-import { components } from './components.js';
+import { components, type SpawnExtras } from './components.js';
 import { spawnEntity } from './spawn.js';
 import { BatHunt, LOSE_RANGE, WAKE_RANGE } from './bathunt.js';
 import { Item } from './items.js';
@@ -103,6 +106,14 @@ export interface SimulationOptions {
 	 * into the scene ahead of the cast rather than beside it.
 	 */
 	systems?: readonly SystemAsset[];
+	/**
+	 * Where the scripts come from.
+	 *
+	 * A table built at build time, by default — the client ships its scripts
+	 * and cannot reload them. The editor hands in one that compiles instead,
+	 * which is the whole of the difference between the two.
+	 */
+	scripts?: ScriptProvider;
 	seed?: number;
 	toggles?: Partial<SimulationToggles>;
 	/** The man's place in the energy table. Normal unless you want to see haste. */
@@ -274,6 +285,9 @@ export class Simulation {
 	 */
 	readonly systems: GameObject;
 
+	/** What runs the behaviour that lives in `scripts/`. */
+	readonly scripts: ScriptHost;
+
 	/** Hip height at rest, which is also where the camera looks. */
 	private readonly hipHeight: number;
 
@@ -311,11 +325,19 @@ export class Simulation {
 		const { cast } = options;
 		this.scene = new Scene({ name: 'yard' });
 
+		/*
+		 * The script host, before anything that could carry a script is
+		 * spawned. It is handed a provider rather than finding one: which
+		 * classes exist is a question about the build, not about the game.
+		 */
+		this.scripts = new ScriptHost(options.scripts ?? staticScripts(scripts));
+
 		this.systems = this.scene.spawn('systems');
 		for (const system of options.systems ?? []) {
 			instantiate(system.prefab, this.scene, components, {
 				parent: this.systems,
 				file: `${system.id}.system.yaml`,
+				extras: { scripts: { host: this.scripts, scene: this.scene } },
 			});
 		}
 
@@ -327,7 +349,7 @@ export class Simulation {
 		 * that they now come out of the same file the same way.
 		 */
 		this.items = cast.props.map((prop) => {
-			const object = spawnEntity(prop, this.scene);
+			const object = spawnEntity(prop, this.scene, { extras: this.scriptExtras() });
 			const item = object.getComponent(Item);
 			if (!item) throw new Error(`'${prop.id}' has no item component to lie in the grass`);
 			return item;
@@ -361,7 +383,7 @@ export class Simulation {
 		const swordTip = sword?.mesh.anchors.tip?.at;
 		if (!swordTip) throw new Error(`the yard's sword has no 'tip' anchor to measure a reach from`);
 
-		this.player = spawnEntity(cast.player, this.scene, 'player').addComponent(
+		this.player = spawnEntity(cast.player, this.scene, { name: 'player', extras: this.scriptExtras() }).addComponent(
 			Player,
 			{
 				rig: cast.player.rig!,
@@ -387,7 +409,7 @@ export class Simulation {
 			},
 		);
 
-		this.bat = spawnEntity(cast.enemy, this.scene, 'bat').addComponent(
+		this.bat = spawnEntity(cast.enemy, this.scene, { name: 'bat', extras: this.scriptExtras() }).addComponent(
 			BatHunt,
 			{
 				rig: cast.enemy.rig!,
@@ -475,6 +497,11 @@ export class Simulation {
 		}
 	}
 
+	/** What a spawn needs in order to be able to build a script component. */
+	private scriptExtras(): Pick<SpawnExtras, 'scripts'> {
+		return { scripts: { host: this.scripts, scene: this.scene } };
+	}
+
 	update(dt: number, input: FrameInput): void {
 		this.elapsed += dt;
 
@@ -501,6 +528,18 @@ export class Simulation {
 
 		this.motes.update(dt);
 		this.resolveTurns();
+
+		/*
+		 * Every component on the scene, which today means every script.
+		 *
+		 * It runs after the turns are resolved and before the actors draw
+		 * themselves, which is the order the rest of this method already
+		 * follows: what a script decides this frame is part of the game, and
+		 * what the actors do with it is the picture. The bodies' own step is
+		 * `advance` rather than `update` for exactly this reason — it needs the
+		 * elapsed clock and it belongs below, not here.
+		 */
+		this.scene.update(dt);
 
 		this.player.advance(dt, this.elapsed);
 		if (this.toggles.ik) this.player.applyFootIK();

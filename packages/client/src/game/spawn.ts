@@ -26,10 +26,10 @@ import { components, type SpawnExtras } from './components.js';
 export function spawnEntity(
 	entity: EntityAsset,
 	scene: Scene,
-	name?: string,
-	parent?: GameObject,
+	options: { name?: string; parent?: GameObject; extras?: Omit<SpawnExtras, 'entity'> } = {},
 ): GameObject {
-	const extras: SpawnExtras = { entity };
+	const { name, parent } = options;
+	const extras: SpawnExtras = { ...options.extras, entity };
 	return instantiate(entity.prefab, scene, components, {
 		extras,
 		file: `${entity.id}.entity.yaml`,

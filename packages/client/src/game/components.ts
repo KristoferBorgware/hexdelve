@@ -15,13 +15,20 @@
  * a mesh, and an `item` on a helmet is the helmet's mesh by definition rather
  * than by a path repeated inside its own file.
  *
- * ## What is not here yet
+ * ## The three of them
  *
- * `script`. That is phase three, and it is the one that matters: a script
- * component points at a TypeScript file and everything the game actually
- * DECIDES moves into those. `actor` and `item` below are the two that are
- * pure description — a body, and a thing lying in the grass — and they are here
- * first because they need nothing that does not exist.
+ * `actor` and `item` are pure description — a body, and a thing lying in the
+ * grass. `script` is the one that matters: it names a class in the client's
+ * `scripts/` directory and hands it the record's other fields as parameters, so
+ * everything the game DECIDES can move into a file that can be edited without
+ * rebuilding anything.
+ *
+ *     - { type: script, script: Spin, speed: 2 }
+ *
+ * Every field beyond `type` and `script` is a parameter, which is why this one
+ * does not call `only`: the record's shape belongs to the script it names, and
+ * a script that does not declare `speed` says so through the host rather than
+ * through the reader.
  */
 
 import {
@@ -29,7 +36,10 @@ import {
 	ComponentRegistry,
 	type ComponentContext,
 	type EntityAsset,
+	type Scene,
 } from '@hexdelve/engine';
+
+import { ScriptComponent, type ScriptHost } from '@hexdelve/scripting';
 
 import { Actor } from './actor.js';
 import { Item } from './items.js';
@@ -43,13 +53,34 @@ import { Item } from './items.js';
  * scripts, through the systems the scripts talk to.
  */
 export interface SpawnExtras {
-	readonly entity: EntityAsset;
+	/**
+	 * What is being spawned, where a component's defaults come from.
+	 *
+	 * Absent for a system prefab, which is not an entity — it has no rig, no
+	 * mesh and nothing to draw, so a factory that needs one says so by name.
+	 */
+	readonly entity?: EntityAsset;
+	/**
+	 * What runs the scripts, and the scene they reach things through.
+	 *
+	 * Absent when nothing is spawning scripts — a bench previewing a body has
+	 * no use for a script host, and a prefab that names one there should say so
+	 * rather than quietly do nothing.
+	 */
+	readonly scripts?: { readonly host: ScriptHost; readonly scene: Scene };
 }
 
 function extrasOf(context: ComponentContext): SpawnExtras {
-	const extras = context.extras as SpawnExtras | undefined;
-	if (!extras?.entity) throw new Error('spawned without an entity to read defaults from');
-	return extras;
+	return (context.extras as SpawnExtras | undefined) ?? {};
+}
+
+/** The entity being spawned, for a component that is a fact about one. */
+function entityOf(context: ComponentContext): EntityAsset {
+	const { entity } = extrasOf(context);
+	if (!entity) {
+		throw new Error('this is not an entity, and only an entity has a rig or a mesh to read');
+	}
+	return entity;
 }
 
 /**
@@ -61,7 +92,7 @@ function extrasOf(context: ComponentContext): SpawnExtras {
  * could put a bat's body on a man's bones.
  */
 function actorFactory(context: ComponentContext): void {
-	const { entity } = extrasOf(context);
+	const entity = entityOf(context);
 	const rig = entity.rig;
 	if (!rig) throw new Error(`'${entity.id}' is a ${entity.kind} and has no rig to be an actor on`);
 
@@ -84,7 +115,7 @@ function actorFactory(context: ComponentContext): void {
  * no second place to say how a helmet lies.
  */
 function itemFactory(context: ComponentContext): void {
-	const { entity } = extrasOf(context);
+	const entity = entityOf(context);
 	context.fields.only('type', 'label');
 
 	context.object.addComponent(Item, {
@@ -97,6 +128,29 @@ function itemFactory(context: ComponentContext): void {
 }
 
 /**
+ * A behaviour, by the name its file exports it under.
+ *
+ * The parameters are every other field in the record. They are read as raw
+ * values rather than through the `Node` helpers, because a script's fields are
+ * the script's to describe — the host checks them against what the class
+ * declared and names the ones it does not know.
+ */
+function scriptFactory(context: ComponentContext): void {
+	const { scripts } = extrasOf(context);
+	if (!scripts) {
+		throw new Error('nothing here runs scripts, and this prefab asks for one');
+	}
+
+	const name = context.fields.need('script').text();
+	context.object.addComponent(ScriptComponent, {
+		host: scripts.host,
+		scene: scripts.scene,
+		script: name,
+		parameters: context.fields.rest('type', 'script'),
+	});
+}
+
+/**
  * Everything this package can build from a prefab.
  *
  * One registry, exported rather than constructed per caller, for the reason the
@@ -105,4 +159,5 @@ function itemFactory(context: ComponentContext): void {
  */
 export const components = new ComponentRegistry()
 	.register('actor', actorFactory)
-	.register('item', itemFactory);
+	.register('item', itemFactory)
+	.register('script', scriptFactory);

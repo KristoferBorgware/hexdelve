@@ -14,13 +14,14 @@
 	"workspaces": [
 		"packages/shared",
 		"packages/engine",
+		"packages/scripting",
 		"packages/client",
 		"packages/editor",
 		"packages/desktop"
 	],
 	"scripts": {
 		"build": "npm run build:libs && npm run build:client && npm run build:editor",
-		"build:libs": "tsc -b packages/shared packages/engine packages/client packages/desktop",
+		"build:libs": "tsc -b packages/shared packages/engine packages/scripting packages/client packages/desktop",
 		"build:client": "npm run build -w @hexdelve/client",
 		"build:editor": "npm run build -w @hexdelve/editor",
 		"build:desktop": "npm run build -w @hexdelve/desktop",
@@ -30,7 +31,7 @@
 		"dev:editor": "npm run dev -w @hexdelve/editor",
 		"dev:desktop": "npm run dev -w @hexdelve/desktop",
 		"index": "node tools/build-index.js",
-		"typecheck": "tsc -b packages/shared packages/engine packages/client packages/editor packages/desktop && tsc -p tsconfig.tools.json",
+		"typecheck": "tsc -b packages/shared packages/engine packages/scripting packages/client packages/editor packages/desktop && tsc -p tsconfig.tools.json",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"clean": "node tools/clean.js"
