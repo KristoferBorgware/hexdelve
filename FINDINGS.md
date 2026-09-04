@@ -286,75 +286,6 @@ Neither changes what is built today; both stop it from depending on the order
 somebody wrote a script in.
 
 
-### F-014 — `packages/client/dist-scripts` is committed output from an arrangement that no longer exists
-
-**Kind:** cleanup
-**Milestone:** unscheduled
-**Priority:** low
-**Effort:** small
-**Found:** 2026-09-04, looking for everything that reads the script directory before pointing an editor at it
-**Where:** `packages/client/dist-scripts/`
-
-**What happens.** Eight generated files — `Spin.js`, `index.js`, their
-declarations and four source maps — are tracked in git. They were emitted when
-the scripts lived at `packages/client/src/scripts` and were compiled into the
-client's own build. That arrangement is gone: the scripts moved to
-`packages/client/scripts`, `tools/build-scripts.mjs` compiles them into one
-bundle the client fetches, and nothing emits into `dist-scripts` any more.
-
-They survive because `.gitignore` ignores `dist/`, which matches a directory
-called exactly `dist` and not one called `dist-scripts`.
-
-The contents are stale in a way that is worth naming: `index.js` describes a
-table of scripts checked by `test/scripts.test.ts`, and there is no such test.
-
-**Why it matters.** Nobody yet — nothing reads them. It costs whoever greps the
-repository for a script name and finds two answers, one of them describing a
-build step and a test that no longer exist. Generated files that nothing
-generates are worse than generated files, because there is no way to tell from
-looking whether they are current.
-
-**What would fix it.** Delete the directory, and add `dist-scripts/` to
-`.gitignore` beside `dist-app/` and `dist-lib/` so a stray rebuild of the old
-shape does not put it back.
-
-
-### F-015 — A system prefab sets a script parameter that was renamed
-
-**Kind:** bug
-**Milestone:** scripting
-**Priority:** medium
-**Effort:** small
-**Found:** 2026-09-04, reading the console while checking that a compile reaches the running world
-**Where:** `public/assets/systems/game.system.yaml` line 34, `arcPad` in `packages/client/scripts/Combat.ts`
-
-**What happens.** The system prefab spawns the combat rule with
-`{ type: script, script: Combat, spread: 1 }`. `Combat` has no `spread`; the
-parameter is called `arcPad` and defaults to 0.35. The host does the right
-thing with what it is given — it warns, names the parameter it does have, and
-carries on — so every page load of the client and the editor logs
-
-> `[script] Combat on 'combat' has no parameter 'spread'; it has arcPad`
-
-once per script host, and the rule runs on 0.35 rather than on the 1 the file
-asks for.
-
-**Why it matters.** The number is the slack allowed on a swept arc: how far
-outside the swing a target can stand and still be hit. The file says one thing
-and the game does another, and nothing fails — which is the whole problem, since
-the next person to tune the arc will tune a value that is already being ignored
-and wonder why the feel does not change.
-
-It is also a standing warning in a console that should be quiet, and a warning
-nobody acts on is a console nobody reads.
-
-**What would fix it.** Decide which name and which number are wanted, then make
-the two agree: rename `spread` to `arcPad` in the prefab, or drop the line if
-0.35 is right. A test would stop it coming back — the prefab reader already
-knows every parameter a script declares, so a check that every `type: script`
-entry in `public/assets` names only parameters its class has would cover the
-whole tree in one assertion, and `test/prefab.test.ts` is where it belongs.
-
 ---
 
 ## Closed
@@ -572,3 +503,75 @@ already a component that takes a canvas and a backend, and the host it hands
 back is the one `watchScripts` wants; what is missing is a layout that gives
 half the pane to each, and a decision about whether that world is the yard or a
 bench.
+
+### F-014 — `packages/client/dist-scripts` is committed output from an arrangement that no longer exists
+
+**Kind:** cleanup
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-04, looking for everything that reads the script directory before pointing an editor at it
+**Where:** `packages/client/dist-scripts/`
+**Closed:** 2026-09-04, fixed — the directory is deleted and `dist-scripts/`
+is in .gitignore
+
+**What happens.** Eight generated files — `Spin.js`, `index.js`, their
+declarations and four source maps — are tracked in git. They were emitted when
+the scripts lived at `packages/client/src/scripts` and were compiled into the
+client's own build. That arrangement is gone: the scripts moved to
+`packages/client/scripts`, `tools/build-scripts.mjs` compiles them into one
+bundle the client fetches, and nothing emits into `dist-scripts` any more.
+
+They survive because `.gitignore` ignores `dist/`, which matches a directory
+called exactly `dist` and not one called `dist-scripts`.
+
+The contents are stale in a way that is worth naming: `index.js` describes a
+table of scripts checked by `test/scripts.test.ts`, and there is no such test.
+
+**Why it matters.** Nobody yet — nothing reads them. It costs whoever greps the
+repository for a script name and finds two answers, one of them describing a
+build step and a test that no longer exist. Generated files that nothing
+generates are worse than generated files, because there is no way to tell from
+looking whether they are current.
+
+**What would fix it.** Delete the directory, and add `dist-scripts/` to
+`.gitignore` beside `dist-app/` and `dist-lib/` so a stray rebuild of the old
+shape does not put it back.
+
+### F-015 — A system prefab sets a script parameter that was renamed
+
+**Kind:** bug
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, reading the console while checking that a compile reaches the running world
+**Where:** `public/assets/systems/game.system.yaml` line 34, `arcPad` in `packages/client/scripts/Combat.ts`
+**Closed:** 2026-09-04, fixed — the prefab no longer sets it, and what the
+script declares is the value the game was tuned at
+
+**What happens.** The system prefab spawns the combat rule with
+`{ type: script, script: Combat, spread: 1 }`. `Combat` has no `spread`; the
+parameter is called `arcPad` and defaults to 0.35. The host does the right
+thing with what it is given — it warns, names the parameter it does have, and
+carries on — so every page load of the client and the editor logs
+
+> `[script] Combat on 'combat' has no parameter 'spread'; it has arcPad`
+
+once per script host, and the rule runs on 0.35 rather than on the 1 the file
+asks for.
+
+**Why it matters.** The number is the slack allowed on a swept arc: how far
+outside the swing a target can stand and still be hit. The file says one thing
+and the game does another, and nothing fails — which is the whole problem, since
+the next person to tune the arc will tune a value that is already being ignored
+and wonder why the feel does not change.
+
+It is also a standing warning in a console that should be quiet, and a warning
+nobody acts on is a console nobody reads.
+
+**What would fix it.** Decide which name and which number are wanted, then make
+the two agree: rename `spread` to `arcPad` in the prefab, or drop the line if
+0.35 is right. A test would stop it coming back — the prefab reader already
+knows every parameter a script declares, so a check that every `type: script`
+entry in `public/assets` names only parameters its class has would cover the
+whole tree in one assertion, and `test/prefab.test.ts` is where it belongs.

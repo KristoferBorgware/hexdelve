@@ -34,6 +34,7 @@
 		"dev:editor": "npm run dev -w @hexdelve/editor",
 		"dev:desktop": "npm run dev -w @hexdelve/desktop",
 		"dev:editor-desktop": "npm run dev -w @hexdelve/editor-desktop",
+		"editor": "node tools/run-editor.js",
 		"index": "node tools/build-index.js",
 		"typecheck": "tsc -b packages/shared packages/engine packages/scripting packages/client packages/editor packages/desktop packages/editor-desktop && tsc -p packages/client/scripts/tsconfig.json && tsc -p tsconfig.tools.json",
 		"test": "vitest run",
