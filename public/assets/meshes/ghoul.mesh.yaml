@@ -171,9 +171,10 @@ parts:
 
   # Arms: a strut along each bone, thin as the bone itself, a knob of bone at
   # the shoulder, the elbow and the wrist, a tendon down the forearm, and the
-  # bone bare along the upper arm. The hand is a narrow palm and four
-  # jointed fingers, each a short strut with a long claw off the end, and a
-  # thumb claw off the side.
+  # bone bare along the upper arm. The hand is a narrow palm turned to face
+  # the body, as a hanging hand's does, with four jointed fingers spread
+  # across it front to back — each a short strut with a long claw off the
+  # end, curling in towards the palm — and a thumb ahead of them.
   - sides: [L, R]
     mirror: true
     parts:
@@ -184,18 +185,18 @@ parts:
       - { bone: 'forearm*', from: [0, 0, 0], to: { bone: 'hand*' }, radius: 0.024, color: skin }
       - { bone: 'forearm*', at: [0, -0.15, 0.02], size: [0.012, 0.22, 0.01], color: skinDark }
       - { bone: 'hand*', at: [0, 0, 0], size: [0.028, 0.035, 0.024], color: bone }
-      - { bone: 'hand*', at: [0, -0.045, 0.005], size: [0.035, 0.07, 0.022], color: skin }
-      - { bone: 'hand*', at: [0, -0.085, 0.01], size: [0.038, 0.02, 0.02], color: skinDark }
-      - { bone: 'hand*', from: [-0.03, -0.09, 0.01], along: [-0.35, -1, 0.15], length: 0.06, radius: 0.01, color: skinDark }
-      - { bone: 'hand*', from: [-0.051, -0.15, 0.019], along: [-0.35, -0.8, 0.6], length: 0.08, radius: 0.008, color: claw }
-      - { bone: 'hand*', from: [-0.01, -0.09, 0.01], along: [-0.12, -1, 0.15], length: 0.065, radius: 0.01, color: skinDark }
-      - { bone: 'hand*', from: [-0.018, -0.155, 0.02], along: [-0.12, -0.8, 0.6], length: 0.09, radius: 0.008, color: claw }
-      - { bone: 'hand*', from: [0.01, -0.09, 0.01], along: [0.12, -1, 0.15], length: 0.065, radius: 0.01, color: skinDark }
-      - { bone: 'hand*', from: [0.018, -0.155, 0.02], along: [0.12, -0.8, 0.6], length: 0.09, radius: 0.008, color: claw }
-      - { bone: 'hand*', from: [0.03, -0.09, 0.01], along: [0.35, -1, 0.15], length: 0.06, radius: 0.01, color: skinDark }
-      - { bone: 'hand*', from: [0.051, -0.15, 0.019], along: [0.35, -0.8, 0.6], length: 0.08, radius: 0.008, color: claw }
-      - { bone: 'hand*', from: [0.03, -0.04, 0.015], along: [0.8, -0.6, 0.5], length: 0.05, radius: 0.009, color: skinDark }
-      - { bone: 'hand*', from: [0.07, -0.07, 0.04], along: [0.5, -0.6, 0.8], length: 0.06, radius: 0.007, color: claw }
+      - { bone: 'hand*', at: [0, -0.045, 0.005], size: [0.02, 0.07, 0.038], color: skin }
+      - { bone: 'hand*', at: [-0.004, -0.085, 0.005], size: [0.018, 0.02, 0.04], color: skinDark }
+      - { bone: 'hand*', from: [0, -0.09, -0.03], along: [-0.15, -1, -0.3], length: 0.06, radius: 0.01, color: skinDark }
+      - { bone: 'hand*', from: [-0.009, -0.15, -0.048], along: [-0.7, -0.7, -0.2], length: 0.08, radius: 0.008, color: claw }
+      - { bone: 'hand*', from: [0, -0.09, -0.01], along: [-0.15, -1, -0.1], length: 0.065, radius: 0.01, color: skinDark }
+      - { bone: 'hand*', from: [-0.01, -0.155, -0.017], along: [-0.7, -0.7, -0.05], length: 0.09, radius: 0.008, color: claw }
+      - { bone: 'hand*', from: [0, -0.09, 0.01], along: [-0.15, -1, 0.1], length: 0.065, radius: 0.01, color: skinDark }
+      - { bone: 'hand*', from: [-0.01, -0.155, 0.017], along: [-0.7, -0.7, 0.05], length: 0.09, radius: 0.008, color: claw }
+      - { bone: 'hand*', from: [0, -0.09, 0.03], along: [-0.15, -1, 0.3], length: 0.06, radius: 0.01, color: skinDark }
+      - { bone: 'hand*', from: [-0.009, -0.15, 0.048], along: [-0.7, -0.7, 0.2], length: 0.08, radius: 0.008, color: claw }
+      - { bone: 'hand*', from: [-0.015, -0.04, 0.03], along: [-0.5, -0.6, 0.8], length: 0.05, radius: 0.009, color: skinDark }
+      - { bone: 'hand*', from: [-0.04, -0.07, 0.07], along: [-0.8, -0.6, 0.3], length: 0.06, radius: 0.007, color: claw }
 
   # Legs: the same again. A strut along the thigh with a wasted muscle laid
   # beside it and the femur bare on the outside, a knob at the knee, a strut

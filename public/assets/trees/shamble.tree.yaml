@@ -1,11 +1,11 @@
-# The ghoul's locomotion tree: one axis, from the hunched stand to the
-# shamble.
+# The ghoul's locomotion tree: one axis, from the hunched stand through the
+# shamble to the scramble on all fours.
 #
 # The plain case beside the humanoid's locomotion tree: a single blend1d over
-# two leaves, because a ghoul has no run to blend towards and no guard or
-# lean to lay over the gait. The threshold on the axis is measured off the
-# shamble's own feet, as the wanderer's are, and the axis is calibrated the
-# same way, so the slider is in true metres per second.
+# three leaves, because a ghoul has no guard or lean to lay over its gait.
+# The thresholds on the axis are measured off each gait's own feet, as the
+# wanderer's are, and the axis is calibrated the same way, so the slider is
+# in true metres per second.
 #
 # It refers to its leaves by NAME, not by path. The entity file says what
 # `walk` is.
@@ -20,7 +20,7 @@ parameters:
     label: Speed
     unit: m/s
     min: 0
-    max: { speedOf: walk }
+    max: { speedOf: run }
     step: 0.01
     initial: { speedOf: walk }
     calibrated: true
@@ -33,3 +33,4 @@ root:
     entries:
       - { at: 0, node: { leaf: idle } }
       - { at: { speedOf: walk }, node: { leaf: walk } }
+      - { at: { speedOf: run }, node: { leaf: run } }

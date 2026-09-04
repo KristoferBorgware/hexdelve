@@ -51,6 +51,9 @@ import {
 	direRunPose,
 	flyPose,
 	GHOUL_CHAIN,
+	SCRAMBLE_CONTACTS,
+	SCRAMBLE_PERIOD,
+	scramblePose,
 	SHAMBLE_CONTACTS,
 	SHAMBLE_PERIOD,
 	shamblePose,
@@ -197,7 +200,7 @@ describe('entities', () => {
 		expect(ghoul.mesh).not.toBe(wanderer.mesh);
 		// Its gait and its strike are its own: none of the wanderer's clips,
 		// and a tree over its own two states.
-		expect([...ghoul.animations.keys()]).toEqual(['idle', 'walk', 'leap']);
+		expect([...ghoul.animations.keys()]).toEqual(['idle', 'walk', 'run', 'leap']);
 		expect(ghoul.animations.get('walk')!.clip).toBeNull();
 		expect(ghoul.animations.get('leap')!.clip).not.toBeNull();
 		expect([...ghoul.blendTrees.keys()]).toEqual(['locomotion']);
@@ -433,10 +436,17 @@ describe('the pose functions still agree with the rigs', () => {
 			return [bone.offset[1], bone.offset[2]];
 		};
 		expect(GHOUL_CHAIN.hipHeight).toBeCloseTo(rig.metrics.hipHeight!, 12);
+		const hipL = rig.skeleton.find((candidate) => candidate.name === 'hipL')!;
+		expect(GHOUL_CHAIN.hipWidth).toBeCloseTo(hipL.offset[0], 12);
 		for (const [copy, bone] of [
 			[GHOUL_CHAIN.hip, 'hipL'],
 			[GHOUL_CHAIN.thigh, 'shinL'],
 			[GHOUL_CHAIN.shin, 'footL'],
+			[GHOUL_CHAIN.spine, 'spine'],
+			[GHOUL_CHAIN.chest, 'chest'],
+			[GHOUL_CHAIN.shoulder, 'armL'],
+			[GHOUL_CHAIN.upperArm, 'forearmL'],
+			[GHOUL_CHAIN.forearm, 'handL'],
 		] as const) {
 			expect(copy[0], bone).toBeCloseTo(offset(bone)[0], 12);
 			expect(copy[1], bone).toBeCloseTo(offset(bone)[1], 12);
@@ -464,6 +474,36 @@ describe('the pose functions still agree with the rigs', () => {
 		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
 		// Every bone it writes is one the rig has.
 		for (const posed of [shamblePose(0.7, 1, 0.3, {}), shamblePose(0, 0, 2, {})]) {
+			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
+	});
+
+	it('the scramble keeps every planted foot and hand on the ground, and outruns the shamble', async () => {
+		const rig = await readRig('humanoid');
+		// Diagonal pairs: the left foot with the right hand, half a cycle from
+		// the right foot with the left hand.
+		const limbs = [
+			{ bone: 'footL', offset: 0, low: 0.07, high: 0.11 },
+			{ bone: 'footR', offset: Math.PI, low: 0.07, high: 0.11 },
+			{ bone: 'handR', offset: 0, low: 0.03, high: 0.07 },
+			{ bone: 'handL', offset: Math.PI, low: 0.03, high: 0.07 },
+		];
+		for (const { bone, offset, low, high } of limbs) {
+			for (let i = 0; i <= 10; i++) {
+				const own = Math.PI / 2 + (Math.PI * i) / 10;
+				const world = solveWorld(rig.skeleton, scramblePose(own - offset, 1, 0, {}));
+				expect(world[bone]!.p[1], `${bone} at ${i}/10 of its stance`).toBeGreaterThan(low);
+				expect(world[bone]!.p[1], `${bone} at ${i}/10 of its stance`).toBeLessThan(high);
+			}
+		}
+		const ghoul = await entity('ghoul');
+		const run = ghoul.animations.get('run')!;
+		const walk = ghoul.animations.get('walk')!;
+		expect(run.duration).toBeCloseTo(SCRAMBLE_PERIOD, 12);
+		expect(run.contacts).toEqual(SCRAMBLE_CONTACTS);
+		expect(run.speed()!.z).toBeGreaterThan(walk.speed()!.z);
+		expect(Math.abs(run.speed()!.x)).toBeLessThan(0.05);
+		for (const posed of [scramblePose(0.7, 1, 0.3, {}), scramblePose(0, 0, 2, {})]) {
 			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
 		}
 	});

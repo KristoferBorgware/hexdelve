@@ -3,9 +3,9 @@
 # The same seventeen bones as the wanderer under a different body — a mesh is
 # the only file a second body on the same rig needs — and none of the
 # wanderer's animations. A man walks upright; a ghoul goes hunched, on legs
-# that never straighten, and it does not cut with a sword, it leaps with its
-# claws. So its gait is its own pose function, its strike is its own clip, and
-# its tree blends the two states it has rather than the four a man has. What
+# that never straighten, drops onto all fours to run, and does not cut with a
+# sword, it leaps with its claws. So its gaits are its own pose functions, its
+# strike is its own clip, and its tree blends the three states it has. What
 # the shared rig still buys is everything downstream of the pose: the visible
 # skeleton, the IK, the hit tests and the bench read it with nothing added.
 
@@ -18,11 +18,13 @@ rig: ../rigs/humanoid.rig.yaml
 mesh: ../meshes/ghoul.mesh.yaml
 
 animations:
-  # The gait is one function at two settings: `amp` is the throttle between
+  # The walk is one function at two settings: `amp` is the throttle between
   # the hunched stand and a full shamble. Standing, it sways, breathes and
-  # twitches, and the duration is one breath.
+  # twitches, and the duration is one breath. The run is its own function,
+  # because on all fours the arms are legs.
   idle: { procedural: ghoulShamble, label: Idle, args: { amp: 0 }, duration: tau / 1.7 }
   walk: { procedural: ghoulShamble, label: Walk, args: { amp: 1 }, sync: true }
+  run: { procedural: ghoulScramble, label: Run, args: { amp: 1 }, sync: true }
   # And the keyframed half: the pounce.
   leap: ../clips/leap.clip.yaml
 
