@@ -10,5 +10,5 @@
 		"types": []
 	},
 	"include": ["src/**/*.ts", "src/**/*.tsx"],
-	"references": [{ "path": "../shared" }, { "path": "../engine" }, { "path": "../client" }]
+	"references": [{ "path": "../shared" }, { "path": "../engine" }, { "path": "../scripting" }, { "path": "../client" }]
 }
