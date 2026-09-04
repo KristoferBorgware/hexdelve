@@ -60,6 +60,24 @@
  * and everything else adopts whatever the new code says.
  */
 
+/**
+ * A literal widened back to its kind.
+ *
+ * `param('foe')` infers `T` as the literal type `'foe'`, and a field typed
+ * `'foe'` is worse than useless: the entity file sets the wanderer's to
+ * `player`, so the type would forbid a value the game actually produces, and
+ * `this.faction === 'player'` would not compile. A parameter's type is its
+ * KIND — a number, a flag, a string — because its whole purpose is that
+ * somebody else supplies the value.
+ */
+export type Widen<T> = T extends number
+	? number
+	: T extends boolean
+		? boolean
+		: T extends string
+			? string
+			: never;
+
 /** What kind of field this is, inferred from what it was initialised to. */
 export type ParameterType = 'number' | 'boolean' | 'string';
 
@@ -113,8 +131,8 @@ const cached = new WeakMap<object, ParameterMeta[]>();
 export function param<T extends number | boolean | string>(
 	value: T,
 	options: ParameterOptions = {},
-): T {
-	return new Marker(value, options) as unknown as T;
+): Widen<T> {
+	return new Marker(value, options) as unknown as Widen<T>;
 }
 
 /**

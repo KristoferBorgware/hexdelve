@@ -546,16 +546,44 @@ For a question rather than an announcement, `scene.script(CharacterRegistry)`
 and `object.script(Character)` hand back the live instance: an event is
 fire-and-forget and cannot return anything.
 
-The swing in the yard is the shape this exists for.
+The swing in the yard is the shape this exists for, and it is what actually
+runs — `test/combat.test.ts` drives the real simulation through it.
 
 | | |
 |---|---|
-| whoever swung | `emit(Swing, { at, facing, reach, amount })` |
+| `Player` / `BatHunt` | `emit(Swing, { at, facing, reach, amount })` |
 | `Combat` | `@on(Swing)` → asks the registry what is in front → `target.send(Damage)` |
-| `Character` | `@on(Damage)` → takes the hit points off |
+| `Character` | `@on(Damage)` → takes the hit points off, announces `Died` |
+| the game | `host.on(Damage)` → motes, a flinch, the readout |
 
-None of the three knows the other two, so a trap or a falling rock is a fourth
-script and no change to the rest.
+None of the first three knows the other two, so a trap or a falling rock is a
+fourth script and no change to the rest.
+
+**The reach travels with the swing.** How far the blade got and which arc it
+swept are measured off the animation clip as it plays, so a rule carrying its
+own numbers would disagree with what the picture shows — and the disagreement
+would be invisible, a blow that looked like it connected and did not.
+
+**`host.on(event, handler)` is for code that is not a script.** A blow that
+lands is hit points in a script and a shower of motes in the renderer, and the
+second is not a rule's business. It returns the function that stops listening;
+unlike `@on`, nothing takes it back for you, because there is no class for the
+host to read it off.
+
+### The events are declared twice
+
+`packages/client/scripts/events.ts` and `packages/client/src/game/events.ts`
+declare the same names. They must: the scripts are compiled apart from every
+module graph, so neither side can import the other, and the alternative is a
+shared package that would put the scripts back inside a build every application
+performs.
+
+They agree because the host matches an event **by name**, which is also why a
+hot reload — which rebuilds every token in the bundle — does not lose a
+subscription. `test/scripting.test.ts` reads both files and fails if a name on
+one side has no counterpart on the other, because nothing else about this fails
+loudly: a renamed string is a blow announced and never heard, which looks like a
+combat bug rather than a typo.
 
 **This one is a decorator, and a parameter is not.** A handler carries no value
 and lives on the prototype, so nothing is shadowed and nothing is written twice.

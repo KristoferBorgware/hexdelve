@@ -60,7 +60,10 @@ import {
 	type Axial,
 } from '@hexdelve/shared';
 
-import { ActorBehaviour, clamp, wrapAngle } from './actor.js';
+import type { ScriptHost } from '@hexdelve/scripting';
+
+import { ActorBehaviour, clamp, NOWHERE, wrapAngle, type Opponent } from './actor.js';
+import { Swing } from './events.js';
 
 import type { Item } from './items.js';
 import { actionSeconds, hexSpeed } from './pace.js';
@@ -78,6 +81,9 @@ export const MAX_CLIMB = 1;
 
 /** On the grid he walks where he faces, so the stride only ever needs one direction. */
 const FORWARD: Direction = { x: 0, z: 1 };
+
+/** What one of his cuts takes off. The rules read it; he only announces it. */
+const BLOW_DAMAGE = 5;
 
 /**
  * How fast he comes round to the hexagon he is stepping into. Fast, because a
@@ -99,9 +105,6 @@ function swingLand(slash: Clip): number {
 	if (!cut) throw new Error(`the slash clip has no 'cut' event to land on`);
 	return cut.t / slash.duration;
 }
-
-/** A body is not a point, so the cut's arc gets a little either side of it. */
-const ARC_PAD = 0.35;
 
 const GUARD_AT_SPEED = 0.65;
 
@@ -194,18 +197,23 @@ export function leanIn(reach: Reach): number {
 	return Math.max(0, HEX_SPACING - reach.distance);
 }
 
-export interface PlayerDeps {
-	world: World;
-	/** The hexagon the enemy is on, which he may neither enter nor path through. */
-	enemyCell: () => Axial;
-	enemyPosition: () => { x: number; y: number; z: number };
-	/** Called on the turn a cut connects. */
-	onHit: (x: number, y: number, z: number) => void;
-	items: Item[];
-}
-
 /** Where the world is placed comes from the grid, so x, y and z are not given. */
 export interface PlayerOptions {
+	/** The ground he stands on and paths across. */
+	world: World;
+	/** The gear lying about, which he may stoop for and wear. */
+	items: Item[];
+	/**
+	 * Where he announces a blow, if anything is listening.
+	 *
+	 * A swing does not resolve itself here any more. He says a blade went
+	 * through a piece of the world, with the reach and the arc he measured off
+	 * the clip, and the `Combat` script works out what was in it — so what a
+	 * blow does is a script somebody can edit and reload, and what a blow LOOKS
+	 * like stays where the animation is. Absent on a bench, where there is
+	 * nothing to hit.
+	 */
+	scripts?: ScriptHost;
 	/** Which way he faces to start. */
 	yaw?: number;
 	/** The hexagon he starts on. */
@@ -254,7 +262,16 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	/** Hexagons still to walk, nearest first. Never includes the one he is on. */
 	path: Axial[] = [];
 
-	private readonly deps: PlayerDeps;
+	private readonly ground: World;
+	private readonly items: Item[];
+	private readonly scripts: ScriptHost | null;
+	/**
+	 * The other creature, for what he may not walk through and what he aims at.
+	 *
+	 * Set after both are spawned, because each needs the other and one has to be
+	 * built first. Null on a bench.
+	 */
+	opponent: Opponent | null = null;
 	private order: Order | null = null;
 	private holdOnce = false;
 	private flight: InFlight | null = null;
@@ -310,12 +327,14 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	readonly swing = { cuts: 0, hits: 0, missed: 0 };
 	readonly control = { state: 'idle' as PlayerActionKind | 'idle', message: 'waiting' };
 
-	constructor(object: GameObject, options: PlayerOptions, deps: PlayerDeps) {
+	constructor(object: GameObject, options: PlayerOptions) {
 		super(object);
-		const tile = deps.world.tileAt(options.cell.q, options.cell.r);
+		const tile = options.world.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the player cannot start on ${options.cell.q},${options.cell.r}`);
 		this.body.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
-		this.deps = deps;
+		this.ground = options.world;
+		this.items = options.items;
+		this.scripts = options.scripts ?? null;
 		this.cell = { q: options.cell.q, r: options.cell.r };
 		this.speed = options.speed ?? NORMAL_SPEED;
 		this.stride = strideFor(hexSpeed(this.speed));
@@ -356,11 +375,11 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	}
 
 	get armed(): boolean {
-		return this.deps.items.some((i) => i.label === 'sword' && i.worn);
+		return this.items.some((i) => i.label === 'sword' && i.worn);
 	}
 
 	private get shielded(): boolean {
-		return this.deps.items.some((i) => i.label === 'shield' && i.worn);
+		return this.items.some((i) => i.label === 'shield' && i.worn);
 	}
 
 	get busy(): boolean {
@@ -389,7 +408,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	 */
 	get goal(): Axial | null {
 		if (!this.order) return null;
-		return this.order.attack ? this.deps.enemyCell() : this.order.goal;
+		return this.order.attack ? (this.opponent?.cell ?? NOWHERE) : this.order.goal;
 	}
 
 	get targetingEnemy(): boolean {
@@ -400,9 +419,9 @@ export class Player extends ActorBehaviour implements TurnTaker {
 
 	/** May he stand on `cell`, having come from `from`? */
 	private readonly walkable = (cell: Axial, from: Axial | null): boolean => {
-		const enemy = this.deps.enemyCell();
+		const enemy = (this.opponent?.cell ?? NOWHERE);
 		if (cell.q === enemy.q && cell.r === enemy.r) return false;
-		return this.deps.world.passable(cell, from, MAX_CLIMB);
+		return this.ground.passable(cell, from, MAX_CLIMB);
 	};
 
 	/** Whether a hexagon can be walked to at all, for the hover marker. */
@@ -434,7 +453,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	}
 
 	private itemUnderfoot(): Item | null {
-		for (const item of this.deps.items) {
+		for (const item of this.items) {
 			if (item.worn) continue;
 			if (item.cell.q === this.cell.q && item.cell.r === this.cell.r) return item;
 		}
@@ -471,7 +490,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	 * having him set off and stop.
 	 */
 	orderTo(cell: Axial): boolean {
-		const enemy = this.deps.enemyCell();
+		const enemy = (this.opponent?.cell ?? NOWHERE);
 		const attack = cell.q === enemy.q && cell.r === enemy.r;
 
 		// Clicking where he already stands is how you wait a turn with a mouse.
@@ -516,7 +535,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	 * the action is running and the schedule has been paid.
 	 */
 	beginTurn(): Action {
-		const enemy = this.deps.enemyCell();
+		const enemy = (this.opponent?.cell ?? NOWHERE);
 
 		if (this.order?.attack && axialDistance(this.cell, enemy) <= 1) {
 			return this.startStrike(enemy);
@@ -574,7 +593,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	}
 
 	private startStep(to: Axial): Action {
-		const tile = this.deps.world.tileAt(to.q, to.r)!;
+		const tile = this.ground.tileAt(to.q, to.r)!;
 		return this.begin('move', 'walking', tile, { q: to.q, r: to.r }, null, null);
 	}
 
@@ -604,7 +623,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	}
 
 	private tile(): Tile {
-		return this.deps.world.tileAt(this.cell.q, this.cell.r)!;
+		return this.ground.tileAt(this.cell.q, this.cell.r)!;
 	}
 
 	/* ------------------------------------------------------------ the drawing -- */
@@ -637,7 +656,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 				this.y = flight.from.top + (flight.to.top - flight.from.top) * u;
 				this.faceTowards(flight.to.x, flight.to.z, dt);
 			} else if (flight.kind === 'strike' && flight.target) {
-				const spot = this.deps.world.tileAt(flight.target.q, flight.target.r);
+				const spot = this.ground.tileAt(flight.target.q, flight.target.r);
 				if (spot) this.faceTowards(spot.x, spot.z, dt);
 				if (!flight.done && u >= this.swingLand) {
 					flight.done = true;
@@ -688,38 +707,56 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	/**
 	 * The moment the blade arrives.
 	 *
-	 * On the grid this is a much shorter list than it was in lab 09, and the
-	 * reason is the point: the thing is either on the hexagon he aimed at or it
-	 * is not, and nothing could have moved since he committed. The geometry is
-	 * still checked — reach and arc, both measured off the clip — because they
-	 * are what `leanIn` is built from, and a swing that stopped reaching
-	 * should say so rather than connect anyway.
+	 * He no longer works out what he hit. He says a blade went through a piece
+	 * of the world — from where, facing which way, reaching how far and sweeping
+	 * which arc — and the `Combat` script answers the question, because what a
+	 * blow DOES is a rule somebody should be able to edit and reload and what a
+	 * blow LOOKS like is this file's.
+	 *
+	 * The geometry travels with the announcement rather than being looked up at
+	 * the other end, and that is the important part: the reach and the arc are
+	 * measured off the clip as it plays, so a rule carrying its own numbers
+	 * would disagree with the picture and the disagreement would be invisible.
+	 *
+	 * The one test kept here is whether the thing he aimed at is still on the
+	 * hexagon he committed to. That is not combat — it is whether the order he
+	 * gave still means anything — and on the grid nothing can have moved since,
+	 * so it is a question with a certain answer.
 	 */
 	private landBlow(target: Axial): void {
-		const enemy = this.deps.enemyCell();
+		const enemy = this.opponent?.cell ?? NOWHERE;
 		if (enemy.q !== target.q || enemy.r !== target.r) {
-			this.swing.missed++;
-			this.control.message = 'cut air';
+			this.reportBlow(false, 'cut air');
 			return;
 		}
 
-		const at = this.deps.enemyPosition();
-		const dx = at.x - this.x;
-		const dz = at.z - this.z;
-		const gap = Math.hypot(dx, dz);
-		const off = wrapAngle(Math.atan2(dx, dz) - this.yaw);
-		const bladeY = this.y + this.reach.height;
+		this.scripts?.emit(Swing, {
+			by: this.object.name,
+			at: { x: this.x, y: this.y, z: this.z },
+			facing: this.yaw,
+			reach: {
+				from: this.reach.from,
+				to: this.reach.to,
+				// What `leanIn` bought him is reach, so it belongs in the number
+				// the rule is given rather than in a correction the rule makes.
+				distance: this.reach.distance + this.leanIn,
+				height: this.reach.height,
+			},
+			amount: BLOW_DAMAGE,
+		});
+	}
 
-		const inArc = off >= this.reach.from - ARC_PAD && off <= this.reach.to + ARC_PAD;
-		if (!inArc || gap > this.reach.distance + this.leanIn + 0.2 || Math.abs(at.y - bladeY) > 1.2) {
-			this.swing.missed++;
-			this.control.message = 'the blow fell short';
-			return;
-		}
-
-		this.swing.hits++;
-		this.control.message = 'hit it';
-		this.deps.onHit(at.x, at.y, at.z);
+	/**
+	 * What came of a blow, for the readout.
+	 *
+	 * Called by whoever is listening to the events the swing set off, because
+	 * the answer arrives after the announcement rather than with it. The tally
+	 * and the message are his; the rule that produced them is not.
+	 */
+	reportBlow(hit: boolean, message: string): void {
+		if (hit) this.swing.hits++;
+		else this.swing.missed++;
+		this.control.message = message;
 	}
 
 	private buildPose(dt: number, elapsed: number): void {
@@ -829,7 +866,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 			const bone = `foot${side}`;
 			const p = world0[bone]!.p;
 			const w = this.toWorldXZ(p[0], p[2]);
-			const groundY = this.deps.world.groundAt(w.x, w.z);
+			const groundY = this.ground.groundAt(w.x, w.z);
 			const desiredY = groundY - this.y + SOLE;
 			const above = p[1] - desiredY;
 			// Only while it is actually near the ground, so a foot in mid-swing
@@ -864,7 +901,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	}
 
 	get stats(): PlayerStats {
-		const tile = this.deps.world.tileAt(this.cell.q, this.cell.r);
+		const tile = this.ground.tileAt(this.cell.q, this.cell.r);
 		return {
 			speed: this.flight?.kind === 'move' ? this.stride.speed : 0,
 			slip: this.stride.slip,
@@ -876,7 +913,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 			cuts: this.swing.cuts,
 			hits: this.swing.hits,
 			missed: this.swing.missed,
-			carrying: this.deps.items.filter((i) => i.worn).map((i) => i.label),
+			carrying: this.items.filter((i) => i.worn).map((i) => i.label),
 			cell: this.cell,
 			terrace: tile?.level ?? null,
 			stepsLeft: this.path.length,

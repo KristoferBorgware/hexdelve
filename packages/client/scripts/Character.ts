@@ -23,7 +23,7 @@
 import { on, param, Script } from '@hexdelve/scripting';
 
 import { CharacterRegistry } from './CharacterRegistry.js';
-import { Damage, Died, type Blow } from './events.js';
+import { Damage, Died, type Blow, type Point } from './events.js';
 
 export class Character extends Script {
 	/** What it can take before it goes. */
@@ -35,6 +35,18 @@ export class Character extends Script {
 	/** How hard it hits, for whatever asks it to swing. */
 	power = param(3, { min: 0, max: 50, step: 1, hint: 'Damage a blow deals' });
 
+	/**
+	 * How far above its feet the part of it worth hitting sits.
+	 *
+	 * A man's body is where he stands; a bat's is up in the air, and a blow at
+	 * ankle height should miss it. This is a fight property rather than a rig
+	 * one — what a blade has to reach, not where a mesh is drawn — which is why
+	 * it is set in the entity file beside the hit points rather than read off
+	 * the skeleton. The two agree today, and the entity file is where they are
+	 * kept agreeing.
+	 */
+	lift = param(0, { min: 0, max: 4, step: 0.01, hint: 'Height of the body above its feet' });
+
 	private remaining = 0;
 
 	/** False once the hit points are gone. It may still be standing this frame. */
@@ -45,6 +57,15 @@ export class Character extends Script {
 	/** What it has left, which is not what it started with. */
 	get health(): number {
 		return this.remaining;
+	}
+
+	/** Where a blow has to reach to connect with it. */
+	get where(): Point {
+		return {
+			x: this.transform.worldX,
+			y: this.transform.worldY + this.lift,
+			z: this.transform.worldZ,
+		};
 	}
 
 	override onLoad(): void {

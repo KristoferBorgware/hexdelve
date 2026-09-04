@@ -89,6 +89,16 @@ export class ScriptHost implements ScriptRuntime {
 	 * no script ever makes one.
 	 */
 	private readonly subscribers = new Map<string, Set<number>>();
+	/**
+	 * Listeners that are not scripts, by event name.
+	 *
+	 * The game itself has to hear what the scripts decided — a blow that landed
+	 * is hit points in a script and a shower of motes in the renderer, and the
+	 * second of those is not a script's business. These are added and removed by
+	 * hand, unlike a script's, because nothing here is reloaded and there is no
+	 * class to read them off.
+	 */
+	private readonly listeners = new Map<string, Set<(payload: never) => void>>();
 	private readonly log: (message: string) => void;
 	private provider: ScriptProvider;
 	private nextId = 1;
@@ -221,6 +231,28 @@ export class ScriptHost implements ScriptRuntime {
 		this.deliver(event, payload, null);
 	}
 
+	/**
+	 * Listen from outside the scripts, and stop listening.
+	 *
+	 * For the game's own code, which is not a script and has no class for the
+	 * host to read handlers off. The returned function removes it; a caller that
+	 * drops it has leaked a listener, which is exactly the bookkeeping `@on`
+	 * exists to spare a script.
+	 *
+	 * A listener hears every announcement of the event, whether it was broadcast
+	 * or sent to one object — the payload says which thing it was about, and
+	 * filtering on that is the caller's business.
+	 */
+	on<P>(event: GameEvent<P>, handler: (payload: P) => void): () => void {
+		let group = this.listeners.get(event.name);
+		if (!group) this.listeners.set(event.name, (group = new Set()));
+		group.add(handler as (payload: never) => void);
+		return () => {
+			group.delete(handler as (payload: never) => void);
+			if (group.size === 0) this.listeners.delete(event.name);
+		};
+	}
+
 	/** Announce something to the scripts on one object, and to nothing else. */
 	send(target: GameObject, event: GameEvent<unknown>, payload: unknown): void {
 		this.deliver(event, payload, target);
@@ -255,6 +287,8 @@ export class ScriptHost implements ScriptRuntime {
 	 * be a set modified while it was being iterated.
 	 */
 	private deliver(event: GameEvent<unknown>, payload: unknown, on: GameObject | null): void {
+		this.tell(event, payload);
+
 		const listening = this.subscribers.get(event.name);
 		if (!listening || listening.size === 0) return;
 
@@ -280,6 +314,28 @@ export class ScriptHost implements ScriptRuntime {
 							` muted until reload: ${why(error)}`,
 					);
 				}
+			}
+		}
+	}
+
+	/**
+	 * Hand one event to the listeners that are not scripts.
+	 *
+	 * Before the scripts, so the game sees what was announced rather than what
+	 * a handler left behind — a `Damage` listener that draws where the blow
+	 * landed should draw it whether or not the thing it hit survived being told.
+	 *
+	 * A listener that throws is reported and skipped. It cannot be muted the way
+	 * a script can, because there is no reload that would bring it back.
+	 */
+	private tell(event: GameEvent<unknown>, payload: unknown): void {
+		const group = this.listeners.get(event.name);
+		if (!group) return;
+		for (const handler of [...group]) {
+			try {
+				(handler as (value: unknown) => void)(payload);
+			} catch (error) {
+				this.log(`a listener for '${event.name}' threw: ${why(error)}`);
 			}
 		}
 	}

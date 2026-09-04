@@ -49,7 +49,10 @@ import {
 	type Random,
 } from '@hexdelve/shared';
 
-import { ActorBehaviour, clamp, turnTowards, wrapAngle } from './actor.js';
+import type { ScriptHost } from '@hexdelve/scripting';
+
+import { ActorBehaviour, clamp, NOWHERE, turnTowards, wrapAngle, type Opponent } from './actor.js';
+import { Swing } from './events.js';
 import { flyPose, FLAP_PERIOD, LUNGE_CONTACT, lungePose, perchPose } from './batpose.js';
 import { actionSeconds } from './pace.js';
 import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
@@ -70,6 +73,9 @@ export const LOSE_RANGE = 6;
 export const BAT_SPEED = NORMAL_SPEED + 10;
 /** How far off the ground the wings hold it, once awake. */
 const HOVER_LIFT = 0.62;
+
+/** What one of its bites takes off. The rules read it; it only announces it. */
+const BITE_DAMAGE = 2;
 
 /** How far the jaws get from the body, and how high. */
 export interface BiteReach {
@@ -110,18 +116,22 @@ export type HuntState = 'asleep' | 'hunting' | 'returning';
 
 type BatActionKind = 'move' | 'bite' | 'wake' | 'settle' | 'reel' | 'wait';
 
-export interface BatDeps {
+export interface BatOptions {
+	/** The ground it flies over and paths across. */
 	world: World;
-	playerCell: () => Axial;
-	playerPosition: () => { x: number; y: number; z: number };
-	/** Called when the jaws actually reach him. */
-	onBite: (x: number, y: number, z: number) => void;
+	/** The hexagon it returns to when it loses him. */
 	perch: Axial;
 	/** For its starting energy, so it is not in lockstep with you from turn one. */
 	random?: Random;
-}
-
-export interface BatOptions {
+	/**
+	 * Where it announces a bite, if anything is listening.
+	 *
+	 * The same arrangement the man has: it says the jaws closed on a piece of
+	 * the world and the `Combat` script works out what was in them, so what a
+	 * bite does is a rule that can be edited and reloaded and what a bite looks
+	 * like stays here with the animation.
+	 */
+	scripts?: ScriptHost;
 	/** Which way it faces to start. */
 	yaw?: number;
 	/** The hexagon it sleeps on. */
@@ -153,7 +163,14 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	/** The route it is following, kept for the overlay rather than for flying. */
 	path: Axial[] | null = null;
 
-	private readonly deps: BatDeps;
+	private readonly ground: World;
+	private readonly perch: Axial;
+	private readonly scripts: ScriptHost | null;
+	/**
+	 * The man, as it needs to see him: which hexagon he is on, and nothing
+	 * else. Set after both are spawned, because each needs the other.
+	 */
+	opponent: Opponent | null = null;
 	private flight: InFlight | null = null;
 	private struck = false;
 
@@ -180,17 +197,19 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	/** How far off the ground the wings hold it, off the rig's own metrics. */
 	private readonly hoverY: number;
 
-	constructor(object: GameObject, options: BatOptions, deps: BatDeps) {
+	constructor(object: GameObject, options: BatOptions) {
 		super(object);
-		const tile = deps.world.tileAt(options.cell.q, options.cell.r);
+		const tile = options.world.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the bat cannot perch on ${options.cell.q},${options.cell.r}`);
 		this.body.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
-		this.deps = deps;
+		this.ground = options.world;
+		this.perch = options.perch;
+		this.scripts = options.scripts ?? null;
 		this.cell = { q: options.cell.q, r: options.cell.r };
 		this.speed = options.speed ?? BAT_SPEED;
 		// Angband's `randint0(50)`: a monster starts part-way to its first move,
 		// so a pack does not step in unison.
-		this.energy = Math.floor((deps.random?.() ?? 0) * 50);
+		this.energy = Math.floor((options.random?.() ?? 0) * 50);
 
 		const jaw = options.rig.anchors.jawTip;
 		if (!jaw) throw new Error(`the rig '${options.rig.id}' has no 'jawTip' anchor to bite with`);
@@ -210,7 +229,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	}
 
 	tilesToPlayer(): number {
-		return axialDistance(this.cell, this.deps.playerCell());
+		return axialDistance(this.cell, (this.opponent?.cell ?? NOWHERE));
 	}
 
 	/**
@@ -218,9 +237,9 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	 * flap to it, and neither may enter the cell the other is in.
 	 */
 	private readonly flyable = (cell: Axial, from: Axial | null): boolean => {
-		const player = this.deps.playerCell();
+		const player = (this.opponent?.cell ?? NOWHERE);
 		if (cell.q === player.q && cell.r === player.r) return false;
-		return this.deps.world.passable(cell, from, BAT_CLIMB);
+		return this.ground.passable(cell, from, BAT_CLIMB);
 	};
 
 	/**
@@ -239,7 +258,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	/* --------------------------------------------------------------- its turn -- */
 
 	beginTurn(): Action {
-		const player = this.deps.playerCell();
+		const player = (this.opponent?.cell ?? NOWHERE);
 		const range = axialDistance(this.cell, player);
 
 		if (this.struck) {
@@ -258,7 +277,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		if (this.state === 'hunting') {
 			if (range > LOSE_RANGE) {
 				this.state = 'returning';
-				return this.fly(this.deps.perch, 'losing you');
+				return this.fly(this.perch, 'losing you');
 			}
 			// It attacks from the hexagon it is on, so the condition is about
 			// the grid and nothing else: next to him, and it is its turn.
@@ -271,12 +290,12 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 			this.state = 'hunting';
 			return this.fly(this.approach(player) ?? player, 'hunting');
 		}
-		if (this.cell.q === this.deps.perch.q && this.cell.r === this.deps.perch.r) {
+		if (this.cell.q === this.perch.q && this.cell.r === this.perch.r) {
 			this.state = 'asleep';
 			this.path = null;
 			return this.start('settle', 'settling', this.tile(), this.cell, null);
 		}
-		return this.fly(this.deps.perch, 'going home');
+		return this.fly(this.perch, 'going home');
 	}
 
 	/**
@@ -303,7 +322,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		this.path = route && route.length > 1 ? route.slice(1) : null;
 		const step = this.path?.[0];
 		if (!step) return this.pass(message === 'hunting' ? 'cornered' : message);
-		const tile = this.deps.world.tileAt(step.q, step.r);
+		const tile = this.ground.tileAt(step.q, step.r);
 		if (!tile) return this.pass(message);
 		return this.start('move', message, tile, step, null);
 	}
@@ -343,7 +362,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	}
 
 	private tile(): Tile {
-		return this.deps.world.tileAt(this.cell.q, this.cell.r)!;
+		return this.ground.tileAt(this.cell.q, this.cell.r)!;
 	}
 
 	/* ------------------------------------------------------------ the drawing -- */
@@ -353,7 +372,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	 * this is not the component's `update`.
 	 */
 	advance(dt: number, time: number): void {
-		const player = this.deps.playerPosition();
+		const player = this.opponent;
 		const flight = this.flight;
 		let flapAmp = 1;
 		let speed = 0;
@@ -374,7 +393,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 				case 'bite': {
 					// Rooted to its cell. The only movement is turning to face
 					// him and the lunge itself.
-					turnTowards(this, player.x, player.z, dt, 6);
+					if (player) turnTowards(this, player.x, player.z, dt, 6);
 					this.lunge = u;
 					this.lungeBlend = Math.min(1, this.lungeBlend + dt * 7);
 					flapAmp = 0.5;
@@ -386,11 +405,11 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 				}
 				case 'reel':
 					flapAmp = 1.45; // thrashing, not cruising
-					turnTowards(this, player.x, player.z, dt, 1.6);
+					if (player) turnTowards(this, player.x, player.z, dt, 1.6);
 					this.lungeBlend = Math.max(0, this.lungeBlend - dt * 5);
 					break;
 				case 'wake':
-					turnTowards(this, player.x, player.z, dt, 2.4);
+					if (player) turnTowards(this, player.x, player.z, dt, 2.4);
 					break;
 				case 'settle':
 					flapAmp = 0.4;
@@ -435,7 +454,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		// The state is set before the wake or settle action starts, so this one
 		// line covers both ramps and the two steady values.
 		this.wake += ((this.state === 'asleep' ? 0 : 1) - this.wake) * Math.min(1, dt * 2.2);
-		const under = this.deps.world.groundAt(this.x, this.z) + HOVER_LIFT * this.wake;
+		const under = this.ground.groundAt(this.x, this.z) + HOVER_LIFT * this.wake;
 		this.y += (under - this.y) * Math.min(1, dt * 6);
 
 		const cruise = HEX_SPACING / actionSeconds(ACTION_ENERGY, this.speed);
@@ -473,22 +492,48 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	 * a lunge that stopped reaching should say so.
 	 */
 	private landBite(target: Axial | null): void {
-		const player = this.deps.playerCell();
+		const player = this.opponent?.cell ?? NOWHERE;
 		if (!target || player.q !== target.q || player.r !== target.r) {
-			this.missed++;
-			this.message = 'bit at nothing';
+			this.reportBite(false, 'bit at nothing');
 			return;
 		}
+
+		/*
+		 * Where the jaws actually got to, which is the whole of its reach: a
+		 * lunge that stopped short is a lunge that bit nothing, and only the
+		 * pose knows how far it went. The announcement carries that point as
+		 * the place the bite came FROM, so the rule measures from the teeth
+		 * rather than from the middle of the animal.
+		 */
 		const jaws = attachmentPosition(this.skeleton, this.pose, this.jaw.bone, this.jaw.at);
 		const w = this.toWorldXZ(jaws[0], jaws[2]);
-		const at = this.deps.playerPosition();
-		if (Math.hypot(w.x - at.x, w.z - at.z) > HEX_SPACING * 0.75) {
-			this.missed++;
-			this.message = 'the lunge fell short';
-			return;
-		}
-		this.bites++;
-		this.message = 'bit you';
-		this.deps.onBite(w.x, this.y + jaws[1], w.z);
+
+		this.scripts?.emit(Swing, {
+			by: this.object.name,
+			at: { x: w.x, y: this.y + jaws[1], z: w.z },
+			facing: this.yaw,
+			reach: {
+				// Its teeth are already where the bite happens, so the arc is
+				// the whole circle and the reach is what a body's width allows.
+				from: -Math.PI,
+				to: Math.PI,
+				distance: HEX_SPACING * 0.75,
+				height: 0,
+			},
+			amount: BITE_DAMAGE,
+		});
+	}
+
+	/**
+	 * What came of a bite, for the readout.
+	 *
+	 * The answer arrives after the announcement rather than with it, so whoever
+	 * is listening to the events hands it back. The tally is its; the rule that
+	 * produced it is not.
+	 */
+	reportBite(hit: boolean, message: string): void {
+		if (hit) this.bites++;
+		else this.missed++;
+		this.message = message;
 	}
 }

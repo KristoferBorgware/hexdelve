@@ -197,51 +197,44 @@ ordering is the awkward part rather than the code: the bone follow has to run
 after the actor has solved its pose and before the scene solves, and today the
 simulation drives those two by hand.
 
-### F-009 — A parameter's type is its default's literal type, not its kind
+### F-010 — A creature that has fallen is still drawn standing
 
-**Kind:** bug
-**Milestone:** scripting
+**Kind:** gap
+**Milestone:** game
 **Priority:** medium
-**Effort:** small
-**Found:** 2026-09-04, reading the declarations `tsc` emits for the script directory
-**Where:** `param` in `packages/scripting/src/parameters.ts`; visible in every script that uses one, `packages/client/scripts/Character.ts` worst
+**Effort:** medium
+**Found:** 2026-09-04, closing the combat loop and finding a dead bat still biting
+**Where:** the `Died` listener in `Simulation.listen`, `packages/client/src/game/bathunt.ts`
 
-**What happens.** `param` is declared
-`param<T extends number | boolean | string>(value: T): T`, so `T` is inferred
-from a literal argument as that literal. `faction = param('foe')` gives the
-field the type `'foe'`, not `string`. `spread = param(1)` gives the type `1`,
-not `number`. The declaration `tsc` emits says so in as many words:
-`spread: 1`.
+**What happens.** A character that runs out of hit points announces `Died`, and
+the game takes it out of the turn order. That is the whole of what death does.
+The body stays where it fell, hovering, in whatever pose the last frame left
+it — the bat goes on flapping on the spot, because flapping is what its idle
+looks like and nothing told it to stop.
 
-Assigning through the marker hides it inside the class, because the values are
-only ever read. It shows the moment anything compares or assigns. In
-`Character`, `faction` is typed `'foe'` while the wanderer's entity file sets it
-to `player` — so the type says a value the game actually produces is
-impossible, and `if (this.faction === 'player')` is a comparison TypeScript
-would reject as having no overlap.
+Taking it out of the schedule was added in the same turn that found the
+problem, because a dead bat that went on biting was not a shippable state. What
+was NOT added is any of the rest.
 
-**Why it matters.** The whole argument for declaring a parameter by its value
-rather than by a decorator was that it "stays typed". It does not: it is typed
-as the one value it happened to start with, which is the least useful type it
-could have. A script that branches on a string parameter — which is what a
-faction is for, and phase 5 will want — cannot be written without a cast.
+**Why it matters.** It reads as a bug rather than as a body. A creature that
+has been killed and looks exactly like a creature that has not is worse than no
+death animation at all, because the player cannot tell whether the blow worked
+— which is the one thing a fight has to communicate.
 
-It is also a silent wrong answer rather than a loud one. Nothing fails today,
-so the first person to hit it will be reading a comparison error that looks
-like their mistake.
+It is also the first thing anyone will notice. The combat chain is otherwise
+finished end to end, so this is what stands between the yard and a fight that
+reads properly.
 
-**What would fix it.** Widen the return type. A conditional does it in one
-line and changes no runtime behaviour:
+**What would fix it.** A death is an animation, so it belongs where the other
+animations are rather than in a rule. The shape that fits what is already here:
+`Character` announces `Died`, and the actor's own behaviour takes it as the cue
+to play a fall — a clip for the bat, a crumple for a man — and then to stop
+drawing itself, or to leave a settled pose on the ground. `BatHunt` already has
+a `reel` action that interrupts what it was doing, so the mechanism for "stop
+and play this instead" exists and would be followed rather than invented.
 
-```ts
-type Widen<T> = T extends number ? number : T extends boolean ? boolean : T extends string ? string : never;
-export function param<T extends number | boolean | string>(value: T, options?: ParameterOptions): Widen<T>;
-```
-
-Worth a test that a string parameter can be compared against another string,
-since that is the case the current signature rejects. The alternative, asking
-authors to write `param<string>('foe')`, puts the burden on every script for
-one signature's convenience and would be forgotten.
+The rules half is already done and should stay done: what a death COSTS is the
+script's, and what it LOOKS like is the client's.
 
 ---
 
@@ -344,3 +337,51 @@ tests. Two ways out of that one, both unverified: a Vite plugin at
 which takes the scripts out of the oxc graph altogether and would settle this
 as a side effect. The third objection — repeating the option in the editor's
 compiler — is one line of `tsconfigRaw` in `packages/editor/src/scripts/compiler.ts`.
+
+### F-009 — A parameter's type is its default's literal type, not its kind
+
+**Kind:** bug
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, reading the declarations `tsc` emits for the script directory
+**Where:** `param` in `packages/scripting/src/parameters.ts`; visible in every script that uses one, `packages/client/scripts/Character.ts` worst
+**Closed:** 2026-09-04, fixed — `param` returns `Widen<T>`, so a parameter's
+type is its kind rather than its default's literal type
+
+**What happens.** `param` is declared
+`param<T extends number | boolean | string>(value: T): T`, so `T` is inferred
+from a literal argument as that literal. `faction = param('foe')` gives the
+field the type `'foe'`, not `string`. `spread = param(1)` gives the type `1`,
+not `number`. The declaration `tsc` emits says so in as many words:
+`spread: 1`.
+
+Assigning through the marker hides it inside the class, because the values are
+only ever read. It shows the moment anything compares or assigns. In
+`Character`, `faction` is typed `'foe'` while the wanderer's entity file sets it
+to `player` — so the type says a value the game actually produces is
+impossible, and `if (this.faction === 'player')` is a comparison TypeScript
+would reject as having no overlap.
+
+**Why it matters.** The whole argument for declaring a parameter by its value
+rather than by a decorator was that it "stays typed". It does not: it is typed
+as the one value it happened to start with, which is the least useful type it
+could have. A script that branches on a string parameter — which is what a
+faction is for, and phase 5 will want — cannot be written without a cast.
+
+It is also a silent wrong answer rather than a loud one. Nothing fails today,
+so the first person to hit it will be reading a comparison error that looks
+like their mistake.
+
+**What would fix it.** Widen the return type. A conditional does it in one
+line and changes no runtime behaviour:
+
+```ts
+type Widen<T> = T extends number ? number : T extends boolean ? boolean : T extends string ? string : never;
+export function param<T extends number | boolean | string>(value: T, options?: ParameterOptions): Widen<T>;
+```
+
+Worth a test that a string parameter can be compared against another string,
+since that is the case the current signature rejects. The alternative, asking
+authors to write `param<string>('foe')`, puts the burden on every script for
+one signature's convenience and would be forgotten.

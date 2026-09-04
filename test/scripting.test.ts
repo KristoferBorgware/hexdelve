@@ -467,6 +467,23 @@ describe('events', () => {
  * pull `Character.ts` into this file's typecheck and `@on` would not compile
  * there. Naming the shape is what one compiler for the scripts costs.
  */
+/**
+ * A blow thrown from the origin, facing a way, as `Combat` expects to hear it.
+ *
+ * The arc and the reach travel with a swing because the thing swinging measures
+ * them off the clip it is playing — see `Player.landBlow`. Here they are just
+ * numbers wide enough to reach a bat standing a metre and a half away.
+ */
+function swingAt(facing: number, amount: number) {
+	return {
+		by: 'wanderer',
+		at: { x: 0, y: 0, z: 0 },
+		facing,
+		reach: { from: -0.5, to: 0.5, distance: 2, height: 0 },
+		amount,
+	};
+}
+
 function shaped<T>(script: Script | null): T {
 	expect(script).not.toBeNull();
 	return script as unknown as T;
@@ -545,24 +562,12 @@ describe('the scripts this build ships', () => {
 		expect(registry.count, 'both characters joined the register').toBe(2);
 
 		// Facing the bat, which is straight down +Z from him.
-		host.emit({ name: 'swing' }, {
-			by: 'wanderer',
-			at: { x: 0, z: 0 },
-			facing: 0,
-			reach: 2,
-			amount: 5,
-		});
+		host.emit({ name: 'swing' }, swingAt(0, 5));
 		expect(shaped<{ health: number }>(host.scriptAt(hurt)).health).toBe(1);
 		expect(said.join('\n')).toMatch(/took 5 from wanderer, 1 left/);
 
 		// And again, which finishes it and is announced.
-		host.emit({ name: 'swing' }, {
-			by: 'wanderer',
-			at: { x: 0, z: 0 },
-			facing: 0,
-			reach: 2,
-			amount: 5,
-		});
+		host.emit({ name: 'swing' }, swingAt(0, 5));
 		expect(shaped<{ health: number }>(host.scriptAt(hurt)).health).toBe(0);
 	});
 
@@ -581,14 +586,34 @@ describe('the scripts this build ships', () => {
 		const hurt = shaped<{ health: number }>(host.scriptAt(id));
 
 		// Facing the other way. The bat is behind him.
-		host.emit({ name: 'swing' }, {
-			by: 'wanderer',
-			at: { x: 0, z: 0 },
-			facing: Math.PI,
-			reach: 2,
-			amount: 5,
-		});
+		host.emit({ name: 'swing' }, swingAt(Math.PI, 5));
 		expect(hurt.health).toBe(6);
+	});
+
+	/*
+	 * The one duplication in the arrangement, held still.
+	 *
+	 * Scripts and the client's source cannot import each other, so each
+	 * declares the events it needs and they agree by NAME. That agreement is
+	 * the whole mechanism, and nothing about it fails loudly: a renamed string
+	 * on one side is a blow that is announced and never heard, which looks like
+	 * a combat bug rather than a typo.
+	 */
+	it('declares the same event names on both sides of the wall', async () => {
+		const names = async (path: string[]) =>
+			[
+				...(await readFile(resolve(import.meta.dirname, '..', ...path), 'utf8')).matchAll(
+					/defineEvent<[^>]*>?\(\s*'([^']+)'/g,
+				),
+			]
+				.map((one) => one[1])
+				.sort();
+
+		const inScripts = await names(['packages', 'client', 'scripts', 'events.ts']);
+		const inClient = await names(['packages', 'client', 'src', 'game', 'events.ts']);
+		expect(inScripts, 'the scripts declare the events the client listens for').toContain('damage');
+		expect(inScripts.length).toBeGreaterThan(0);
+		expect(inClient).toEqual(inScripts);
 	});
 
 	it('offers exactly the names the SDK shim re-exports', async () => {

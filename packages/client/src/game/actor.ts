@@ -32,6 +32,7 @@ import {
 	type WorldPose,
 	type HexInstances,
 } from '@hexdelve/engine';
+import type { Axial } from '@hexdelve/shared';
 
 export interface ActorOptions {
 	skeleton: Skeleton;
@@ -135,6 +136,27 @@ export function wrapAngle(a: number): number {
 }
 
 /** Anything with a place and a heading — a body, or a behaviour driving one. */
+/**
+ * The other creature, as one of them needs to see the other.
+ *
+ * Which hexagon it is on, so neither walks into the other nor paths through it,
+ * and where that is in world units, so each can turn to face the other while it
+ * draws. Nothing about what it is made of or what it can take: a blow is
+ * announced and the rules answer it.
+ *
+ * It is set after both are spawned rather than injected as a closure, because
+ * each needs the other and one of them has to be built first. That was the last
+ * thing keeping a bag of callbacks alive.
+ */
+export interface Opponent {
+	readonly cell: Axial;
+	readonly x: number;
+	readonly z: number;
+}
+
+/** No hexagon. Far enough off the grid that nothing is ever standing on it. */
+export const NOWHERE: Axial = { q: Number.NaN, r: Number.NaN };
+
 export interface Turnable {
 	x: number;
 	z: number;

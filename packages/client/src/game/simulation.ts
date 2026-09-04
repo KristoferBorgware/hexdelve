@@ -48,6 +48,7 @@ import {
 } from '@hexdelve/shared';
 
 import { buildWorld, type World } from '../scene/world.js';
+import { Damage, Died, Missed } from './events.js';
 import { clipOf, type Cast } from './cast.js';
 import { components, type SpawnExtras } from './components.js';
 import { spawnEntity } from './spawn.js';
@@ -397,17 +398,10 @@ export class Simulation {
 				swordTip,
 				cell: worldToAxial(0, -5.4),
 				yaw: 0,
-				...(options.playerSpeed !== undefined ? { speed: options.playerSpeed } : {}),
-			},
-			{
 				world: this.world,
-				enemyCell: () => this.bat.cell,
-				enemyPosition: () => ({ x: this.bat.x, y: this.bat.bodyY, z: this.bat.z }),
-				onHit: (x, y, z) => {
-					this.motes.spawn(x, y, z, 9, 1.6, 1.9);
-					this.bat.reel();
-				},
 				items: this.items,
+				scripts: this.scripts,
+				...(options.playerSpeed !== undefined ? { speed: options.playerSpeed } : {}),
 			},
 		);
 
@@ -417,17 +411,23 @@ export class Simulation {
 				rig: cast.enemy.rig!,
 				cell: this.perch,
 				yaw: 2.4,
-				...(options.batSpeed !== undefined ? { speed: options.batSpeed } : {}),
-			},
-			{
 				world: this.world,
-				playerCell: () => this.player.cell,
-				playerPosition: () => ({ x: this.player.x, y: this.player.y + this.hipHeight, z: this.player.z }),
-				onBite: (x, y, z) => this.motes.spawn(x, y, z, 7, 1.3, 1.6),
 				perch: this.perch,
 				random,
+				scripts: this.scripts,
+				...(options.batSpeed !== undefined ? { speed: options.batSpeed } : {}),
 			},
 		);
+
+		/*
+		 * Each of them learns about the other, now that both exist. This is
+		 * what a bag of callbacks was standing in for: one has to be built
+		 * first, so neither can be handed the other in its options.
+		 */
+		this.player.opponent = this.bat;
+		this.bat.opponent = this.player;
+
+		this.listen();
 
 		/*
 		 * The man is first in the list, which is Angband's tie-break: among
@@ -497,6 +497,52 @@ export class Simulation {
 			this.actions++;
 			this.lastAction = `${who.name} · ${action.kind}`;
 		}
+	}
+
+	/**
+	 * Hear what the rules decided, and draw it.
+	 *
+	 * The scripts settle whether a blow landed and what it cost; none of that
+	 * is drawn, because a shower of motes and a creature flinching are not
+	 * things a rule should know about. So the game listens.
+	 *
+	 * The tallies go back to whoever threw the blow rather than being kept
+	 * here, because a hit is his hit — the readout has always been the actor's,
+	 * and only the question of whether it landed has moved.
+	 */
+	private listen(): void {
+		this.scripts.on(Damage, (blow) => {
+			this.motes.spawn(blow.at.x, blow.at.y, blow.at.z, 9, 1.6, 1.9);
+			if (blow.from === 'player') {
+				this.player.reportBlow(true, 'hit it');
+				this.bat.reel();
+			} else {
+				this.bat.reportBite(true, 'bit you');
+			}
+		});
+
+		/*
+		 * And a creature that has run out of hit points stops taking turns.
+		 *
+		 * `Character` announces the death; what to DO about it is the game's,
+		 * and for now the whole of it is that a dead thing does not act. It is
+		 * still drawn, standing where it fell, because a body that vanishes the
+		 * instant it dies is a worse lie than one that stays — and what should
+		 * really happen there is animation, which is this file's half of the
+		 * arrangement rather than a rule.
+		 */
+		this.scripts.on(Died, (death) => {
+			// By the OBJECT's name, which is what a script sees, rather than the
+			// turn member's: the man is `player` in the scene and `you` in the
+			// readout, and the two are different words on purpose.
+			const fallen = [this.player, this.bat].find((one) => one.object.name === death.who);
+			if (fallen && this.schedule.remove(fallen)) this.lastAction = `${fallen.name} fell`;
+		});
+
+		this.scripts.on(Missed, (miss) => {
+			if (miss.by === 'player') this.player.reportBlow(false, miss.why);
+			else this.bat.reportBite(false, miss.why === 'cut air' ? 'bit at nothing' : miss.why);
+		});
 	}
 
 	/** What a spawn needs in order to be able to build a script component. */

@@ -116,7 +116,35 @@ export class Schedule<T extends TurnMember = TurnMember> {
 	/** Game turns since the world started. */
 	gameTurn = 0;
 
-	constructor(readonly members: readonly T[]) {}
+	private readonly list: T[];
+
+	constructor(members: readonly T[]) {
+		this.list = [...members];
+	}
+
+	/** Who is still taking turns, in the order ties are broken. */
+	get members(): readonly T[] {
+		return this.list;
+	}
+
+	/**
+	 * Take somebody out of the order.
+	 *
+	 * For a creature that has stopped being a participant — killed, usually.
+	 * Removing rather than flagging, because a flag would have to be checked in
+	 * `next`, and `next` winds the clock forward until somebody can act: a list
+	 * of members that can never act again is a loop that never ends.
+	 *
+	 * Returns whether it was there. Removing something twice is not an error —
+	 * an event can be announced more than once and the second one should be
+	 * quiet.
+	 */
+	remove(member: T): boolean {
+		const at = this.list.indexOf(member);
+		if (at < 0) return false;
+		this.list.splice(at, 1);
+		return true;
+	}
 
 	/**
 	 * The member with the most energy of those that can act, winding the clock

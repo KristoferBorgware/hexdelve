@@ -47,4 +47,5 @@ export {
 	type ParameterOptions,
 	type ParameterType,
 	type ScriptClass,
+	type Widen,
 } from './parameters.js';

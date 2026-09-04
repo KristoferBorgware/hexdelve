@@ -32,4 +32,4 @@ object:
     - { type: actor }
     # What it is in a fight. The numbers are the character's, not the rig's, so
     # tuning a creature is editing this file rather than a script.
-    - { type: script, script: Character, hp: 6, faction: foe, power: 2 }
+    - { type: script, script: Character, hp: 6, faction: foe, power: 2, lift: 0.72 }

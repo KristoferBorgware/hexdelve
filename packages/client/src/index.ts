@@ -185,6 +185,16 @@ export { poseFunctions } from './assets/poseFunctions.js';
  * it with this and hands the provider in.
  */
 export { loadScripts, SCRIPT_BUNDLE, type LoadScriptsOptions } from './game/scripts.js';
+
+/*
+ * The events the game announces and listens for.
+ *
+ * The scripts declare the same set — see `game/events.ts` for why they have to
+ * rather than sharing one file — and the two agree because the host matches an
+ * event by name. Exported so an embedder can hear what the rules decided
+ * without reaching into the simulation.
+ */
+export { Damage, Died, Missed, Swing, type Blow, type Point } from './game/events.js';
 export {
 	openAssets,
 	openPackedAssets,
