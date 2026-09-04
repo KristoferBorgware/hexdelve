@@ -256,14 +256,46 @@ today, because neither has been referenced from a commit yet. That is exactly
 why it is worth renumbering now rather than after something points at it.
 
 **What would fix it.** Renumber the second of the two — the ground speed one —
-to `F-020`, the next free number once this entry has taken `F-019`, and leave
-the first as `F-017`. The second
+to the next free number at the bottom of the open list, and leave the first as
+`F-017`. The second
 is the safer one to move because it is last in the file, so the open list's
 "order things were found" is preserved either way. Check first that no commit
 message already says `F-017`; if one does, move whichever entry it does not
 mean. A second, larger fix would be a check that the register's numbers are
 unique and dense, run wherever the repository's other checks run, so the next
 duplicate is caught when it is written rather than months later.
+
+### F-020 — The Angband primer is linked from nowhere
+
+**Kind:** gap
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-04, while checking the bible's index after consolidating
+chapters 14-21
+**Where:** `docs/angband/primer-turns-energy-speed-combat.md`,
+`docs/angband/README.md`
+
+**What happens.** `docs/angband/` holds 21 numbered chapters, a `README.md`
+that indexes all 21, and `primer-turns-energy-speed-combat.md`. The primer is
+the only file in the directory that nothing links to. The bible's README does
+not mention it, and neither does the repository's top-level `README.md`. It is
+reachable only by listing the directory.
+
+**Why it matters.** Nobody is hurt today, because the material it covers is
+also in chapters 2 and 7. That is also the reason to decide about it: either
+it is a gentler introduction worth pointing newcomers at, in which case it
+should be in the index above the chapter table, or it is an earlier draft that
+chapters 2 and 7 have replaced, in which case leaving it in the directory
+means a reader can find a second account of the energy system without knowing
+which one is current. An unlinked file in a documented directory is a question
+mark, and the cost of it is that the next person has to read both to find out.
+
+**What would fix it.** Read the primer against chapters 2 and 7. If it holds
+material the chapters do not, add it to `README.md` as an introduction and say
+what it is for; if it does not, delete it and let the chapters stand. Half an
+hour either way. Whoever decides should also check the primer's numbers against
+the chapters, since two accounts written at different times may disagree.
 
 
 ## Closed
