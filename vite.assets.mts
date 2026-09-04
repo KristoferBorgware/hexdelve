@@ -186,6 +186,7 @@ const scripts: Connect.NextHandleFunction = (request, response, next) => {
 	}
 
 	const path = (request.url ?? '/').split('?')[0] ?? '/';
+
 	if (path === '/' || path === '') {
 		void readdir(scriptRoot)
 			.then((names) => {
@@ -199,9 +200,21 @@ const scripts: Connect.NextHandleFunction = (request, response, next) => {
 		return;
 	}
 
+	/*
+	 * Anything this route does not recognise is passed on rather than refused.
+	 *
+	 * Connect mounts on a prefix and treats a `.` as a boundary as well as a
+	 * `/`, so this middleware — mounted at `/scripts` — is also handed
+	 * `/scripts.js`, which is the COMPILED bundle and belongs to
+	 * `scriptBundle`. Answering 400 here swallowed the one request the client
+	 * makes, and a dev server ran with no behaviour in it at all.
+	 *
+	 * Passing it on is the right shape regardless: a route mounted on a prefix
+	 * owns the paths it recognises, not every path that begins with its name.
+	 */
 	const target = inside(scriptRoot, path, /(?<!\.d)\.ts$/);
 	if (!target) {
-		fail(response, 400, 'that is not a script');
+		next();
 		return;
 	}
 	void readFile(target, 'utf8').then(
