@@ -36,21 +36,21 @@ events:
   - { t: 0.62, name: slash }
 
 poses:
-  # The slump it stands in: right arm out, left hanging, head hung to the
-  # right.
+  # The slump it stands in: both arms out ahead with the hands hooked over
+  # whatever is in front, the head thrust forward and hung to the right.
   - t: 0
     bones:
       root: { rot: [0.06, 0, 0], pos: [0, -0.06, 0] }
       spine: [0.18, 0, 0]
-      chest: [0.12, 0, 0]
-      neck: [0.1, 0, -0.08]
-      head: [0.12, 0, -0.3]
-      armL: [-0.26, 0, 0.12]
-      armR: [-1.66, -0.1, -0.15]
-      forearmL: [-0.15, 0, 0]
-      forearmR: [-0.45, 0, 0]
-      handL: [0.1, 0, 0.05]
-      handR: [0.7, 0, -0.1]
+      chest: [0.22, 0, 0]
+      neck: [0.32, 0, -0.08]
+      head: [-0.12, 0, -0.27]
+      armL: [-1.56, 0.15, 0.12]
+      armR: [-1.86, -0.15, -0.15]
+      forearmL: [-0.65, 0, 0]
+      forearmR: [-0.55, 0, 0]
+      handL: [0.35, -1.57, 0.1]
+      handR: [0.38, 1.57, -0.1]
       hipL: [-0.36, 0, 0.04]
       shinL: [0.65, 0, 0]
       footL: [-0.35, 0.05, -0.03]
@@ -59,7 +59,8 @@ poses:
       footR: [-0.39, -0.25, 0.05]
 
   # Reared: the trunk arched back, both arms up and over behind the head with
-  # the elbows bent, the face up. Held flat, so the blow is a release.
+  # the elbows bent, the palms turned back in, the face up. Held flat, so
+  # the blow is a release.
   - t: 0.45
     ease: flat
     bones:
@@ -132,15 +133,15 @@ poses:
     bones:
       root: { rot: [0.06, 0, 0], pos: [0, -0.06, 0] }
       spine: [0.18, 0, 0]
-      chest: [0.12, 0, 0]
-      neck: [0.1, 0, -0.08]
-      head: [0.12, 0, -0.3]
-      armL: [-0.26, 0, 0.12]
-      armR: [-1.66, -0.1, -0.15]
-      forearmL: [-0.15, 0, 0]
-      forearmR: [-0.45, 0, 0]
-      handL: [0.1, 0, 0.05]
-      handR: [0.7, 0, -0.1]
+      chest: [0.22, 0, 0]
+      neck: [0.32, 0, -0.08]
+      head: [-0.12, 0, -0.27]
+      armL: [-1.56, 0.15, 0.12]
+      armR: [-1.86, -0.15, -0.15]
+      forearmL: [-0.65, 0, 0]
+      forearmR: [-0.55, 0, 0]
+      handL: [0.35, -1.57, 0.1]
+      handR: [0.38, 1.57, -0.1]
       hipL: [-0.36, 0, 0.04]
       shinL: [0.65, 0, 0]
       footL: [-0.35, 0.05, -0.03]

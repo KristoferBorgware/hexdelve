@@ -4,9 +4,9 @@
  * A corpse walking. It wears the wanderer's rig, and what it does with it is
  * what is left of a walk once the mind has gone: one leg steps and the other
  * is dragged after it, the weight thrown from side to side to get each one
- * forward, the trunk slumped, the head hanging off to one side and rolling
- * with the lurch, one arm out in front reaching and the other hanging where
- * it swings.
+ * forward, the trunk slumped, the head thrust forward and hanging off to one
+ * side, and both arms out ahead of it, reaching, the hands hooked into claws
+ * that never stop closing on whatever is in front of them.
  *
  * One function, as the ghoul's gaits are: `amp` throttles between standing
  * and the full shuffle, and the stand is the same slump swaying on its
@@ -46,7 +46,7 @@ export const SHUFFLE_CONTACTS: readonly [number, number] = [0.25, 0.75];
  * The slump it stands and walks in: hips a little dropped and tipped, the
  * spine and chest sagging forward over them, the head hanging.
  */
-const SLUMP = { crouch: 0.06, root: 0.06, spine: 0.18, chest: 0.12, neck: 0.1, head: 0.12 };
+const SLUMP = { crouch: 0.06, root: 0.06, spine: 0.18, chest: 0.22, neck: 0.32, head: -0.12 };
 
 /** The good leg steps, short. The bad leg is dragged, barely off the ground. */
 const GOOD_STEP: Step = { restZ: 0, halfStride: 0.2, lift: 0.07 };
@@ -64,7 +64,7 @@ export function shufflePose(theta: number, amp: number, time = 0, out: SparsePos
 	const sinT = Math.sin(theta);
 	const sway = Math.sin(time * 0.7) * still;
 	// The head hangs to its right and rolls there, slowly.
-	const loll = -0.3 - 0.08 * Math.sin(time * 0.7 + 1);
+	const loll = -0.2 - 0.08 * Math.sin(time * 0.7 + 1);
 
 	/*
 	 * The hips: a lurch from side to side that throws the weight over each
@@ -100,32 +100,49 @@ export function shufflePose(theta: number, amp: number, time = 0, out: SparsePos
 	setSparse(out, 'shinR', [right.lower, 0, 0]);
 	setSparse(out, 'footR', [right.level * (1 - 0.2 * right.swing) + 0.1 * right.swing, -0.25, 0.05]);
 
-	// The trunk sags and rolls against the hips; the head hangs and rolls
-	// with the lurch, turning slowly when it stands.
+	/*
+	 * The trunk sags and rolls against the hips. The head is thrust forward
+	 * off the slump and hangs to one side, snapping forward a little as each
+	 * foot comes down and turning slowly when it stands.
+	 */
+	const snap = 0.06 * amp * Math.max(0, Math.cos(2 * theta));
 	setSparse(out, 'spine', [trunk.spineRot, -0.04 * amp * sinT, -0.05 * amp * sinT - 0.02 * sway]);
 	setSparse(out, 'chest', [trunk.chestRot, -0.05 * amp * sinT, 0.03 * sway]);
-	setSparse(out, 'neck', [SLUMP.neck, 0.05 * sway, -0.08]);
+	setSparse(out, 'neck', [SLUMP.neck + snap, 0.05 * sway, -0.08]);
 	setSparse(out, 'head', [
-		SLUMP.head + 0.05 * Math.sin(time * 0.4),
+		SLUMP.head + snap + 0.05 * Math.sin(time * 0.4),
 		0.15 * Math.sin(time * 0.3) * still + 0.08 * amp * sinT,
 		loll,
 	]);
 
 	/*
-	 * The arms. The right is held out ahead, elbow bent, the hand hanging off
-	 * the wrist — reaching for whatever is in front of it — and twitches at
-	 * the stand. The left hangs and swings a little with the lurch. An arm
-	 * hangs in the chest's frame, so the slump is taken back out at the
-	 * shoulder before either is pointed anywhere.
+	 * The arms, both out ahead of it and reaching: the right higher than the
+	 * left, the elbows bent so the forearms come up towards whatever is in
+	 * front, and each hand held level with its palm turned down over it, so
+	 * the hooked fingers point at it. The reach rises and falls slowly and
+	 * the hands paw, out of step with each other, which is the whole of its
+	 * intent.
+	 *
+	 * An arm hangs in the chest's frame, so the slump is taken back out at
+	 * the shoulder before either is pointed anywhere; and a hand held level
+	 * takes out everything above it and a quarter turn more, then turns
+	 * inwards about the forearm by a quarter turn to put the palm down.
 	 */
 	const bend = rootRot + trunk.spineRot + trunk.chestRot;
-	const twitch = 0.05 * still * Math.sin(time * 1.1);
-	setSparse(out, 'armR', [-bend - 1.3 + twitch + 0.05 * amp * sinT, -0.1, -0.15]);
-	setSparse(out, 'forearmR', [-0.45, 0, 0]);
-	setSparse(out, 'handR', [0.7, 0, -0.1]);
-	setSparse(out, 'armL', [-bend + 0.1 + 0.15 * amp * sinT, 0, 0.12 + 0.02 * sway]);
-	setSparse(out, 'forearmL', [-0.15, 0, 0]);
-	setSparse(out, 'handL', [0.1, 0, 0.05]);
+	const reach = 0.08 * Math.sin(time * 0.5);
+	const armR = -bend - 1.4 - reach + 0.06 * amp * sinT;
+	const armL = -bend - 1.1 + reach - 0.06 * amp * sinT;
+	const forearmR = -0.55;
+	const forearmL = -0.65;
+	const level = (arm: number, forearm: number): number => -PI / 2 - (bend + arm + forearm);
+	const pawR = 0.2 * Math.sin(time * 0.9);
+	const pawL = 0.2 * Math.sin(time * 0.9 + 2.1);
+	setSparse(out, 'armR', [armR, -0.15, -0.15]);
+	setSparse(out, 'forearmR', [forearmR, 0, 0]);
+	setSparse(out, 'handR', [level(armR, forearmR) + pawR, PI / 2, -0.1]);
+	setSparse(out, 'armL', [armL, 0.15, 0.12 + 0.02 * sway]);
+	setSparse(out, 'forearmL', [forearmL, 0, 0]);
+	setSparse(out, 'handL', [level(armL, forearmL) + pawL, -PI / 2, 0.1]);
 
 	return out;
 }

@@ -148,23 +148,29 @@ parts:
   - { bone: forearmR, from: [0, 0, 0], to: { bone: handR }, radius: 0.04, color: skin }
   - { bone: forearmR, at: [-0.02, -0.15, 0.02], size: [0.025, 0.1, 0.02], color: skinRot }
 
-  # The hands: a palm facing the body, four straight fingers ending in nails
-  # filed to points, and a thumb ahead of them.
+  # The hands: a palm facing the body, and four fingers hooked hard at the
+  # knuckle so the nails, filed to points, come round towards the palm — a
+  # hand that is closing on something, whichever way it is turned — and a
+  # thumb hooked to meet them.
   - sides: [L, R]
     mirror: true
     parts:
       - { bone: 'hand*', at: [0, 0, 0], size: [0.03, 0.035, 0.026], color: skinDark }
       - { bone: 'hand*', at: [0, -0.045, 0.005], size: [0.024, 0.07, 0.04], color: skin }
-      - { bone: 'hand*', from: [0, -0.08, -0.03], along: [-0.1, -1, -0.2], length: 0.06, radius: 0.01, color: skin }
-      - { bone: 'hand*', from: [-0.006, -0.14, -0.042], along: [-0.2, -1, -0.15], length: 0.035, radius: 0.007, color: nail }
-      - { bone: 'hand*', from: [0, -0.08, -0.01], along: [-0.1, -1, -0.05], length: 0.065, radius: 0.01, color: skin }
-      - { bone: 'hand*', from: [-0.0065, -0.145, -0.013], along: [-0.2, -1, -0.05], length: 0.04, radius: 0.007, color: nail }
-      - { bone: 'hand*', from: [0, -0.08, 0.01], along: [-0.1, -1, 0.05], length: 0.065, radius: 0.01, color: skin }
-      - { bone: 'hand*', from: [-0.0065, -0.145, 0.013], along: [-0.2, -1, 0.05], length: 0.04, radius: 0.007, color: nail }
-      - { bone: 'hand*', from: [0, -0.08, 0.03], along: [-0.1, -1, 0.2], length: 0.06, radius: 0.01, color: skin }
-      - { bone: 'hand*', from: [-0.006, -0.14, 0.042], along: [-0.2, -1, 0.15], length: 0.035, radius: 0.007, color: nail }
-      - { bone: 'hand*', from: [-0.015, -0.035, 0.03], along: [-0.5, -0.7, 0.7], length: 0.045, radius: 0.009, color: skin }
-      - { bone: 'hand*', from: [-0.037, -0.066, 0.061], along: [-0.5, -0.8, 0.5], length: 0.03, radius: 0.007, color: nail }
+      - { bone: 'hand*', from: [0, -0.08, -0.03], along: [-0.15, -1, -0.25], length: 0.045, radius: 0.01, color: skin }
+      - { bone: 'hand*', from: [-0.007, -0.125, -0.041], along: [-1, -0.45, -0.15], length: 0.04, radius: 0.009, color: skinDark }
+      - { bone: 'hand*', from: [-0.047, -0.143, -0.047], along: [-1, -0.1, -0.1], length: 0.03, radius: 0.007, color: nail }
+      - { bone: 'hand*', from: [0, -0.08, -0.01], along: [-0.15, -1, -0.08], length: 0.05, radius: 0.01, color: skin }
+      - { bone: 'hand*', from: [-0.0075, -0.13, -0.014], along: [-1, -0.45, -0.05], length: 0.045, radius: 0.009, color: skinDark }
+      - { bone: 'hand*', from: [-0.0525, -0.15, -0.016], along: [-1, -0.1, -0.03], length: 0.032, radius: 0.007, color: nail }
+      - { bone: 'hand*', from: [0, -0.08, 0.01], along: [-0.15, -1, 0.08], length: 0.05, radius: 0.01, color: skin }
+      - { bone: 'hand*', from: [-0.0075, -0.13, 0.014], along: [-1, -0.45, 0.05], length: 0.045, radius: 0.009, color: skinDark }
+      - { bone: 'hand*', from: [-0.0525, -0.15, 0.016], along: [-1, -0.1, 0.03], length: 0.032, radius: 0.007, color: nail }
+      - { bone: 'hand*', from: [0, -0.08, 0.03], along: [-0.15, -1, 0.25], length: 0.045, radius: 0.01, color: skin }
+      - { bone: 'hand*', from: [-0.007, -0.125, 0.041], along: [-1, -0.45, 0.15], length: 0.04, radius: 0.009, color: skinDark }
+      - { bone: 'hand*', from: [-0.047, -0.143, 0.047], along: [-1, -0.1, 0.1], length: 0.03, radius: 0.007, color: nail }
+      - { bone: 'hand*', from: [-0.012, -0.03, 0.03], along: [-0.6, -0.5, 0.6], length: 0.04, radius: 0.009, color: skin }
+      - { bone: 'hand*', from: [-0.036, -0.05, 0.054], along: [-0.9, -0.3, -0.3], length: 0.03, radius: 0.007, color: nail }
 
   # The left leg: trousers to the knee, the leg bare and blotched below where
   # the cloth has torn away, and the one boot still on.
