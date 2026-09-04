@@ -287,7 +287,7 @@ Birth options (`list-options.h`, type `OP_BIRTH`) can only be changed during bir
 
 | Option | Default | Effect in code |
 |---|---|---|
-| `birth_randarts` | off | At accept, `do_randart()` replaces the standard artifact set with a randomly generated one of equivalent power (see the Object Generation chapter). Spoilers and knowledge screens use the randart names. |
+| `birth_randarts` | off | At accept, `do_randart()` replaces the standard artifact set with a randomly generated one of equivalent power (see *Objects* 14.5.4). Spoilers and knowledge screens use the randart names. |
 | `birth_connect_stairs` | on | `new_player_spot()` places a staircase of the type just used under the player on arrival (`create_down_stair`/`create_up_stair` set by the stair commands). |
 | `birth_force_descend` | off | `do_cmd_go_up()` prints "Nothing happens!"; deep descent and recall always take the player to `max_depth + 1` (`player_set_recall_depth()`, `effect_handler_RECALL/DEEP_DESCENT`); recall from a quest level does nothing; teleport level never goes up; the player is warned before descending onto a quest level. |
 | `birth_no_recall` | off | `effect_handler_RECALL()` does nothing (unless the player has already won); the Word of Recall scroll is removed from starting kits. |

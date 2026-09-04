@@ -142,6 +142,28 @@ and object knowledge.
 `died_from = "Retiring"`; a winner's retirement is scored, a
 non-winner's is *not* ("Score not registered due to retiring").
 
+**`death_knowledge()`** then runs for every character, winner or not, and
+does two things. It calls `player_learn_all_runes()` and makes every
+carried flavour aware, so the tombstone and the dump show what the
+character was really carrying rather than what they knew of it. And for a
+winner it rewrites the record before the score is taken:
+
+```c
+if (p->total_winner) {
+	p->depth = 0;
+	my_strcpy(p->died_from, WINNING_HOW, ...);   /* "Ripe Old Age" */
+	p->exp = p->max_exp;
+	p->lev = p->max_lev;
+	p->au += 10000000L;
+}
+```
+
+A winner is therefore recorded as having died in town of old age with ten
+million gold, with any experience drain undone. That rewrite is also what
+makes the two `!p->total_winner && streq(p->died_from, ...)` tests in
+`enter_score` work: a winner who retires no longer has "Retiring" as a
+cause of death.
+
 ---
 
 ## 19.5 Score (`score.c`)
@@ -171,6 +193,18 @@ The score entry (`struct high_score`) stores: version, points, gold,
 turns, date, name, uid, race, class, current and max character level,
 current and max dungeon level, and the cause of death. `scores.raw` in
 the user directory keeps the top `MAX_HISCORES` (100).
+
+`highscore_cmp` (`score-util.c`) orders the table:
+
+1. non-empty records before empty ones;
+2. **a winner before any non-winner**, whatever the points;
+3. more points before fewer;
+4. otherwise the existing order is kept, so equal entries do not shuffle.
+
+Winning is detected at step 2 by comparing the stored cause of death
+against `WINNING_HOW` ("Ripe Old Age") — `total_winner` is not written to
+the score file, so the rewrite in `death_knowledge()` above is the only
+thing that marks a winning entry as one.
 
 ---
 

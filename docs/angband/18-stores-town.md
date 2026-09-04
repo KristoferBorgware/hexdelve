@@ -141,10 +141,17 @@ early: buying a Cloak [1,+1] teaches the to-AC rune.
 ## 18.6 Stock maintenance (`store_maint`, `store_update`)
 
 While you are in the dungeon, `daycount` increments every
-`10 × store-turns = 10 000` game turns (one day). On returning to town
-(`dungeon_change_level(0)`), `store_update` runs `store_maint` once per
-elapsed day for every store (and rolls the 1/25 owner shuffle each
-day):
+`10 × store-turns = 10 000` game turns. Despite the variable's name and
+the comment beside it in `game-world.c`, that is **not** a day: a day is
+`10 × day-length = 100 000` game turns (*Time* 2.7), so `daycount` ticks
+ten times a day. The counter only advances below town level.
+
+On returning to town (`dungeon_change_level(0)`), `store_update` runs
+`store_maint` once per accumulated tick for every store — rolling the 1/25
+owner shuffle on each — and then zeroes the counter. The work is deferred
+rather than done as it accrues for the reason the source gives: doing it
+live would let you read the coming stock out of the knowledge menu without
+going to town.
 
 ```
 black market: discard anything no longer black_market_ok

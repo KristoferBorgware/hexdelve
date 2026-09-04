@@ -134,7 +134,7 @@ Objects on the floor in the blast area are handled by `project_o()` (Ranged chap
 | PROT_FEAR / PROT_BLIND / PROT_CONF / PROT_STUN | Block the respective status entirely. |
 | REGEN / IMPAIR_HP / IMPAIR_MANA | Regeneration multipliers (Timed Effects chapter). |
 | SEE_INVIS, TELEPATHY | Vision chapter. |
-| FEATHER | Halves lava damage; is on the `save:` line of the trap door and all three pits, so it cancels their damage and side effects entirely — but a trap door still drops you a level and a pit still moves you into it, since both are applied outside the save branch (Traps chapter). |
+| FEATHER | Halves lava damage; is on the `save:` line of the trap door and all three pits, so it cancels their damage and side effects entirely — but a trap door still drops you a level and a pit still moves you into it, since both are applied outside the save branch (*Traps* 17.4); lava is 17.5b. |
 | TRAP_IMMUNE | Immune to traps. |
 | NO_TELEPORT | Blocks all teleportation, including the player's own. |
 | AGGRAVATE | Wakes and hastes nearby monsters (Monsters chapter). |
