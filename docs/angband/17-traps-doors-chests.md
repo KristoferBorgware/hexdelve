@@ -24,7 +24,7 @@ visibility:2d10M50                # "power" — compared with the player's searc
 flags:TRAP | FLOOR | DOWN
 effect:DAMAGE
 dice:2d8
-save:FEATHER                      # object flag that avoids the trap entirely
+save:FEATHER                      # object flag that avoids the trap's effects
 msg:You fall through a trap door!
 msg-good:You float gently down to the next level.
 ```
@@ -126,6 +126,27 @@ DOWN → next level;  PIT → you are moved onto the trap grid if you weren't
 ONETIME, or one_in_(3): trap removed;  else it stays and is now visible
 ```
 
+Two details of that ordering are easy to read the wrong way round.
+
+**The `DOWN` and `PIT` steps are outside the save branch.** Feather Fall
+is on the `save:` line of the trap door and all three pits, so it cancels
+the 2d8 fall damage, the spikes and the poison — and the level change and
+the move into the pit happen anyway. Feather Fall makes a trap door
+painless, not avoidable; the only things that stop the descent are the
+generation rules that keep trap doors off quest levels, the last level and
+persistent levels.
+
+**Two thirds of traps survive firing.** Only `ONETIME` kinds always
+vanish; everything else is removed on a flat `one_in_(3)` and otherwise
+stays on the grid, now visible, and fires again on the next step onto it.
+
+A trap can also be *disabled* rather than removed:
+`square_set_trap_timeout()` sets a per-trap `timeout`, `process_world`
+decrements it every tick (*World Loop* 19), and both `hit_trap` and
+`player_handle_post_move` skip a trap whose timeout is non-zero
+(`square_isdisabledtrap`). A disabled trap is not disarmable either — it
+reappears as a threat when the counter reaches zero.
+
 **Walking onto a known trap** (`move_player(dir, disarm)`): the walk
 command automatically attempts to *disarm* a known trap in the target
 grid instead of stepping on it (auto-repeating up to 99 times), unless
@@ -150,6 +171,74 @@ So with 60 disarm skill at depth 40: 52 % success, 25 % harmless
 failure, 23 % set it off, per attempt. A magical trap (runes, mind
 blasts, petrifying) uses the magic disarm skill, which favours
 spellcasters.
+
+---
+
+## 17.5a Glyphs, decoys and webs
+
+These share the trap list but lack `TRF_TRAP`, so none of 17.2–17.5
+applies to them: they are not generated, not detected, not disarmed, and
+they never fire on the player.
+
+**Glyph of warding** (`;` yellow, `GLYPH | VISIBLE | FLOOR`) is laid under
+the player by `EF_GLYPH:WARDING`. A monster that wants to enter the grid
+runs `monster_turn_attack_glyph()`:
+
+```c
+if (randint1(z_info->glyph_hardness) < mon->race->level)   /* break-glyph: 550 */
+```
+
+so one attempt breaks it with chance about `level / 550` — roughly 1 in 11
+for a level-50 monster, and never for anything below level 1. A failed
+roll does **not** break the monster's movement loop, so a monster gets one
+roll per movement attempt rather than one per turn. A glyph therefore
+delays a strong monster by a turn or two and stops a weak one outright.
+
+**Decoy** (`;` green, same flags) comes from `EF_GLYPH:DECOY`. Monsters
+that are `monster_is_decoyed()` path towards `cave_find_decoy()` instead of
+the player, and any monster that reaches it destroys it in one action
+unless it is `RF_NEVER_BLOW`. It also dies on its own if the player moves
+further than `max_sight` from it (`player_leaving()`).
+
+**Webs** (`%` yellow, `WEB | VISIBLE`) are created only by monsters —
+`effect_handler_WEB()` returns false outright for a player caster — in a
+radius that grows with the caster's spell power (1, +1 above 40, +1 above
+80), on floor grids holding no other trap (`square_iswebbable()`).
+Handling differs sharply by side:
+
+| Who | Result |
+|---|---|
+| `RF_PASS_WEB` monster | Ignores it entirely |
+| `RF_PASS_WALL` monster | Passes through, web intact |
+| Wall-destroying monster | Destroys the web, keeps its turn |
+| `RF_CLEAR_WEB` monster | Destroys the web and **spends the turn** doing it |
+| Any other monster | Stuck; turn ends |
+| Player | Clears it and spends the move, from any movement command |
+
+So a web takes one turn from the player per web crossed, and takes every
+turn from a monster that can neither pass nor clear it, which is what
+holds a webbed monster in place while the rest of its group closes.
+
+---
+
+## 17.5b Damaging terrain
+
+Lava is not a trap: it has no visibility, no save and nothing to disarm,
+and it is checked once per action in `process_player_cleanup()` rather
+than on entry.
+
+```c
+base_dam = 100 + randint1(100);
+dam = adjust_dam(p, ELEM_FIRE, base_dam, RANDOMISE, res, actual);
+if (OF_FEATHER) dam /= 2;              /* lightfooted */
+```
+
+Fire resistance applies in full and Feather Fall halves what is left.
+Damage reduction (`DAM_RED`) is applied to the hit-point loss afterwards,
+but `inven_damage()` is called with the **raw** figure as its `cperc`,
+uncapped — whereas a breath's inventory chance is capped at 300. That is
+why standing in lava destroys pack items far faster than being breathed
+on (*Elements* 10.5).
 
 ---
 

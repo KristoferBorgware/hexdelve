@@ -91,13 +91,13 @@ run_game_loop():
             process_player()           -- returns to the UI when a command is needed
 ```
 
-`process_player()` also handles the automatic things that happen "at the start of the player's turn": Dwarves' ore detection, a forced `CMD_SLEEP` when paralysed or knocked out, checking whether special rest modes are complete, and pack overflow. `process_world()` runs every ten game turns and is described in the World Loop chapter.
+`process_player()` also handles the automatic things that happen "at the start of the player's turn": Dwarves' ore detection, a forced `CMD_SLEEP` when paralysed or knocked out, checking whether special rest modes are complete, and pack overflow. `process_world()` runs every ten game turns and is described in *The World Loop* 19.1.
 
 Level changes are requested, not performed, by game logic: `dungeon_change_level()` (`player-util.c`) sets `player->depth` and `upkeep->generate_level`, and the loop above calls `prepare_next_level()` when it is safe to do so. Stair commands additionally set `upkeep->create_up_stair`/`create_down_stair` so that connected stairs can be placed.
 
 ## 1.7 Files
 
-**Gamedata files** are line-oriented, colon-separated records parsed by `parser.c`: each file registers a set of `parser_reg()` directives ("name str name", "flags ?str flags", ...) with a handler, and `#` lines are comments. They are only read at startup; the Gamedata Reference chapter (21) lists every file.
+**Gamedata files** are line-oriented, colon-separated records parsed by `parser.c`: each file registers a set of `parser_reg()` directives ("name str name", "flags ?str flags", ...) with a handler, and `#` lines are comments. They are only read at startup; the *Gamedata File Reference* (chapter 20) lists every file.
 
 **Pref files** (`lib/customize/*.prf` and per-user files) hold UI customisation: keymaps, visuals, colours, subwindow layout, inscriptions. `ui-prefs.c` processes them with `process_pref_file()`; user files override system ones.
 

@@ -163,7 +163,7 @@ if one_in_(20) and wearable: apply_curse(obj, lev)      /* curses can land on an
 weapons:  apply_magic_weapon (14.3.2)
 armour:   apply_magic_armour
 ring of speed: while one_in_(2): SPEED += 1            /* +1, +2 (50 %), +3 (25 %)… on top of the kind's value */
-chests:   pval = pick_chest_traps (see Traps chapter)
+chests:   pval = pick_chest_traps (see *Traps* 17.8)
 ego_apply_minima: raise pluses/modifiers to the ego's min-combat/min-values
 ```
 
@@ -335,6 +335,47 @@ Each ego's `info:cost:rating` and each artifact's power add to the level
 feeling (`cave->obj_rating`) when placed; see *Dungeon Generation* for
 how the feeling is computed. Artifacts are `IGNORE_MAX` (never ignored)
 and never break, stack, or take curses from generation.
+
+### 14.5.4 Random artifacts (`birth_randarts`, `obj-randart.c`)
+
+With the option on, `do_randart(seed, create_file)` replaces the whole of
+`a_info` at startup. It switches the RNG to the reproducible linear
+congruential generator (`Rand_quick`) seeded from the savefile, so one
+seed always yields one set.
+
+Exactly one thing survives from the standard artifact being replaced: its
+**power rating**, recorded by `store_base_power()` before anything
+changes. `parse_frequencies()` then measures how often each property
+occurs across the standard set, and that becomes the table properties are
+drawn from — so a randart set keeps roughly the standard distribution of
+resistances, slays and activations without any individual item surviving.
+
+Each artifact is then built up to its recorded power `power`:
+
+```
+1. pick a NEW base item kind (not the original's), rejecting any whose own
+   power is already close to the target, so there is room to add to it
+2. try_supercharge, rolled back if the result exceeds 23/20 × power
+3. loop up to MAX_TRIES (200):
+       add_ability; remove_contradictory; ap = artifact_power()
+       ap > 23/20 × power + 1 → roll back and continue
+       ap >= 19/20 × power    → accept
+4. some artifacts are designated cursed up front and run through make_bad(),
+   keeping their power rating while spending part of it on penalties
+5. rarity and depth are recomputed from the achieved power, not inherited:
+       alloc_prob = 4000000 / ap²  ÷ the base kind's own commonness, clamped 1–99
+       alloc_max  = min(127, 3 × ap / 5)
+       alloc_min  = min(100, (ap + 100) × 100 / max_power)
+```
+
+The name is replaced too, assembled from fragments by
+`artifact_gen_name()`. Two artifacts are exempt and stay exactly as
+written: the One Ring, and anything flagged `KF_QUEST_ART` — Grond and
+Morgoth's crown — because the endgame depends on them.
+
+`INHIBIT_POWER` (20000) and the `INHIBIT_BLOWS` (3), `INHIBIT_SHOTS`
+(21), `INHIBIT_MIGHT` (4) and `INHIBIT_AC` (56) thresholds in
+`obj-power.h` are what stop this loop producing an item off the scale.
 
 ---
 

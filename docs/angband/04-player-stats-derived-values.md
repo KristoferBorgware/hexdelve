@@ -231,7 +231,7 @@ These are indexed by the *average* of the casting stats of the class's realms (`
 2. **Equipment.** For each body slot, for the object in it and then for each *curse* on that object (curses are implemented as hidden objects that contribute their own modifiers and flags):
    - object flags are collected (all of them for the real state, only known ones for `known_state`);
    - modifiers are added: STR/INT/WIS/DEX/CON to `stat_add`, STEALTH to the stealth skill, SEARCH ×5 to the search skill, INFRA to infravision, TUNNEL ×20 (plus 20/40/60 for DIG_1/2/3 diggers) to the digging skill, SPEED to speed, DAM_RED, BLOWS, SHOTS, MIGHT and MOVES to running totals;
-   - each modifier is multiplied by `p->obj_k->modifiers[...]`, which is 1 once the player knows that rune and 0 before, so an *unknown* modifier has no effect on the real state either (the player learns it the moment it matters, see the Object Knowledge chapter);
+   - each modifier is multiplied by `p->obj_k->modifiers[...]`, which is 1 once the player knows that rune and 0 before, so an *unknown* modifier has no effect on the real state either (the player learns it the moment it matters, see *Objects* 14.9);
    - element resist levels take the maximum over items, vulnerabilities (−1) are noted;
    - `ac += obj->ac`, `to_a += obj->to_a`, and `to_h`/`to_d` are added for everything *except* the weapon and launcher slots (their bonuses apply only to attacks made with them).
 3. **Shape.** `calc_shapechange()` adds the current shape's combat bonuses, skills, flags, stat and other modifiers and resistances (`shape.txt`, see 4.13).
@@ -269,7 +269,7 @@ with the stat adjustment being `adj_dex_dis` for physical disarming, `adj_int_di
 | SKILL_DEVICE | Wand/staff/rod/activation success |
 | SKILL_SAVE | Saving throw against monster spells and many side effects (`randint0(100) < save`) |
 | SKILL_STEALTH | Monster wake-up rate (0..30) |
-| SKILL_SEARCH | Multiplied by 5 from the SEARCH modifier; spotting invisible traps, and nothing else — `trap.c`'s `SKILL_SEARCH < trap->power` test is its only use in the game. Secret doors are found automatically with no roll (Traps chapter) |
+| SKILL_SEARCH | Multiplied by 5 from the SEARCH modifier; spotting invisible traps, and nothing else — `trap.c`'s `SKILL_SEARCH < trap->power` test is its only use in the game. Secret doors are found automatically with no roll (*Traps* 17.3) |
 | SKILL_TO_HIT_MELEE / BOW / THROW | Base of the hit chance for each attack type |
 | SKILL_DIGGING | Tunnelling chances (4.11) |
 
