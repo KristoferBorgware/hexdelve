@@ -225,6 +225,7 @@ export {
 	loadSystem,
 	emptyPrefab,
 	prefabScripts,
+	type PrefabScript,
 	prefabTypes,
 	readPrefabNode,
 	unknownComponent,

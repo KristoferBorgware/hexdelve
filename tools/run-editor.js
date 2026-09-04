@@ -44,8 +44,28 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 
+const WINDOWS = process.platform === 'win32';
+
 /** npm is a .cmd on Windows, and spawn will not find it without the suffix. */
-const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const NPM = WINDOWS ? 'npm.cmd' : 'npm';
+
+/**
+ * How to spawn a command file at all on Windows.
+ *
+ * Node refuses to spawn a `.cmd` or `.bat` without a shell — it throws
+ * `EINVAL` rather than running it — since the fix for CVE-2024-27980, where
+ * arguments to a batch file could be read as further commands. So Windows gets
+ * `shell: true`, and everything handed to it is quoted, because a shell is
+ * exactly what makes an argument with a space in it into two arguments.
+ *
+ * Nothing else gets a shell. On Linux and macOS `npm` is an ordinary
+ * executable and adding one would only be a second thing to get the quoting
+ * right for.
+ */
+function shellSafe(argument) {
+	if (!WINDOWS) return argument;
+	return /[\s"^&|<>()]/.test(argument) ? `"${argument.replace(/"/g, '""')}"` : argument;
+}
 
 function usage() {
 	console.log(
@@ -89,9 +109,10 @@ function parse(argv) {
 function run(what, command, args, extraEnv) {
 	console.log(`\n\u001b[1m${what}\u001b[0m  ${command} ${args.join(' ')}`);
 	const started = Date.now();
-	const result = spawnSync(command, args, {
+	const result = spawnSync(shellSafe(command), args.map(shellSafe), {
 		cwd: root,
 		stdio: 'inherit',
+		shell: WINDOWS,
 		env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
 	});
 	const seconds = ((Date.now() - started) / 1000).toFixed(1);
@@ -125,6 +146,7 @@ function treeIsCurrent() {
 	const result = spawnSync(NPM, ['ls', '--workspaces', '--depth=0'], {
 		cwd: root,
 		stdio: 'ignore',
+		shell: WINDOWS,
 	});
 	return result.status === 0;
 }

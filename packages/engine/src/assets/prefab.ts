@@ -112,20 +112,46 @@ export function prefabTypes(node: PrefabNode, into: string[] = []): string[] {
 	return into;
 }
 
+/** One script a prefab asks for, and what it tries to set on it. */
+export interface PrefabScript {
+	/** The class name, as the script file exports it. */
+	readonly script: string;
+	/** The object it sits on, so an error can say where it is. */
+	readonly on: string;
+	/**
+	 * Every field beyond `type` and `script`.
+	 *
+	 * Names only. What they are worth is the script's business — the engine has
+	 * never heard of a parameter either — but whether a script HAS a field by
+	 * that name is checkable, and a prefab setting one that was renamed is
+	 * otherwise a warning in a console nobody is reading.
+	 */
+	readonly parameters: readonly string[];
+}
+
 /**
- * Every script class a prefab names, anywhere underneath it.
+ * Every script a prefab asks for, anywhere underneath it.
  *
  * The engine has never heard of a script, and does not learn about one here:
  * this reads the `script` field off a component of type `script`, which is a
  * convention the game's own registry establishes. It is in the engine because
  * walking a prefab is the engine's, and because the alternative — the build tool
  * walking the tree itself — would be the same recursion written twice.
+ *
+ * One entry per USE rather than one per class. The same script on two objects
+ * with different parameters is two things worth checking separately, and the
+ * object's name is half of a useful error.
  */
-export function prefabScripts(node: PrefabNode, into: string[] = []): string[] {
+export function prefabScripts(node: PrefabNode, into: PrefabScript[] = []): PrefabScript[] {
 	for (const component of node.components) {
 		if (component.type !== 'script') continue;
 		const named = component.fields.get('script').textOr('');
-		if (named && !into.includes(named)) into.push(named);
+		if (!named) continue;
+		into.push({
+			script: named,
+			on: node.name,
+			parameters: Object.keys(component.fields.rest('type', 'script')),
+		});
 	}
 	for (const child of node.children) prefabScripts(child, into);
 	return into;
