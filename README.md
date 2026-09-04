@@ -96,6 +96,7 @@ npm run build           # every package
 npm run typecheck       # every package, no output
 npm run build:pages     # build, then stage the whole site in dist/pages
 npm test                # every test in test/, once
+npm run assets          # pack public/assets into dist/assets.json, and check it
 npm run test:watch      # and again on every save
 ```
 
@@ -387,9 +388,37 @@ saved, since turning an unsaved change into a broken asset is strictly worse
 than refusing — and invalidating everything derived from what changed, because
 a rig's hip height moves every mesh hung on it.
 
-The benches still take their subjects from the TypeScript modules; the files
-are proven equal to them and the IO to reach them is in place. See
-[docs/assets.md](docs/assets.md).
+### The switchover, and what stayed
+
+Nothing builds a body, a rig or a clip in TypeScript any more. `models/`,
+`game/skeleton.ts`, `game/batrig.ts`, `game/hellhoundrig.ts` and
+`game/clips.ts` are gone; the client loads its cast from the manifest at
+startup and the benches take their subjects from the same place. Adding a
+creature used to touch five files and an export block. It is now a file in
+`public/assets/entities` and a line in `index.yaml`.
+
+Three things stayed in code, each a deliberate line. The **pose functions** —
+the stride is a function of one phase angle and a heading, which covers the
+whole circle of directions where a blend space over clips covers four; the
+entity files name them and hand them their tuning. What those functions were
+**tuned against** — `stridePose` says `hipL` outright and was solved for a leg
+of a given length, so it carries that number rather than being handed a rig,
+and the copy is pinned to the rig file by a test. And the **calibration**, since
+correcting a speed axis needs the built tree swept and a file can only state
+the request.
+
+The guarantee moved with the code. While both statements of what a wanderer is
+existed, a test compared them part for part; they agreed, so the modules went.
+What guards the files now is the picture: the yard drawn from YAML is
+pixel-identical to the reference PNG taken when every character was built in
+TypeScript, which covers the rigs, the bodies, the palettes, the clips, the
+trees and the way all of them compose, in one number.
+
+`node tools/build-assets.mjs` folds the tree into one JSON — one request
+instead of thirty — and, more usefully, **checks it**: every entity is loaded
+through the same readers the game uses, so a mesh naming a bone its rig does
+not have fails the build rather than the editor. A YAML file has no compiler;
+that is the nearest thing it gets. See [docs/assets.md](docs/assets.md).
 
 ### Versions
 
@@ -438,7 +467,7 @@ there, or when there is no browser driver installed.
 |---|---|
 | `picking` | A screen point has to map back to the ground drawn there. A camera basis derived twice is a sign waiting to be got wrong, and nothing throws when it is — the original bug tracked the cursor correctly sideways and moved the aim a third as far up and down. |
 | `blend-tree` | A tree out of phase still produces sensible weights and a valid pose; the only symptom is a character who skates. Pins the thresholds, the calibration, the sync, the additive gain and the mask. |
-| `assets` | Every file in `assets/` against the module it replaced — part for part, key for key, bone for bone. Both statements of what a wanderer is still exist, which is the one chance there will ever be to check them against each other: a mesh that drops a prism, mirrors the wrong axis or reads a colour out of the wrong palette entry fails here rather than being noticed later by somebody looking at a character with one ear. |
+| `assets` | That the files load to the shapes the game expects, that the loaders refuse what they should, and that the pose functions still agree with the rigs they were tuned against — `stridePose` carries a copy of the humanoid's leg length, and a copy can drift from the file it came from. The part-for-part comparison against the TypeScript modules lived here until those modules were deleted; `render` is what guards the files now. |
 | `yaml` | The reader's **refusals**, mostly. A tab used as indentation, an anchor, a tag, a second document, a duplicate key — each has a silent mis-reading available to it, and a parser you wrote yourself is only worth having if it is loud. Also pins that `pi / 2 + 0.05` in a file is the same double as `PI / 2 + 0.05` in TypeScript. |
 | `tiles` | Every mistake available in a WFC tileset still produces levels. A rotation that turns the wrong way bends corridors the wrong way; an asymmetric propagator drifts the solver's supporter counts and makes it ban tiles for no reason; a tile with no legal neighbour is never placed and its weight is a lie. Pins the edge mapping, the rotation cardinalities *and their direction* — turning the wrong way gives the same counts — the propagator's symmetry, and the open mask. |
 | `shaders` | WebGPU marks a bad pipeline invalid rather than throwing, so a broken shader reaches a browser looking healthy and only fails on the first draw. |

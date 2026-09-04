@@ -18,9 +18,11 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
 
-import { BENCH_RIGS, type BenchRig } from '../bench/rigs.js';
+import type { BenchRig } from '../bench/rigs.js';
 
 export interface BoneOutlineProps {
+	/** Everything on the manifest that has bones, for the subject picker. */
+	rigs: readonly BenchRig[];
 	rig: BenchRig;
 	onRigChange(rig: BenchRig): void;
 	selected: string | null;
@@ -33,7 +35,7 @@ interface Row {
 	parent: string | null;
 }
 
-export function BoneOutline({ rig, onRigChange, selected, onSelect }: BoneOutlineProps) {
+export function BoneOutline({ rigs, rig, onRigChange, selected, onSelect }: BoneOutlineProps) {
 	const rows = useMemo<Row[]>(() => {
 		const depths = new Map<string, number>();
 		return rig.skeleton.map((bone) => {
@@ -67,11 +69,11 @@ export function BoneOutline({ rig, onRigChange, selected, onSelect }: BoneOutlin
 					size="small"
 					value={rig.id}
 					onChange={(event) => {
-						const next = BENCH_RIGS.find((candidate) => candidate.id === event.target.value);
+						const next = rigs.find((candidate) => candidate.id === event.target.value);
 						if (next) onRigChange(next);
 					}}
 				>
-					{BENCH_RIGS.map((candidate) => (
+					{rigs.map((candidate) => (
 						<MenuItem key={candidate.id} value={candidate.id}>
 							{candidate.label}
 						</MenuItem>

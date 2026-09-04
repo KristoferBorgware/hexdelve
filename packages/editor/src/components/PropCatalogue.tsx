@@ -22,9 +22,11 @@ import ListSubheader from '@mui/material/ListSubheader';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
 
-import { BENCH_PROPS, partRows, type BenchProp, type PropKind } from '../bench/props.js';
+import { partRows, type BenchProp, type PropKind } from '../bench/props.js';
 
 export interface PropCatalogueProps {
+	/** Every prop on the manifest, in its order. */
+	props: readonly BenchProp[];
 	prop: BenchProp;
 	onPropChange(prop: BenchProp): void;
 	selectedPart: number | null;
@@ -35,23 +37,29 @@ const KIND_LABELS: Record<PropKind, string> = {
 	weapon: 'Weapons',
 	armour: 'Armour',
 	shield: 'Shields',
+	gear: 'Gear',
 };
 
 /** The catalogue, grouped — in the order the kinds first appear in it. */
-const GROUPS: { kind: PropKind; props: BenchProp[] }[] = [];
-for (const entry of BENCH_PROPS) {
-	const group = GROUPS.find((candidate) => candidate.kind === entry.kind);
-	if (group) group.props.push(entry);
-	else GROUPS.push({ kind: entry.kind, props: [entry] });
+function groupsOf(props: readonly BenchProp[]): { kind: PropKind; props: BenchProp[] }[] {
+	const out: { kind: PropKind; props: BenchProp[] }[] = [];
+	for (const entry of props) {
+		const group = out.find((candidate) => candidate.kind === entry.kind);
+		if (group) group.props.push(entry);
+		else out.push({ kind: entry.kind, props: [entry] });
+	}
+	return out;
 }
 
 export function PropCatalogue({
+	props,
 	prop,
 	onPropChange,
 	selectedPart,
 	onSelectPart,
 }: PropCatalogueProps) {
-	const parts = useMemo(() => partRows(prop.model()), [prop]);
+	const parts = useMemo(() => partRows(prop), [prop]);
+	const groups = useMemo(() => groupsOf(props), [props]);
 
 	return (
 		<Box
@@ -67,11 +75,11 @@ export function PropCatalogue({
 			}}
 		>
 			<Typography variant="subtitle2" color="text.secondary" sx={{ px: 2 }}>
-				Catalogue · {BENCH_PROPS.length}
+				Catalogue · {props.length}
 			</Typography>
 
 			<List dense sx={{ mt: 0.5 }}>
-				{GROUPS.map((group) => (
+				{groups.map((group) => (
 					<Box key={group.kind} component="li" sx={{ listStyle: 'none' }}>
 						<ListSubheader
 							disableSticky

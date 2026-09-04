@@ -1,23 +1,27 @@
 /*
- * The asset files against the code they replace.
+ * The asset files: what they load to, and what still has to agree with them.
  *
- * Every rig, body, clip and tree in `assets/` was a TypeScript module first,
- * and those modules are still here. That is the whole opportunity of this
- * test: there is a second, independent statement of what a wanderer is, and it
- * can be compared part for part and key for key. A mesh file that drops a
- * prism, mirrors the wrong axis or reads a colour out of the wrong palette
- * entry fails here rather than being noticed later by somebody looking at a
- * character with one ear.
+ * This test used to compare every file against the TypeScript module it
+ * replaced, part for part and key for key. Those modules are gone — that was
+ * the point — so the comparison went with them, and it did its job: the yard
+ * drawn from these files is pixel-identical to the reference picture taken
+ * when it was drawn from code, which `render.test.ts` still checks.
  *
- * Numbers are compared to 1e-9 rather than exactly, and the reason is worth
- * stating so nobody tightens it and wonders why it breaks. `pi / 2 + 0.05` in
- * a file and `PI / 2 + 0.05` in TypeScript are the same double, but
- * `deg(12)` is `(12 * pi) / 180` where the source wrote `12 * (PI / 180)`, and
- * a frame composes a rotation through a quaternion where the sword's own
- * helper multiplied out a sine and a cosine by hand. Those differ in the last
- * bit or two of a double — a millionth of a millimetre — and demanding
- * bit-equality would only mean writing 1.6207963267948965 in the file, which
- * is the thing the expressions exist to avoid.
+ * What is left here is the three things that outlive the migration.
+ *
+ * The files LOAD, and to the shapes the game expects: seven entities, three
+ * rigs, the trees measuring their own thresholds. A file that stopped parsing
+ * would be found by the render test too, but only as a blank picture.
+ *
+ * The loaders REFUSE what they should. Every one of these has a silent
+ * mis-reading available to it, and a silent mis-reading in an asset file is a
+ * character drawn slightly wrong with nothing to point at.
+ *
+ * And the pose functions still AGREE with the rigs. A pose function names its
+ * bones outright and was tuned against particular offsets, so it carries a
+ * copy of the few numbers it needs — see the note in `game/humanoid.ts`. A
+ * copy can drift, so it is pinned here: change a leg bone in the rig file and
+ * leave the stride behind, and this fails rather than the man's feet sliding.
  */
 
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
@@ -33,35 +37,18 @@ import {
 	readOnly,
 	type AssetIO,
 	type EntityAsset,
-	type Model,
 	type RigAsset,
-	type Skeleton,
 } from '@hexdelve/engine';
 import {
-	BAT_SKELETON,
-	BAT_TIPS,
-	buildBat,
-	buildGhoul,
-	buildHellhound,
-	buildHelmet,
-	buildShield,
-	buildSword,
-	buildWanderer,
-	DUCK,
-	GUARD,
-	HELLHOUND_SKELETON,
-	HELLHOUND_TIPS,
-	HIPS_Y,
-	HOVER_Y,
-	LEAN_LEFT,
-	LEAN_RIGHT,
+	flyPose,
+	HOUND_STRIDE_PERIOD,
+	houndRunPose,
+	LEG_LENGTH,
+	perchPose,
 	poseFunctions,
-	SKELETON,
-	SLASH,
-	SWORD_TIP,
-	TIPS,
-	UPPER_BODY,
-	UPRIGHT,
+	RUN_PERIOD,
+	stridePose,
+	WALK_PERIOD,
 } from '@hexdelve/client';
 
 const root = resolvePath(import.meta.dirname, '..', 'public', 'assets');
@@ -102,57 +89,41 @@ function readRig(name: string): Promise<RigAsset> {
 	return library.rig(`rigs/${name}.rig.yaml`);
 }
 
-/** Every prism, in order, against the model the code builds. */
-function expectSameModel(loaded: Model, built: Model): void {
-	expect(loaded.parts).toHaveLength(built.parts.length);
 
-	for (let i = 0; i < built.parts.length; i++) {
-		const a = loaded.parts[i]!;
-		const b = built.parts[i]!;
-		const where = `part ${i} (bone ${b.bone})`;
-
-		expect(a.bone, where).toBe(b.bone);
-		expect(a.color, where).toEqual(b.color);
-		expect(a.alpha, where).toBe(b.alpha);
-		expect(a.flags, where).toBe(b.flags);
-
-		for (let axis = 0; axis < 3; axis++) {
-			expect(a.position[axis]!, `${where} position[${axis}]`).toBeCloseTo(b.position[axis]!, 9);
-			expect(a.scale[axis]!, `${where} scale[${axis}]`).toBeCloseTo(b.scale[axis]!, 9);
-		}
-		for (let axis = 0; axis < 4; axis++) {
-			expect(a.rotation[axis]!, `${where} rotation[${axis}]`).toBeCloseTo(b.rotation[axis]!, 6);
-		}
-	}
-}
-
-function expectSameSkeleton(loaded: Skeleton, built: Skeleton): void {
-	expect(loaded).toEqual(built);
-}
 
 describe('rigs', () => {
-	it('the humanoid is the one in skeleton.ts', async () => {
+	it('the humanoid loads to the shape everything downstream expects', async () => {
 		const rig = await readRig('humanoid');
-		expectSameSkeleton(rig.skeleton, SKELETON);
-		expect(rig.tips).toEqual(TIPS);
-		expect(rig.masks.upperBody).toEqual(UPPER_BODY);
-		expect(rig.metrics.hipHeight).toBe(HIPS_Y);
-		expect(rig.metrics.legLength).toBeCloseTo(0.41 + 0.35, 12);
+		expect(rig.bones).toHaveLength(17);
+		expect(rig.bones[0]).toBe('root');
+		expect(rig.tips.map((tip) => tip.bone)).toEqual(['head', 'handL', 'handR', 'footL', 'footR']);
+		expect(rig.masks.upperBody!.chest).toBe(1);
+		expect(rig.masks.upperBody!.spine).toBeCloseTo(0.45, 12);
 		expect(rig.feet).toEqual(['footL', 'footR']);
+		// Parents always precede their children, which is what lets one forward
+		// pass resolve the hierarchy.
+		const seen = new Set<string>();
+		for (const bone of rig.skeleton) {
+			if (bone.parent) expect(seen.has(bone.parent), bone.name).toBe(true);
+			seen.add(bone.name);
+		}
 	});
 
-	it('the bat is the one in batrig.ts', async () => {
+	it('the bat measures its own span rather than stating one', async () => {
 		const rig = await readRig('bat');
-		expectSameSkeleton(rig.skeleton, BAT_SKELETON);
-		expect(rig.tips).toEqual(BAT_TIPS);
-		expect(rig.metrics.hoverHeight).toBe(HOVER_Y);
-		expect(rig.metrics.span).toBeCloseTo(2 * (0.11 + 0.34 + 0.4 + 0.26 + 0.24), 12);
+		expect(rig.bones).toHaveLength(20);
+		expect(rig.anchors.jawTip).toEqual({ bone: 'jaw', at: [0, -0.02, 0.16] });
+		expect(rig.groups.wingL).toEqual(['armL', 'foreL', 'handL', 'digitL']);
+		// No feet declared, because nothing it does with them is walking.
+		expect(rig.feet).toBeNull();
 	});
 
-	it('the hellhound is the one in hellhoundrig.ts', async () => {
+	it('the hellhound hangs its front legs off the chest and its back off the hips', async () => {
 		const rig = await readRig('hellhound');
-		expectSameSkeleton(rig.skeleton, HELLHOUND_SKELETON);
-		expect(rig.tips).toEqual(HELLHOUND_TIPS);
+		const parent = (name: string): string | null =>
+			rig.skeleton.find((bone) => bone.name === name)!.parent;
+		expect(parent('frontLegL')).toBe('chest');
+		expect(parent('backLegL')).toBe('root');
 	});
 
 	it('refuses a child that comes before its parent', () => {
@@ -172,58 +143,7 @@ describe('rigs', () => {
 	});
 });
 
-describe('bodies', () => {
-	const cases: readonly [string, () => Model][] = [
-		['wanderer', buildWanderer],
-		['ghoul', buildGhoul],
-		['bat', buildBat],
-		['hellhound', buildHellhound],
-		['helmet', buildHelmet],
-		['sword', buildSword],
-		['shield', buildShield],
-	];
 
-	for (const [id, build] of cases) {
-		it(`${id} is the model its module builds`, async () => {
-			const loaded = await entity(id);
-			expectSameModel(loaded.mesh.model(), build());
-		});
-	}
-
-	it("the sword's tip is still measured off the blade", async () => {
-		const sword = await entity('sword');
-		const tip = sword.mesh.anchors.tip!;
-		expect(tip.bone).toBe('handR');
-		for (let axis = 0; axis < 3; axis++) {
-			expect(tip.at[axis]!).toBeCloseTo(SWORD_TIP[axis]!, 9);
-		}
-	});
-});
-
-describe('clips', () => {
-	const cases: readonly [string, string, typeof GUARD][] = [
-		['guard', 'guard', GUARD],
-		['slash', 'slash', SLASH],
-		['duck', 'duck', DUCK],
-		['upright', 'upright', UPRIGHT],
-		['leanLeft', 'lean-left', LEAN_LEFT],
-		['leanRight', 'lean-right', LEAN_RIGHT],
-	];
-
-	for (const [name, file, built] of cases) {
-		it(`${name} is the clip clips.ts authors`, async () => {
-			const rig = await readRig('humanoid');
-			const loaded = await library.clip(`clips/${file}.clip.yaml`, rig);
-			expect(loaded.clip.duration).toBe(built.duration);
-			expect(loaded.clip.loop).toBe(built.loop);
-			expect(loaded.clip.events).toEqual(built.events);
-			expect(Object.keys(loaded.clip.tracks).sort()).toEqual(Object.keys(built.tracks).sort());
-			for (const bone of Object.keys(built.tracks)) {
-				expect(loaded.clip.tracks[bone], bone).toEqual(built.tracks[bone]);
-			}
-		});
-	}
-});
 
 describe('entities', () => {
 	it('lists every one of them in the manifest', async () => {
@@ -292,6 +212,63 @@ describe('animations', () => {
 		tree.resolve({ speed: (walk + run) / 2, turn: 0, lean: 0, guard: 0 });
 		for (let i = 0; i < 30; i++) tree.advance({ speed: (walk + run) / 2, turn: 0, lean: 0, guard: 0 }, 1 / 60);
 		expect(tree.phaseSpread()).toBeLessThan(1e-6);
+	});
+});
+
+describe('the pose functions still agree with the rigs', () => {
+	/*
+	 * A pose function is written against one rig. `stridePose` names `hipL`
+	 * and `shinR` outright and its arcs were solved against a leg of a
+	 * particular length; `flyPose` walks a wing outboard bone by bone. So each
+	 * carries a copy of the handful of facts it needs, which keeps it a pure
+	 * function of an angle — and a copy can drift from the file it was copied
+	 * from. These are the pins.
+	 */
+
+	it('the stride is solved against the humanoid rig’s own leg', async () => {
+		const rig = await readRig('humanoid');
+		expect(LEG_LENGTH).toBeCloseTo(rig.metrics.legLength!, 12);
+	});
+
+	it('the stride’s cycles are the ones the wanderer’s entity asks for', async () => {
+		const wanderer = await entity('wanderer');
+		expect(wanderer.animations.get('walk')!.duration).toBeCloseTo(WALK_PERIOD, 12);
+		expect(wanderer.animations.get('run')!.duration).toBeCloseTo(RUN_PERIOD, 12);
+	});
+
+	it('the wing beat walks the bones the bat rig groups', async () => {
+		const rig = await readRig('bat');
+		const posed = flyPose(1.2, 1, 0, {});
+		for (const side of ['wingL', 'wingR'] as const) {
+			for (const bone of rig.groups[side]!) expect(posed[bone], bone).toBeDefined();
+		}
+	});
+
+	it('the perch settles onto the height the bat rig hovers at', async () => {
+		const rig = await readRig('bat');
+		// perchPose drops the root by (perch - hover); the rig states the hover.
+		const drop = perchPose(0, {}).root!.pos![1]!;
+		expect(rig.metrics.hoverHeight! + drop).toBeGreaterThan(0);
+		expect(rig.metrics.hoverHeight! + drop).toBeLessThan(rig.metrics.hoverHeight!);
+	});
+
+	it('the trot walks the legs the hellhound rig groups', async () => {
+		const rig = await readRig('hellhound');
+		const posed = houndRunPose(1.1, 1, 0, {});
+		for (const side of ['frontL', 'frontR', 'backL', 'backR'] as const) {
+			for (const bone of rig.groups[side]!) expect(posed[bone], bone).toBeDefined();
+		}
+	});
+
+	it('the hound’s cycle is the one its entity asks for', async () => {
+		const hound = await entity('hellhound');
+		expect(hound.animations.get('run')!.duration).toBeCloseTo(HOUND_STRIDE_PERIOD, 12);
+	});
+
+	it('every bone a pose function writes exists on the rig it is for', async () => {
+		const rig = await readRig('humanoid');
+		const posed = stridePose(0.7, 1, { x: 0, z: 1 }, 0, 0, {});
+		for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
 	});
 });
 

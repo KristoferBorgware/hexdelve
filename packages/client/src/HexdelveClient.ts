@@ -24,6 +24,7 @@ import {
 import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
 import { openAssets, type OpenAssetsOptions } from './assets/library.js';
+import { loadCast, type Cast, type CastOptions } from './game/cast.js';
 import { Controls } from './input/Controls.js';
 import {
 	Simulation,
@@ -79,6 +80,11 @@ export interface ClientOptions {
 	 */
 	assets?: OpenAssetsOptions;
 	/**
+	 * Who is in the yard, by entity id. Defaults to the wanderer, the bat and
+	 * the three things lying in the grass.
+	 */
+	cast?: CastOptions;
+	/**
 	 * Called if the GPU takes the renderer's device away. The client stops its
 	 * loop when this happens; recovering means disposing it and creating a new
 	 * one on a fresh canvas.
@@ -129,13 +135,25 @@ export class HexdelveClient {
 	private readonly shadowMatrix: Mat4 = mat4.mat4();
 
 	/**
-	 * Creates a client. Asynchronous because asking for a GPU device is, and
-	 * pretending otherwise would only move the await somewhere less obvious.
+	 * Creates a client.
+	 *
+	 * Asynchronous because asking for a GPU device is, and pretending
+	 * otherwise would only move the await somewhere less obvious. It now has a
+	 * second reason: the rigs, the bodies and the clips are files, and reading
+	 * a file is asynchronous however it arrives.
+	 *
+	 * The two are started together rather than in turn. Neither needs the
+	 * other — the assets are text and the device is a device — so waiting for
+	 * the GPU before asking for the manifest would add a round trip to every
+	 * start for no reason.
 	 */
 	static async create(options: ClientOptions): Promise<HexdelveClient> {
 		// The client has to exist before it can stop itself, so the callback
 		// reaches it through a box rather than through `this`.
 		const box: { client: HexdelveClient | null } = { client: null };
+
+		const assets = openAssets(options.assets ?? {});
+		const casting = loadCast(assets, options.cast ?? {});
 
 		const renderer = await createRenderer({
 			canvas: options.canvas,
@@ -148,14 +166,19 @@ export class HexdelveClient {
 			},
 		});
 
-		box.client = new HexdelveClient(options, renderer);
+		box.client = new HexdelveClient(options, renderer, assets, await casting);
 		return box.client;
 	}
 
-	private constructor(options: ClientOptions, renderer: Renderer) {
+	private constructor(
+		options: ClientOptions,
+		renderer: Renderer,
+		assets: AssetLibrary,
+		cast: Cast,
+	) {
 		this.canvas = options.canvas;
 		this.renderer = renderer;
-		this.assets = openAssets(options.assets ?? {});
+		this.assets = assets;
 
 		/*
 		 * The labs' camera exactly: orthographic at the isometric pitch, so a
@@ -174,6 +197,7 @@ export class HexdelveClient {
 		});
 
 		this.simulationOptions = {
+			cast,
 			...(options.seed !== undefined ? { seed: options.seed } : {}),
 			...(options.toggles ? { toggles: options.toggles } : {}),
 			...(options.playerSpeed !== undefined ? { playerSpeed: options.playerSpeed } : {}),

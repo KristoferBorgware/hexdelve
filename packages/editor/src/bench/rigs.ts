@@ -1,51 +1,28 @@
 /*
- * What the bench can put on the stand.
+ * What the bench can put on the stand, out of the asset files.
  *
- * A rig here is the things that have to agree before a character can be looked
- * at — a skeleton, a body hung on it, and the animations that pose it — and
- * they all come out of `@hexdelve/client`, because that is the package that
- * owns them. The bench builds no character of its own; if the wanderer grows a
- * bone, he grows it in one place and the bench shows it.
+ * This file used to be the catalogue: it imported four bodies, three rigs and
+ * six clips from `@hexdelve/client`, wrote out the durations of the pose
+ * functions by hand and listed every animation per subject. It is now an
+ * adapter and nothing else — the manifest says what exists, each entity says
+ * what belongs to it, and everything below turns those into the shape the
+ * bench's transport wants.
  *
- * The animations are three kinds under one interface (see `animation.ts`):
- * keyframed clips, pose functions, and blend trees. The list below deliberately
- * carries all three for each subject, because the point of having the tree next
- * to its own leaves is being able to look at one and then the other.
+ * That is the whole point of the move. Adding a creature used to mean editing
+ * this list; it now means adding a file to `public/assets/entities` and a line
+ * to the manifest, and the bench shows it without being told.
+ *
+ * The transport still wants the smallest thing every animation has in common —
+ * a duration, and a function from a time to a pose — because a keyframed clip,
+ * a pose function and a blend tree are all one of those. The asset types
+ * already carry exactly that, so the adapting is mostly renaming.
  */
 
 import type { BoneTip, Model, Skeleton } from '@hexdelve/engine';
-import {
-	BAT_SKELETON,
-	BAT_TIPS,
-	buildBat,
-	buildGhoul,
-	buildHellhound,
-	buildWanderer,
-	DUCK,
-	FLAP_PERIOD,
-	flyPose,
-	GUARD,
-	HELLHOUND_SKELETON,
-	HELLHOUND_TIPS,
-	HIPS_Y,
-	HOUND_STAND_Y,
-	HOUND_STRIDE_PERIOD,
-	houndBitePose,
-	houndRestPose,
-	houndRunPose,
-	HOVER_Y,
-	lungePose,
-	perchPose,
-	RUN_PERIOD,
-	SKELETON,
-	SLASH,
-	stridePose,
-	TIPS,
-	WALK_PERIOD,
-} from '@hexdelve/client';
+import type { AnimationAsset, BlendTreeAsset, EntityAsset } from '@hexdelve/client';
 
-import { clipAnimation, procedural, type BenchAnimation } from './animation.js';
-import { batTree, wandererTree } from './trees.js';
+import { treeAnimation, type BenchAnimation } from './animation.js';
+import { calibratedParameters } from './trees.js';
 
 export type { BenchAnimation, BenchParameter, BenchTreeAnimation } from './animation.js';
 export { initialParameters, isTree } from './animation.js';
@@ -64,146 +41,76 @@ export interface BenchRig {
 	readonly frameDistance: number;
 }
 
-const TAU = Math.PI * 2;
-const FORWARD = { x: 0, z: 1 };
-
-/*
- * Durations, for the pose functions that have no clip to read one off.
- *
- * Each is the period of the cycle the function is actually driven by — the
- * stride pair, the wing beat, the breath. Several of these functions also lay
- * a much slower drift on top ("never perfectly still"), which by definition
- * does not close inside one cycle; the loop is therefore seamless in the thing
- * being previewed and a fraction of a degree out in the wander, which is the
- * right way round for a bench.
- */
-const BREATH_PERIOD = TAU / 1.8;
-const PERCH_BREATH = TAU / 1.5;
-/** How fast the hellhound breathes standing still, and lying down. */
-const HOUND_BREATH = TAU / 1.7;
-const HOUND_REST_BREATH = TAU / 1.4;
+/** One loaded animation, as the transport wants it. */
+function benchAnimation(animation: AnimationAsset): BenchAnimation {
+	return {
+		id: animation.name,
+		label: animation.label,
+		duration: animation.duration,
+		loop: animation.loop,
+		kind: animation.kind,
+		sample: (t, out) => animation.sample(t, out),
+	};
+}
 
 /**
- * Everything that poses the humanoid rig, regardless of who is wearing it.
+ * One loaded blend tree, as the transport wants it.
  *
- * The wanderer and the ghoul are the same seventeen bones under two different
- * bodies, so the tree, the stride and every clip in this list read on either
- * one unchanged — which is the whole argument for building a second body
- * rather than a second rig. Called once per subject rather than shared,
- * because each subject's blend tree keeps its own playhead and its own
- * calibration sweep, and two subjects sharing one would fight over both the
- * moment either one was on the stand.
+ * The tree is asked for once here rather than per frame, because a tree owns a
+ * playhead: two of them would be two subjects fighting over which frame is
+ * being looked at. The skeleton goes in only when the rig has feet, since a
+ * ground speed read off a bat would be a number about nothing.
  */
-function humanoidAnimations(): BenchAnimation[] {
-	return [
-		wandererTree(),
-		procedural('idle', 'Idle', BREATH_PERIOD, true, (t, out) =>
-			stridePose(0, 0, FORWARD, 0, t, out),
-		),
-		procedural('walk', 'Walk', WALK_PERIOD, true, (t, out) =>
-			stridePose((t / WALK_PERIOD) * TAU, 1, FORWARD, 0, t, out),
-		),
-		procedural('run', 'Run', RUN_PERIOD, true, (t, out) =>
-			stridePose((t / RUN_PERIOD) * TAU, 1, FORWARD, 1, t, out),
-		),
-		clipAnimation(GUARD, SKELETON, 'Guard'),
-		clipAnimation(SLASH, SKELETON, 'Slash'),
-		clipAnimation(DUCK, SKELETON, 'Duck'),
+function benchTree(tree: BlendTreeAsset, skeleton: Skeleton, walks: boolean) {
+	return treeAnimation({
+		id: tree.id,
+		label: tree.label,
+		tree: tree.tree(),
+		parameters: calibratedParameters(tree, skeleton),
+		...(walks ? { skeleton } : {}),
+	});
+}
+
+/**
+ * A loaded entity, as a bench subject.
+ *
+ * Trees first in the list, then the animations, which is the order that makes
+ * the bench worth having: the point of a tree being next to its own leaves is
+ * being able to look at one and then the other.
+ */
+export function benchRig(entity: EntityAsset): BenchRig | null {
+	const rig = entity.rig;
+	if (!rig) return null; // A prop has no bones, and belongs on the other bench.
+
+	const walks = rig.feet !== null;
+	const animations: BenchAnimation[] = [
+		...[...entity.blendTrees.values()].map((tree) => benchTree(tree, rig.skeleton, walks)),
+		...[...entity.animations.values()].map(benchAnimation),
 	];
-}
 
-function wandererRig(): BenchRig {
 	let built: Model | null = null;
-
 	return {
-		id: 'wanderer',
-		label: 'Wanderer',
-		skeleton: SKELETON,
-		tips: TIPS,
-		focusY: HIPS_Y,
-		frameDistance: 4.2,
-		model: () => (built ??= buildWanderer()),
-		animations: humanoidAnimations(),
+		id: entity.id,
+		label: entity.name,
+		skeleton: rig.skeleton,
+		tips: rig.tips,
+		focusY: rig.view.focusY,
+		frameDistance: rig.view.frameDistance,
+		model: () => (built ??= entity.mesh.model()),
+		animations,
 	};
 }
 
-function ghoulRig(): BenchRig {
-	let built: Model | null = null;
-
-	return {
-		id: 'ghoul',
-		label: 'Ghoul',
-		skeleton: SKELETON,
-		tips: TIPS,
-		focusY: HIPS_Y,
-		frameDistance: 4.2,
-		model: () => (built ??= buildGhoul()),
-		animations: humanoidAnimations(),
-	};
+/** Every character in a manifest, in the order it lists them. */
+export function benchRigs(entities: readonly EntityAsset[]): BenchRig[] {
+	const out: BenchRig[] = [];
+	for (const entity of entities) {
+		const rig = benchRig(entity);
+		if (rig) out.push(rig);
+	}
+	return out;
 }
 
-function batRig(): BenchRig {
-	let built: Model | null = null;
-	const LUNGE_PERIOD = 0.9;
-
-	return {
-		id: 'bat',
-		label: 'Bat',
-		skeleton: BAT_SKELETON,
-		tips: BAT_TIPS,
-		focusY: HOVER_Y,
-		frameDistance: 5.4,
-		model: () => (built ??= buildBat()),
-		animations: [
-			batTree(),
-			procedural('fly', 'Fly', FLAP_PERIOD, true, (t, out) =>
-				flyPose((t / FLAP_PERIOD) * TAU, 1, t, out),
-			),
-			procedural('hover', 'Hover', FLAP_PERIOD, true, (t, out) =>
-				flyPose((t / FLAP_PERIOD) * TAU, 0.45, t, out),
-			),
-			procedural('perch', 'Perch', PERCH_BREATH, true, (t, out) => perchPose(t, out)),
-			procedural('lunge', 'Lunge', LUNGE_PERIOD, false, (t, out) =>
-				lungePose(t / LUNGE_PERIOD, out),
-			),
-		],
-	};
-}
-
-/** Everything the bench knows how to show, in the order the outline lists it. */
-function hellhoundRig(): BenchRig {
-	let built: Model | null = null;
-	const BITE_PERIOD = 0.85;
-
-	return {
-		id: 'hellhound',
-		label: 'Hellhound',
-		skeleton: HELLHOUND_SKELETON,
-		tips: HELLHOUND_TIPS,
-		focusY: HOUND_STAND_Y,
-		frameDistance: 5.2,
-		model: () => (built ??= buildHellhound()),
-		animations: [
-			procedural('idle', 'Idle', HOUND_BREATH, true, (t, out) => houndRunPose(0, 0, t, out)),
-			procedural('run', 'Run', HOUND_STRIDE_PERIOD, true, (t, out) =>
-				houndRunPose((t / HOUND_STRIDE_PERIOD) * TAU, 1, t, out),
-			),
-			procedural('bite', 'Bite', BITE_PERIOD, false, (t, out) =>
-				houndBitePose(t / BITE_PERIOD, out),
-			),
-			procedural('rest', 'Rest', HOUND_REST_BREATH, true, (t, out) => houndRestPose(t, out)),
-		],
-	};
-}
-
-/** Everything the bench knows how to show, in the order the outline lists it. */
-export const BENCH_RIGS: readonly BenchRig[] = [
-	wandererRig(),
-	ghoulRig(),
-	batRig(),
-	hellhoundRig(),
-];
-
-export function findRig(id: string): BenchRig {
-	return BENCH_RIGS.find((rig) => rig.id === id) ?? BENCH_RIGS[0]!;
+export function findRig(rigs: readonly BenchRig[], id: string): BenchRig | undefined {
+	return rigs.find((rig) => rig.id === id);
 }

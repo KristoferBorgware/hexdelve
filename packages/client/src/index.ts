@@ -20,8 +20,9 @@ export {
 
 export {
 	Player,
-	REACH,
-	LEAN_IN,
+	measureReach,
+	leanIn,
+	type Reach,
 	MAX_CLIMB,
 	type PlayerActionKind,
 	type PlayerOptions,
@@ -30,8 +31,9 @@ export {
 export {
 	BatHunt,
 	BAT_CLIMB,
-	BAT_LEAN,
-	BAT_REACH,
+	batLean,
+	measureBiteReach,
+	type BiteReach,
 	BAT_SPEED,
 	WAKE_RANGE,
 	LOSE_RANGE,
@@ -58,6 +60,15 @@ export {
 } from './game/turns.js';
 export { SECONDS_PER_GAME_TURN, actionSeconds, hexSpeed } from './game/pace.js';
 export { Actor, turnTowards, wrapAngle } from './game/actor.js';
+export {
+	loadCast,
+	clipOf,
+	YARD_ENEMY,
+	YARD_PLAYER,
+	YARD_PROPS,
+	type Cast,
+	type CastOptions,
+} from './game/cast.js';
 export { Item, type ItemOptions } from './game/items.js';
 
 export { buildWorld, type World, type Tile, type WorldOptions } from './scene/world.js';
@@ -106,53 +117,20 @@ export {
 	type LevelStats,
 	type Rect,
 } from './levelgen/index.js';
-export { SKELETON, BONES, TIPS, HIPS_Y, UPPER_BODY } from './game/skeleton.js';
-export { BAT_SKELETON, BAT_BONES, BAT_TIPS, HOVER_Y, PERCH_Y } from './game/batrig.js';
-export {
-	HELLHOUND_SKELETON,
-	HELLHOUND_BONES,
-	HELLHOUND_TIPS,
-	LEGS as HOUND_LEGS,
-	HIP_Y as HOUND_HIP_Y,
-	STAND_Y as HOUND_STAND_Y,
-} from './game/hellhoundrig.js';
-
 /*
- * The characters themselves — the rig data above, wearing prisms.
+ * The pose functions.
  *
- * Exported because a rig and the body hung on it are one thing to anyone
- * looking at either: the editor's character bench previews a skeleton, a mesh
- * and a clip together, and it should get all three from the package that owns
- * them rather than build a second wanderer of its own.
- */
-export { buildWanderer, WANDERER_PALETTE } from './models/wanderer.js';
-export { buildGhoul, GHOUL_PALETTE } from './models/ghoul.js';
-export { buildBat, BAT_PALETTE } from './models/bat.js';
-export { buildHellhound, HELLHOUND_PALETTE } from './models/hellhound.js';
-
-/*
- * The gear, for the same reason as the bodies above.
+ * These are the half of the animation that is not a file and cannot be one:
+ * the stride is a handful of harmonics of one phase angle and a direction of
+ * travel, the wing beat is four bones lagging each other round a cycle. A
+ * function of a heading covers the whole circle of directions where a blend
+ * space over clips covers four of them, so these stay functions — and the
+ * entity files name them and hand them their tuning. See
+ * `src/assets/poseFunctions.ts`.
  *
- * A prop is a model and the two numbers that put it down in the grass — the
- * lift and the tilt — and the editor's prop bench previews all three together.
- * The palettes come with them because a part's colour is the only name it has:
- * a bench listing "steel" and "liner" is reading this table rather than
- * guessing at hex codes.
+ * Everything they used to sit beside — the rigs, the bodies, the gear and the
+ * keyframed clips — is now `public/assets`, read through the library below.
  */
-export {
-	buildHelmet,
-	buildShield,
-	buildSword,
-	HELMET_GROUND_LIFT,
-	HELMET_PALETTE,
-	SHIELD_GROUND_LIFT,
-	SHIELD_GROUND_TILT,
-	SHIELD_PALETTE,
-	SWORD_GROUND_LIFT,
-	SWORD_GROUND_TILT,
-	SWORD_PALETTE,
-	SWORD_TIP,
-} from './models/props.js';
 export {
 	perchPose,
 	flyPose,
@@ -167,6 +145,7 @@ export {
 	HOUND_STRIDE_PERIOD,
 	BITE_CONTACT as HOUND_BITE_CONTACT,
 } from './game/hellhoundpose.js';
+export { LEG_LENGTH, HUMANOID_SKELETON } from './game/humanoid.js';
 export {
 	stridePose,
 	stridePeriod,
@@ -180,15 +159,6 @@ export {
 	type Direction,
 	type StrideSetting,
 } from './game/stride.js';
-export {
-	DUCK,
-	GUARD,
-	SLASH,
-	SWING_CONTACT,
-	LEAN_LEFT,
-	LEAN_RIGHT,
-	UPRIGHT,
-} from './game/clips.js';
 
 /*
  * The pose functions the asset files name, and the library that reads them.
@@ -199,7 +169,13 @@ export {
  * embedder gets a working one rather than an empty one.
  */
 export { poseFunctions } from './assets/poseFunctions.js';
-export { openAssets, ASSET_BASE, ASSET_INDEX, type OpenAssetsOptions } from './assets/library.js';
+export {
+	openAssets,
+	openPackedAssets,
+	ASSET_BASE,
+	ASSET_INDEX,
+	type OpenAssetsOptions,
+} from './assets/library.js';
 
 /*
  * The asset types, re-exported so an embedder or the editor need not import

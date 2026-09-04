@@ -63,7 +63,7 @@ export interface PoseSource {
 }
 
 /** A keyframed clip as a leaf, with its bone names resolved once. */
-export function clipSource(clip: Clip, index: Map<string, number>): PoseSource {
+export function clipSource(clip: Clip, index: ReadonlyMap<string, number>): PoseSource {
 	const bound = bindClip(clip, index);
 	return {
 		name: clip.name,

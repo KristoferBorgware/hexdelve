@@ -23,7 +23,13 @@
  * know about. This is the version that works.
  */
 
-import { AssetLibrary, fetchIO, type AssetIO, type AssetLibraryOptions } from '@hexdelve/engine';
+import {
+	AssetLibrary,
+	fetchIO,
+	memoryIO,
+	type AssetIO,
+	type AssetLibraryOptions,
+} from '@hexdelve/engine';
 
 import { poseFunctions } from './poseFunctions.js';
 
@@ -67,4 +73,28 @@ export function openAssets(options: OpenAssetsOptions = {}): AssetLibrary {
 	const { baseUrl = ASSET_BASE, writable, io, ...rest } = options;
 	const backend = io ?? fetchIO(baseUrl, { writable: writable ?? onDevServer() });
 	return new AssetLibrary(backend, { poseFunctions, ...rest });
+}
+
+/**
+ * A packed tree, fetched once.
+ *
+ * `tools/build-assets.mjs` folds `public/assets` into one JSON object of path
+ * to text, which is exactly the shape `memoryIO` reads. So this is one request
+ * instead of thirty — the client otherwise fetches the manifest, then an
+ * entity, then its rig, its mesh, its clips and its trees, and each is a round
+ * trip.
+ *
+ * Nothing downstream can tell the difference: a pack is a backend like any
+ * other, and the readers never learn where their text came from.
+ */
+export async function openPackedAssets(
+	url: string,
+	options: Omit<OpenAssetsOptions, 'io' | 'baseUrl' | 'writable'> = {},
+): Promise<AssetLibrary> {
+	const response = await fetch(url);
+	if (!response.ok) {
+		throw new Error(`${url}: ${response.status} ${response.statusText}`);
+	}
+	const pack = (await response.json()) as Record<string, string>;
+	return new AssetLibrary(memoryIO(pack), { poseFunctions, ...options });
 }

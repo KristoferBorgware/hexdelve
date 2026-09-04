@@ -26,7 +26,7 @@
  * melee on a grid means — but it is a thing the lab had and this does not.
  *
  * The reach is still measured off the clip, and now it is measured for a
- * different reason: see `LEAN_IN`.
+ * different reason: see `leanIn`.
  */
 
 import {
@@ -44,7 +44,11 @@ import {
 	solveWorld,
 	sparseToDense,
 	type BoundClip,
+	type Clip,
+	type ClipEvent,
 	type DensePose,
+	type RigAsset,
+	type Skeleton,
 	type SparsePose,
 } from '@hexdelve/engine';
 import {
@@ -56,11 +60,10 @@ import {
 } from '@hexdelve/shared';
 
 import { Actor, clamp, wrapAngle, type ActorOptions } from './actor.js';
-import { DUCK, GUARD, SLASH, SWING_CONTACT } from './clips.js';
+
 import type { Item } from './items.js';
 import { actionSeconds, hexSpeed } from './pace.js';
-import { BONES, BONE_INDEX, SKELETON, UPPER_BODY } from './skeleton.js';
-import { SWORD_TIP } from '../models/props.js';
+
 import { stridePeriod, stridePose, strideFor, type Direction, type StrideSetting } from './stride.js';
 import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
 import type { Tile, World } from '../scene/world.js';
@@ -84,8 +87,17 @@ const TURN_RATE = 11;
 
 /** Where in the stoop the thing actually leaves the ground, as a fraction of it. */
 const STOOP_GRAB = 0.42;
-/** Where in the cut the blade arrives, as a fraction of it. */
-const SWING_LAND = SWING_CONTACT / SLASH.duration;
+/**
+ * Where in the cut the blade arrives, as a fraction of it.
+ *
+ * Read off the clip's own `cut` event rather than typed beside it, so
+ * re-timing the strike in slash.clip.yaml moves the moment the hit lands.
+ */
+function swingLand(slash: Clip): number {
+	const cut = slash.events.find((event: ClipEvent) => event.name === 'cut');
+	if (!cut) throw new Error(`the slash clip has no 'cut' event to land on`);
+	return cut.t / slash.duration;
+}
 
 /** A body is not a point, so the cut's arc gets a little either side of it. */
 const ARC_PAD = 0.35;
@@ -116,6 +128,14 @@ export interface PlayerStats {
 	speedRating: number;
 }
 
+/** How far a cut reaches, and between which two bearings it passes. */
+export interface Reach {
+	readonly distance: number;
+	readonly height: number;
+	readonly from: number;
+	readonly to: number;
+}
+
 /**
  * How far he can cut, measured off the clip rather than typed in.
  *
@@ -124,14 +144,23 @@ export interface PlayerStats {
  * which two bearings it passes. The follow-through behind his shoulder is
  * thrown away, since a sword finishing its arc back there is not cutting
  * anything he is fighting.
+ *
+ * A function of the rig, the clip and the blade rather than a constant, now
+ * that all three come out of files: the reach of a man is a fact about the
+ * particular man, and a second body on the same rig with a longer sword has a
+ * different one. It is measured once, when he is built.
  */
-export const REACH = (() => {
+export function measureReach(
+	skeleton: Skeleton,
+	slash: Clip,
+	swordTip: readonly number[],
+): Reach {
 	let distance = 0;
 	let height = 0;
 	let from = Infinity;
 	let to = -Infinity;
 	for (let t = 0.34; t <= 0.58; t += 0.02) {
-		const tip = attachmentPosition(SKELETON, samplePose(SLASH, t) as SparsePose, 'handR', SWORD_TIP);
+		const tip = attachmentPosition(skeleton, samplePose(slash, t) as SparsePose, 'handR', swordTip);
 		const bearing = Math.atan2(tip[0], tip[2]);
 		if (Math.abs(bearing) > 1.9) continue;
 		const d = Math.hypot(tip[0], tip[2]);
@@ -143,7 +172,7 @@ export const REACH = (() => {
 		to = Math.max(to, bearing);
 	}
 	return { distance, height, from, to };
-})();
+}
 
 /**
  * The shortfall between his reach and the grid, closed by leaning into the blow.
@@ -160,7 +189,9 @@ export const REACH = (() => {
  * It is a lean, not a step. He never leaves his hexagon, the two numbers it is
  * made of are both measured, and re-timing the swing moves it on its own.
  */
-export const LEAN_IN = Math.max(0, HEX_SPACING - REACH.distance);
+export function leanIn(reach: Reach): number {
+	return Math.max(0, HEX_SPACING - reach.distance);
+}
 
 export interface PlayerDeps {
 	world: World;
@@ -178,6 +209,12 @@ export interface PlayerOptions extends Omit<ActorOptions, 'x' | 'y' | 'z'> {
 	cell: Axial;
 	/** Angband-style, offset by 110. Normal unless something hastes him. */
 	speed?: number;
+	/** The rig he is hung on, for its bones, its blend mask and its metrics. */
+	rig: RigAsset;
+	/** The three clips he plays, by the names his entity file gives them. */
+	clips: { readonly duck: Clip; readonly slash: Clip; readonly guard: Clip };
+	/** Where the blade's point sits in the hand bone's space, off the sword's mesh. */
+	swordTip: readonly [number, number, number];
 }
 
 /** An order standing until it is finished or replaced. */
@@ -249,14 +286,20 @@ export class Player extends Actor implements TurnTaker {
 	 * the sword side eases off as he speeds up so a run gets some counter-swing
 	 * back, and the bladed stance at the root is only for a man standing still.
 	 */
-	private readonly GUARD_SHIELD = makeMask(BONES, { armL: 1, forearmL: 1, handL: 1 }, 0);
-	private readonly GUARD_SWORD = makeMask(
-		BONES,
-		{ armR: 1, forearmR: 1, handR: 1, spine: 0.45, chest: 1, neck: 1, head: 1 },
-		0,
-	);
-	private readonly ROOT_ONLY = makeMask(BONES, { root: 1 }, 0);
-	private readonly UPPER = makeMask(BONES, UPPER_BODY, 0);
+	private readonly GUARD_SHIELD: Float32Array;
+	private readonly GUARD_SWORD: Float32Array;
+	private readonly ROOT_ONLY: Float32Array;
+	private readonly UPPER: Float32Array;
+
+	/** His bone names, in rig order — what every dense pose here is indexed by. */
+	private readonly bones: readonly string[];
+	private readonly clips: { readonly duck: Clip; readonly slash: Clip; readonly guard: Clip };
+
+	/** How far this man's cut reaches, measured off his own clip and blade. */
+	readonly reach: Reach;
+	/** The shortfall between that and the grid, closed by leaning into the blow. */
+	readonly leanIn: number;
+	private readonly swingLand: number;
 
 	private guardWeight = 0;
 	private stoopBlend = 0;
@@ -281,15 +324,39 @@ export class Player extends Actor implements TurnTaker {
 		this.speed = options.speed ?? NORMAL_SPEED;
 		this.stride = strideFor(hexSpeed(this.speed));
 
-		this.basePose = createPose(BONES.length);
-		this.guardPose = createPose(BONES.length);
-		this.stancePose = createPose(BONES.length);
-		this.overlayPose = createPose(BONES.length);
-		this.playerPose = createPose(BONES.length);
+		const rig = options.rig;
+		this.bones = rig.bones;
+		this.clips = options.clips;
 
-		this.duckClip = bindClip(DUCK, BONE_INDEX);
-		this.slashClip = bindClip(SLASH, BONE_INDEX);
-		this.guardClip = bindClip(GUARD, BONE_INDEX);
+		/*
+		 * The guard masks. The shield arm holds it out whatever his legs are
+		 * doing, the sword side eases off as he speeds up so a run gets some
+		 * counter-swing back, and the bladed stance at the root is only for a
+		 * man standing still. The upper-body one is the rig's own, because a
+		 * mask is a fact about a skeleton and belongs in the file that has one.
+		 */
+		this.GUARD_SHIELD = makeMask(this.bones, { armL: 1, forearmL: 1, handL: 1 }, 0);
+		this.GUARD_SWORD = makeMask(
+			this.bones,
+			{ armR: 1, forearmR: 1, handR: 1, spine: 0.45, chest: 1, neck: 1, head: 1 },
+			0,
+		);
+		this.ROOT_ONLY = makeMask(this.bones, { root: 1 }, 0);
+		this.UPPER = makeMask(this.bones, rig.masks.upperBody ?? {}, 0);
+
+		this.basePose = createPose(this.bones.length);
+		this.guardPose = createPose(this.bones.length);
+		this.stancePose = createPose(this.bones.length);
+		this.overlayPose = createPose(this.bones.length);
+		this.playerPose = createPose(this.bones.length);
+
+		this.duckClip = bindClip(this.clips.duck, rig.index);
+		this.slashClip = bindClip(this.clips.slash, rig.index);
+		this.guardClip = bindClip(this.clips.guard, rig.index);
+
+		this.reach = measureReach(rig.skeleton, this.clips.slash, options.swordTip);
+		this.leanIn = leanIn(this.reach);
+		this.swingLand = swingLand(this.clips.slash);
 	}
 
 	get armed(): boolean {
@@ -568,7 +635,7 @@ export class Player extends Actor implements TurnTaker {
 			} else if (flight.kind === 'strike' && flight.target) {
 				const spot = this.deps.world.tileAt(flight.target.q, flight.target.r);
 				if (spot) this.faceTowards(spot.x, spot.z, dt);
-				if (!flight.done && u >= SWING_LAND) {
+				if (!flight.done && u >= this.swingLand) {
 					flight.done = true;
 					this.landBlow(flight.target);
 				}
@@ -621,7 +688,7 @@ export class Player extends Actor implements TurnTaker {
 	 * reason is the point: the thing is either on the hexagon he aimed at or it
 	 * is not, and nothing could have moved since he committed. The geometry is
 	 * still checked — reach and arc, both measured off the clip — because they
-	 * are what `LEAN_IN` is built from, and a swing that stopped reaching
+	 * are what `leanIn` is built from, and a swing that stopped reaching
 	 * should say so rather than connect anyway.
 	 */
 	private landBlow(target: Axial): void {
@@ -637,10 +704,10 @@ export class Player extends Actor implements TurnTaker {
 		const dz = at.z - this.z;
 		const gap = Math.hypot(dx, dz);
 		const off = wrapAngle(Math.atan2(dx, dz) - this.yaw);
-		const bladeY = this.y + REACH.height;
+		const bladeY = this.y + this.reach.height;
 
-		const inArc = off >= REACH.from - ARC_PAD && off <= REACH.to + ARC_PAD;
-		if (!inArc || gap > REACH.distance + LEAN_IN + 0.2 || Math.abs(at.y - bladeY) > 1.2) {
+		const inArc = off >= this.reach.from - ARC_PAD && off <= this.reach.to + ARC_PAD;
+		if (!inArc || gap > this.reach.distance + this.leanIn + 0.2 || Math.abs(at.y - bladeY) > 1.2) {
 			this.swing.missed++;
 			this.control.message = 'the blow fell short';
 			return;
@@ -669,12 +736,12 @@ export class Player extends Actor implements TurnTaker {
 		const flight = this.flight;
 		const wantLean =
 			flight?.kind === 'strike' && flight.seconds > 0
-				? LEAN_IN * Math.sin(PI * Math.min(1, flight.clock / flight.seconds))
+				? this.leanIn * Math.sin(PI * Math.min(1, flight.clock / flight.seconds))
 				: 0;
 		this.lean += (wantLean - this.lean) * Math.min(1, dt * 12);
 		if (this.lean > 1e-4) this.strideBuf.root!.pos![2]! += this.lean;
 
-		sparseToDense(BONES, this.strideBuf, this.basePose);
+		sparseToDense(this.bones, this.strideBuf, this.basePose);
 
 		const stooping = flight?.kind === 'pickup';
 		const striking = flight?.kind === 'strike';
@@ -720,10 +787,10 @@ export class Player extends Actor implements TurnTaker {
 		 */
 		const phase = flight && flight.seconds > 0 ? Math.min(1, flight.clock / flight.seconds) : 1;
 		if (this.stoopBlend > 0.002) {
-			sampleBound(this.duckClip, phase * DUCK.duration, this.overlayPose);
+			sampleBound(this.duckClip, phase * this.clips.duck.duration, this.overlayPose);
 			lerpPose(this.playerPose, base, this.overlayPose, this.stoopBlend);
 		} else if (this.swingBlend > 0.002) {
-			sampleBound(this.slashClip, phase * SLASH.duration, this.overlayPose);
+			sampleBound(this.slashClip, phase * this.clips.slash.duration, this.overlayPose);
 			// Standing, the cut gets all of him; mid-stride it gets his arms and
 			// leaves the legs to the walk. He cannot do both on the grid, but
 			// the mask is what makes that a rule of the game rather than of the
@@ -736,7 +803,7 @@ export class Player extends Actor implements TurnTaker {
 			this.playerPose.pos.set(base.pos);
 		}
 
-		denseToSparse(BONES, this.playerPose, this.pose);
+		denseToSparse(this.bones, this.playerPose, this.pose);
 	}
 
 	/**
@@ -750,7 +817,7 @@ export class Player extends Actor implements TurnTaker {
 	 */
 	applyFootIK(): void {
 		const pose = this.pose;
-		const world0 = solveWorld(SKELETON, pose);
+		const world0 = solveWorld(this.skeleton, pose);
 		const targets: Record<string, { x: number; y: number; z: number; weight: number }> = {};
 		let pelvisDrop = 0;
 
@@ -775,12 +842,12 @@ export class Player extends Actor implements TurnTaker {
 			root.pos[1]! += pelvisDrop;
 		}
 
-		const world2 = solveWorld(SKELETON, pose);
+		const world2 = solveWorld(this.skeleton, pose);
 		for (const side of ['L', 'R'] as const) {
 			const t = targets[`foot${side}`]!;
 			if (t.weight <= 0.02) continue;
 			solveTwoBone(
-				SKELETON,
+				this.skeleton,
 				pose,
 				{ root: `hip${side}`, mid: `shin${side}`, end: `foot${side}` },
 				[t.x, t.y, t.z],
@@ -788,7 +855,7 @@ export class Player extends Actor implements TurnTaker {
 				t.weight,
 				world2,
 			);
-			levelBone(SKELETON, pose, `foot${side}`, t.weight);
+			levelBone(this.skeleton, pose, `foot${side}`, t.weight);
 		}
 	}
 

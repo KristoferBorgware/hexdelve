@@ -23,7 +23,7 @@
 
 import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { normalize, resolve, sep } from 'node:path';
 
 export const WIDTH = 640;
 export const HEIGHT = 420;
@@ -32,15 +32,19 @@ export const HEIGHT = 420;
 const STEPS = 30;
 const STEP = 1 / 60;
 
-const LIB = resolve(
-	import.meta.dirname,
-	'..',
-	'..',
-	'packages',
-	'client',
-	'dist-lib',
-	'hexdelve-client.es.js',
-);
+const ROOT = resolve(import.meta.dirname, '..', '..');
+const LIB = resolve(ROOT, 'packages', 'client', 'dist-lib', 'hexdelve-client.es.js');
+
+/*
+ * The asset tree, served as the client expects to find it.
+ *
+ * The rigs, the bodies and the clips are files now, and the client fetches
+ * them relative to the page. Answering every URL with the harness page would
+ * hand the YAML reader a document starting `<!DOCTYPE`, so the two paths that
+ * matter are served properly and a miss is a real 404 — the same thing the dev
+ * server and a static host both do, and the reason a mistyped path says so.
+ */
+const ASSETS = resolve(ROOT, 'public', 'assets');
 
 const PAGE = `<!DOCTYPE html><meta charset="utf-8"><title>render harness</title>
 <style>html,body{margin:0;background:#000}canvas{display:block}</style>
@@ -83,6 +87,7 @@ window.run = async (backend) => {
 /** Whether there is anything here to draw with. Tests skip rather than fail. */
 export async function harnessAvailable() {
 	if (!existsSync(LIB)) return 'no client library at packages/client/dist-lib — run `npm run build`';
+	if (!existsSync(ASSETS)) return 'no asset tree at public/assets';
 	try {
 		await import('playwright');
 	} catch {
@@ -121,11 +126,26 @@ export async function withHarness(body) {
 	}
 
 	const server = createServer((request, response) => {
-		if (request.url === '/lib.js') {
+		const url = (request.url ?? '/').split('?')[0];
+
+		if (url === '/lib.js') {
 			response.writeHead(200, { 'content-type': 'text/javascript' });
 			response.end(readFileSync(LIB));
 			return;
 		}
+
+		if (url.startsWith('/assets/')) {
+			const target = normalize(resolve(ASSETS, decodeURIComponent(url.slice('/assets/'.length))));
+			if (!target.startsWith(ASSETS + sep) || !existsSync(target)) {
+				response.writeHead(404, { 'content-type': 'text/plain' });
+				response.end('no such asset');
+				return;
+			}
+			response.writeHead(200, { 'content-type': 'text/yaml' });
+			response.end(readFileSync(target));
+			return;
+		}
+
 		response.writeHead(200, { 'content-type': 'text/html' });
 		response.end(PAGE);
 	});

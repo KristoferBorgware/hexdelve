@@ -33,7 +33,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useEffect, useState, type ReactElement } from 'react';
 
-import { WEARER, type PropBench, type PropDisplay, type PropShow } from '../bench/PropBench.js';
+import type { PropBench, PropDisplay, PropShow } from '../bench/PropBench.js';
 import type { BenchProp, PropBox } from '../bench/props.js';
 import type { BenchAnimation } from '../bench/rigs.js';
 import { statGroups, type PropStats, type PropStatValue } from '../bench/stats.js';
@@ -45,6 +45,8 @@ export interface PropInspectorProps {
 	onDisplayChange(display: PropDisplay): void;
 	animation: BenchAnimation;
 	onAnimationChange(animation: BenchAnimation): void;
+	/** What the wearer can be put in, out of his own entity. */
+	wearerAnimations: readonly BenchAnimation[];
 	show: PropShow;
 	onShowChange(key: keyof PropShow, value: boolean): void;
 	stats: PropStats;
@@ -74,6 +76,7 @@ export function PropInspector({
 	onDisplayChange,
 	animation,
 	onAnimationChange,
+	wearerAnimations,
 	show,
 	onShowChange,
 	stats,
@@ -193,13 +196,13 @@ export function PropInspector({
 					value={animation.id}
 					disabled={!bench}
 					onChange={(event) => {
-						const next = WEARER.animations.find(
-							(candidate) => candidate.id === event.target.value,
+						const next = wearerAnimations.find(
+							(candidate: BenchAnimation) => candidate.id === event.target.value,
 						);
 						if (next) onAnimationChange(next);
 					}}
 				>
-					{WEARER.animations.map((candidate) => (
+					{wearerAnimations.map((candidate: BenchAnimation) => (
 						<MenuItem key={candidate.id} value={candidate.id}>
 							{candidate.label}
 						</MenuItem>

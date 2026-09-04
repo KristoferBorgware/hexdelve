@@ -42,25 +42,12 @@ import {
 	type Random,
 } from '@hexdelve/shared';
 
-import { buildBat } from '../models/bat.js';
-import {
-	buildHelmet,
-	buildShield,
-	buildSword,
-	HELMET_GROUND_LIFT,
-	SHIELD_GROUND_LIFT,
-	SHIELD_GROUND_TILT,
-	SWORD_GROUND_LIFT,
-	SWORD_GROUND_TILT,
-} from '../models/props.js';
-import { buildWanderer } from '../models/wanderer.js';
 import { buildWorld, type World } from '../scene/world.js';
-import { BAT_SKELETON, BAT_TIPS } from './batrig.js';
+import { clipOf, type Cast } from './cast.js';
 import { BatHunt, LOSE_RANGE, WAKE_RANGE } from './bathunt.js';
 import { Item } from './items.js';
 import { SECONDS_PER_GAME_TURN } from './pace.js';
-import { LEAN_IN, Player, REACH, type PlayerStats } from './player.js';
-import { HIPS_Y, SKELETON, TIPS } from './skeleton.js';
+import { Player, type PlayerStats } from './player.js';
 import { Schedule, speedFactor, type TurnTaker } from './turns.js';
 
 const PI = Math.PI;
@@ -97,6 +84,12 @@ export interface SimulationToggles {
 }
 
 export interface SimulationOptions {
+	/**
+	 * Who is in the yard. Required, because everything in it — the rigs, the
+	 * bodies, the clips, the reach measured off them — comes out of files now,
+	 * and a simulation cannot make any of it up.
+	 */
+	cast: Cast;
 	seed?: number;
 	toggles?: Partial<SimulationToggles>;
 	/** The man's place in the energy table. Normal unless you want to see haste. */
@@ -248,12 +241,15 @@ export class Simulation {
 	/** The action count the hover answer was worked out at. */
 	private hoverAsked = -1;
 
+	/** Hip height at rest, which is also where the camera looks. */
+	private readonly hipHeight: number;
+
 	private readonly opaque = new HexInstances(4096);
 	private readonly blended = new HexInstances(512);
 	private readonly overlay = new HexInstances(64);
 	private readonly frame = new HexInstances(8192);
 
-	constructor(options: SimulationOptions = {}) {
+	constructor(options: SimulationOptions) {
 		const random = makeRandom(options.seed ?? 37);
 		this.world = buildWorld({ random, groundRadius: 8, baseY: 0.16, stepH: 0.19 });
 		this.motes = new Motes(14, random);
@@ -273,29 +269,23 @@ export class Simulation {
 		 */
 		this.perch = worldToAxial(3.9, 1.2);
 
-		this.items = [
-			new Item({
-				label: 'helmet',
-				bone: 'head',
-				model: buildHelmet(),
-				lift: HELMET_GROUND_LIFT,
-				tilt: 0,
-			}),
-			new Item({
-				label: 'sword',
-				bone: 'handR',
-				model: buildSword(),
-				lift: SWORD_GROUND_LIFT,
-				tilt: SWORD_GROUND_TILT,
-			}),
-			new Item({
-				label: 'shield',
-				bone: 'forearmL',
-				model: buildShield(),
-				lift: SHIELD_GROUND_LIFT,
-				tilt: SHIELD_GROUND_TILT,
-			}),
-		];
+		/*
+		 * The gear, straight off its entity files. A prop carries the bone it
+		 * hangs from and the two numbers that put it down in the grass, so
+		 * there is nothing to look up here and nothing to keep in step: what
+		 * the prop bench shows is what the yard drops.
+		 */
+		const { cast } = options;
+		this.items = cast.props.map(
+			(prop) =>
+				new Item({
+					label: prop.id,
+					bone: prop.attach?.bone ?? 'root',
+					model: prop.mesh.model(),
+					lift: prop.ground?.lift ?? 0,
+					tilt: prop.ground?.tilt ?? 0,
+				}),
+		);
 
 		/*
 		 * Spread across his way in, and not in a line: collecting all three
@@ -318,11 +308,25 @@ export class Simulation {
 			item.ground(tile.x, tile.z, yaw, tile.top);
 		}
 
+		/* Where his eyeline is, off his own rig — a camera follows the hips. */
+		this.hipHeight = cast.player.rig!.metrics.hipHeight ?? 0;
+
+		const sword = cast.props.find((prop) => prop.id === 'sword');
+		const swordTip = sword?.mesh.anchors.tip?.at;
+		if (!swordTip) throw new Error(`the yard's sword has no 'tip' anchor to measure a reach from`);
+
 		this.player = new Player(
 			{
-				skeleton: SKELETON,
-				model: buildWanderer(),
-				skeletonView: buildSkeletonView(SKELETON, TIPS),
+				rig: cast.player.rig!,
+				skeleton: cast.player.rig!.skeleton,
+				model: cast.player.mesh.model(),
+				skeletonView: buildSkeletonView(cast.player.rig!.skeleton, cast.player.rig!.tips),
+				clips: {
+					duck: clipOf(cast.player, 'duck'),
+					slash: clipOf(cast.player, 'slash'),
+					guard: clipOf(cast.player, 'guard'),
+				},
+				swordTip,
 				cell: worldToAxial(0, -5.4),
 				yaw: 0,
 				...(options.playerSpeed !== undefined ? { speed: options.playerSpeed } : {}),
@@ -341,9 +345,10 @@ export class Simulation {
 
 		this.bat = new BatHunt(
 			{
-				skeleton: BAT_SKELETON,
-				model: buildBat(),
-				skeletonView: buildSkeletonView(BAT_SKELETON, BAT_TIPS),
+				rig: cast.enemy.rig!,
+				skeleton: cast.enemy.rig!.skeleton,
+				model: cast.enemy.mesh.model(),
+				skeletonView: buildSkeletonView(cast.enemy.rig!.skeleton, cast.enemy.rig!.tips),
 				cell: this.perch,
 				yaw: 2.4,
 				...(options.batSpeed !== undefined ? { speed: options.batSpeed } : {}),
@@ -351,7 +356,7 @@ export class Simulation {
 			{
 				world: this.world,
 				playerCell: () => this.player.cell,
-				playerPosition: () => ({ x: this.player.x, y: this.player.y + HIPS_Y, z: this.player.z }),
+				playerPosition: () => ({ x: this.player.x, y: this.player.y + this.hipHeight, z: this.player.z }),
 				onBite: (x, y, z) => this.motes.spawn(x, y, z, 7, 1.3, 1.6),
 				perch: this.perch,
 				random,
@@ -367,7 +372,7 @@ export class Simulation {
 
 		this.focus.x = this.player.x;
 		this.focus.z = this.player.z;
-		this.focus.y = this.player.y + HIPS_Y + 0.1;
+		this.focus.y = this.player.y + this.hipHeight + 0.1;
 	}
 
 	/* --------------------------------------------------------------- orders -- */
@@ -466,7 +471,7 @@ export class Simulation {
 			const pull = Math.min(1, dt * 2.4);
 			this.focus.x += (this.player.x - this.focus.x) * pull;
 			this.focus.z += (this.player.z - this.focus.z) * pull;
-			this.focus.y += (this.player.y + HIPS_Y + 0.1 - this.focus.y) * pull;
+			this.focus.y += (this.player.y + this.hipHeight + 0.1 - this.focus.y) * pull;
 		}
 	}
 
@@ -603,8 +608,8 @@ export class Simulation {
 			batMissed: this.bat.missed,
 			wakeRange: WAKE_RANGE,
 			loseRange: LOSE_RANGE,
-			reach: REACH.distance,
-			lean: LEAN_IN,
+			reach: this.player.reach.distance,
+			lean: this.player.leanIn,
 			hover: this.hover,
 			hoverReachable: this.hoverReachable,
 		};

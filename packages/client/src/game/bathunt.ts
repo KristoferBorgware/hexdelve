@@ -35,6 +35,8 @@
 import {
 	attachmentPosition,
 	mixSparse,
+	type RigAnchor,
+	type RigAsset,
 	type SparsePose,
 } from '@hexdelve/engine';
 import {
@@ -47,7 +49,6 @@ import {
 } from '@hexdelve/shared';
 
 import { Actor, clamp, turnTowards, wrapAngle, type ActorOptions } from './actor.js';
-import { BAT_SKELETON, HOVER_Y, JAW_TIP } from './batrig.js';
 import { flyPose, FLAP_PERIOD, LUNGE_CONTACT, lungePose, perchPose } from './batpose.js';
 import { actionSeconds } from './pace.js';
 import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
@@ -69,26 +70,40 @@ export const BAT_SPEED = NORMAL_SPEED + 10;
 /** How far off the ground the wings hold it, once awake. */
 const HOVER_LIFT = 0.62;
 
+/** How far the jaws get from the body, and how high. */
+export interface BiteReach {
+	readonly distance: number;
+	readonly height: number;
+}
+
 /**
  * How far the jaws reach at the moment of the bite, measured off the lunge.
  *
  * The same question the sword had, asked of a different rig: the pose is
  * sampled at its contact key and the jaw tip's distance from the body read
  * off it, so re-timing the lunge moves this on its own.
+ *
+ * A function of the rig rather than a constant, now that the rig comes out of
+ * a file — the jaw tip is an anchor in `bat.rig.yaml`, so a longer snout moves
+ * the reach without anybody editing this line.
  */
-export const BAT_REACH = (() => {
+export function measureBiteReach(rig: RigAsset): BiteReach {
+	const jawTip = rig.anchors.jawTip;
+	if (!jawTip) throw new Error(`the rig '${rig.id}' has no 'jawTip' anchor to bite with`);
 	const pose = lungePose(LUNGE_CONTACT, {});
-	const tip = attachmentPosition(BAT_SKELETON, pose, 'jaw', JAW_TIP);
+	const tip = attachmentPosition(rig.skeleton, pose, jawTip.bone, jawTip.at);
 	return { distance: Math.hypot(tip[0], tip[2]), height: tip[1] };
-})();
+}
 
 /**
  * What the lunge cannot cover, taken out of the body — the bat's half of the
- * argument in `player.ts` under `LEAN_IN`. A creature rooted to a hexagon
+ * argument in `player.ts` under `leanIn`. A creature rooted to a hexagon
  * whose reach is shorter than the grid bites at nothing, so the shortfall goes
  * in as forward root travel across the strike and comes back out.
  */
-export const BAT_LEAN = Math.max(0, HEX_SPACING - BAT_REACH.distance);
+export function batLean(reach: BiteReach): number {
+	return Math.max(0, HEX_SPACING - reach.distance);
+}
 
 export type HuntState = 'asleep' | 'hunting' | 'returning';
 
@@ -109,6 +124,8 @@ export interface BatOptions extends Omit<ActorOptions, 'x' | 'y' | 'z'> {
 	/** The hexagon it sleeps on. */
 	cell: Axial;
 	speed?: number;
+	/** Its rig, for the jaw anchor it bites with and the height it hovers at. */
+	rig: RigAsset;
 }
 
 interface InFlight {
@@ -152,6 +169,14 @@ export class BatHunt extends Actor implements TurnTaker {
 	private readonly perchBuf: SparsePose = {};
 	private readonly lungeBuf: SparsePose = {};
 
+	/** How far this bat's jaws get, measured off its own rig and its lunge. */
+	readonly reach: BiteReach;
+	/** And the shortfall against the grid, which the body leans out. */
+	readonly leanIn: number;
+	private readonly jaw: RigAnchor;
+	/** How far off the ground the wings hold it, off the rig's own metrics. */
+	private readonly hoverY: number;
+
 	constructor(options: BatOptions, deps: BatDeps) {
 		const tile = deps.world.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the bat cannot perch on ${options.cell.q},${options.cell.r}`);
@@ -170,11 +195,18 @@ export class BatHunt extends Actor implements TurnTaker {
 		// Angband's `randint0(50)`: a monster starts part-way to its first move,
 		// so a pack does not step in unison.
 		this.energy = Math.floor((deps.random?.() ?? 0) * 50);
+
+		const jaw = options.rig.anchors.jawTip;
+		if (!jaw) throw new Error(`the rig '${options.rig.id}' has no 'jawTip' anchor to bite with`);
+		this.jaw = jaw;
+		this.hoverY = options.rig.metrics.hoverHeight ?? 0;
+		this.reach = measureBiteReach(options.rig);
+		this.leanIn = batLean(this.reach);
 	}
 
 	/** Where its body actually is, which is what the sword has to reach. */
 	get bodyY(): number {
-		return this.y + HOVER_Y;
+		return this.y + this.hoverY;
 	}
 
 	get busy(): boolean {
@@ -391,7 +423,7 @@ export class BatHunt extends Actor implements TurnTaker {
 		 * hexagon, out and back. The bat's copy of `LEAN_IN`.
 		 */
 		const biting = this.flight?.kind === 'bite';
-		const wantLean = biting ? BAT_LEAN * Math.sin(Math.PI * this.lunge) : 0;
+		const wantLean = biting ? this.leanIn * Math.sin(Math.PI * this.lunge) : 0;
 		this.lean += (wantLean - this.lean) * Math.min(1, dt * 12);
 
 		/*
@@ -437,7 +469,7 @@ export class BatHunt extends Actor implements TurnTaker {
 	 *
 	 * As with the sword: on the grid the answer is whether he is on the hexagon
 	 * it aimed at, and nothing could have moved since. The jaw tip is still
-	 * asked where it got to, because that is what `BAT_LEAN` is built from and
+	 * asked where it got to, because that is what `leanIn` is built from and
 	 * a lunge that stopped reaching should say so.
 	 */
 	private landBite(target: Axial | null): void {
@@ -447,7 +479,7 @@ export class BatHunt extends Actor implements TurnTaker {
 			this.message = 'bit at nothing';
 			return;
 		}
-		const jaws = attachmentPosition(BAT_SKELETON, this.pose, 'jaw', JAW_TIP);
+		const jaws = attachmentPosition(this.skeleton, this.pose, this.jaw.bone, this.jaw.at);
 		const w = this.toWorldXZ(jaws[0], jaws[2]);
 		const at = this.deps.playerPosition();
 		if (Math.hypot(w.x - at.x, w.z - at.z) > HEX_SPACING * 0.75) {

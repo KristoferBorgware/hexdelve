@@ -38,14 +38,14 @@ import {
 import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
 import { BenchControls } from './BenchControls.js';
-import { BENCH_RIGS, type BenchAnimation, type BenchRig } from './rigs.js';
+import type { BenchAnimation, BenchRig } from './rigs.js';
 import { emitStand, SHADOW_FIT } from './stand.js';
 
 export interface BenchOptions {
 	canvas: HTMLCanvasElement;
 	backend?: BackendPreference;
 	/** Which rig to put on the stand. Defaults to the first in the catalogue. */
-	rig?: BenchRig;
+	rig: BenchRig;
 	autoResize?: boolean;
 	autoStart?: boolean;
 	/** Drag to orbit, wheel to dolly. On by default. */
@@ -153,7 +153,7 @@ export class CharacterBench {
 		this.canvas = options.canvas;
 		this.renderer = renderer;
 
-		this.rigOnStand = options.rig ?? BENCH_RIGS[0]!;
+		this.rigOnStand = options.rig;
 		this.animation = this.rigOnStand.animations[0]!;
 		this.model = this.rigOnStand.model();
 		this.skeletonView = buildSkeletonView(this.rigOnStand.skeleton, this.rigOnStand.tips);

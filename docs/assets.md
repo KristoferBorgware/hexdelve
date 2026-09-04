@@ -316,33 +316,90 @@ character drawn slightly wrong with nothing to point at.
 
 ## The guarantee
 
-`test/assets.test.ts` loads every file and compares it against the module it
-replaced — part for part, key for key, bone for bone. That is the whole
-opportunity of doing this while both statements exist: a mesh file that drops a
-prism, mirrors the wrong axis or reads a colour out of the wrong palette entry
-fails there rather than being noticed later by somebody looking at a character
-with one ear.
+While both statements of what a wanderer is existed, `test/assets.test.ts`
+compared them part for part and key for key. They agreed, so the modules went,
+and the comparison went with them.
 
-Numbers are compared to 1e-9 rather than exactly, and the reason is worth
-knowing before anyone tightens it. `pi / 2 + 0.05` in a file and
-`PI / 2 + 0.05` in TypeScript are the same double, but `deg(12)` is
-`(12 * pi) / 180` where the source wrote `12 * (PI / 180)`, and a frame
-composes a rotation through a quaternion where the sword's own helper
-multiplied out a sine and a cosine by hand. Those differ in the last bit or two
-of a double — a millionth of a millimetre.
+What guards the files now is **the picture**. `test/render.test.ts` draws the
+yard and compares it against a reference PNG taken when every character was
+built in TypeScript. The yard drawn from these files is pixel-identical to it,
+which is a stronger statement than the equivalence test ever made: it covers
+the rigs, the bodies, the palettes, the clips, the blend trees and the way all
+of them compose, in one number.
+
+`test/assets.test.ts` keeps the three things that outlive the migration — that
+the files load to the shapes the game expects, that the loaders refuse what
+they should, and that the pose functions still agree with the rigs they were
+tuned against. `test/blend-tree.test.ts` now drives the wanderer's real
+locomotion tree rather than a replica assembled in the test.
+
+## Packing
+
+`node tools/build-assets.mjs` folds the tree into one JSON object of path to
+text and writes `dist/assets.json`. `npm run assets` builds the libraries first
+and then does it; CI runs it after the build.
+
+It is one request instead of thirty — the client otherwise fetches the
+manifest, then an entity, then its rig, its mesh, its clips and its trees, and
+each is a round trip. `memoryIO` reads exactly that shape, so nothing
+downstream can tell the difference:
+
+```ts
+import { openPackedAssets } from '@hexdelve/client';
+const library = await openPackedAssets('assets.json');
+```
+
+The second reason is the important one. **It is a check.** Every entity in the
+manifest is loaded on the way past, through the same readers the game uses, so
+a mesh naming a bone its rig does not have or a tree naming an animation its
+entity never declared fails the build:
+
+```
+meshes/sword.mesh.yaml: frames.blade.bone: no bone called 'handZ' in rig 'humanoid'
+```
+
+A YAML file has no compiler. This is the nearest thing it gets, and it runs
+before anything is published rather than when somebody opens the editor and
+finds a character with no arms. It also reports any file the manifest does not
+reach, which is how a rig nothing uses stops being invisible.
+
+## What is left in code, and why
+
+The switchover is done: nothing builds a body, a rig or a clip in TypeScript
+any more. `models/`, `game/skeleton.ts`, `game/batrig.ts`,
+`game/hellhoundrig.ts` and `game/clips.ts` are gone, and what stands in their
+place is `public/assets` plus about a page of adapters.
+
+Three things stayed, and each is a deliberate line rather than a leftover.
+
+**The pose functions.** The stride is a handful of harmonics of one phase angle
+and a direction of travel; the wing beat is four bones lagging each other round
+a cycle. A function of a heading covers the whole circle of directions where a
+blend space over clips covers four of them. The entity files name them and hand
+them their tuning — `{ procedural: stride, args: { gait: 1 } }` — so the curve
+is code and everything about which curve, how fast and how far is data.
+
+**What those functions were tuned against.** `stridePose` names `hipL` and
+`shinR` outright and its arcs were solved against a leg of a given length, so
+it is not rig-agnostic and never pretended to be. It carries the few numbers it
+needs (see `game/humanoid.ts`) rather than being handed a rig, which is what
+keeps it a pure function of an angle — and the copies are pinned to the rig
+files by `test/assets.test.ts`, so drift is a failing test rather than a man
+whose feet slide.
+
+**The calibration.** A blend halfway between a walk and a run does not travel
+at the average of their speeds, and correcting for that needs the built tree
+swept. The file states the request (`calibrated: true`); `bench/trees.ts` is
+the answer.
 
 ## Still to do
 
-The four preview benches still take their subjects from the TypeScript modules
-rather than from the library. The files are proven equal to those modules and
-the IO to reach them is in place, so switching over means the benches taking
-their subjects from `library.index()` and the client loading its entities at
-startup — at which point `models/`, `game/*rig.ts` and `game/clips.ts` become
-the files that are deleted rather than the files that are duplicated.
+There is no way to create a new file from the editor, only to change one that
+exists — a new entity has to be added to `index.yaml` by hand. The IO layer can
+write anywhere under the tree, so this is a question of what the editor should
+offer rather than of what it can do.
 
-Two things that would be worth having and are not here. There is no way to
-create a new file from the editor, only to change one that exists — an entity
-has to be added to `index.yaml` by hand. And nothing writes a **pack**: the
-loader will read one out of `memoryIO`, so a build step that folds the tree
-into a single JSON would give the distributed client its assets with no second
-request, but nothing produces one yet.
+The distributed client still fetches file by file; `openPackedAssets` exists
+and nothing calls it by default. Which of the two should be the default is a
+deployment question — a pack is faster to load and staler to change — and
+worth deciding once there is a deployment that cares.

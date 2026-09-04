@@ -322,7 +322,7 @@ export interface BoundClip {
 	readonly bound: BoundTrack[];
 }
 
-export function bindClip(clip: Clip, index: Map<string, number>): BoundClip {
+export function bindClip(clip: Clip, index: ReadonlyMap<string, number>): BoundClip {
 	const bound: BoundTrack[] = [];
 	for (const boneName in clip.tracks) {
 		const i = index.get(boneName);

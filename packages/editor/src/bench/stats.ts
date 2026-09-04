@@ -133,6 +133,11 @@ export function statGroups(prop: BenchProp): readonly PropStatGroup[] {
 			return [IDENTITY, SHIELD, HANDLING];
 		case 'armour':
 			return [IDENTITY, ARMOUR, HANDLING];
+		// Gear that has not said what it is yet. Its identity is all that is
+		// actually known about it, and inventing the rest would be the mock
+		// pretending to be a fact.
+		case 'gear':
+			return [IDENTITY];
 	}
 }
 

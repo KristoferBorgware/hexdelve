@@ -19,7 +19,17 @@
 
 import { mixSparse, setSparse, type SparsePose } from '@hexdelve/engine';
 
-import { LEGS } from './hellhoundrig.js';
+/*
+ * The bones this gait was written against — see the note in batpose.ts for why
+ * they travel with the function rather than being fetched. Pinned to
+ * `hellhound.rig.yaml` by `test/assets.test.ts`.
+ */
+const LEGS: Record<'frontL' | 'frontR' | 'backL' | 'backR', readonly string[]> = {
+	frontL: ['frontLegL', 'frontShinL', 'frontPawL'],
+	frontR: ['frontLegR', 'frontShinR', 'frontPawR'],
+	backL: ['backLegL', 'backShinL', 'backPawL'],
+	backR: ['backLegR', 'backShinR', 'backPawR'],
+};
 
 const PI = Math.PI;
 

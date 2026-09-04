@@ -16,14 +16,19 @@ import { useEffect, useRef, useState } from 'react';
 import type { BackendPreference } from '@hexdelve/engine';
 
 import { PropBench } from '../bench/PropBench.js';
+import type { BenchProp } from '../bench/props.js';
+import type { BenchRig } from '../bench/rigs.js';
 
 export interface PropViewportProps {
 	backend: BackendPreference;
 	running: boolean;
+	/** What goes on the stand, and the body it is checked against. */
+	prop: BenchProp;
+	wearer: BenchRig;
 	onBenchReady(bench: PropBench | null): void;
 }
 
-export function PropViewport({ backend, running, onBenchReady }: PropViewportProps) {
+export function PropViewport({ backend, running, prop, wearer, onBenchReady }: PropViewportProps) {
 	const hostRef = useRef<HTMLDivElement>(null);
 	const benchRef = useRef<PropBench | null>(null);
 	const [status, setStatus] = useState<'starting' | 'ready' | 'failed'>('starting');
@@ -44,6 +49,8 @@ export function PropViewport({ backend, running, onBenchReady }: PropViewportPro
 		PropBench.create({
 			canvas,
 			backend,
+			prop,
+			wearer,
 			onDeviceLost: (reason) => {
 				if (disposed) return;
 				setError(reason);

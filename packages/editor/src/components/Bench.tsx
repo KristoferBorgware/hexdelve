@@ -19,12 +19,15 @@
  */
 
 import Box from '@mui/material/Box';
-import { useCallback, useEffect, useState } from 'react';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BackendPreference } from '@hexdelve/engine';
 
+import { useAssets } from '../assets/library.js';
 import type { BenchShow, CharacterBench } from '../bench/CharacterBench.js';
 import {
-	BENCH_RIGS,
+	benchRigs,
 	initialParameters,
 	isTree,
 	type BenchAnimation,
@@ -41,10 +44,19 @@ export interface BenchProps {
 	running: boolean;
 }
 
-export function Bench({ backend, running }: BenchProps) {
+/**
+ * The bench, once there is something to put on it.
+ *
+ * Split from the loading in two, rather than threading nulls through
+ * everything below: a bench with no subject is not a bench with a blank
+ * subject, it is a bench that does not exist yet, and the state underneath —
+ * which bone is selected, which clip is playing, where its playhead is — has
+ * no meaning without one. The wrapper waits; this is what happens after.
+ */
+function BenchOnRigs({ backend, running, rigs }: BenchProps & { rigs: readonly BenchRig[] }) {
 	const [bench, setBench] = useState<CharacterBench | null>(null);
-	const [rig, setRig] = useState<BenchRig>(BENCH_RIGS[0]!);
-	const [animation, setAnimation] = useState<BenchAnimation>(BENCH_RIGS[0]!.animations[0]!);
+	const [rig, setRig] = useState<BenchRig>(rigs[0]!);
+	const [animation, setAnimation] = useState<BenchAnimation>(rigs[0]!.animations[0]!);
 	const [selectedBone, setSelectedBone] = useState<string | null>(null);
 	const [show, setShow] = useState<BenchShow>(DEFAULT_SHOW);
 	const [speed, setSpeed] = useState(1);
@@ -57,7 +69,7 @@ export function Bench({ backend, running }: BenchProps) {
 	 * not if it were held next to the device.
 	 */
 	const [params, setParams] = useState<Record<string, number>>(() =>
-		initialParameters(BENCH_RIGS[0]!.animations[0]!),
+		initialParameters(rigs[0]!.animations[0]!),
 	);
 	const [treeSync, setTreeSync] = useState(true);
 
@@ -103,13 +115,19 @@ export function Bench({ backend, running }: BenchProps) {
 	return (
 		<>
 			<BoneOutline
+				rigs={rigs}
 				rig={rig}
 				onRigChange={chooseRig}
 				selected={selectedBone}
 				onSelect={setSelectedBone}
 			/>
 			<Box sx={{ flex: 1, display: 'flex', minWidth: 0 }}>
-				<BenchViewport backend={backend} running={running} onBenchReady={onBenchReady} />
+				<BenchViewport
+					backend={backend}
+					running={running}
+					rig={rig}
+					onBenchReady={onBenchReady}
+				/>
 			</Box>
 			<BenchInspector
 				bench={bench}
@@ -131,5 +149,62 @@ export function Bench({ backend, running }: BenchProps) {
 				selectedBone={selectedBone}
 			/>
 		</>
+	);
+}
+
+/**
+ * The bench, and the wait for the manifest.
+ *
+ * Everything on the stand comes out of `public/assets` now — the rigs, the
+ * bodies, the clips and the trees — so there is a moment before there is
+ * anything to show. It is short and it is honest, and a spinner is better than
+ * a subject invented to fill it.
+ */
+export function Bench({ backend, running }: BenchProps) {
+	const { entities, loading, error } = useAssets();
+
+	/*
+	 * The subjects, built once per manifest read. A bench rig carries a model
+	 * and a set of blend trees, and a tree owns a playhead — so rebuilding
+	 * these on every render would hand the viewport a new subject every frame.
+	 */
+	const rigs = useMemo(() => benchRigs(entities), [entities]);
+
+	if (error) return <BenchNotice text={error} error />;
+	if (loading) return <BenchNotice text="Reading the manifest…" spinner />;
+	if (rigs.length === 0) return <BenchNotice text="No entity in the manifest has a rig." />;
+
+	/*
+	 * Keyed by the subjects, so a manifest that changed under a save — the
+	 * assets view can do that — rebuilds the bench rather than leaving it
+	 * holding a model nothing points at any more.
+	 */
+	return (
+		<BenchOnRigs
+			key={rigs.map((rig) => rig.id).join(',')}
+			backend={backend}
+			running={running}
+			rigs={rigs}
+		/>
+	);
+}
+
+function BenchNotice({ text, spinner, error }: { text: string; spinner?: boolean; error?: boolean }) {
+	return (
+		<Box
+			sx={{
+				flex: 1,
+				display: 'flex',
+				gap: 1.5,
+				alignItems: 'center',
+				justifyContent: 'center',
+				p: 3,
+			}}
+		>
+			{spinner && <CircularProgress size={20} />}
+			<Typography variant="body2" color={error ? 'error' : 'text.secondary'}>
+				{text}
+			</Typography>
+		</Box>
 	);
 }

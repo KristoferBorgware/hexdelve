@@ -16,14 +16,17 @@ import { useEffect, useRef, useState } from 'react';
 import type { BackendPreference } from '@hexdelve/engine';
 
 import { CharacterBench } from '../bench/CharacterBench.js';
+import type { BenchRig } from '../bench/rigs.js';
 
 export interface BenchViewportProps {
 	backend: BackendPreference;
 	running: boolean;
+	/** The subject the bench is created on. A bench without one is not a bench. */
+	rig: BenchRig;
 	onBenchReady(bench: CharacterBench | null): void;
 }
 
-export function BenchViewport({ backend, running, onBenchReady }: BenchViewportProps) {
+export function BenchViewport({ backend, running, rig, onBenchReady }: BenchViewportProps) {
 	const hostRef = useRef<HTMLDivElement>(null);
 	const benchRef = useRef<CharacterBench | null>(null);
 	const [status, setStatus] = useState<'starting' | 'ready' | 'failed'>('starting');
@@ -44,6 +47,7 @@ export function BenchViewport({ backend, running, onBenchReady }: BenchViewportP
 		CharacterBench.create({
 			canvas,
 			backend,
+			rig,
 			onDeviceLost: (reason) => {
 				if (disposed) return;
 				setError(reason);

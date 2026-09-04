@@ -17,7 +17,31 @@
 
 import { mixSparse, setSparse, type SparsePose } from '@hexdelve/engine';
 
-import { HOVER_Y, PERCH_Y, WING } from './batrig.js';
+/*
+ * The numbers this pose function was written against.
+ *
+ * A pose function is not rig-agnostic and never pretended to be: the lines
+ * below name `armL` and `digitR` outright, because a wing beat is a statement
+ * about a particular animal. So the handful of facts about that animal it
+ * needs travel with it rather than being fetched — which keeps `flyPose` a
+ * pure function of an angle, which is what lets the bat's hunt call it
+ * directly and a blend tree treat it as a leaf.
+ *
+ * They are pinned to `bat.rig.yaml` by `test/assets.test.ts`, so editing the
+ * rig and leaving these behind is a failing test rather than a bat whose
+ * wings fold through its own body.
+ */
+
+/** How high the body rides above the ground when the wings are working. */
+const HOVER_Y = 0.72;
+/** And where it settles when it comes down on its feet. */
+const PERCH_Y = 0.46;
+
+/** The bones of one wing, outboard in order, so the flap can lag each joint. */
+const WING: Record<'L' | 'R', readonly string[]> = {
+	L: ['armL', 'foreL', 'handL', 'digitL'],
+	R: ['armR', 'foreR', 'handR', 'digitR'],
+};
 
 /**
  * One full beat, in seconds, at amp = 1. Big animals beat slowly; this is what

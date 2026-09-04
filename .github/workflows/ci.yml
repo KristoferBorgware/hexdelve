@@ -34,6 +34,12 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Pack and check the asset files
+        # A YAML file has no compiler. Packing loads every entity through the
+        # same readers the game uses, so a mesh naming a bone its rig does not
+        # have fails here rather than when somebody opens the editor.
+        run: node tools/build-assets.mjs
+
       - name: Test
         # Everything the project can assert without somebody looking at a
         # screen, in one runner. Three of the six drive a browser, and skip

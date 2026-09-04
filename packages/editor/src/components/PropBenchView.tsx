@@ -19,17 +19,20 @@
  */
 
 import Box from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BackendPreference } from '@hexdelve/engine';
 
+import { useAssets } from '../assets/library.js';
 import {
-	WEARER_DEFAULT,
+	wearerDefault,
 	type PropBench,
 	type PropDisplay,
 	type PropShow,
 } from '../bench/PropBench.js';
-import { BENCH_PROPS, type BenchProp } from '../bench/props.js';
-import type { BenchAnimation } from '../bench/rigs.js';
+import { benchProps, type BenchProp } from '../bench/props.js';
+import { benchRigs, type BenchAnimation, type BenchRig } from '../bench/rigs.js';
 import { defaultStats, isEdited, type PropStats, type PropStatValue } from '../bench/stats.js';
 import { PropCatalogue } from './PropCatalogue.js';
 import { PropInspector } from './PropInspector.js';
@@ -42,11 +45,16 @@ export interface PropBenchViewProps {
 	running: boolean;
 }
 
-export function PropBenchView({ backend, running }: PropBenchViewProps) {
+interface LoadedProps extends PropBenchViewProps {
+	props: readonly BenchProp[];
+	wearer: BenchRig;
+}
+
+function PropBenchOnProps({ backend, running, props, wearer }: LoadedProps) {
 	const [bench, setBench] = useState<PropBench | null>(null);
-	const [prop, setProp] = useState<BenchProp>(BENCH_PROPS[0]!);
+	const [prop, setProp] = useState<BenchProp>(props[0]!);
 	const [display, setDisplay] = useState<PropDisplay>('stand');
-	const [animation, setAnimation] = useState<BenchAnimation>(WEARER_DEFAULT);
+	const [animation, setAnimation] = useState<BenchAnimation>(() => wearerDefault(wearer));
 	const [selectedPart, setSelectedPart] = useState<number | null>(null);
 	const [show, setShow] = useState<PropShow>(DEFAULT_SHOW);
 	const [edits, setEdits] = useState<Record<string, PropStats>>({});
@@ -98,13 +106,20 @@ export function PropBenchView({ backend, running }: PropBenchViewProps) {
 	return (
 		<>
 			<PropCatalogue
+				props={props}
 				prop={prop}
 				onPropChange={chooseProp}
 				selectedPart={selectedPart}
 				onSelectPart={setSelectedPart}
 			/>
 			<Box sx={{ flex: 1, display: 'flex', minWidth: 0 }}>
-				<PropViewport backend={backend} running={running} onBenchReady={onBenchReady} />
+				<PropViewport
+					backend={backend}
+					running={running}
+					prop={prop}
+					wearer={wearer}
+					onBenchReady={onBenchReady}
+				/>
 			</Box>
 			<PropInspector
 				bench={bench}
@@ -113,6 +128,7 @@ export function PropBenchView({ backend, running }: PropBenchViewProps) {
 				onDisplayChange={setDisplay}
 				animation={animation}
 				onAnimationChange={setAnimation}
+				wearerAnimations={wearer.animations}
 				show={show}
 				onShowChange={(key, value) => setShow((current) => ({ ...current, [key]: value }))}
 				stats={stats}
@@ -121,5 +137,54 @@ export function PropBenchView({ backend, running }: PropBenchViewProps) {
 				edited={isEdited(prop, stats)}
 			/>
 		</>
+	);
+}
+
+/**
+ * The prop bench, and the wait for the manifest.
+ *
+ * Two things have to arrive before there is anything to show: the props, and
+ * the body they are checked against. Both are entities, so both are files, and
+ * the wearer is simply the first character on the manifest — the same one the
+ * character bench opens on, which is the point of them coming from one list.
+ */
+export function PropBenchView({ backend, running }: PropBenchViewProps) {
+	const { entities, loading, error } = useAssets();
+	const props = useMemo(() => benchProps(entities), [entities]);
+	const wearer = useMemo(() => benchRigs(entities)[0] ?? null, [entities]);
+
+	if (error) return <PropNotice text={error} error />;
+	if (loading) return <PropNotice text="Reading the manifest…" spinner />;
+	if (props.length === 0) return <PropNotice text="No entity in the manifest is a prop." />;
+	if (!wearer) return <PropNotice text="No entity in the manifest has a rig to wear it." />;
+
+	return (
+		<PropBenchOnProps
+			key={`${props.map((one) => one.id).join(',')}|${wearer.id}`}
+			backend={backend}
+			running={running}
+			props={props}
+			wearer={wearer}
+		/>
+	);
+}
+
+function PropNotice({ text, spinner, error }: { text: string; spinner?: boolean; error?: boolean }) {
+	return (
+		<Box
+			sx={{
+				flex: 1,
+				display: 'flex',
+				gap: 1.5,
+				alignItems: 'center',
+				justifyContent: 'center',
+				p: 3,
+			}}
+		>
+			{spinner && <CircularProgress size={20} />}
+			<Typography variant="body2" color={error ? 'error' : 'text.secondary'}>
+				{text}
+			</Typography>
+		</Box>
 	);
 }

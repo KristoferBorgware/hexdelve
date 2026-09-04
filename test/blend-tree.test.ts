@@ -32,39 +32,16 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
-	additive,
-	blend1d,
 	BlendTree,
-	boneIndex,
 	calibrateSpeed,
-	clipSource,
-	layer,
-	leaf,
 	measureGroundSpeed,
-	poseSource,
+	type EntityAsset,
 	type Parameters,
+	type Skeleton,
 	type SpeedCalibration,
 	type SparsePose,
 } from '@hexdelve/engine';
-import {
-	BONES,
-	GUARD,
-	LEAN_LEFT,
-	RUN_PERIOD,
-	SKELETON,
-	STRIDE_CONTACTS,
-	stridePose,
-	strideVelocity,
-	UPPER_BODY,
-	UPRIGHT,
-	WALK_PERIOD,
-} from '@hexdelve/client';
-
-const TAU = Math.PI * 2;
-const FORWARD = { x: 0, z: 1 };
-
-const WALK_SPEED = strideVelocity(FORWARD, 1, 0).z;
-const RUN_SPEED = strideVelocity(FORWARD, 1, 1).z;
+import { openLibrary } from './harness/assets.js';
 
 /*
  * A microradian. Poses are Float32Array, so a difference of two of them
@@ -75,55 +52,44 @@ const EPSILON = 1e-6;
 
 /* ------------------------------------------------------------------ tree -- */
 
-/**
- * The same shape the bench puts on the stand: all three operations at once,
- * because all three are things this game actually does.
+/*
+ * The wanderer's own locomotion tree, out of the asset files.
+ *
+ * It used to be assembled here — the leaves, the blend1d over them, the
+ * additive lean, the layered guard — which made this a test of a replica. It
+ * is now `public/assets/trees/locomotion.tree.yaml`, the same file the editor
+ * and the game read, so what is checked below is the tree that actually runs.
+ * Everything the assertions need comes off the entity: the bones, the
+ * measured speeds, the cycle lengths.
  */
-function buildTree(): BlendTree {
-	const index = boneIndex(SKELETON);
+let tree: BlendTree;
+let wanderer: EntityAsset;
+let BONES: readonly string[];
+let SKELETON: Skeleton;
+let UPPER_BODY: Record<string, number>;
+let WALK_SPEED: number;
+let RUN_SPEED: number;
+let WALK_PERIOD: number;
+let RUN_PERIOD: number;
 
-	const idle = leaf(
-		poseSource('idle', 1, BONES, (t, out) => stridePose(0, 0, FORWARD, 0, t, out)),
-		{ label: 'idle' },
-	);
-	// Walk and run are the same function at two settings, so their contact
-	// schedules match — but their cycles do not, which is the whole reason the
-	// sync has work to do.
-	const walk = leaf(
-		poseSource('walk', WALK_PERIOD, BONES, (t, out) =>
-			stridePose((t / WALK_PERIOD) * TAU, 1, FORWARD, 0, t, out),
-		),
-		{ label: 'walk', sync: true, contactPhase: STRIDE_CONTACTS[0] },
-	);
-	const run = leaf(
-		poseSource('run', RUN_PERIOD, BONES, (t, out) =>
-			stridePose((t / RUN_PERIOD) * TAU, 1, FORWARD, 1, t, out),
-		),
-		{ label: 'run', sync: true, contactPhase: STRIDE_CONTACTS[0] },
-	);
+beforeAll(async () => {
+	wanderer = await openLibrary().entity('entities/wanderer.entity.yaml');
+	const rig = wanderer.rig!;
 
-	const gait = blend1d('speed', [
-		{ node: idle, at: 0 },
-		{ node: walk, at: WALK_SPEED },
-		{ node: run, at: RUN_SPEED },
-	]);
+	BONES = rig.bones;
+	SKELETON = rig.skeleton;
+	UPPER_BODY = { ...rig.masks.upperBody };
 
-	const bank = blend1d('turn', [
-		{ node: leaf(clipSource(UPRIGHT, index)), at: 0 },
-		{ node: leaf(clipSource(LEAN_LEFT, index)), at: 1 },
-	]);
+	const walk = wanderer.animations.get('walk')!;
+	const run = wanderer.animations.get('run')!;
+	WALK_PERIOD = walk.duration;
+	RUN_PERIOD = run.duration;
+	WALK_SPEED = walk.speed()!.z;
+	RUN_SPEED = run.speed()!.z;
 
-	const root = layer(
-		additive(gait, bank, { gainParam: 'lean' }),
-		leaf(clipSource(GUARD, index)),
-		UPPER_BODY,
-		{ weightParam: 'guard' },
-	);
+	tree = wanderer.blendTrees.get('locomotion')!.tree();
+});
 
-	return new BlendTree(root, BONES, { fallbackDuration: WALK_PERIOD });
-}
-
-const tree = buildTree();
 const BASE: Parameters = { speed: 0, turn: 0, lean: 0, guard: 0 };
 
 /** The tree's pose at a phase, as a fresh sparse pose. */
@@ -151,6 +117,12 @@ function speedOf(params: Parameters): number {
 	).z;
 }
 
+/** One gait's measured speed and its own cycle, off the loaded entity. */
+function gait(name: 'walk' | 'run'): { speed: number; period: number } {
+	const animation = wanderer.animations.get(name)!;
+	return { speed: animation.speed()!.z, period: animation.duration };
+}
+
 /** The worst per-channel difference between two poses. */
 function worstDifference(a: SparsePose, b: SparsePose, bones: readonly string[] = BONES): number {
 	let worst = 0;
@@ -165,19 +137,22 @@ function worstDifference(a: SparsePose, b: SparsePose, bones: readonly string[] 
 /* ------------------------------------------------------------------ tests -- */
 
 describe('at a leaf’s own threshold the tree is that leaf', () => {
-	const cases = [
-		{ name: 'walk', speed: WALK_SPEED, period: WALK_PERIOD },
-		{ name: 'run', speed: RUN_SPEED, period: RUN_PERIOD },
-	];
+	/*
+	 * Resolved inside each test rather than beside them: both numbers are now
+	 * measured off files, so neither exists until the manifest has been read.
+	 */
+	const cases = ['walk', 'run'] as const;
 
-	for (const { name, speed, period } of cases) {
+	for (const name of cases) {
 		it(`${name}: the cycle is the clip's own`, () => {
+			const { speed, period } = gait(name);
 			tree.sync = true;
 			tree.resolve({ ...BASE, speed });
 			expect(tree.cycle).toBeCloseTo(period, 6);
 		});
 
 		it(`${name}: it carries him at the threshold`, () => {
+			const { speed } = gait(name);
 			tree.sync = true;
 			expect(speedOf({ ...BASE, speed })).toBeCloseTo(speed, 3);
 		});
@@ -317,21 +292,23 @@ describe('an additive layer', () => {
 });
 
 describe('a masked layer', () => {
-	const masked = BONES.filter((bone) => (UPPER_BODY[bone] ?? 0) > 0);
-	const free = BONES.filter((bone) => (UPPER_BODY[bone] ?? 0) === 0);
+	// Split inside the tests: the mask comes off the rig file, which is read
+	// in beforeAll, so neither list exists while the describes are being built.
+	const masked = (): readonly string[] => BONES.filter((bone) => (UPPER_BODY[bone] ?? 0) > 0);
+	const free = (): readonly string[] => BONES.filter((bone) => (UPPER_BODY[bone] ?? 0) === 0);
 
 	it('moves the bones the mask names', () => {
 		tree.sync = true;
 		const plain = poseAt({ ...BASE, speed: WALK_SPEED }, 0.3);
 		const guarded = poseAt({ ...BASE, speed: WALK_SPEED, guard: 1 }, 0.3);
-		expect(worstDifference(plain, guarded, masked)).toBeGreaterThan(0.05);
+		expect(worstDifference(plain, guarded, masked())).toBeGreaterThan(0.05);
 	});
 
 	it('and leaves the legs striding', () => {
 		tree.sync = true;
 		const plain = poseAt({ ...BASE, speed: WALK_SPEED }, 0.3);
 		const guarded = poseAt({ ...BASE, speed: WALK_SPEED, guard: 1 }, 0.3);
-		expect(worstDifference(plain, guarded, free), 'the mask is leaking').toBeLessThan(EPSILON);
+		expect(worstDifference(plain, guarded, free()), 'the mask is leaking').toBeLessThan(EPSILON);
 	});
 
 	it('is the base exactly at weight zero', () => {

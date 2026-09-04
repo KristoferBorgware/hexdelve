@@ -44,27 +44,19 @@ import {
 import { mat4, quat, vec3, type Mat4, type Quat, type Vec3 } from '@hexdelve/shared';
 
 import { BenchControls } from './BenchControls.js';
-import { BENCH_PROPS, measure, type BenchProp, type PropBox } from './props.js';
-import { findRig, type BenchAnimation } from './rigs.js';
+import { measure, type BenchProp, type PropBox } from './props.js';
+import type { BenchAnimation, BenchRig } from './rigs.js';
 import { emitStand, SHADOW_FIT } from './stand.js';
 
 /**
- * Who wears the gear.
- *
- * The wanderer's rig out of the character bench's own catalogue, animations
- * and all — not a second copy of him assembled here. Every prop in the game is
- * measured against this body, so it is the only body worth checking one on.
+ * The pose the wearer stands in by default: the first of his animations that
+ * is not a blend tree. A tree is driven by parameters and this panel has no
+ * sliders for them — that is the character bench's job — so the wearer starts
+ * on something whose pose is the whole of what it is.
  */
-export const WEARER = findRig('wanderer');
-
-/**
- * The pose he stands in by default: the first of his animations that is not a
- * blend tree. A tree is driven by parameters and this panel has no sliders for
- * them — that is the character bench's job — so the wearer starts on something
- * whose pose is the whole of what it is.
- */
-export const WEARER_DEFAULT: BenchAnimation =
-	WEARER.animations.find((candidate) => candidate.kind !== 'tree') ?? WEARER.animations[0]!;
+export function wearerDefault(wearer: BenchRig): BenchAnimation {
+	return wearer.animations.find((one) => one.kind !== 'tree') ?? wearer.animations[0]!;
+}
 
 /** How the prop is placed. See the note at the top of the file. */
 export type PropDisplay = 'stand' | 'ground' | 'worn';
@@ -89,8 +81,16 @@ export interface PropBenchStats {
 export interface PropBenchOptions {
 	canvas: HTMLCanvasElement;
 	backend?: BackendPreference;
-	/** Which prop to put on the stand. Defaults to the first in the catalogue. */
-	prop?: BenchProp;
+	/** Which prop to put on the stand. */
+	prop: BenchProp;
+	/**
+	 * Who wears it.
+	 *
+	 * Handed in rather than looked up here, because the bodies come out of the
+	 * manifest now and reading one is asynchronous. Every prop in the game is
+	 * measured against this body, so it is the only body worth checking one on.
+	 */
+	wearer: BenchRig;
 	autoResize?: boolean;
 	autoStart?: boolean;
 	controls?: boolean;
@@ -130,7 +130,9 @@ export class PropBench {
 	private onStand: BenchProp;
 	private model: Model;
 	private mode: PropDisplay = 'stand';
-	private wearerAnimation: BenchAnimation = WEARER_DEFAULT;
+	/** The body the gear is checked on, and the pose it is standing in. */
+	readonly wearer: BenchRig;
+	private wearerAnimation: BenchAnimation;
 
 	/** The placement the current mode works out to, and the box it lands in. */
 	private readonly baseRotation: Quat = quat.quat();
@@ -183,7 +185,9 @@ export class PropBench {
 		this.canvas = options.canvas;
 		this.renderer = renderer;
 
-		this.onStand = options.prop ?? BENCH_PROPS[0]!;
+		this.onStand = options.prop;
+		this.wearer = options.wearer;
+		this.wearerAnimation = wearerDefault(options.wearer);
 		this.model = this.onStand.model();
 		this.box = measure(this.model);
 		this.layout();
@@ -318,9 +322,9 @@ export class PropBench {
 			 * away the only thing there is to judge it against.
 			 */
 			this.camera.target[0] = 0;
-			this.camera.target[1] = WEARER.focusY;
+			this.camera.target[1] = this.wearer.focusY;
 			this.camera.target[2] = 0;
-			this.camera.distance = WEARER.frameDistance;
+			this.camera.distance = this.wearer.frameDistance;
 		} else {
 			// A thing three times its own radius away fills the frame, and that
 			// is as true of a helmet as of a sword.
@@ -410,7 +414,7 @@ export class PropBench {
 			 * with — and where a worn prop is, is where its bone is.
 			 */
 			this.wearerAnimation.sample(this.time, this.pose);
-			this.world = solveWorld(WEARER.skeleton, this.pose, this.world);
+			this.world = solveWorld(this.wearer.skeleton, this.pose, this.world);
 
 			const bone = this.world[prop.bone];
 			quat.copy(this.baseRotation, bone ? bone.q : quat.IDENTITY);
@@ -448,7 +452,7 @@ export class PropBench {
 
 		if (this.mode === 'worn') {
 			this.wearerAnimation.sample(this.time, this.pose);
-			this.world = solveWorld(WEARER.skeleton, this.pose, this.world);
+			this.world = solveWorld(this.wearer.skeleton, this.pose, this.world);
 
 			/*
 			 * The wearer goes in the blended pass at a low alpha and the prop
@@ -457,9 +461,9 @@ export class PropBench {
 			 * as being ON him rather than lost among his own prisms.
 			 */
 			if (this.show.ghost) {
-				WEARER.model().emit(blended, this.world, 0, 0, 0, this.turntable, { alpha: 0.26 });
+				this.wearer.model().emit(blended, this.world, 0, 0, 0, this.turntable, { alpha: 0.26 });
 			} else {
-				WEARER.model().emit(opaque, this.world, 0, 0, 0, this.turntable);
+				this.wearer.model().emit(opaque, this.world, 0, 0, 0, this.turntable);
 			}
 			this.model.emit(opaque, this.world, 0, 0, 0, this.turntable);
 		} else {

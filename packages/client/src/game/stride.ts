@@ -37,7 +37,7 @@
 
 import { measureGroundSpeed, setSparse, type SparsePose } from '@hexdelve/engine';
 
-import { LEG_LENGTH, SKELETON } from './skeleton.js';
+import { HUMANOID_SKELETON, LEG_LENGTH } from './humanoid.js';
 
 const PI = Math.PI;
 const TAU = PI * 2;
@@ -272,7 +272,7 @@ export interface StrideVelocity {
 
 export function strideVelocity(dir: Direction, amp = 1, gait = 0): StrideVelocity {
 	return measureGroundSpeed(
-		SKELETON,
+		HUMANOID_SKELETON,
 		(phase, out) => stridePose(phase * TAU, amp, dir, gait, 0, out),
 		stridePeriod(gait),
 		{ contactPhase: STRIDE_CONTACTS[0] },
