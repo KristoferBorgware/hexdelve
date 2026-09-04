@@ -175,42 +175,6 @@ list is the weaker alternative and would have to be guessed at rather than
 derived.
 
 
-### F-012 — The client uses `@hexdelve/scripting` without declaring that it does
-
-**Kind:** risk
-**Milestone:** scripting
-**Priority:** medium
-**Effort:** small
-**Found:** 2026-09-04, adding a desktop shell for the editor and reading every package manifest to see which ones name each other
-**Where:** `packages/client/package.json`, `packages/client/tsconfig.json`
-
-**What happens.** Seven files under `packages/client/src` import
-`@hexdelve/scripting` — `simulation.ts`, `components.ts`, `scripts.ts`,
-`player.ts`, `bathunt.ts`, `events.ts` and `HexdelveClient.ts`. The client's
-manifest lists two dependencies, `@hexdelve/engine` and `@hexdelve/shared`, and
-its `tsconfig.json` references the same two. Neither names the scripting
-package.
-
-It works anyway, for two reasons that are both accidents of the layout. npm
-hoists every workspace package into the root `node_modules`, so the import
-resolves whether or not it was asked for; and the root's `build:libs` script
-happens to list scripting before client, so its declarations are on disk by the
-time `tsc` wants them.
-
-**Why it matters.** Nobody yet. It costs the day somebody builds the client on
-its own — `npm run build -w @hexdelve/client` in a clean checkout, or a package
-list that grows and stops being in dependency order by luck — and gets an error
-about a package that is right there in the repository. It also means
-`tsc -b packages/client` does not rebuild scripting when scripting changes,
-which is the whole point of a project reference: the client can be typechecked
-against declarations that are one edit stale.
-
-**What would fix it.** Two lines. `"@hexdelve/scripting": "*"` in the client's
-dependencies, and `{ "path": "../scripting" }` in its tsconfig references.
-Neither changes what is built today; both stop it from depending on the order
-somebody wrote a script in.
-
-
 ---
 
 ## Closed
@@ -579,3 +543,40 @@ and play this instead" exists and would be followed rather than invented.
 
 The rules half is already done and should stay done: what a death COSTS is the
 script's, and what it LOOKS like is the client's.
+
+### F-012 — The client uses `@hexdelve/scripting` without declaring that it does
+
+**Kind:** risk
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, adding a desktop shell for the editor and reading every package manifest to see which ones name each other
+**Where:** `packages/client/package.json`, `packages/client/tsconfig.json`
+**Closed:** 2026-09-04, fixed — the client declares the dependency and
+references the project, so `tsc -b packages/client` builds scripting first
+
+**What happens.** Seven files under `packages/client/src` import
+`@hexdelve/scripting` — `simulation.ts`, `components.ts`, `scripts.ts`,
+`player.ts`, `bathunt.ts`, `events.ts` and `HexdelveClient.ts`. The client's
+manifest lists two dependencies, `@hexdelve/engine` and `@hexdelve/shared`, and
+its `tsconfig.json` references the same two. Neither names the scripting
+package.
+
+It works anyway, for two reasons that are both accidents of the layout. npm
+hoists every workspace package into the root `node_modules`, so the import
+resolves whether or not it was asked for; and the root's `build:libs` script
+happens to list scripting before client, so its declarations are on disk by the
+time `tsc` wants them.
+
+**Why it matters.** Nobody yet. It costs the day somebody builds the client on
+its own — `npm run build -w @hexdelve/client` in a clean checkout, or a package
+list that grows and stops being in dependency order by luck — and gets an error
+about a package that is right there in the repository. It also means
+`tsc -b packages/client` does not rebuild scripting when scripting changes,
+which is the whole point of a project reference: the client can be typechecked
+against declarations that are one edit stale.
+
+**What would fix it.** Two lines. `"@hexdelve/scripting": "*"` in the client's
+dependencies, and `{ "path": "../scripting" }` in its tsconfig references.
+Neither changes what is built today; both stop it from depending on the order
+somebody wrote a script in.
