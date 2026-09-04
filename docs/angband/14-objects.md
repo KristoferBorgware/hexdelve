@@ -373,9 +373,7 @@ The name is replaced too, assembled from fragments by
 written: the One Ring, and anything flagged `KF_QUEST_ART` — Grond and
 Morgoth's crown — because the endgame depends on them.
 
-`INHIBIT_POWER` (20000) and the `INHIBIT_BLOWS` (3), `INHIBIT_SHOTS`
-(21), `INHIBIT_MIGHT` (4) and `INHIBIT_AC` (56) thresholds in
-`obj-power.h` are what stop this loop producing an item off the scale.
+The `INHIBIT_*` caps of 14.8.1 are what stop this loop running away.
 
 ---
 
