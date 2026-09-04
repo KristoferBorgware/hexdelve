@@ -241,6 +241,55 @@ during the client build, and this finding is the reason to do it sooner.
 A narrower fix that is not recommended: `server.hmr.overlay: false` in the
 editor's Vite config hides the overlay and changes nothing about the refresh.
 
+### F-008 — The case against decorators is written more broadly than it holds
+
+**Kind:** bug
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, explaining the difference between legacy and standard decorators
+**Where:** `packages/scripting/src/parameters.ts`, the "Why this is not a decorator" header; the same paragraph in `docs/assets.md`
+
+**What happens.** The header says legacy decorators want
+`useDefineForClassFields: false`, and gives that as the first of three reasons
+the script format does not use them. It is stated as a property of legacy
+decorators. It is a property of legacy decorators **on fields**.
+
+A field declaration under ES2022 semantics is a `defineProperty` on the
+instance, so an accessor a decorator installed on the prototype is shadowed and
+never runs. A method lives on the prototype and has no such quarrel. Compiling
+`@on('damage') hurt(n) {}` with esbuild and `useDefineForClassFields: true`
+left the sibling field `hp = 10` an ordinary class field and emitted
+`__decorateClass([on("damage")], Health.prototype, "hurt", 1)`, which is
+correct.
+
+**Why it matters.** The paragraph is the repository's own record of a design
+decision, and it is the thing a reader will consult before considering
+decorators again. As written it closes a road that is open. Event handlers are
+the case it closes: `@on(Damage) takeDamage(payload)` is metadata about a
+method, it needs no field semantics changed, and the alternative — subscribing
+in `onLoad` and unsubscribing in `onDestroy` — puts every handler in two places
+and makes hot-reload symmetry a discipline rather than a property. That is the
+work phase 4 is about to do, so the paragraph will be read at exactly the wrong
+moment.
+
+Nothing is broken today. Nobody has written a decorator, and `param()` is still
+the right answer for fields, where the objection does hold and where a legacy
+decorator cannot see the initialiser it would need.
+
+**What would fix it.** Split the paragraph. Say that the field objection is
+about fields, and that method decorators are unaffected by
+`useDefineForClassFields`. The second objection stands whichever kind is used:
+vitest does not pass `oxc.transform.decorator.legacy` through to its own
+transform, so a decorated script would compile in the client and fail in the
+tests. Two ways out of that one, both unverified: a Vite plugin at
+`enforce: 'pre'` that transforms `packages/client/src/scripts/**` with
+`esbuild-wasm`, which is already a development dependency and does accept
+`experimentalDecorators` through `tsconfigRaw`; or the build step in F-007,
+which takes the scripts out of the oxc graph altogether and would settle this
+as a side effect. The third objection — repeating the option in the editor's
+compiler — is one line of `tsconfigRaw` in `packages/editor/src/scripts/compiler.ts`.
+
 ---
 
 ## Closed
