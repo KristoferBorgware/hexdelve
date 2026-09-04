@@ -18,14 +18,25 @@
  * says so here with the error on its own line. And the host that can write is
  * named in the corner, so nobody types into a page that cannot save.
  *
- * ## What it does not do
+ * ## The yard beside the code
  *
- * It does not reach into a running game. The yard is the client, in a box, and
- * the box is unmounted while this view is up — so a save lands on the disk,
- * and the yard picks it up when it comes back, through the watcher it has
- * always had. That is one refresh of a viewport rather than none, and it is
- * the honest description of what the editor is doing: writing files that
- * something else reads.
+ * A compile that reaches nothing is a compile nobody can judge, so this view
+ * has a running world of its own — the same client the yard view mounts, in a
+ * pane beside the editor — and every successful compile is swapped into it
+ * with `host.reload`. The world is not restarted: the host rebuilds every
+ * instance behind its id, keeping the parameters somebody set, so a change to
+ * a number takes effect on a creature that is mid-fight rather than on a fresh
+ * one that has forgotten the fight.
+ *
+ * It reloads on a COMPILE rather than on a save, which is the one place this
+ * view knowingly runs something that is not on disk. That is the useful order:
+ * try the change, then keep it. The status line says which it is, because a
+ * world running a buffer nobody saved is exactly the state somebody would
+ * otherwise walk away from and lose.
+ *
+ * The pane has its own watcher turned off. What belongs in this host is what
+ * these buffers compile to, and a watcher reading the directory would overwrite
+ * it with the disk a moment later — see `watch` in Viewport.
  */
 
 import Alert from '@mui/material/Alert';
@@ -43,6 +54,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
+import ToggleButton from '@mui/material/ToggleButton';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
@@ -50,13 +62,17 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RestoreIcon from '@mui/icons-material/Restore';
 import SaveIcon from '@mui/icons-material/Save';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { HexdelveClient } from '@hexdelve/client';
+import type { BackendPreference } from '@hexdelve/engine';
+import type { ScriptProvider } from '@hexdelve/scripting';
 
 import { compileScripts, type ScriptDiagnostic } from '../scripts/compiler.js';
 import { scriptNameProblem, scriptStem, scriptStore } from '../scripts/store.js';
 import { loadScriptTypes, type ScriptTypesState } from '../monaco/types.js';
 import { SCRIPT_ROOT } from '../monaco/uris.js';
 import { CodeEditor, type CodeMarker } from './CodeEditor.js';
+import { Viewport } from './Viewport.js';
 
 /** What a new script starts as. Enough to be a script, and nothing more. */
 function template(name: string): string {
@@ -82,6 +98,8 @@ interface CompileState {
 	readonly compiling: boolean;
 	/** Null before anything has been compiled in this session. */
 	readonly at: number | null;
+	/** How many times a compile has been swapped into the world beside it. */
+	readonly swaps: number;
 }
 
 const IDLE: CompileState = {
@@ -90,9 +108,16 @@ const IDLE: CompileState = {
 	diagnostics: [],
 	compiling: false,
 	at: null,
+	swaps: 0,
 };
 
-export function Scripts() {
+export interface ScriptsProps {
+	backend: BackendPreference;
+	/** Whether the world beside the code is running. The toolbar's transport. */
+	running: boolean;
+}
+
+export function Scripts({ backend, running }: ScriptsProps) {
 	/** What is on disk, as far as this view knows. */
 	const [saved, setSaved] = useState<ReadonlyMap<string, string>>(new Map());
 	/** What is in the buffers. The same text until somebody types. */
@@ -104,6 +129,17 @@ export function Scripts() {
 	const [compile, setCompile] = useState<CompileState>(IDLE);
 	const [types, setTypes] = useState<ScriptTypesState | null>(null);
 	const [naming, setNaming] = useState<string | null>(null);
+	/** The world beside the code, once it has a renderer. Null while it starts. */
+	const [client, setClient] = useState<HexdelveClient | null>(null);
+	const [showYard, setShowYard] = useState(true);
+	/**
+	 * What the world is running, and what the next compile falls back to.
+	 *
+	 * A ref rather than state: nothing renders it, and a compile that lands
+	 * after a re-render must swap the provider it just built rather than one
+	 * captured when the callback was made.
+	 */
+	const live = useRef<ScriptProvider | null>(null);
 
 	const writable = scriptStore.writable;
 	const names = useMemo(() => [...buffers.keys()].sort(), [buffers]);
@@ -113,6 +149,20 @@ export function Scripts() {
 		() => [...buffers].some(([name, value]) => saved.get(name) !== value),
 		[buffers, saved],
 	);
+
+	// Stable, because Viewport tears its client down when this identity changes.
+	const onClientReady = useCallback((next: HexdelveClient | null) => setClient(next), []);
+
+	/*
+	 * A world that has just started runs what the build compiled into it — the
+	 * files as they were on disk. If these buffers have been compiled since,
+	 * that is what belongs in it, so it is put there as soon as there is
+	 * something to put it in. This is what makes switching backend, or showing
+	 * the pane after hiding it, keep the change somebody was looking at.
+	 */
+	useEffect(() => {
+		if (client && live.current) client.simulation.scripts.reload(live.current);
+	}, [client]);
 
 	// Every script, once. The compiler needs all of them to build any of them —
 	// one bundle, so that a script can import its neighbour.
@@ -148,19 +198,38 @@ export function Scripts() {
 		};
 	}, []);
 
+	/**
+	 * Compile the buffers, and put what comes out into the world beside them.
+	 *
+	 * The previous provider is handed to the compiler so that a failure leaves
+	 * the world running what it was running — the same rule the yard's watcher
+	 * follows, and the difference between an editor somebody can work in and
+	 * one that empties itself every time a file is half-typed.
+	 */
 	const build = useCallback(
 		async (sources: ReadonlyMap<string, string>): Promise<void> => {
 			setCompile((state) => ({ ...state, compiling: true }));
-			const result = await compileScripts(sources);
-			setCompile({
+			const result = await compileScripts(sources, live.current ?? undefined);
+
+			let swapped = false;
+			if (!result.error) {
+				live.current = result.provider;
+				// Every instance is rebuilt behind its id, so the world is not
+				// restarted and nothing that points at a script is disturbed.
+				client?.simulation.scripts.reload(result.provider);
+				swapped = client !== null;
+			}
+
+			setCompile((state) => ({
 				names: result.names,
 				error: result.error,
 				diagnostics: result.diagnostics,
 				compiling: false,
 				at: Date.now(),
-			});
+				swaps: state.swaps + (swapped ? 1 : 0),
+			}));
 		},
-		[],
+		[client],
 	);
 
 	const save = useCallback(() => {
@@ -364,14 +433,35 @@ export function Scripts() {
 						{selected ?? 'nothing selected'}
 						{dirty && ' •'}
 					</Typography>
-					<Button
-						size="small"
-						startIcon={<PlayArrowIcon />}
-						disabled={busy || compile.compiling || buffers.size === 0}
-						onClick={() => void build(buffers)}
+					<Tooltip title={showYard ? 'Hide the world, and use the width' : 'Show the world'}>
+						<ToggleButton
+							size="small"
+							value="yard"
+							selected={showYard}
+							sx={{ px: 1, py: 0.25 }}
+							onChange={() => setShowYard((shown) => !shown)}
+						>
+							Yard
+						</ToggleButton>
+					</Tooltip>
+					<Tooltip
+						title={
+							showYard
+								? 'Compile these buffers and swap them into the world'
+								: 'Compile these buffers'
+						}
 					>
-						Compile
-					</Button>
+						<span>
+							<Button
+								size="small"
+								startIcon={<PlayArrowIcon />}
+								disabled={busy || compile.compiling || buffers.size === 0}
+								onClick={() => void build(buffers)}
+							>
+								Compile
+							</Button>
+						</span>
+					</Tooltip>
 					<Button
 						size="small"
 						startIcon={<RestoreIcon />}
@@ -406,26 +496,59 @@ export function Scripts() {
 					</Alert>
 				)}
 
-				{selected === null ? (
-					<Box sx={{ flex: 1, display: 'grid', placeItems: 'center' }}>
-						<Typography variant="body2" color="text.secondary">
-							{loading ? '' : 'No scripts here yet.'}
-						</Typography>
+				<Box sx={{ flex: 1, display: 'flex', minHeight: 0, minWidth: 0 }}>
+					<Box
+						sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}
+					>
+						{selected === null ? (
+							<Box sx={{ flex: 1, display: 'grid', placeItems: 'center' }}>
+								<Typography variant="body2" color="text.secondary">
+									{loading ? '' : 'No scripts here yet.'}
+								</Typography>
+							</Box>
+						) : (
+							<CodeEditor
+								uri={`${SCRIPT_ROOT}${selected}`}
+								language="typescript"
+								value={text}
+								readOnly={!writable}
+								markers={markers}
+								documents={documents}
+								onChange={(next) =>
+									setBuffers((previous) => new Map(previous).set(selected, next))
+								}
+								onSave={save}
+							/>
+						)}
 					</Box>
-				) : (
-					<CodeEditor
-						uri={`${SCRIPT_ROOT}${selected}`}
-						language="typescript"
-						value={text}
-						readOnly={!writable}
-						markers={markers}
-						documents={documents}
-						onChange={(next) =>
-							setBuffers((previous) => new Map(previous).set(selected, next))
-						}
-						onSave={save}
-					/>
-				)}
+
+					{/*
+					 * The world these scripts run in, so a compile can be judged
+					 * rather than reported. It is the client, unchanged — the same
+					 * component the yard view mounts — with its own watcher off,
+					 * because what belongs in this host is what the buffers on the
+					 * left compile to. See the header.
+					 */}
+					{showYard && (
+						<Box
+							sx={{
+								width: 480,
+								flexShrink: 0,
+								borderLeft: 1,
+								borderColor: 'divider',
+								display: 'flex',
+								minHeight: 0,
+							}}
+						>
+							<Viewport
+								backend={backend}
+								running={running}
+								watch={false}
+								onClientReady={onClientReady}
+							/>
+						</Box>
+					)}
+				</Box>
 
 				<Stack
 					direction="row"
@@ -456,9 +579,19 @@ export function Scripts() {
 								: `compiled ${compile.names.length} classes: ${compile.names.join(', ')}`}
 						</Typography>
 					)}
+					{/*
+					 * What the world is actually running, which is the question a
+					 * compile raises. A count rather than a tick, because the
+					 * useful thing to know is that the last swap was YOURS.
+					 */}
+					{compile.swaps > 0 && (
+						<Typography variant="caption" color="text.secondary" noWrap>
+							swapped into the yard ×{compile.swaps}
+						</Typography>
+					)}
 					{anyDirty && (
-						<Typography variant="caption" color="warning.main">
-							unsaved
+						<Typography variant="caption" color="warning.main" noWrap>
+							{compile.swaps > 0 ? 'the yard is running unsaved edits' : 'unsaved'}
 						</Typography>
 					)}
 				</Stack>

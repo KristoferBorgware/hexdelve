@@ -564,10 +564,19 @@ error in code that compiles.
 makes, so a file that will not build says so here — with esbuild's own position,
 as a marker on the line rather than a sentence about a bundle.
 
-**A save does not reach a running game.** The yard is unmounted while this view
-is up, so the file lands on the disk and the yard picks it up from its watcher
-when it comes back. That is one viewport refresh rather than none, and it is
-what the editor is actually doing: writing files that something else reads.
+**A compile reaches a running world.** The view has one beside it — the client,
+the same component the yard mounts — and a successful compile is swapped in
+with `host.reload`, so every instance is rebuilt behind its id with the
+parameters somebody set kept. Nothing is restarted: a change to a number takes
+effect on a creature that is mid-fight.
+
+It swaps on a compile rather than on a save, so the world can be running what
+the buffers say before any of it is on disk. That is the useful order — try the
+change, then keep it — and it is the one place this view knowingly runs
+something that is not a file, which is why the status line says so. The pane's
+own watcher is off: what belongs in that host is what these buffers compiled
+to, and a watcher reading the directory would put the disk back a moment
+later.
 
 ### Events
 

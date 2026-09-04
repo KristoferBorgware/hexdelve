@@ -171,9 +171,16 @@ are handed to the editor as though they were installed, so `this.transform.`
 completes and a misspelt field is underlined where it is written; the whole
 directory is given to the service rather than the open file, because a script
 imports its neighbour. Saving compiles through the same call the watcher makes,
-so a file that will not build says so with the error on its own line. What a
-save does not do is reach into a running game — the yard is not mounted while
-this view is up, and it picks the change up from its watcher when it comes back.
+so a file that will not build says so with the error on its own line.
+
+Beside the code is a **world** — the client again, the same component the yard
+view mounts — and every successful compile is swapped into it with
+`host.reload`, which rebuilds each instance behind its id and keeps the
+parameters somebody set. So a change to a number takes effect on a creature
+that is mid-fight rather than on a fresh one that has forgotten the fight, and
+the transport in the toolbar drives it. It reloads on a COMPILE rather than on
+a save, which is the useful order — try the change, then keep it — and the
+status line says when the world is running edits that are not on disk yet.
 
 **`@hexdelve/editor-desktop`** is that editor in an Electron window, and it
 exists for one reason: an editor that cannot write to a disk is a viewer.

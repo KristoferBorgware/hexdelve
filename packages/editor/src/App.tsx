@@ -23,12 +23,15 @@
  * same `packages/client/scripts` a text editor would open, compiled by the same
  * call the yard's hot reload uses. It has a language service in it rather than
  * a text box, because a script is code and a text box has nothing to say about
- * code.
+ * code. It also has a world in it — the client again, in a pane beside the
+ * editor — because a compile that reaches nothing is a compile nobody can
+ * judge. That world is why it takes the backend and the transport, like a
+ * bench.
  *
  * The level bench is the one with no clock, which is why the transport is
  * disabled while it is up rather than left there doing nothing: a level does not
- * move, it is redrawn when something about it changes. The vault, asset and
- * script views are the same case for the same reason — see `STILL` below.
+ * move, it is redrawn when something about it changes. The vault and asset
+ * views are the same case for the same reason — see `STILL` below.
  *
  * The backend selector and the transport are shared, and sit here rather than
  * being buried in a settings dialog on purpose. Two renderers that are meant to
@@ -64,7 +67,7 @@ import type { ScriptWatchState } from './scripts/reload.js';
 type View = 'yard' | 'bench' | 'props' | 'levels' | 'vaults' | 'assets' | 'scripts';
 
 /** The views with nothing moving in them, where a transport would be furniture. */
-const STILL: readonly View[] = ['levels', 'vaults', 'assets', 'scripts'];
+const STILL: readonly View[] = ['levels', 'vaults', 'assets'];
 
 export function App() {
 	const [client, setClient] = useState<HexdelveClient | null>(null);
@@ -164,7 +167,7 @@ export function App() {
 				{view === 'levels' && <Levels backend={backend} />}
 				{view === 'vaults' && <Vaults />}
 				{view === 'assets' && <Assets />}
-				{view === 'scripts' && <Scripts />}
+				{view === 'scripts' && <Scripts backend={backend} running={running} />}
 			</Box>
 		</Box>
 	);

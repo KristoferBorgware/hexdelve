@@ -30,13 +30,39 @@ export interface ViewportProps {
 	backend: BackendPreference;
 	running: boolean;
 	onClientReady(client: HexdelveClient | null): void;
-	/** What the scripts are doing: which are running, and what last failed. */
-	onScripts(state: ScriptWatchState): void;
+	/**
+	 * What the scripts are doing: which are running, and what last failed.
+	 *
+	 * Absent where nobody is watching them, which is where `watch` is false.
+	 */
+	onScripts?(state: ScriptWatchState): void;
+	/**
+	 * Follow the files, and swap what changes into this client.
+	 *
+	 * True for the yard, which has no other way to hear about a save. False
+	 * for the script view's own world: what that view puts into the host is
+	 * what its BUFFERS compile to, which is not always what is on disk, and a
+	 * second watcher reading the disk would overwrite it a moment later.
+	 */
+	watch?: boolean;
 }
 
-export function Viewport({ backend, running, onClientReady, onScripts }: ViewportProps) {
+export function Viewport({
+	backend,
+	running,
+	onClientReady,
+	onScripts,
+	watch = true,
+}: ViewportProps) {
 	const hostRef = useRef<HTMLDivElement>(null);
 	const clientRef = useRef<HexdelveClient | null>(null);
+	/*
+	 * The live listener, so a parent that rebuilds its callback does not rebuild
+	 * the client with it. The effect below tears a renderer down when it runs
+	 * again, which is far too much to pay for a new closure.
+	 */
+	const listener = useRef(onScripts);
+	listener.current = onScripts;
 	const [status, setStatus] = useState<'starting' | 'ready' | 'failed'>('starting');
 	const [error, setError] = useState<string>('');
 
@@ -76,7 +102,11 @@ export function Viewport({ backend, running, onClientReady, onScripts }: Viewpor
 				 * came up on the table compiled into it; from here on it runs
 				 * whatever is on disk.
 				 */
-				stopWatching = watchScripts(client.simulation.scripts, onScripts);
+				if (watch) {
+					stopWatching = watchScripts(client.simulation.scripts, (state) =>
+						listener.current?.(state),
+					);
+				}
 				setStatus('ready');
 				onClientReady(client);
 			})
@@ -95,7 +125,7 @@ export function Viewport({ backend, running, onClientReady, onScripts }: Viewpor
 			canvas.remove();
 			onClientReady(null);
 		};
-	}, [backend, onClientReady]);
+	}, [backend, onClientReady, watch]);
 
 	// Pausing stops the loop but still draws once, so the viewport holds the
 	// last frame instead of going blank.

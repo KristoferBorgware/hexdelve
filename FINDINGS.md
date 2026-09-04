@@ -286,46 +286,6 @@ Neither changes what is built today; both stop it from depending on the order
 somebody wrote a script in.
 
 
-### F-013 — A script saved in the editor does not reach the yard until the view is left and returned to
-
-**Kind:** gap
-**Milestone:** scripting
-**Priority:** medium
-**Effort:** medium
-**Found:** 2026-09-04, writing the script view and working out what a save should do
-**Where:** `App.tsx`, which renders one view at a time; `Scripts.tsx`;
-`Viewport.tsx` and `watchScripts` in `packages/editor/src/scripts/reload.ts`
-
-**What happens.** The editor shows one view at a time, so the yard's viewport is
-unmounted while the script view is up — and the viewport is what holds the
-client, the script host and the watcher that swaps a compiled bundle into it. A
-save therefore writes the file and compiles it, and nothing else happens. The
-change appears when the yard is selected again, because mounting the viewport
-starts a fresh watcher which reads the directory and compiles it.
-
-**Why it matters.** It is one click rather than none, and the click is not
-obvious: the script view reports a successful compile, which reads as though
-something took effect. The hot reload it is standing on is the feature the
-whole scripting layer was built around — a save reaching a running world
-without a rebuild — and the editor is the one place that shows it off least.
-
-It matters more for the thing it makes impossible: watching a change take
-effect on a creature that is mid-fight. Editing a number and seeing the
-behaviour change while the world keeps running is exactly what a script host
-with a reload is for, and it cannot be done from the view that edits scripts.
-
-**What would fix it.** Two shapes, and the second is better. The cheap one is
-to keep the client alive across a view change — mount the viewport once and
-hide it rather than unmounting it — which is a change to how `App` renders and
-would make every bench's client outlive its view too, for better and worse. The
-one that fits what an editor is: put a small yard beside the code, so the
-script view has a running world of its own to reload into. The viewport is
-already a component that takes a canvas and a backend, and the host it hands
-back is the one `watchScripts` wants; what is missing is a layout that gives
-half the pane to each, and a decision about whether that world is the yard or a
-bench.
-
-
 ### F-014 — `packages/client/dist-scripts` is committed output from an arrangement that no longer exists
 
 **Kind:** cleanup
@@ -357,6 +317,43 @@ looking whether they are current.
 **What would fix it.** Delete the directory, and add `dist-scripts/` to
 `.gitignore` beside `dist-app/` and `dist-lib/` so a stray rebuild of the old
 shape does not put it back.
+
+
+### F-015 — A system prefab sets a script parameter that was renamed
+
+**Kind:** bug
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-04, reading the console while checking that a compile reaches the running world
+**Where:** `public/assets/systems/game.system.yaml` line 34, `arcPad` in `packages/client/scripts/Combat.ts`
+
+**What happens.** The system prefab spawns the combat rule with
+`{ type: script, script: Combat, spread: 1 }`. `Combat` has no `spread`; the
+parameter is called `arcPad` and defaults to 0.35. The host does the right
+thing with what it is given — it warns, names the parameter it does have, and
+carries on — so every page load of the client and the editor logs
+
+> `[script] Combat on 'combat' has no parameter 'spread'; it has arcPad`
+
+once per script host, and the rule runs on 0.35 rather than on the 1 the file
+asks for.
+
+**Why it matters.** The number is the slack allowed on a swept arc: how far
+outside the swing a target can stand and still be hit. The file says one thing
+and the game does another, and nothing fails — which is the whole problem, since
+the next person to tune the arc will tune a value that is already being ignored
+and wonder why the feel does not change.
+
+It is also a standing warning in a console that should be quiet, and a warning
+nobody acts on is a console nobody reads.
+
+**What would fix it.** Decide which name and which number are wanted, then make
+the two agree: rename `spread` to `arcPad` in the prefab, or drop the line if
+0.35 is right. A test would stop it coming back — the prefab reader already
+knows every parameter a script declares, so a check that every `type: script`
+entry in `public/assets` names only parameters its class has would cover the
+whole tree in one assertion, and `test/prefab.test.ts` is where it belongs.
 
 ---
 
@@ -533,3 +530,45 @@ three real tests it omits are missed every time.
 and `largest-rectangle`, each saying what it would catch rather than what it
 covers. Whoever wrote those tests knows the answer; reading them to guess it is
 most of the effort.
+
+
+### F-013 — A script saved in the editor does not reach the yard until the view is left and returned to
+
+**Kind:** gap
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-04, writing the script view and working out what a save should do
+**Where:** `App.tsx`, which renders one view at a time; `Scripts.tsx`;
+`Viewport.tsx` and `watchScripts` in `packages/editor/src/scripts/reload.ts`
+**Closed:** 2026-09-04, fixed — the script view has a world of its own and
+swaps every successful compile into it
+
+**What happens.** The editor shows one view at a time, so the yard's viewport is
+unmounted while the script view is up — and the viewport is what holds the
+client, the script host and the watcher that swaps a compiled bundle into it. A
+save therefore writes the file and compiles it, and nothing else happens. The
+change appears when the yard is selected again, because mounting the viewport
+starts a fresh watcher which reads the directory and compiles it.
+
+**Why it matters.** It is one click rather than none, and the click is not
+obvious: the script view reports a successful compile, which reads as though
+something took effect. The hot reload it is standing on is the feature the
+whole scripting layer was built around — a save reaching a running world
+without a rebuild — and the editor is the one place that shows it off least.
+
+It matters more for the thing it makes impossible: watching a change take
+effect on a creature that is mid-fight. Editing a number and seeing the
+behaviour change while the world keeps running is exactly what a script host
+with a reload is for, and it cannot be done from the view that edits scripts.
+
+**What would fix it.** Two shapes, and the second is better. The cheap one is
+to keep the client alive across a view change — mount the viewport once and
+hide it rather than unmounting it — which is a change to how `App` renders and
+would make every bench's client outlive its view too, for better and worse. The
+one that fits what an editor is: put a small yard beside the code, so the
+script view has a running world of its own to reload into. The viewport is
+already a component that takes a canvas and a backend, and the host it hands
+back is the one `watchScripts` wants; what is missing is a layout that gives
+half the pane to each, and a decision about whether that world is the yard or a
+bench.
