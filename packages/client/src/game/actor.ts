@@ -37,11 +37,6 @@ export interface ActorOptions {
 	skeleton: Skeleton;
 	model: Model;
 	skeletonView: Model;
-	/** Where it stands. Written onto the object's transform. */
-	x: number;
-	z: number;
-	y: number;
-	yaw?: number;
 }
 
 export class Actor extends Component {
@@ -62,8 +57,12 @@ export class Actor extends Component {
 		this.skeleton = options.skeleton;
 		this.model = options.model;
 		this.skeletonView = options.skeletonView;
-		object.transform.setPosition(options.x, options.y, options.z);
-		object.transform.yaw = options.yaw ?? 0;
+	}
+
+	/** Put it somewhere, facing a direction. */
+	place(x: number, y: number, z: number, yaw = 0): void {
+		this.object.transform.setPosition(x, y, z);
+		this.object.transform.yaw = yaw;
 	}
 
 	get x(): number {
@@ -135,9 +134,16 @@ export function wrapAngle(a: number): number {
 	return angle;
 }
 
+/** Anything with a place and a heading — a body, or a behaviour driving one. */
+export interface Turnable {
+	x: number;
+	z: number;
+	yaw: number;
+}
+
 /** Turn an actor towards a point, at no more than `rate` radians a second. */
 export function turnTowards(
-	actor: Actor,
+	actor: Turnable,
 	targetX: number,
 	targetZ: number,
 	dt: number,
@@ -147,4 +153,90 @@ export function turnTowards(
 	const diff = wrapAngle(want - actor.yaw);
 	actor.yaw += clamp(diff, -rate * dt, rate * dt);
 	return Math.abs(diff);
+}
+
+/**
+ * A behaviour that acts through a body on the same object.
+ *
+ * The man and the bat are both this: something that decides where to go and
+ * what to do, driving an `Actor` that knows what it looks like doing it. They
+ * are separate components because they are separate questions — a body can be
+ * drawn with no behaviour at all, which is what a bench does, and a behaviour
+ * that had to be a body could not also be a script.
+ *
+ * The placement below is delegated rather than duplicated: `this.x` on a
+ * behaviour is its body's `x` is its object's transform, one value with three
+ * names. Writing them out here rather than at each call site is what keeps the
+ * two classes that extend this readable — they say `this.yaw` because a man
+ * turning is not a fact about component composition.
+ */
+export abstract class ActorBehaviour extends Component {
+	/** The body this drives. Required: a behaviour with nothing to move is a bug. */
+	readonly body: Actor;
+
+	constructor(object: GameObject) {
+		super(object);
+		const body = object.getComponent(Actor);
+		if (!body) {
+			throw new Error(`'${object.name}' needs an actor component before a behaviour on it`);
+		}
+		this.body = body;
+	}
+
+	get skeleton(): Skeleton {
+		return this.body.skeleton;
+	}
+	get pose(): SparsePose {
+		return this.body.pose;
+	}
+	get world(): WorldPose {
+		return this.body.world;
+	}
+
+	get x(): number {
+		return this.body.x;
+	}
+	set x(value: number) {
+		this.body.x = value;
+	}
+
+	get y(): number {
+		return this.body.y;
+	}
+	set y(value: number) {
+		this.body.y = value;
+	}
+
+	get z(): number {
+		return this.body.z;
+	}
+	set z(value: number) {
+		this.body.z = value;
+	}
+
+	get yaw(): number {
+		return this.body.yaw;
+	}
+	set yaw(value: number) {
+		this.body.yaw = value;
+	}
+
+	get pelvisDrop(): number {
+		return this.body.pelvisDrop;
+	}
+	set pelvisDrop(value: number) {
+		this.body.pelvisDrop = value;
+	}
+
+	solve(): WorldPose {
+		return this.body.solve();
+	}
+
+	emit(opaque: HexInstances, blended: HexInstances, showSkeleton: boolean): void {
+		this.body.emit(opaque, blended, showSkeleton);
+	}
+
+	toWorldXZ(localX: number, localZ: number): { x: number; z: number } {
+		return this.body.toWorldXZ(localX, localZ);
+	}
 }

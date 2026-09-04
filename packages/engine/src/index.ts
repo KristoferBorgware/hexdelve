@@ -220,6 +220,19 @@ export {
 	type RigView,
 	type TreeParameter,
 	type Vec3 as AssetVec3,
+	ComponentRegistry,
+	instantiate,
+	loadSystem,
+	emptyPrefab,
+	prefabTypes,
+	readPrefabNode,
+	unknownComponent,
+	type ComponentContext,
+	type ComponentFactory,
+	type ComponentSpec,
+	type InstantiateOptions,
+	type PrefabNode,
+	type SystemAsset,
 } from './assets/index.js';
 
 export { Ticker, type TickerOptions, type FixedUpdate, type FrameUpdate } from './core/Ticker.js';

@@ -60,7 +60,7 @@ import {
 	type Axial,
 } from '@hexdelve/shared';
 
-import { Actor, clamp, wrapAngle, type ActorOptions } from './actor.js';
+import { ActorBehaviour, clamp, wrapAngle } from './actor.js';
 
 import type { Item } from './items.js';
 import { actionSeconds, hexSpeed } from './pace.js';
@@ -205,7 +205,9 @@ export interface PlayerDeps {
 }
 
 /** Where the world is placed comes from the grid, so x, y and z are not given. */
-export interface PlayerOptions extends Omit<ActorOptions, 'x' | 'y' | 'z'> {
+export interface PlayerOptions {
+	/** Which way he faces to start. */
+	yaw?: number;
 	/** The hexagon he starts on. */
 	cell: Axial;
 	/** Angband-style, offset by 110. Normal unless something hastes him. */
@@ -241,7 +243,7 @@ interface InFlight {
 	done: boolean;
 }
 
-export class Player extends Actor implements TurnTaker {
+export class Player extends ActorBehaviour implements TurnTaker {
 	readonly name = 'you';
 	readonly speed: number;
 	energy = ACTION_ENERGY;
@@ -309,17 +311,10 @@ export class Player extends Actor implements TurnTaker {
 	readonly control = { state: 'idle' as PlayerActionKind | 'idle', message: 'waiting' };
 
 	constructor(object: GameObject, options: PlayerOptions, deps: PlayerDeps) {
+		super(object);
 		const tile = deps.world.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the player cannot start on ${options.cell.q},${options.cell.r}`);
-		super(object, {
-			skeleton: options.skeleton,
-			model: options.model,
-			skeletonView: options.skeletonView,
-			x: tile.x,
-			z: tile.z,
-			y: tile.top,
-			...(options.yaw !== undefined ? { yaw: options.yaw } : {}),
-		});
+		this.body.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
 		this.deps = deps;
 		this.cell = { q: options.cell.q, r: options.cell.r };
 		this.speed = options.speed ?? NORMAL_SPEED;

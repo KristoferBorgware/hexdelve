@@ -92,6 +92,61 @@ ground: { lift: 0.2, tilt: 0 }
 character. "Props have no rig" stops being a convention somebody remembers and
 becomes a thing the loader says.
 
+## The object half: prefabs
+
+An entity file says what a thing is made of. Its `object:` section says what it
+is when it is standing in the world — a game object, what is attached to it,
+and what hangs underneath it.
+
+```yaml
+object:
+  name: wanderer
+  components:
+    - { type: actor }
+  children:
+    - name: grip
+      at: [0, 0, 0]
+```
+
+Two files would be worse than one. An entity and its prefab can only ever
+disagree, and there is no such thing as a wanderer's mesh that belongs to a
+different wanderer — so the object tree lives in the file that already names
+the rig and the mesh it is made of. A file with no `object:` still spawns: it
+gets one object named after the entity with nothing on it, because "a thing
+with no components" is a real answer where an absent prefab is not.
+
+**A component record is a `type` and a bag of fields.** The reader does not
+know what an `item` is and must not — `@hexdelve/engine` has never heard of a
+bat, and a format that had to be taught each component would be a format the
+client could not add to. A `ComponentRegistry` maps the type to whoever claimed
+it; `packages/client/src/game/components.ts` is where the game says what its own
+are. An unknown type fails by name and lists what there was.
+
+What a factory cannot read from the record it takes off the entity being
+spawned. `{ type: actor }` is bare because an actor on a wanderer is the
+wanderer's rig and the wanderer's mesh by definition — a file that let those be
+given separately could put a bat's body on a man's bones.
+
+### Order is what the file order means
+
+Objects, then their components, then their children — which is the order
+`GameObject.destroy` runs backwards. A factory can reach anything above it and
+nothing below it, so a child's component can find its parent's actor and a
+parent's cannot find its children's.
+
+### Systems are prefabs there is one of
+
+`public/assets/systems/*.system.yaml` is an entity's `object:` section and
+nothing else. A wanderer is spawned when a wanderer is wanted and there can be
+two; a register of characters cannot be either of those things, because the
+whole of what makes it useful is that everything looking for a character looks
+in the same place. So it is instantiated once, at start, **before the cast** —
+a register has to exist before the first thing that registers with it.
+
+A system is not a special kind of thing. It is an ordinary object with ordinary
+components that happens to be spawned once, which is what will let a script
+attached to one be written exactly like a script attached to a character.
+
 ## Arithmetic, because the numbers were never flat
 
 Any scalar may be a string holding arithmetic:
@@ -338,6 +393,11 @@ locomotion tree rather than a replica assembled in the test.
 `node tools/build-assets.mjs` folds the tree into one JSON object of path to
 text and writes `dist/assets.json`. `npm run assets` builds the libraries first
 and then does it; CI runs it after the build.
+
+It also checks every prefab against the components this build actually has, so
+a prefab naming a type nobody registered fails the build rather than spawning
+an object quietly missing its behaviour — the kind of thing that is noticed a
+week later as "the bat does not attack any more".
 
 It is one request instead of thirty — the client otherwise fetches the
 manifest, then an entity, then its rig, its mesh, its clips and its trees, and

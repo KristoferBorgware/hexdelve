@@ -28,11 +28,13 @@
  */
 
 import {
-	buildSkeletonView,
 	HEX_FLAG_UNLIT,
 	HexInstances,
+	instantiate,
 	Scene,
+	type GameObject,
 	type InstanceRanges,
+	type SystemAsset,
 } from '@hexdelve/engine';
 import {
 	axialDistance,
@@ -45,6 +47,8 @@ import {
 
 import { buildWorld, type World } from '../scene/world.js';
 import { clipOf, type Cast } from './cast.js';
+import { components } from './components.js';
+import { spawnEntity } from './spawn.js';
 import { BatHunt, LOSE_RANGE, WAKE_RANGE } from './bathunt.js';
 import { Item } from './items.js';
 import { SECONDS_PER_GAME_TURN } from './pace.js';
@@ -91,6 +95,14 @@ export interface SimulationOptions {
 	 * and a simulation cannot make any of it up.
 	 */
 	cast: Cast;
+	/**
+	 * The prefabs there is exactly one of, spawned before anything else.
+	 *
+	 * Order matters and is the whole reason they are separate: a register has
+	 * to exist before the first thing that registers with it, so systems go
+	 * into the scene ahead of the cast rather than beside it.
+	 */
+	systems?: readonly SystemAsset[];
 	seed?: number;
 	toggles?: Partial<SimulationToggles>;
 	/** The man's place in the energy table. Normal unless you want to see haste. */
@@ -254,6 +266,14 @@ export class Simulation {
 	 */
 	readonly scene: Scene;
 
+	/**
+	 * Where the one-of-a-kind things live, spawned before the cast.
+	 *
+	 * Empty until there are scripts to put on them, and here now because the
+	 * order it establishes is the part that would be awkward to add later.
+	 */
+	readonly systems: GameObject;
+
 	/** Hip height at rest, which is also where the camera looks. */
 	private readonly hipHeight: number;
 
@@ -290,15 +310,28 @@ export class Simulation {
 		 */
 		const { cast } = options;
 		this.scene = new Scene({ name: 'yard' });
-		this.items = cast.props.map((prop) =>
-			this.scene.spawn(prop.id).addComponent(Item, {
-				label: prop.id,
-				bone: prop.attach?.bone ?? 'root',
-				model: prop.mesh.model(),
-				lift: prop.ground?.lift ?? 0,
-				tilt: prop.ground?.tilt ?? 0,
-			}),
-		);
+
+		this.systems = this.scene.spawn('systems');
+		for (const system of options.systems ?? []) {
+			instantiate(system.prefab, this.scene, components, {
+				parent: this.systems,
+				file: `${system.id}.system.yaml`,
+			});
+		}
+
+		/*
+		 * The gear, spawned from its own prefabs. Nothing here says what a
+		 * helmet is made of or how it lies: the entity file does, its `object:`
+		 * section says an item hangs on it, and the factory reads both. What
+		 * the prop bench shows is what the yard drops, for the stronger reason
+		 * that they now come out of the same file the same way.
+		 */
+		this.items = cast.props.map((prop) => {
+			const object = spawnEntity(prop, this.scene);
+			const item = object.getComponent(Item);
+			if (!item) throw new Error(`'${prop.id}' has no item component to lie in the grass`);
+			return item;
+		});
 
 		/*
 		 * Spread across his way in, and not in a line: collecting all three
@@ -328,13 +361,10 @@ export class Simulation {
 		const swordTip = sword?.mesh.anchors.tip?.at;
 		if (!swordTip) throw new Error(`the yard's sword has no 'tip' anchor to measure a reach from`);
 
-		this.player = this.scene.spawn('player').addComponent(
+		this.player = spawnEntity(cast.player, this.scene, 'player').addComponent(
 			Player,
 			{
 				rig: cast.player.rig!,
-				skeleton: cast.player.rig!.skeleton,
-				model: cast.player.mesh.model(),
-				skeletonView: buildSkeletonView(cast.player.rig!.skeleton, cast.player.rig!.tips),
 				clips: {
 					duck: clipOf(cast.player, 'duck'),
 					slash: clipOf(cast.player, 'slash'),
@@ -357,13 +387,10 @@ export class Simulation {
 			},
 		);
 
-		this.bat = this.scene.spawn('bat').addComponent(
+		this.bat = spawnEntity(cast.enemy, this.scene, 'bat').addComponent(
 			BatHunt,
 			{
 				rig: cast.enemy.rig!,
-				skeleton: cast.enemy.rig!.skeleton,
-				model: cast.enemy.mesh.model(),
-				skeletonView: buildSkeletonView(cast.enemy.rig!.skeleton, cast.enemy.rig!.tips),
 				cell: this.perch,
 				yaw: 2.4,
 				...(options.batSpeed !== undefined ? { speed: options.batSpeed } : {}),

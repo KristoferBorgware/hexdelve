@@ -1,0 +1,18 @@
+# The things there is exactly one of.
+#
+# A wanderer is spawned when a wanderer is wanted, and there can be two. A
+# register of characters cannot be either of those things — the whole of what
+# makes it useful is that everything looking for a character looks in the same
+# place. So it is a prefab instantiated once, when the client or the editor
+# starts, and never again.
+#
+# It is otherwise an ordinary object with ordinary components on it, which is
+# the point: a system script is written the same way a character's is, and the
+# editor will show it the same way.
+
+id: game
+name: Game systems
+
+object:
+  name: systems
+  components: []

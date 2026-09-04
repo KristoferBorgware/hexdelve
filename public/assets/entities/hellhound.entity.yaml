@@ -22,3 +22,11 @@ animations:
   run: { procedural: houndRun, label: Run, args: { amp: 1 }, sync: true }
   bite: { procedural: houndBite, label: Bite }
   rest: { procedural: houndRest, label: Rest, duration: tau / 1.4 }
+
+# What it is when it is standing in the world: one object, with a body on it.
+# The body is the rig and the mesh above — an actor on a wanderer is the
+# wanderer's, by definition rather than by a path repeated inside its own file.
+# What it DOES is not here yet; that arrives as a script component.
+object:
+  components:
+    - { type: actor }

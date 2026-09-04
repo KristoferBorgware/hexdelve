@@ -19,3 +19,11 @@ attach:
 ground:
   lift: 0.04
   tilt: pi / 2
+
+# What it is when it is lying in the grass: one object, with the thing itself
+# attached to it. The bone it hangs from and the two numbers above are read off
+# this file rather than repeated here — there is no second place to say how a
+# it lies.
+object:
+  components:
+    - { type: item }

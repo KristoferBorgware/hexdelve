@@ -38,6 +38,7 @@ import { Node } from './document.js';
 import type { AnimationAsset } from './animation.js';
 import type { BlendTreeAsset } from './blendtree.js';
 import type { MeshAsset } from './mesh.js';
+import { emptyPrefab, readPrefabNode, type PrefabNode } from './prefab.js';
 import type { RigAsset, RigView } from './rig.js';
 
 export type EntityKind = 'character' | 'prop';
@@ -74,6 +75,15 @@ export interface EntityAsset {
 	readonly tags: readonly string[];
 	/** One line for a catalogue row — what the thing actually is. */
 	readonly blurb: string | null;
+	/**
+	 * What this is when it is standing in the world: an object, what is
+	 * attached to it, and what hangs under it.
+	 *
+	 * Never null. A file that says nothing gets one object named after the
+	 * entity with nothing on it, because "a thing with no components" is a
+	 * real answer and an absent prefab is not — every entity can be spawned.
+	 */
+	readonly prefab: PrefabNode;
 }
 
 export const ENTITY_KEYS = [
@@ -90,6 +100,7 @@ export const ENTITY_KEYS = [
 	'attach',
 	'ground',
 	'view',
+	'object',
 ] as const;
 
 /** What the entity file says, before any of it has been fetched. */
@@ -107,6 +118,7 @@ export interface EntityDocument {
 	readonly attach: { readonly rig: string; readonly bone: string } | null;
 	readonly ground: Grounding | null;
 	readonly view: Partial<RigView>;
+	readonly prefab: PrefabNode;
 }
 
 /** One entry of the `animations` mapping, as read. */
@@ -201,6 +213,9 @@ export function readEntity(source: string, file: string): EntityDocument {
 				? { frameDistance: view.need('frameDistance').number() }
 				: {}),
 		},
+		prefab: root.get('object').present
+			? readPrefabNode(root.need('object'), id)
+			: emptyPrefab(id),
 	};
 }
 

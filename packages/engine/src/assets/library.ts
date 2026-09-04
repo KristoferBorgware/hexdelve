@@ -29,6 +29,7 @@ import { loadMesh, type MeshAsset } from './mesh.js';
 import { PoseFunctionRegistry } from './poseFunctions.js';
 import type { AssetIO } from './io.js';
 import { loadRig, type RigAsset } from './rig.js';
+import { loadSystem, type SystemAsset } from './system.js';
 
 export interface AssetLibraryOptions {
 	/** The pose functions entity files may name. Defaults to an empty one. */
@@ -49,6 +50,7 @@ export class AssetLibrary {
 	private readonly io: AssetIO;
 	private readonly texts = new Map<string, Promise<string>>();
 	private readonly rigs = new Map<string, Promise<RigAsset>>();
+	private readonly systems = new Map<string, Promise<SystemAsset>>();
 	private readonly meshes = new Map<string, Promise<MeshAsset>>();
 	private readonly clips = new Map<string, Promise<ClipAsset>>();
 	private readonly entities = new Map<string, Promise<EntityAsset>>();
@@ -127,6 +129,7 @@ export class AssetLibrary {
 		if (path === undefined) this.texts.clear();
 		else this.texts.delete(normalise(path));
 		this.rigs.clear();
+		this.systems.clear();
 		this.meshes.clear();
 		this.clips.clear();
 		this.entities.clear();
@@ -143,6 +146,18 @@ export class AssetLibrary {
 	/** An entity, and everything it links to. Read once per path. */
 	entity(path: string): Promise<EntityAsset> {
 		return this.once(this.entities, normalise(path), (at) => this.readEntity(at));
+	}
+
+	/**
+	 * A system prefab. Read once per path, like everything else here.
+	 *
+	 * Reading it twice would be harmless; spawning it twice would not, and
+	 * that is the caller's discipline rather than this one's — a library hands
+	 * out what a file says, and how many copies of it exist is a question about
+	 * the world.
+	 */
+	system(path: string): Promise<SystemAsset> {
+		return this.once(this.systems, normalise(path), async (at) => loadSystem(await this.text(at), at));
 	}
 
 	rig(path: string): Promise<RigAsset> {
@@ -225,6 +240,7 @@ export class AssetLibrary {
 			view: { ...(ownRig ?? attachRig!).view, ...document.view },
 			tags: document.tags,
 			blurb: document.blurb,
+			prefab: document.prefab,
 		};
 	}
 

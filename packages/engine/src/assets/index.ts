@@ -18,6 +18,25 @@ export {
 	type AssetWriter,
 } from './io.js';
 
+export {
+	ComponentRegistry,
+	instantiate,
+	type ComponentContext,
+	type ComponentFactory,
+	type InstantiateOptions,
+} from './instantiate.js';
+
+export {
+	emptyPrefab,
+	prefabTypes,
+	readPrefabNode,
+	unknownComponent,
+	type ComponentSpec,
+	type PrefabNode,
+} from './prefab.js';
+
+export { loadSystem, type SystemAsset } from './system.js';
+
 export { loadRig, type RigAnchor, type RigAsset, type RigView } from './rig.js';
 export { loadMesh, type Anchor, type MeshAsset } from './mesh.js';
 export { readClip, buildClipAsset, type ClipAsset, type ClipDocument } from './clip.js';

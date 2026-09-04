@@ -59,7 +59,15 @@ export {
 	type TurnTaker,
 } from './game/turns.js';
 export { SECONDS_PER_GAME_TURN, actionSeconds, hexSpeed } from './game/pace.js';
-export { Actor, turnTowards, wrapAngle } from './game/actor.js';
+export { Actor, ActorBehaviour, turnTowards, wrapAngle, type Turnable } from './game/actor.js';
+
+/*
+ * The component types a prefab file may name, and the one call that spawns an
+ * entity from its own. The engine can read a prefab and walk it; it has never
+ * heard of an `item`, and this is where the game says what its components are.
+ */
+export { components, type SpawnExtras } from './game/components.js';
+export { spawnEntity } from './game/spawn.js';
 export {
 	loadCast,
 	clipOf,

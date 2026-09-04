@@ -49,7 +49,7 @@ import {
 	type Random,
 } from '@hexdelve/shared';
 
-import { Actor, clamp, turnTowards, wrapAngle, type ActorOptions } from './actor.js';
+import { ActorBehaviour, clamp, turnTowards, wrapAngle } from './actor.js';
 import { flyPose, FLAP_PERIOD, LUNGE_CONTACT, lungePose, perchPose } from './batpose.js';
 import { actionSeconds } from './pace.js';
 import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
@@ -121,7 +121,9 @@ export interface BatDeps {
 	random?: Random;
 }
 
-export interface BatOptions extends Omit<ActorOptions, 'x' | 'y' | 'z'> {
+export interface BatOptions {
+	/** Which way it faces to start. */
+	yaw?: number;
 	/** The hexagon it sleeps on. */
 	cell: Axial;
 	speed?: number;
@@ -140,7 +142,7 @@ interface InFlight {
 	done: boolean;
 }
 
-export class BatHunt extends Actor implements TurnTaker {
+export class BatHunt extends ActorBehaviour implements TurnTaker {
 	readonly name = 'bat';
 	readonly speed: number;
 	energy: number;
@@ -179,17 +181,10 @@ export class BatHunt extends Actor implements TurnTaker {
 	private readonly hoverY: number;
 
 	constructor(object: GameObject, options: BatOptions, deps: BatDeps) {
+		super(object);
 		const tile = deps.world.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the bat cannot perch on ${options.cell.q},${options.cell.r}`);
-		super(object, {
-			skeleton: options.skeleton,
-			model: options.model,
-			skeletonView: options.skeletonView,
-			x: tile.x,
-			z: tile.z,
-			y: tile.top,
-			...(options.yaw !== undefined ? { yaw: options.yaw } : {}),
-		});
+		this.body.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
 		this.deps = deps;
 		this.cell = { q: options.cell.q, r: options.cell.r };
 		this.speed = options.speed ?? BAT_SPEED;

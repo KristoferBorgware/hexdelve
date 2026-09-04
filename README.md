@@ -64,7 +64,9 @@ labs/           one folder per lab, each a standalone page
 public/assets/   served as themselves by both apps, and copied into both builds
   index.yaml    every entity the game has, in catalogue order
   entities/     the root file per asset: what rig, body, clips and trees belong
-                together — props are entities too, with no rig
+                together, and the object it is when it stands in the world —
+                props are entities too, with no rig
+  systems/      prefabs there is exactly one of, spawned before the cast
   rigs/         bones, tips, blend masks, metrics
   meshes/       hex prisms bound to bones
   clips/        keyframes, pose-major

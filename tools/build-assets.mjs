@@ -74,11 +74,38 @@ async function main() {
 	// The check. Loading an entity reads everything it links to, so walking the
 	// manifest touches the whole graph — and anything the manifest does NOT
 	// reach is reported rather than quietly shipped.
-	const { AssetLibrary, memoryIO } = await import(pathToFileURL(engineDist).href);
-	const { poseFunctions } = await import(pathToFileURL(clientDist).href);
+	const { AssetLibrary, memoryIO, prefabTypes } = await import(pathToFileURL(engineDist).href);
+	const { poseFunctions, components } = await import(pathToFileURL(clientDist).href);
 
 	const library = new AssetLibrary(memoryIO(pack), { poseFunctions });
 	const entities = await library.index();
+
+	/*
+	 * Every system prefab too. They are not reachable from the manifest — a
+	 * system is not an entity — so they are found by where they sit, and an
+	 * unreachable file is reported below either way.
+	 */
+	const systems = [];
+	for (const path of paths) {
+		if (path.startsWith('systems/')) systems.push(await library.system(path));
+	}
+
+	/*
+	 * And the prefabs, against the components this build actually has. A
+	 * prefab naming a type nobody registered spawns an object quietly missing
+	 * its behaviour, which is the kind of thing that is noticed a week later
+	 * as "the bat does not attack any more".
+	 */
+	for (const { id, prefab } of [...entities, ...systems]) {
+		for (const type of prefabTypes(prefab)) {
+			if (!components.has(type)) {
+				throw new Error(
+					`'${id}' names component type '${type}'; this build has ${components.types.join(', ')}`,
+				);
+			}
+		}
+	}
+
 	const reached = new Set(library.paths);
 
 	const orphans = paths.filter((path) => !reached.has(path));
@@ -92,6 +119,9 @@ async function main() {
 			`into ${relative(root, out)}`,
 	);
 	console.log(`checked ${entities.length} entities: ${entities.map((one) => one.id).join(', ')}`);
+	if (systems.length) {
+		console.log(`checked ${systems.length} system(s): ${systems.map((one) => one.id).join(', ')}`);
+	}
 	if (orphans.length) {
 		console.log(`\nnot reached from the manifest, and packed anyway:\n  ${orphans.join('\n  ')}`);
 	}

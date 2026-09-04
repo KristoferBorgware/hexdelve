@@ -8,7 +8,7 @@
  * is the point: whatever the editor can do to the world, an embedder can too.
  */
 
-import type { AssetLibrary } from '@hexdelve/engine';
+import type { AssetLibrary, SystemAsset } from '@hexdelve/engine';
 import {
 	createRenderer,
 	directionalShadowMatrix,
@@ -35,6 +35,9 @@ import {
 
 /** Half the world height the viewport spans at zoom 1, matching the labs. */
 const VIEW_HEIGHT = 5.5;
+
+/** The one-of-a-kind objects, spawned before anything that registers with them. */
+const SYSTEM_PREFAB = 'systems/game.system.yaml';
 
 /**
  * The sphere the shadow map covers: the whole yard, plus enough height for the
@@ -84,6 +87,8 @@ export interface ClientOptions {
 	 * the three things lying in the grass.
 	 */
 	cast?: CastOptions;
+	/** The system prefab to spawn once. Defaults to the game's own. */
+	systemPrefab?: string;
 	/**
 	 * Called if the GPU takes the renderer's device away. The client stops its
 	 * loop when this happens; recovering means disposing it and creating a new
@@ -154,6 +159,12 @@ export class HexdelveClient {
 
 		const assets = openAssets(options.assets ?? {});
 		const casting = loadCast(assets, options.cast ?? {});
+		/*
+		 * The systems, read beside the cast. Both are files and neither needs
+		 * the other, so neither waits: `Promise.all` below is one round trip
+		 * rather than two.
+		 */
+		const systems = assets.system(options.systemPrefab ?? SYSTEM_PREFAB);
 
 		const renderer = await createRenderer({
 			canvas: options.canvas,
@@ -166,7 +177,8 @@ export class HexdelveClient {
 			},
 		});
 
-		box.client = new HexdelveClient(options, renderer, assets, await casting);
+		const [cast, system] = await Promise.all([casting, systems]);
+		box.client = new HexdelveClient(options, renderer, assets, cast, [system]);
 		return box.client;
 	}
 
@@ -175,6 +187,7 @@ export class HexdelveClient {
 		renderer: Renderer,
 		assets: AssetLibrary,
 		cast: Cast,
+		systems: readonly SystemAsset[],
 	) {
 		this.canvas = options.canvas;
 		this.renderer = renderer;
@@ -198,6 +211,7 @@ export class HexdelveClient {
 
 		this.simulationOptions = {
 			cast,
+			systems,
 			...(options.seed !== undefined ? { seed: options.seed } : {}),
 			...(options.toggles ? { toggles: options.toggles } : {}),
 			...(options.playerSpeed !== undefined ? { playerSpeed: options.playerSpeed } : {}),
