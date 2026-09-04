@@ -186,24 +186,21 @@ export function Scripts() {
 		setMessage(null);
 	}, [selected, saved]);
 
-	const create = useCallback(
-		(name: string) => {
-			const content = template(name);
-			setBusy(true);
-			scriptStore
-				.write(name, content)
-				.then(() => {
-					setSaved((previous) => new Map(previous).set(name, content));
-					setBuffers((previous) => new Map(previous).set(name, content));
-					setSelected(name);
-					setNaming(null);
-					setMessage({ kind: 'success', text: `Created ${name}` });
-				})
-				.catch((error: unknown) => setMessage({ kind: 'error', text: why(error) }))
-				.finally(() => setBusy(false));
-		},
-		[],
-	);
+	const create = useCallback((name: string) => {
+		const content = template(name);
+		setBusy(true);
+		scriptStore
+			.write(name, content)
+			.then(() => {
+				setSaved((previous) => new Map(previous).set(name, content));
+				setBuffers((previous) => new Map(previous).set(name, content));
+				setSelected(name);
+				setNaming(null);
+				setMessage({ kind: 'success', text: `Created ${name}` });
+			})
+			.catch((error: unknown) => setMessage({ kind: 'error', text: why(error) }))
+			.finally(() => setBusy(false));
+	}, []);
 
 	const remove = useCallback(() => {
 		if (selected === null || !writable) return;
@@ -212,22 +209,21 @@ export function Scripts() {
 		scriptStore
 			.remove(name)
 			.then(() => {
-				const drop = (previous: ReadonlyMap<string, string>): Map<string, string> => {
+				const left = new Map(buffers);
+				left.delete(name);
+				setBuffers(left);
+				setSaved((previous) => {
 					const next = new Map(previous);
 					next.delete(name);
 					return next;
-				};
-				setSaved(drop);
-				setBuffers((previous) => {
-					const next = drop(previous);
-					setSelected([...next.keys()].sort()[0] ?? null);
-					return next;
 				});
+				// Somewhere to be, rather than an empty pane with a name on it.
+				setSelected([...left.keys()].sort()[0] ?? null);
 				setMessage({ kind: 'success', text: `Deleted ${name}` });
 			})
 			.catch((error: unknown) => setMessage({ kind: 'error', text: why(error) }))
 			.finally(() => setBusy(false));
-	}, [selected, writable]);
+	}, [selected, writable, buffers]);
 
 	/*
 	 * Every script, by the URI the language service knows it as.
