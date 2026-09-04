@@ -60,6 +60,8 @@
  * and everything else adopts whatever the new code says.
  */
 
+import { GameObject } from '../scene/GameObject.js';
+
 /**
  * A literal widened back to its kind.
  *
@@ -98,8 +100,14 @@ export interface ParameterMeta {
 	readonly options: ParameterOptions;
 }
 
-/** Anything constructible with no arguments — which every script is. */
-export type ScriptClass<T extends object = object> = new () => T;
+/**
+ * Anything constructible from the object it goes on — which every script is.
+ *
+ * A script is a component, and a component is built with its object; nothing
+ * else is passed, because everything else a script starts with is a `param`
+ * the host applies before `onLoad`.
+ */
+export type ScriptClass<T extends object = object> = new (object: GameObject) => T;
 
 /**
  * What `param` really returns, until it is resolved.
@@ -175,7 +183,11 @@ export function parametersOf(constructor: ScriptClass): ParameterMeta[] {
 	 */
 	let probe: Record<string, unknown>;
 	try {
-		probe = new constructor() as Record<string, unknown>;
+		// On an object of its own, which is thrown away with it. A script is a
+		// component and is built with the object it goes on; handing the probe a
+		// real one costs a name and two arrays, and means a field initialiser that
+		// reads `this.object` does not have to be written around.
+		probe = new constructor(new GameObject('probe')) as Record<string, unknown>;
 	} catch {
 		// A constructor that throws has no schema to offer. The host reports the
 		// throw properly when it tries to build a real one.

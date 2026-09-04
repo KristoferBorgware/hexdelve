@@ -42,12 +42,15 @@ export {
  * knows what a renderer is — a scene is solved, and what a frame is drawn into
  * is somebody else's question.
  */
-export {
-	Component,
-	GameObject,
-	type ComponentClass,
-	type GameObjectOptions,
-} from './scene/GameObject.js';
+export { GameObject, type GameObjectOptions } from './scene/GameObject.js';
+
+/*
+ * The components the engine itself defines. A game's own live in the game:
+ * `actor` and `item` are hexdelve's vocabulary, where a script is the engine's
+ * answer to how an object gets behaviour.
+ */
+export { Component, type ComponentClass } from './scene/components/Component.js';
+export { Script, type ScriptBinding } from './scene/components/Script.js';
 
 export { Scene, type SceneOptions } from './scene/Scene.js';
 

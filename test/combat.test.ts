@@ -48,6 +48,38 @@ describe('a blow, end to end', () => {
 		return new Simulation({ cast, seed: 37, systems: [systems], scripts });
 	}
 
+	/**
+	 * What a script asks for when it spawns something, driven from outside it.
+	 *
+	 * The chain is the whole check: an id, the entity the cast loaded under it,
+	 * its prefab, the component factories, and an object in the scene with its
+	 * scripts running. A script calls `this.spawn(...)` and reaches the same
+	 * code.
+	 */
+	it('spawns an entity by name, where a script asked for one', async () => {
+		const withSpawnable = await loadYardCast({ spawnable: ['sword'] });
+		const sim = new Simulation({ cast: withSpawnable, seed: 37, systems: [systems], scripts });
+
+		const before = sim.scene.all().length;
+		const made = sim.scripts.spawn('sword', { at: { x: 2, y: 0, z: -1 }, yaw: 1, name: 'thrown' });
+
+		expect(made, 'it came back').not.toBeNull();
+		expect(made!.name).toBe('thrown');
+		expect(made!.transform.position[0]).toBe(2);
+		// Close rather than equal: a yaw is stored as a quaternion in single
+		// precision, so it comes back a few ten-millionths off what went in.
+		expect(made!.transform.yaw).toBeCloseTo(1, 6);
+		expect(sim.scene.all().length, 'and it is in the scene').toBe(before + 1);
+		// Built from its prefab, not an empty object: the sword's entity file
+		// says it is an item, and the factory read that.
+		expect(made!.components.length).toBeGreaterThan(0);
+	});
+
+	it('hands back nothing for a name the cast never loaded', () => {
+		const sim = yard();
+		expect(sim.scripts.spawn('trebuchet')).toBeNull();
+	});
+
 	function run(sim: Simulation, seconds: number): void {
 		for (let i = 0; i < Math.round(seconds / FRAME); i++) sim.update(FRAME, { hover: null });
 	}
@@ -63,7 +95,7 @@ describe('a blow, end to end', () => {
 	function registry(sim: Simulation): { all: readonly unknown[]; count: number } {
 		const constructor = scripts.resolve('CharacterRegistry');
 		expect(constructor, 'the build compiles a CharacterRegistry').not.toBeNull();
-		const found = sim.scripts.instance(constructor as never);
+		const found = sim.scene.getComponent(constructor as never);
 		expect(found, 'the system prefab put one in the scene').not.toBeNull();
 		return found as unknown as { all: readonly unknown[]; count: number };
 	}

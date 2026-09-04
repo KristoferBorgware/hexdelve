@@ -37,7 +37,7 @@
  * path work unchanged in a browser, in Node and under the test runner.
  */
 
-import { Script } from './Script.js';
+import { Script } from '../scene/components/Script.js';
 import type { ScriptClass } from './parameters.js';
 import type { ScriptProvider } from './ScriptHost.js';
 

@@ -499,20 +499,47 @@ syntax the applications do not — decorators, in particular — without every b
 tool in the repository having to agree about it first. `packages/client/scripts/tsconfig.json`
 is where that syntax is declared, and `npm run typecheck` covers it.
 
-### The component holds a number
+### A script is a component
 
-`ScriptComponent` knows an id and nothing else. Which class that id means,
-whether an instance exists, what its parameters are — all of it belongs to the
-host, and that indirection is what makes hot reload possible: a reload rebuilds
-every instance behind its id and no component notices.
+Not a component holding one, and not a component with a script inside it: a
+`Script` derives from `Component` and sits in its object's list beside a
+`Model`. `object.getComponent(Combat)` finds it, `getComponentInParent` walks up
+to it, `scene.getComponent` finds the one system there is — the same calls that
+find everything else, because there is nothing else to find.
+
+A script reaches the object model directly, too. `this.object` is the
+`GameObject` and `this.scene` is the `Scene`; there are no wrappers between
+them. There were for a while, on the argument that a smaller surface could be
+promised to scripts while the engine changed underneath, and it cost more than
+it bought: every capability had to be re-exported by hand, `this.transform`
+allocated a wrapper on every read, and two scripts on one object held handles
+that were not `===` to each other — so the obvious comparison, "is this the
+thing I hit", was quietly false.
+
+What the host keeps is what a component cannot: which class a NAME means, and
+how to build a new instance in the old one's place when that class is replaced
+while the game runs. The registration outlives the instance, and it outlives no
+instance at all — a prefab may name a script whose file has not compiled yet,
+and the registration is what remembers to build it when the file appears.
+
+**A reload replaces the instance.** It is built from the new class and put where
+the old one stood — same object, same place in the list, same parameters
+somebody set — so the object is not reordered and nothing that points at the
+OBJECT notices. Anything that cached the SCRIPT is holding a corpse. Scripts are
+safe by construction, since `onLoad` runs again on the new instance and a lookup
+cached there is refreshed; code that a reload does not rebuild — the game's own
+components, the simulation, a listener — must look a script up when it needs one
+rather than hold it.
 
 Three failure rules, each because the alternative is worse than the bug. A
 script that throws in `tick` is **muted** until the next reload, since left
 running it throws sixty times a second and killed outright it cannot be fixed
 by saving the file. A script whose class is missing stays **registered** with no
-instance, because its file may be half-written. And a value somebody set
-survives a reload where a value nobody set does not — otherwise editing a
-default in the source would never take effect.
+instance, because its file may be half-written — and a build with NO classes at
+all says nothing, because that is not a missing script, it is a world the editor
+has just made and has yet to compile for. And a value somebody set survives a
+reload where a value nobody set does not — otherwise editing a default in the
+source would never take effect.
 
 ### Two providers, one host
 
@@ -601,14 +628,24 @@ export class Character extends Script {
 }
 ```
 
-`target.send(Damage, { amount: 3, from: 'wanderer' })` reaches the scripts on one
-object; `this.emit(Died, { who })` reaches every script in the scene that
+`this.send(target, Damage, { amount: 3, from: 'wanderer' })` reaches the scripts
+on one object; `this.emit(Died, { who })` reaches every script in the scene that
 declared it. Events are matched by their **name**, not by token identity, so a
 hot reload — which rebuilds every token in the bundle — does not lose them.
 
-For a question rather than an announcement, `scene.script(CharacterRegistry)`
-and `object.script(Character)` hand back the live instance: an event is
-fire-and-forget and cannot return anything.
+A script puts a new object in the world with `this.spawn(id, { at, yaw, parent })`,
+where `id` names an entity the game loaded. It comes back built — prefab read,
+components attached, its own scripts running — so the caller reads a component
+off it and sets what it needs. The host cannot do this itself: an id names an
+entity, an entity carries a prefab, and a prefab is read against the component
+factories the game owns, so the game hands the host a spawner. The entity has
+to be loaded already, since a tick cannot wait for a fetch — `CastOptions`
+takes a `spawnable` list for entities that are loaded and not placed.
+
+For a question rather than an announcement, look the script up as the component
+it is: `scene.getComponent(CharacterRegistry)` for the one system there is,
+`object.getComponent(Character)` for the thing in front of you. An event is
+fire-and-forget and cannot hand anything back.
 
 The swing in the yard is the shape this exists for, and it is what actually
 runs — `test/combat.test.ts` drives the real simulation through it.

@@ -57,7 +57,7 @@ export class Combat extends Script {
 		reach: Reach;
 		amount: number;
 	}): void {
-		const registry = this.scene.script(CharacterRegistry);
+		const registry = this.scene.getComponent(CharacterRegistry);
 		if (!registry) return;
 
 		const swinger = registry.all.find((one) => one.object.name === swing.by);
@@ -85,7 +85,7 @@ export class Combat extends Script {
 			return;
 		}
 
-		target.object.send(Damage, { amount: swing.amount, from: swing.by, at });
+		this.send(target.object, Damage, { amount: swing.amount, from: swing.by, at });
 	}
 }
 

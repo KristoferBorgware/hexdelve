@@ -39,7 +39,7 @@ import {
 	type Scene,
 } from '@hexdelve/engine';
 
-import { ScriptComponent, type ScriptHost } from '@hexdelve/engine';
+import type { ScriptHost } from '@hexdelve/engine';
 
 import { Actor } from './actor.js';
 import { BoneFollow } from './bonefollow.js';
@@ -153,10 +153,15 @@ function scriptFactory(context: ComponentContext): void {
 	}
 
 	const name = context.fields.need('script').text();
-	context.object.addComponent(ScriptComponent, {
-		host: scripts.host,
+	/*
+	 * Through the host rather than `addComponent`. Every other component here
+	 * is built from data the reader has already loaded; a script is built from
+	 * a CLASS, found by name in a bundle compiled separately, which the host
+	 * can replace while the game runs. What comes out is an ordinary component
+	 * on the object.
+	 */
+	scripts.host.attach(context.object, name, {
 		scene: scripts.scene,
-		script: name,
 		parameters: context.fields.rest('type', 'script'),
 	});
 }

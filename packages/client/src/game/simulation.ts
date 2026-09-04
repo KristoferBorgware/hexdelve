@@ -27,7 +27,13 @@
  * while anything else is moving.
  */
 
-import { noScripts, ScriptHost, type ScriptProvider } from '@hexdelve/engine';
+import {
+	noScripts,
+	ScriptHost,
+	type EntityAsset,
+	type ScriptProvider,
+	type SpawnPlacement,
+} from '@hexdelve/engine';
 
 import {
 	HEX_FLAG_UNLIT,
@@ -292,6 +298,9 @@ export class Simulation {
 	/** What runs the behaviour that lives in `scripts/`. */
 	readonly scripts: ScriptHost;
 
+	/** Every entity the cast loaded, by id, for a script that spawns one. */
+	private readonly catalogue: ReadonlyMap<string, EntityAsset>;
+
 	/** Hip height at rest, which is also where the camera looks. */
 	private readonly hipHeight: number;
 
@@ -334,7 +343,21 @@ export class Simulation {
 		 * spawned. It is handed a provider rather than finding one: which
 		 * classes exist is a question about the build, not about the game.
 		 */
-		this.scripts = new ScriptHost(options.scripts ?? noScripts);
+		this.scripts = new ScriptHost(options.scripts ?? noScripts, {
+			spawn: (id, placement) => this.spawnFromCast(id, placement),
+		});
+
+		/*
+		 * What a script may ask for by name. Everything the cast loaded: the two
+		 * characters, the gear in the grass, and whatever was listed as
+		 * spawnable and left unplaced.
+		 */
+		this.catalogue = new Map(
+			[cast.player, cast.enemy, ...cast.props, ...cast.spawnable].map((entity) => [
+				entity.id,
+				entity,
+			]),
+		);
 
 		this.systems = this.scene.spawn('systems');
 		for (const system of options.systems ?? []) {
@@ -563,6 +586,36 @@ export class Simulation {
 	/** What a spawn needs in order to be able to build a script component. */
 	private scriptExtras(): Pick<SpawnExtras, 'scripts'> {
 		return { scripts: { host: this.scripts, scene: this.scene } };
+	}
+
+	/**
+	 * Build one entity from the cast, where a script asked for it.
+	 *
+	 * What `ScriptHost.spawn` calls. The host knows an id and a place; turning
+	 * the first into a prefab and reading it against the component factories is
+	 * the game's knowledge, and this is where the game keeps it.
+	 *
+	 * The extras travel with it, so an object carrying scripts of its own loads
+	 * them the way one spawned at startup does.
+	 */
+	private spawnFromCast(id: string, placement: SpawnPlacement): GameObject {
+		const entity = this.catalogue.get(id);
+		if (!entity) {
+			throw new Error(
+				`the cast has no '${id}'; it loaded ${[...this.catalogue.keys()].sort().join(', ')}`,
+			);
+		}
+
+		const object = spawnEntity(entity, this.scene, {
+			extras: this.scriptExtras(),
+			...(placement.name !== undefined ? { name: placement.name } : {}),
+			...(placement.parent ? { parent: placement.parent } : {}),
+		});
+
+		const at = placement.at;
+		if (at) object.transform.setPosition(at.x, at.y, at.z);
+		if (placement.yaw !== undefined) object.transform.yaw = placement.yaw;
+		return object;
 	}
 
 	update(dt: number, input: FrameInput): void {

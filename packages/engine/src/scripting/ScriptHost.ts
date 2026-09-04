@@ -1,15 +1,26 @@
 /*
  * The thing that owns running scripts, and swaps them out underneath.
  *
- * A `ScriptComponent` holds a number. Everything else — which class that number
- * means, whether an instance of it currently exists, what its parameters were
- * set to, whether it threw last frame — is here. That indirection is the whole
- * trick: a hot reload replaces every instance behind its id, and the components
- * that point at them never notice.
+ * A script is an ordinary component: it sits in its object's list, it is found
+ * with `getComponent`, and nothing outside this file has to know it is
+ * special. What this file owns is the two things a component cannot own for
+ * itself — WHICH CLASS a name means, and what happens when that class is
+ * replaced while the game runs.
  *
- *     component ---id---> registration ---> instance (replaced on every reload)
- *                              |
- *                              +--> typeName, parameters (kept across reloads)
+ *     registration ---> object, type name, parameters somebody set
+ *                  \--> the instance, which a reload throws away and rebuilds
+ *
+ * The registration outlives the instance, and that is the whole trick. A
+ * reload builds a new instance from the new class and puts it where the old
+ * one was — same object, same place in the component list, same parameters —
+ * so a hot reload is invisible to everything except the script itself, which
+ * gets `onDestroy` and then `onLoad` and is told nothing.
+ *
+ * It also outlives NO instance: a prefab may name a script whose file has not
+ * compiled yet, and the registration is what remembers to build it when the
+ * file appears. That is the one case where a script exists as an intention
+ * rather than as a component, and it is why `detached` is on the binding — the
+ * host cannot learn from a component that was never attached.
  *
  * ## Where the classes come from
  *
@@ -23,9 +34,9 @@
  *
  * Three rules, and each is there because the alternative is worse than the bug.
  *
- *   a script that throws in `tick` is MUTED until the next reload. Left
- *   running it throws sixty times a second and the console becomes useless;
- *   killed outright it cannot be fixed by saving the file.
+ *   a script that throws in `tick` or in a handler is MUTED until the next
+ *   reload. Left running it throws sixty times a second and the console
+ *   becomes useless; killed outright it cannot be fixed by saving the file.
  *
  *   a script whose class is missing stays REGISTERED, with no instance. Its
  *   file may be halfway through being written. When it compiles, it starts.
@@ -44,9 +55,9 @@ import {
 	type ScriptClass,
 } from './parameters.js';
 import { handlersOf, type EventHandler, type GameEvent } from './events.js';
-import type { ScriptRuntime } from './handles.js';
-import type { Script, ScriptBinding } from './Script.js';
+import { Script } from '../scene/components/Script.js';
 import type { GameObject } from '../scene/GameObject.js';
+import type { Scene } from '../scene/Scene.js';
 
 /** Where a host gets its classes. */
 export interface ScriptProvider {
@@ -59,27 +70,61 @@ export interface ScriptProvider {
 export interface ScriptHostOptions {
 	/** Where the host's own complaints go. Defaults to the console. */
 	readonly log?: (message: string) => void;
+	/**
+	 * How a name becomes an object in the scene.
+	 *
+	 * Absent where nothing spawns, and a script that asks then gets null. The
+	 * host cannot do this itself: an id names an entity, an entity carries a
+	 * prefab, and a prefab is read against a registry of component factories
+	 * the game owns. Whoever built the world knows all three — see
+	 * `Simulation` in the client, which passes one in.
+	 */
+	readonly spawn?: ScriptSpawner;
 }
+
+/** Where a spawned object goes, and what it is called. */
+export interface SpawnPlacement {
+	/** Where it starts, in world units. Defaults to the origin. */
+	readonly at?: { readonly x: number; readonly y: number; readonly z: number };
+	/** Which way it faces, in radians about +Y. */
+	readonly yaw?: number;
+	/** What it hangs under. Defaults to the scene root. */
+	readonly parent?: GameObject | null;
+	/** What to call it in the tree. Defaults to whatever the entity is called. */
+	readonly name?: string;
+}
+
+/**
+ * Turn an entity id into an object in the scene.
+ *
+ * Synchronous, so a script can spawn something in the middle of a tick and use
+ * what comes back. The entity has to be loaded already: reading one takes a
+ * fetch, and a tick cannot wait for it.
+ */
+export type ScriptSpawner = (id: string, placement: SpawnPlacement) => GameObject | null;
 
 /** One exposed field, with the value it currently holds. */
 export interface LiveParameter extends ParameterMeta {
 	readonly value: unknown;
 }
 
+/** What the host remembers about one script, instance or no instance. */
 interface Registration {
-	readonly id: number;
+	readonly object: GameObject;
+	readonly scene: Scene;
 	readonly typeName: string;
-	readonly binding: Omit<ScriptBinding, 'log' | 'emit'>;
 	instance: Script | null;
 	/** Only what somebody actually set. See `parameters.ts` for why. */
 	readonly overrides: Record<string, unknown>;
 	/** What the live instance's class declared with `@on`. Empty when unloaded. */
 	handlers: readonly EventHandler[];
-	muted: boolean;
 }
 
-export class ScriptHost implements ScriptRuntime {
-	private readonly registrations = new Map<number, Registration>();
+export class ScriptHost {
+	private readonly registrations = new Set<Registration>();
+	/** Which registration a live instance belongs to, for the calls that arrive
+	 * with a script rather than with a name — a detach, a parameter edit. */
+	private readonly byInstance = new Map<Script, Registration>();
 	/**
 	 * Which registrations answer which event, by event NAME.
 	 *
@@ -88,7 +133,7 @@ export class ScriptHost implements ScriptRuntime {
 	 * decorator. Nothing a script does can leave a subscription behind, because
 	 * no script ever makes one.
 	 */
-	private readonly subscribers = new Map<string, Set<number>>();
+	private readonly subscribers = new Map<string, Set<Registration>>();
 	/**
 	 * Listeners that are not scripts, by event name.
 	 *
@@ -100,123 +145,102 @@ export class ScriptHost implements ScriptRuntime {
 	 */
 	private readonly listeners = new Map<string, Set<(payload: never) => void>>();
 	private readonly log: (message: string) => void;
+	private readonly spawner: ScriptSpawner | null;
 	private provider: ScriptProvider;
-	private nextId = 1;
+	/** True while a reload is swapping instances, when a detach is not a death. */
+	private swapping = false;
 
 	constructor(provider: ScriptProvider, options: ScriptHostOptions = {}) {
 		this.provider = provider;
 		this.log = options.log ?? ((message) => console.warn(`[script] ${message}`));
+		this.spawner = options.spawn ?? null;
 	}
 
 	/** How many scripts are registered, and how many of those are running. */
 	get census(): { registered: number; live: number; muted: number } {
 		let live = 0;
 		let muted = 0;
-		for (const one of this.registrations.values()) {
+		for (const one of this.registrations) {
 			if (one.instance) live++;
-			if (one.muted) muted++;
+			if (one.instance?.isMuted) muted++;
 		}
 		return { registered: this.registrations.size, live, muted };
 	}
 
 	/**
-	 * Register a script by type name and try to build it.
+	 * Put a script on an object, by the name a prefab called it.
 	 *
-	 * Returns an id even when the class is not there. A prefab may name a
-	 * script whose file has not compiled yet, and refusing to spawn the object
-	 * over it would make one broken script take out a whole scene.
+	 * Returns the instance, or null when this build has no class of that name —
+	 * which is not a failure. A prefab may name a script whose file has not
+	 * compiled yet, and refusing to spawn the object over it would make one
+	 * broken script take out a whole scene. The registration stays either way,
+	 * so the next reload builds it if the class turns up.
 	 */
-	register(
+	attach(
+		object: GameObject,
 		typeName: string,
-		binding: Omit<ScriptBinding, 'log' | 'emit'>,
-		overrides: Readonly<Record<string, unknown>> = {},
-	): number {
+		options: { scene: Scene; parameters?: Readonly<Record<string, unknown>> },
+	): Script | null {
 		const registration: Registration = {
-			id: this.nextId++,
+			object,
+			scene: options.scene,
 			typeName,
-			binding,
 			instance: null,
-			overrides: { ...overrides },
+			overrides: { ...options.parameters },
 			handlers: [],
-			muted: false,
 		};
-		this.registrations.set(registration.id, registration);
+		this.registrations.add(registration);
 		this.build(registration);
-		return registration.id;
-	}
-
-	/** Advance one script. Silent for one that is missing or muted. */
-	tick(id: number, dt: number): void {
-		const registration = this.registrations.get(id);
-		if (!registration?.instance || registration.muted) return;
-		try {
-			registration.instance.tick(dt);
-		} catch (error) {
-			registration.muted = true;
-			this.log(`${this.where(registration)}.tick threw, muted until reload: ${why(error)}`);
-		}
-	}
-
-	/** Tear one down and forget it. */
-	destroy(id: number): void {
-		const registration = this.registrations.get(id);
-		if (!registration) return;
-		this.registrations.delete(id);
-		this.unload(registration);
+		return registration.instance;
 	}
 
 	/**
-	 * The live script behind an id, or null.
+	 * Swap in a new set of classes.
 	 *
-	 * Null while its class is missing or its file is half-written, which is an
-	 * ordinary state rather than an error. Nothing should HOLD what this
-	 * returns: a hot reload replaces the instance, and a caller keeping one is
-	 * keeping the version that was replaced.
+	 * Every instance is destroyed and rebuilt where it stood, keeping the
+	 * overrides somebody set. A field nobody set adopts whatever the new code
+	 * says, which is what makes editing a default in the source take effect.
 	 */
-	scriptAt(id: number): Script | null {
-		return this.registrations.get(id)?.instance ?? null;
+	reload(provider: ScriptProvider = this.provider): void {
+		this.provider = provider;
+		this.swapping = true;
+		try {
+			for (const registration of [...this.registrations]) {
+				// An object destroyed while its script had no instance has no
+				// component to have told us. This is where that is noticed.
+				if (registration.object.isDestroyed) {
+					this.forget(registration);
+					continue;
+				}
+				this.rebuild(registration);
+			}
+		} finally {
+			this.swapping = false;
+		}
+
+		const { registered, live } = this.census;
+		this.log(`reloaded: ${live} of ${registered} script(s) running`);
 	}
 
 	/** The exposed fields of one live script, with their current values. */
-	parameters(id: number): LiveParameter[] {
-		const registration = this.registrations.get(id);
-		if (!registration?.instance) return [];
-		const values = readParameters(registration.instance);
-		return parametersOf(registration.instance.constructor as ScriptClass).map((meta) => ({
+	parameters(script: Script): LiveParameter[] {
+		const registration = this.byInstance.get(script);
+		if (!registration) return [];
+		const values = readParameters(script);
+		return parametersOf(script.constructor as ScriptClass).map((meta) => ({
 			...meta,
 			value: values[meta.key] ?? registration.overrides[meta.key] ?? meta.default,
 		}));
 	}
 
 	/** Set one field, and remember it across every reload from here on. */
-	setParameter(id: number, key: string, value: unknown): void {
-		const registration = this.registrations.get(id);
+	setParameter(script: Script, key: string, value: unknown): void {
+		const registration = this.byInstance.get(script);
 		if (!registration) return;
 		registration.overrides[key] = value;
-		if (registration.instance) {
-			applyParameters(registration.instance, { [key]: value }, (bad, known) =>
-				this.log(`${this.where(registration)} has no parameter '${bad}'; it has ${list(known)}`),
-			);
-		}
-	}
-
-	/**
-	 * Swap in a new set of classes.
-	 *
-	 * Every instance is destroyed and rebuilt in place, keeping its id and the
-	 * overrides somebody set. A field nobody set adopts whatever the new code
-	 * says, which is what makes editing a default in the source take effect.
-	 */
-	reload(provider: ScriptProvider = this.provider): void {
-		this.provider = provider;
-		for (const registration of this.registrations.values()) {
-			this.unload(registration);
-			registration.muted = false;
-		}
-		for (const registration of this.registrations.values()) this.build(registration);
-
-		const { registered, live } = this.census;
-		this.log(`reloaded: ${live} of ${registered} script(s) running`);
+		applyParameters(script, { [key]: value }, (bad, known) =>
+			this.log(`${this.where(registration)} has no parameter '${bad}'; it has ${list(known)}`),
+		);
 	}
 
 	/**
@@ -229,6 +253,32 @@ export class ScriptHost implements ScriptRuntime {
 	 */
 	emit(event: GameEvent<unknown>, payload: unknown): void {
 		this.deliver(event, payload, null);
+	}
+
+	/** Announce something to the scripts on one object, and to nothing else. */
+	send(target: GameObject, event: GameEvent<unknown>, payload: unknown): void {
+		this.deliver(event, payload, target);
+	}
+
+	/**
+	 * Put a new object in the scene, by the name of the entity it is made from.
+	 *
+	 * Null when this host was built without a spawner, or when the name is not
+	 * one the game loaded. Both are reported and neither throws: a script that
+	 * asks for something that is not there carries on, the way one whose class
+	 * is missing does.
+	 */
+	spawn(id: string, placement: SpawnPlacement = {}): GameObject | null {
+		if (!this.spawner) {
+			this.log(`nothing here spawns, and a script asked for '${id}'`);
+			return null;
+		}
+		try {
+			return this.spawner(id, placement);
+		} catch (error) {
+			this.log(`spawning '${id}' failed: ${why(error)}`);
+			return null;
+		}
 	}
 
 	/**
@@ -253,29 +303,6 @@ export class ScriptHost implements ScriptRuntime {
 		};
 	}
 
-	/** Announce something to the scripts on one object, and to nothing else. */
-	send(target: GameObject, event: GameEvent<unknown>, payload: unknown): void {
-		this.deliver(event, payload, target);
-	}
-
-	/**
-	 * The first live script of a class, on one object or anywhere.
-	 *
-	 * How a script asks a system a question, where an event announces an
-	 * answer. Null when the class is not running — which is an ordinary state,
-	 * not an error: a system whose file is half-written has no instance, and a
-	 * caller that cannot find it should carry on rather than throw.
-	 */
-	instance<T>(constructor: abstract new () => T, on?: GameObject): T | null {
-		for (const registration of this.registrations.values()) {
-			const instance = registration.instance;
-			if (!instance) continue;
-			if (on && registration.binding.object.raw !== on) continue;
-			if (instance instanceof constructor) return instance as T;
-		}
-		return null;
-	}
-
 	/* ------------------------------------------------------------ internals -- */
 
 	/**
@@ -292,11 +319,10 @@ export class ScriptHost implements ScriptRuntime {
 		const listening = this.subscribers.get(event.name);
 		if (!listening || listening.size === 0) return;
 
-		for (const id of [...listening]) {
-			const registration = this.registrations.get(id);
-			const instance = registration?.instance;
-			if (!registration || !instance || registration.muted) continue;
-			if (on && registration.binding.object.raw !== on) continue;
+		for (const registration of [...listening]) {
+			const instance = registration.instance;
+			if (!instance || instance.isMuted) continue;
+			if (on && registration.object !== on) continue;
 
 			for (const handler of registration.handlers) {
 				if (handler.event !== event.name) continue;
@@ -308,11 +334,7 @@ export class ScriptHost implements ScriptRuntime {
 					// The same rule as `tick`, and for the same reason: an event
 					// that arrives sixty times a second would otherwise fill the
 					// console with one script's bug.
-					registration.muted = true;
-					this.log(
-						`${this.where(registration)}.${handler.method} threw on '${event.name}',` +
-							` muted until reload: ${why(error)}`,
-					);
+					instance.fail(handler.method, error, `on '${event.name}'`);
 				}
 			}
 		}
@@ -348,7 +370,7 @@ export class ScriptHost implements ScriptRuntime {
 		for (const handler of registration.handlers) {
 			let listening = this.subscribers.get(handler.event);
 			if (!listening) this.subscribers.set(handler.event, (listening = new Set()));
-			listening.add(registration.id);
+			listening.add(registration);
 		}
 	}
 
@@ -356,70 +378,156 @@ export class ScriptHost implements ScriptRuntime {
 	private unsubscribe(registration: Registration): void {
 		for (const handler of registration.handlers) {
 			const listening = this.subscribers.get(handler.event);
-			listening?.delete(registration.id);
+			listening?.delete(registration);
 			if (listening?.size === 0) this.subscribers.delete(handler.event);
 		}
 		registration.handlers = [];
 	}
 
+	/** Build the instance and attach it. Quiet, and null, when there is no class. */
 	private build(registration: Registration): void {
+		const instance = this.construct(registration);
+		if (!instance) return;
+
+		registration.instance = instance;
+		this.byInstance.set(instance, registration);
+		// Before `onLoad`, so a script that announces something as it starts is
+		// heard by scripts that were built before it.
+		this.subscribe(registration);
+		registration.object.attachComponent(instance);
+		this.start(instance);
+	}
+
+	/**
+	 * Replace the instance with one built from the current classes.
+	 *
+	 * In place: `replaceComponent` keeps the script where it was in the list,
+	 * because components update in that order and `getComponent` answers with
+	 * the first match. A remove and an append would reorder the object on every
+	 * save, which is the sort of thing that is noticed a week later as "it only
+	 * happens after I edit that file".
+	 */
+	private rebuild(registration: Registration): void {
+		const old = registration.instance;
+		const next = this.construct(registration);
+
+		if (!next) {
+			/*
+			 * Nothing to put there: the class this was built from is not in the
+			 * new bundle. Whatever was running comes out, and the registration
+			 * stays — the file may be halfway through being written, and the next
+			 * reload that produces the class starts it again.
+			 *
+			 * Cleared BEFORE the component is detached, so that nothing reached
+			 * from `onDestroy` finds a host still claiming this script is live.
+			 */
+			this.unsubscribe(registration);
+			if (old) {
+				this.byInstance.delete(old);
+				registration.instance = null;
+				registration.object.removeComponent(old);
+			}
+			return;
+		}
+
+		this.unsubscribe(registration);
+		if (old) this.byInstance.delete(old);
+		registration.instance = next;
+		this.byInstance.set(next, registration);
+		this.subscribe(registration);
+
+		if (old) registration.object.replaceComponent(old, next);
+		else registration.object.attachComponent(next);
+		this.start(next);
+	}
+
+	/** Construct one, parameters applied, bound, and not yet attached. */
+	private construct(registration: Registration): Script | null {
 		const constructor = this.provider.resolve(registration.typeName);
 		if (!constructor) {
-			this.log(
-				`no script named '${registration.typeName}' on '${registration.binding.object.name}';` +
-					` this build has ${list(this.provider.names)}`,
-			);
-			return;
+			/*
+			 * A build with NO classes is not a build missing this one.
+			 *
+			 * It is the ordinary state of a world the editor has just made: an
+			 * editor-hosted client fetches no bundle and gets its classes from
+			 * the compile that follows a moment later. The reload reports what
+			 * it started.
+			 *
+			 * A build that has SOME classes and not this one is a typo in a
+			 * prefab, or a file that will not compile, and gets a line naming
+			 * what it does have.
+			 */
+			if (this.provider.names.length > 0) {
+				this.log(
+					`no script named '${registration.typeName}' on '${registration.object.name}';` +
+						` this build has ${list(this.provider.names)}`,
+				);
+			}
+			return null;
 		}
 
 		let instance: Script;
 		try {
-			instance = new constructor();
+			instance = new constructor(registration.object);
 		} catch (error) {
 			this.log(`${this.where(registration)} would not construct: ${why(error)}`);
-			return;
+			return null;
 		}
 
 		// The markers become their defaults before anything reads a field. See
 		// parameters.ts for why a declaration is a value here rather than a
 		// decorator.
 		resolveParameters(instance);
-		instance.attach({
-			...registration.binding,
+		instance.bind({
+			scene: registration.scene,
 			emit: (event, payload) => this.emit(event, payload),
+			send: (target, event, payload) => this.send(target, event, payload),
+			spawn: (id, placement) => this.spawn(id, placement),
 			log: (message) => this.log(`${this.where(registration)}: ${message}`),
+			failed: (where, error, detail) =>
+				this.log(
+					`${this.where(registration)}.${where} threw${detail ? ` ${detail}` : ''},` +
+						` muted until reload: ${why(error)}`,
+				),
+			detached: () => this.detached(registration),
 		});
 		applyParameters(instance, registration.overrides, (bad, known) =>
 			this.log(`${this.where(registration)} has no parameter '${bad}'; it has ${list(known)}`),
 		);
+		return instance;
+	}
 
-		registration.instance = instance;
-		// Before `onLoad`, so a script that announces something as it starts is
-		// heard by scripts that were built before it.
-		this.subscribe(registration);
+	/** `onLoad`, under the same rule as every other thing a script runs. */
+	private start(instance: Script): void {
 		try {
 			instance.onLoad();
 		} catch (error) {
-			registration.muted = true;
-			this.log(`${this.where(registration)}.onLoad threw, muted until reload: ${why(error)}`);
+			instance.fail('onLoad', error);
 		}
 	}
 
-	private unload(registration: Registration): void {
-		const instance = registration.instance;
+	/**
+	 * A script's component has been detached.
+	 *
+	 * During a reload that is the old half of a swap and means nothing. Any
+	 * other time the object has been destroyed, or somebody removed the
+	 * component, and the registration goes with it.
+	 */
+	private detached(registration: Registration): void {
+		if (this.swapping) return;
+		this.forget(registration);
+	}
+
+	private forget(registration: Registration): void {
 		this.unsubscribe(registration);
-		if (!instance) return;
+		if (registration.instance) this.byInstance.delete(registration.instance);
 		registration.instance = null;
-		try {
-			instance.onDestroy();
-		} catch (error) {
-			this.log(`${this.where(registration)}.onDestroy threw: ${why(error)}`);
-		}
+		this.registrations.delete(registration);
 	}
 
 	/** `Wander on player` — which script, on which object. */
 	private where(registration: Registration): string {
-		return `${registration.typeName} on '${registration.binding.object.name}'`;
+		return `${registration.typeName} on '${registration.object.name}'`;
 	}
 }
 

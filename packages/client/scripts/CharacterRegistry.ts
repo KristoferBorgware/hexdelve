@@ -75,7 +75,7 @@ export class CharacterRegistry extends Script {
 		let best: Character | null = null;
 		let bestDistance = within;
 		for (const member of this.members.values()) {
-			if (member === except || !member.object.alive) continue;
+			if (member === except || member.object.isDestroyed) continue;
 			const dx = member.where.x - x;
 			const dz = member.where.z - z;
 			const distance = Math.hypot(dx, dz);
