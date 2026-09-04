@@ -97,7 +97,7 @@ Level changes are requested, not performed, by game logic: `dungeon_change_level
 
 ## 1.7 Files
 
-**Gamedata files** are line-oriented, colon-separated records parsed by `parser.c`: each file registers a set of `parser_reg()` directives ("name str name", "flags ?str flags", ...) with a handler, and `#` lines are comments. They are only read at startup; the Gamedata Reference chapter lists every file.
+**Gamedata files** are line-oriented, colon-separated records parsed by `parser.c`: each file registers a set of `parser_reg()` directives ("name str name", "flags ?str flags", ...) with a handler, and `#` lines are comments. They are only read at startup; the Gamedata Reference chapter (21) lists every file.
 
 **Pref files** (`lib/customize/*.prf` and per-user files) hold UI customisation: keymaps, visuals, colours, subwindow layout, inscriptions. `ui-prefs.c` processes them with `process_pref_file()`; user files override system ones.
 
