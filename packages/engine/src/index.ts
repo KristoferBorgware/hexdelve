@@ -34,6 +34,30 @@ export {
 	type SkeletonViewOptions,
 } from './scene/Model.js';
 
+/*
+ * The scene graph: what a thing IS, as against what it looks like.
+ *
+ * A game object is a place in a tree with components attached, and every piece
+ * of behaviour is one of those components. Engine-side because nothing in it
+ * knows what a renderer is — a scene is solved, and what a frame is drawn into
+ * is somebody else's question.
+ */
+export {
+	Component,
+	GameObject,
+	type ComponentClass,
+	type GameObjectOptions,
+} from './scene/GameObject.js';
+
+export { Scene, type SceneOptions } from './scene/Scene.js';
+
+export {
+	Transform,
+	composeWorld,
+	type Point,
+	type WorldTransform,
+} from './scene/Transform.js';
+
 export {
 	directionalShadowMatrix,
 	type ShadowFit,
