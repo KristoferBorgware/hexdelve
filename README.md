@@ -461,10 +461,14 @@ and yarn feature: npm answers `EUNSUPPORTEDPROTOCOL` to both `install` and `ci`.
 `npm test` runs everything in `test/`, under Vitest. Tests import the workspace
 packages by name and get their **source**, through the same aliases the client
 and the editor build with — so a fresh clone can run them with nothing built,
-and a broken build never looks like a broken test. The three browser-driven
-ones are the exception, because what they check is a property of the *built*
-client: they load `packages/client/dist-lib` and skip themselves when it is not
-there, or when there is no browser driver installed.
+and a broken build never looks like a broken test.
+
+Two kinds are the exception. The browser-driven ones check a property of the
+*built* client, so they load `packages/client/dist-lib` and skip themselves when
+it is not there or when there is no browser driver installed. And `devserver`
+boots a real Vite dev server on a port the operating system picks, because what
+it checks is how the middleware sits together rather than what any one handler
+does.
 
 | | |
 |---|---|
@@ -472,7 +476,15 @@ there, or when there is no browser driver installed.
 | `blend-tree` | A tree out of phase still produces sensible weights and a valid pose; the only symptom is a character who skates. Pins the thresholds, the calibration, the sync, the additive gain and the mask. |
 | `assets` | That the files load to the shapes the game expects, that the loaders refuse what they should, and that the pose functions still agree with the rigs they were tuned against — `stridePose` carries a copy of the humanoid's leg length, and a copy can drift from the file it came from. The part-for-part comparison against the TypeScript modules lived here until those modules were deleted; `render` is what guards the files now. |
 | `yaml` | The reader's **refusals**, mostly. A tab used as indentation, an anchor, a tag, a second document, a duplicate key — each has a silent mis-reading available to it, and a parser you wrote yourself is only worth having if it is loud. Also pins that `pi / 2 + 0.05` in a file is the same double as `PI / 2 + 0.05` in TypeScript. |
-| `tiles` | Every mistake available in a WFC tileset still produces levels. A rotation that turns the wrong way bends corridors the wrong way; an asymmetric propagator drifts the solver's supporter counts and makes it ban tiles for no reason; a tile with no legal neighbour is never placed and its weight is a lie. Pins the edge mapping, the rotation cardinalities *and their direction* — turning the wrong way gives the same counts — the propagator's symmetry, and the open mask. |
+| `levels` | A generator is a function from a seed to a shape, and looking at six of them says nothing about the seventh. Every property that has to hold for **every** seed, each of which fails silently: a one-way door, a route that steps through a wall, an exit stranded across the map. All of them draw perfectly well. |
+| `vaults` | A broken vault is not a crash and not a bad picture — the placer skips anything it complains about, so it is a room that simply never appears, for months, until somebody wonders where the shrine went. |
+| `turns` | The one part of this project whose correctness is a claim about arithmetic rather than about a picture — the energy table against Angband's own anchors, the tie-break, and the wall clock. Also drives the real `Simulation` with no canvas and no GPU, which is only possible because the rules and the drawing were kept apart. |
+| `largest-rectangle` | Checkable against the truth rather than against a property: the naive answer exists, is definitionally right, and is unusable at the size a level wants. The fast one is checked against it on bitmaps small enough for both. |
+| `scene` | The object model's **orderings**: what a transform composes to, which components run before which, and what a teardown fires in what order. `destroy` unparenting a child before its hooks ran was found here on the first run. |
+| `prefab` | That a prefab file reads to the tree it describes, that a component type nobody registered is refused by name, and that the entities which actually ship carry what they claim to. |
+| `scripting` | The four promises the host makes: an id keeps meaning the same script, a parameter somebody set survives a reload, a file that will not compile does not take the running game down, and a script throwing sixty times a second is muted rather than shouted. Also compiles the real script directory the real way, which is the only place `@on` as syntax is exercised. |
+| `combat` | A blow all the way through, on the real simulation: the entity files, the system prefab, the swing, the rule and the hit points. Five pieces have to agree, and none of the tests above would catch a script name misspelt in a YAML file. |
+| `devserver` | Boots a real dev server with the real plugins in the real order, because the one bug this has caught was not in a handler but in how two of them sat next to each other: the source route was answering for `/scripts.js`, so `npm run dev` ran with no behaviour in it at all. |
 | `shaders` | WebGPU marks a bad pipeline invalid rather than throwing, so a broken shader reaches a browser looking healthy and only fails on the first draw. |
 | `render` | None of the above would notice a sign flip that put every shadow on the wrong side of every building, so a picture lives in `test/reference/` and is compared against. |
 | `backends` | The two shader sets are written twice on purpose; this is what stops them drifting apart. Needs a working WebGPU device and usually skips for want of one. |
