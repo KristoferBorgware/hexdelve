@@ -42,6 +42,22 @@ const root = import.meta.dirname;
 export const publicDir = resolve(root, 'public');
 
 /**
+ * The only directories a dev server will hand a file out of.
+ *
+ * Vite serves what is under its root, and the root here is a package inside a
+ * repository — so without this the answer to `GET /package.json` is the file.
+ * That is documented Vite behaviour and it costs nothing while a server is
+ * bound to localhost, which it is until somebody passes `--host`. The header
+ * above already says that is one flag away.
+ *
+ * Derived rather than guessed. `server.fs.deny` is the other way round and
+ * would be a list of everything somebody thought of, which is the wrong shape
+ * for a guard: these three are what the apps actually read — the asset tree
+ * they serve, the sources their aliases point at, and the packages they import.
+ */
+export const servedDirs = [publicDir, resolve(root, 'packages'), resolve(root, 'node_modules')];
+
+/**
  * The client's scripts, which no application imports.
  *
  * They are compiled apart from both apps — by `tools/build-scripts.mjs` for a
