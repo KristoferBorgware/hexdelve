@@ -225,6 +225,15 @@ found.
 Opening or closing a door updates the view (`PU_UPDATE_VIEW`) and
 monster visibility.
 
+Four details of the commands themselves. `do_cmd_open()` does not ask for
+a direction when exactly one adjacent grid holds a door or chest — it
+picks that one. `do_cmd_alter_aux()` on an adjacent door toggles it:
+opens it if closed, closes it if open. Locking retries on failure while
+`randint1(skill) > 5`, so a low-skill character gives up quickly and a
+high-skill one keeps trying. And picking a lock gives **no experience**,
+which the source notes was removed "to avoid exploit by repeatedly
+locking and unlocking" — unlike disarming a trap, which does (17.5).
+
 ---
 
 ## 17.7 Rubble, veins and walls (`do_cmd_tunnel_aux`, `T`)
@@ -239,12 +248,17 @@ Each attempt is one turn and succeeds if `chance > randint0(1600)`:
 | granite (4) | `(DIGGING − 40) × 1` |
 | doors, secret doors (5) | `(DIGGING × 4 − 119) / 3` |
 
-Permanent rock cannot be dug. `SKILL_DIGGING` = race/class base +
-`TUNNEL` modifier × 20 from equipment (shovel +1, pick +2, dwarven
-pick +3, egos more) + wielded weapon weight / 10 + the STR-based
-`adj_str_dig` table (see *Player Stats* 4.11).
-The command automatically swaps to your **best digger** in the pack
-(`player_best_digger`) for the calculation, so you need not wield it.
+Permanent rock, shop doors and stairs cannot be dug, and digging into a
+monster attacks it instead. How `SKILL_DIGGING` is assembled from race,
+strength, the `TUNNEL` modifier and weapon weight is in *Player Stats*
+4.11. The command
+automatically swaps to your **best digger** in the pack
+(`player_best_digger`) for the calculation, so you need not wield it —
+the message then says "with your swap digger".
+
+A failure with a positive chance repeats (99 times by default); a chance
+of zero says the attempt is futile and does not repeat, so a character
+who cannot dig granite is told so once rather than grinding at it.
 
 Examples: digging skill 30 → rubble 240/1600 = 15 % per turn, magma
 80/1600 = 5 %, quartz 20/1600 = 1.25 %, granite 0. Skill 100 (a

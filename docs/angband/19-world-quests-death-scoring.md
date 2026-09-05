@@ -247,23 +247,14 @@ writes a separate file).
 
 ## 19.8 Birth options that change the world
 
-| Option | Default | Effect |
-|---|---|---|
-| `birth_randarts` | off | replace the standard artifact set with random artifacts (`randart.c`) of equivalent power |
-| `birth_connect_stairs` | on | arrive on a staircase of the type you used |
-| `birth_force_descend` | off | no up staircases work; recall goes to `max_depth + 1`; deep descent from `max_depth` |
-| `birth_no_recall` | off | Word of Recall does nothing (until you win) |
-| `birth_no_artifacts` | off | no artifacts are generated |
-| `birth_stacking` | on | more than one object may occupy a floor grid |
-| `birth_lose_arts` | off | artifacts left on a level are gone for good (otherwise unseen ones may be regenerated) |
-| `birth_feelings` | on | level feelings shown |
-| `birth_no_selling` | on | selling gives 0 gold and identification; dungeon gold ×5 |
-| `birth_start_kit` | on | start with the class kit instead of extra gold |
-| `birth_ai_learn` | on | monsters remember your resistances (*Chapter 13* 13.5.1) |
-| `birth_know_runes` | off | all runes known from the start |
-| `birth_know_flavors` | off | all flavours known from the start |
-| `birth_levels_persist` | off | levels are stored and restored (*Dungeon Generation* 16.8) |
-| `birth_percent_damage` | off | experimental: to-dam is a percentage of the dice (*Melee Combat* 7.4 O-combat multipliers) |
+Every birth option, with its default and its effect in code, is tabulated
+in *Character Creation* 3.10. They are frozen when the character is
+accepted and shown on the character dump.
 
-Birth options are frozen when the character is accepted; they are
-shown on the character dump.
+The ones that change how the world behaves rather than how the character
+starts are `birth_force_descend` and `birth_no_recall` (19.2, 19.7),
+`birth_connect_stairs` (19.2), `birth_levels_persist`
+(*Dungeon Generation* 16.8), `birth_lose_arts` and `birth_feelings`
+(16.9), `birth_no_artifacts` and `birth_randarts` (*Objects* 14.5),
+`birth_no_selling` (*Stores* 18.3) and `birth_ai_learn`
+(*Chapter 13* 13.5.1).

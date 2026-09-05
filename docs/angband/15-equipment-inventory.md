@@ -236,17 +236,14 @@ Weight itself: every object weight is in tenth-pounds (Long Sword 130 =
 
 ## 15.8 Inventory damage from attacks
 
-`inven_damage(p, type, cperc)` (in `player-util.c`, called from
-`adjust_dam`/monster blows): scans the pack for objects that `HATES`
-the element and are not `IGNORE`-protected, and for each, with chance
-`cperc` per item (scaled by damage), for each such stack: unequipped weapons lose 1 to-hit and 1 to-dam,
-armour loses 1 to-AC, each with probability `cperc / 10000`; other items
-are destroyed one by one, each with probability `cperc / 10000` (rods a
-quarter of that); artifacts and equipped items are skipped here
-(equipped armour is handled separately by `minus_ac`, see *Chapter 10*
-10.5). Callers pass `cperc` as a multiple of the damage taken, so a
-300-point fire breath (`cperc` capped at 300) burns each scroll with
-about 3 % chance.
+`inven_damage(p, type, cperc)` (`player-util.c`) is described with its
+`cperc` values and per-item odds in *Chapter 10* 10.5. What matters for
+the gear list is its scope: it walks the **pack and quiver only**.
+Artifacts are skipped, and so is everything equipped — worn armour is
+eroded instead by `minus_ac()` on an acid hit (10.2), and a wielded
+weapon is never damaged this way at all. Moving a vulnerable item into an
+equipment slot therefore takes it out of reach of every breath and bolt
+that would otherwise roll against it.
 
 ---
 
