@@ -196,18 +196,18 @@ parts:
   - sides: [L, R]
     mirror: true
     parts:
-      - { bone: 'hip*', at: [0, -0.224, 0], size: [0.105, 0.404, 0.1], color: trouser }
-      - { bone: 'hip*', at: [0, -0.056, 0.03], size: [0.1, 0.079, 0.085], color: trouser }
-      - { bone: 'hip*', at: [0.1, -0.224, 0], size: [0.01, 0.382, 0.012], color: trouserShade }
-      - { bone: 'hip*', at: [0, -0.382, 0.055], size: [0.07, 0.09, 0.05], color: trouserShade }
-      - { bone: 'shin*', at: [0, 0, 0.055], size: [0.07, 0.091, 0.045], color: trouserShade }
-      - { bone: 'shin*', at: [0, -0.114, 0], size: [0.09, 0.229, 0.09], color: trouser }
-      - { bone: 'shin*', at: [0, -0.274, 0.005], size: [0.098, 0.251, 0.1], color: boot }
-      - { bone: 'shin*', at: [0, -0.16, 0.005], size: [0.104, 0.046, 0.106], color: bootDark }
-      - { bone: 'shin*', at: [0, -0.229, 0.005], size: [0.102, 0.021, 0.104], color: strap }
-      - { bone: 'shin*', at: [0, -0.309, 0.005], size: [0.104, 0.021, 0.106], color: strap }
-      - { bone: 'shin*', at: [0.1, -0.229, 0.03], size: [0.012, 0.025, 0.015], color: buckle }
-      - { bone: 'shin*', at: [0.1, -0.309, 0.03], size: [0.012, 0.025, 0.015], color: buckle }
+      - { bone: 'hip*', at: [0, -0.209, 0], size: [0.105, 0.378, 0.1], color: trouser }
+      - { bone: 'hip*', at: [0, -0.052, 0.03], size: [0.1, 0.074, 0.085], color: trouser }
+      - { bone: 'hip*', at: [0.1, -0.209, 0], size: [0.01, 0.357, 0.012], color: trouserShade }
+      - { bone: 'hip*', at: [0, -0.357, 0.055], size: [0.07, 0.084, 0.05], color: trouserShade }
+      - { bone: 'shin*', at: [0, 0, 0.055], size: [0.07, 0.084, 0.045], color: trouserShade }
+      - { bone: 'shin*', at: [0, -0.105, 0], size: [0.09, 0.212, 0.09], color: trouser }
+      - { bone: 'shin*', at: [0, -0.253, 0.005], size: [0.098, 0.232, 0.1], color: boot }
+      - { bone: 'shin*', at: [0, -0.148, 0.005], size: [0.104, 0.043, 0.106], color: bootDark }
+      - { bone: 'shin*', at: [0, -0.212, 0.005], size: [0.102, 0.019, 0.104], color: strap }
+      - { bone: 'shin*', at: [0, -0.286, 0.005], size: [0.104, 0.019, 0.106], color: strap }
+      - { bone: 'shin*', at: [0.1, -0.212, 0.03], size: [0.012, 0.023, 0.015], color: buckle }
+      - { bone: 'shin*', at: [0.1, -0.286, 0.03], size: [0.012, 0.023, 0.015], color: buckle }
       - { bone: 'foot*', at: [0, -0.05, 0.02], size: [0.098, 0.1, 0.11], color: boot }
       - { bone: 'foot*', at: [0, -0.06, 0.12], size: [0.085, 0.07, 0.09], color: bootDark }
       - { bone: 'foot*', at: [0, -0.078, 0.05], size: [0.1, 0.02, 0.15], color: sole }

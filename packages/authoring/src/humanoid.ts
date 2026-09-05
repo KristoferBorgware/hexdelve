@@ -29,7 +29,7 @@ import type { Skeleton } from '@hexdelve/engine';
 import { groundPath, plus, turn, twoLink, type Planar } from './planar.js';
 
 /** Hip to ankle. The stride's arcs are solved against this. */
-export const LEG_LENGTH = 0.46 + 0.4;
+export const LEG_LENGTH = 0.43 + 0.37;
 
 /**
  * Enough of the rig to measure a ground speed off.
@@ -43,11 +43,11 @@ export const LEG_LENGTH = 0.46 + 0.4;
 export const HUMANOID_SKELETON: Skeleton = [
 	{ name: 'root', parent: null, offset: [0, 0.92, 0] },
 	{ name: 'hipL', parent: 'root', offset: [0.16, -0.04, 0] },
-	{ name: 'shinL', parent: 'hipL', offset: [0, -0.46, 0] },
-	{ name: 'footL', parent: 'shinL', offset: [0, -0.4, 0] },
+	{ name: 'shinL', parent: 'hipL', offset: [0, -0.43, 0] },
+	{ name: 'footL', parent: 'shinL', offset: [0, -0.37, 0] },
 	{ name: 'hipR', parent: 'root', offset: [-0.16, -0.04, 0] },
-	{ name: 'shinR', parent: 'hipR', offset: [0, -0.46, 0] },
-	{ name: 'footR', parent: 'shinR', offset: [0, -0.4, 0] },
+	{ name: 'shinR', parent: 'hipR', offset: [0, -0.43, 0] },
+	{ name: 'footR', parent: 'shinR', offset: [0, -0.37, 0] },
 ];
 
 /**
@@ -63,8 +63,8 @@ export const HUMANOID_CHAIN = {
 	hipHeight: 0.92,
 	hip: [-0.04, 0],
 	hipWidth: 0.16,
-	thigh: [-0.46, 0],
-	shin: [-0.4, 0],
+	thigh: [-0.43, 0],
+	shin: [-0.37, 0],
 	spine: [0.14, 0],
 	chest: [0.22, 0],
 	shoulder: [0.12, 0],

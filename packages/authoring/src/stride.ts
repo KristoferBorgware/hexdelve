@@ -19,14 +19,17 @@
  * discovered, and it is exactly proportional to the stride. A sliding foot
  * cannot be written.
  *
- * ## The crouch is the stride's, not the rig's
+ * ## The hips drop by what the leg cannot reach
  *
- * His hip sits 0.80 m above where his ankle stands and his leg is 0.86 m, so
- * standing costs him nothing but a soft knee. What the hips drop for is the
- * stride: a foot reaching 0.34 m in front of the hip is 0.34 m around a circle
- * of radius 0.86, and the hip comes down by the difference. That is geometry
- * rather than taste, and it is why the run drops further than the walk — a
- * longer step is a lower hip, on any leg.
+ * His leg is exactly as long as the drop from his hip to his standing ankle,
+ * so standing he is straight-legged with his soles down and there is no slack
+ * to stride into. Every centimetre of that comes from the hips: a foot at the
+ * end of its step is that far round a circle of the leg's own radius, and the
+ * hip drops by what the circle takes off the vertical. The drop is deepest at
+ * footfall, where the feet are furthest apart, and shallowest at mid-stance,
+ * where the planted foot is directly below. A longer step is a lower hip, on
+ * any leg, so the run drops further than the walk without either being a
+ * number anyone chose.
  *
  * ## One direction
  *
@@ -45,7 +48,14 @@
 
 import { measureGroundSpeed, setSparse, type SparsePose } from '@hexdelve/engine';
 
-import { HUMANOID_CHAIN, HUMANOID_SKELETON, solveLeg, type Step, type Trunk } from './humanoid.js';
+import {
+	HUMANOID_CHAIN,
+	HUMANOID_SKELETON,
+	LEG_LENGTH,
+	solveLeg,
+	type Step,
+	type Trunk,
+} from './humanoid.js';
 
 const PI = Math.PI;
 const TAU = PI * 2;
@@ -69,10 +79,9 @@ export const HUMANOID_SOLE = 0.08;
 /**
  * Half the ground one foot covers in a stance, at a full stride.
  *
- * Long enough to read as a stride and short enough for the leg to reach it
- * from the crouch below, which is the binding constraint rather than the look
- * of it: a leg of 0.76 reaching a foot 0.37 out in front has to have dropped
- * the hip to about 0.75 to do it.
+ * Long enough to read as a stride, and free to be: the hips drop by whatever
+ * the leg needs to reach it, so this sets how far he travels rather than how
+ * bent he looks.
  */
 const WALK_STRIDE = 0.34;
 const RUN_STRIDE = 0.44;
@@ -81,16 +90,51 @@ const RUN_STRIDE = 0.44;
 const WALK_LIFT = 0.12;
 const RUN_LIFT = 0.2;
 
+/** How far the hips roll over the planted foot, in radians, at a full stride. */
+const ROLL = 0.05;
+
 /**
- * How far the hips drop below the rig's rest height.
+ * How much shorter than the leg the hips are placed, once he is moving.
  *
- * Standing costs a soft knee and no more. The rest is what the stride needs: a
- * foot reaching further forward is a foot reaching further round the leg's own
- * circle, and the hip comes down by what is left over.
+ * A leg solved to exactly its own length is straight, and a leg that reaches
+ * exactly its own length twice a cycle straightens and folds again through a
+ * corner: the knee angle goes as the square root of the slack, so the last
+ * millimetre of it is worth ten degrees. Holding the hips a few millimetres
+ * inside the reach keeps a bend in the knee the whole way round, and the
+ * corner becomes a curve. It is about the flexion a walking knee carries at
+ * heel strike.
  */
-const STAND_CROUCH = 0;
-const WALK_CROUCH = 0.04;
-const RUN_CROUCH = 0.05;
+const KNEE_RESERVE = 0.004;
+
+/** The distance the hips are placed at from an ankle, rather than the leg. */
+const REACH = LEG_LENGTH - KNEE_RESERVE;
+
+/**
+ * How far the root drops to put the leading hip `REACH` from its ankle.
+ *
+ * The hip sits on a circle of `REACH` about the ankle, and the vertical side
+ * of that triangle is what is left of the radius once the horizontal side is
+ * taken out. Everything between the root and the hip joint is in that side:
+ * leaning tips the hip back off the root, so it is further from a foot in
+ * front and the horizontal side grows; rolling lifts the hip the leading leg
+ * hangs from, so the root has to come down by as much again.
+ *
+ * @param reach how far in front of the root the leading ankle lands
+ * @param lean  the root's own pitch, in radians
+ * @param roll  the root's own roll, in radians
+ */
+function hipDrop(reach: number, lean: number, roll: number): number {
+	const [hipY] = HUMANOID_CHAIN.hip;
+	const across = reach - hipY * Math.sin(lean);
+	const down = Math.sqrt(Math.max(0, REACH * REACH - across * across));
+	return (
+		HUMANOID_CHAIN.hipHeight -
+		HUMANOID_SOLE -
+		down +
+		hipY * Math.cos(lean) +
+		HUMANOID_CHAIN.hipWidth * Math.abs(Math.sin(roll))
+	);
+}
 
 export const stridePeriod = (gait: number): number =>
 	WALK_PERIOD + (RUN_PERIOD - WALK_PERIOD) * gait;
@@ -130,19 +174,35 @@ export function stridePose(
 	const breath = still * Math.sin(time * 1.8);
 
 	/*
-	 * The trunk. The hips drop to put the feet within reach, dip twice a cycle
-	 * as the weight comes onto each leg, and roll over the planted foot; the
-	 * spine leans into the travel, much harder at a run.
+	 * The legs' step, which the hips are placed from: how far each foot travels
+	 * in a stance and how high it is carried between them.
 	 */
-	const crouch = STAND_CROUCH + WALK_CROUCH * stride + RUN_CROUCH * run * stride;
-	const dip = 0.022 * stride * (1 - Math.cos(2 * theta));
-	const roll = 0.05 * stride * sinT;
-	const rootY = HUMANOID_CHAIN.hipHeight - crouch - dip;
+	const step: Step = {
+		restZ: 0,
+		halfStride: WALK_STRIDE + (RUN_STRIDE - WALK_STRIDE) * run,
+		lift: WALK_LIFT + (RUN_LIFT - WALK_LIFT) * run,
+	};
+
+	/*
+	 * The trunk. The hips roll over the planted foot, and dip twice a cycle to
+	 * put the feet within reach: the reserve alone at mid-stance, where the
+	 * planted foot is directly below, the full drop at footfall, where the feet
+	 * are furthest apart, and a cosine between — which is above what the reach
+	 * asks for the whole way, so no foot is ever left hanging. The spine leans
+	 * into the travel, much harder at a run.
+	 */
 	const lean = (0.04 + 0.26 * run) * stride;
+	const pitch = lean * 0.45;
+	const roll = ROLL * stride * sinT;
+	const rest = hipDrop(0, pitch, 0);
+	const held = rest * stride;
+	const reached = hipDrop(step.halfStride * stride, pitch, ROLL * stride) - rest;
+	const dip = held + reached * (1 - Math.cos(2 * theta)) * 0.5;
+	const rootY = HUMANOID_CHAIN.hipHeight - dip;
 
 	const trunk: Trunk = {
 		root: [rootY, 0],
-		rootRot: lean * 0.45,
+		rootRot: pitch,
 		spineRot: lean * 0.35 + 0.02 * breath,
 		chestRot: lean * 0.2 + 0.03 * breath,
 	};
@@ -163,11 +223,6 @@ export function stridePose(
 	 * far the hips have dropped. The ankle levels the sole through the stance
 	 * and points the toe through the swing.
 	 */
-	const step: Step = {
-		restZ: 0,
-		halfStride: WALK_STRIDE + (RUN_STRIDE - WALK_STRIDE) * run,
-		lift: WALK_LIFT + (RUN_LIFT - WALK_LIFT) * run,
-	};
 	leg(out, ['hipL', 'shinL', 'footL'], theta, stride, 1, trunk, roll, step);
 	leg(out, ['hipR', 'shinR', 'footR'], theta + PI, stride, -1, trunk, roll, step);
 
