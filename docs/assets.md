@@ -119,8 +119,11 @@ with no components" is a real answer where an absent prefab is not.
 know what an `item` is and must not — `@hexdelve/engine` has never heard of a
 bat, and a format that had to be taught each component would be a format the
 client could not add to. A `ComponentRegistry` maps the type to whoever claimed
-it; `packages/client/src/game/components.ts` is where the game says what its own
-are. An unknown type fails by name and lists what there was.
+it. `script` is claimed by the engine itself — `Script` and `ScriptHost` live
+there, so there is nothing for a game to decide about what building one means —
+and `packages/client/src/game/components.ts` is where the game adds its own,
+`actor` and `item`, on top of that. An unknown type fails by name and lists
+what there was.
 
 What a factory cannot read from the record it takes off the entity being
 spawned. `{ type: actor }` is bare because an actor on a wanderer is the

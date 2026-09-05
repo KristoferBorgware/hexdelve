@@ -37,6 +37,14 @@ import {
 	type ScriptProvider,
 } from '@hexdelve/engine';
 
+import {
+	engineComponents,
+	instantiate,
+	readPrefabNode,
+	AssetNode,
+	type PrefabNode,
+} from '@hexdelve/engine';
+
 import { bundleScripts, scriptDir } from '../tools/build-scripts.mjs';
 import { openLibrary } from './harness/assets.js';
 
@@ -413,6 +421,68 @@ describe('a script as a component', () => {
 
 		expect(hand.getComponentInParent(Counter)).toBe(live(subject));
 		expect(body.getComponentInChildren(Counter)).toBe(live(subject));
+	});
+});
+
+/*
+ * `script`, as a component type an entity file's prefab can name.
+ *
+ * The engine registers this one itself — `Script` and `ScriptHost` live here,
+ * so there is nothing for a game to decide about what building one means. This
+ * is the same path a real entity file's `object:` block goes through, one
+ * level down from `readPrefabNode`, rather than a test of the factory in
+ * isolation: `instantiate` is what actually dispatches on the type string, and
+ * a factory that works when called directly but is never reached by that
+ * dispatch would pass a narrower test and still be broken.
+ */
+describe('script as a component type the engine registers itself', () => {
+	function prefab(yaml: string): PrefabNode {
+		return readPrefabNode(AssetNode.parse(yaml, 'thing.yaml'), 'thing');
+	}
+
+	it('builds through instantiate, with no game vocabulary registered at all', () => {
+		const { host: make } = quiet();
+		const host = make(staticScripts({ Counter }));
+		const scene = new Scene();
+
+		const object = instantiate(
+			prefab('components: [{ type: script, script: Counter, rate: 3 }]'),
+			scene,
+			engineComponents(),
+			{ extras: { scripts: { host, scene } } },
+		);
+
+		const script = object.getComponent(Script);
+		expect(script, 'the type dispatched to the host, not to nothing').not.toBeNull();
+		expect((script as Counter).rate, 'and the parameter reached it').toBe(3);
+	});
+
+	it('says so, by name, when nothing was given to run scripts with', () => {
+		const scene = new Scene();
+		expect(() =>
+			instantiate(
+				prefab('components: [{ type: script, script: Counter }]'),
+				scene,
+				engineComponents(),
+			),
+		).toThrow(/nothing here runs scripts, and this prefab asks for one/);
+	});
+
+	/*
+	 * The safety `ComponentRegistry.register` exists for. `engineComponents`
+	 * returns a fresh instance on every call precisely so that this cannot
+	 * happen by accident — a shared registry that already carried `script`
+	 * would throw the first time any game tried to add its own vocabulary to
+	 * it, since two calls a build apart would both be registering the same
+	 * class under the same name.
+	 */
+	it('is a fresh registry each time, so a game can build its own on top', () => {
+		const first = engineComponents();
+		const second = engineComponents();
+		expect(first).not.toBe(second);
+		expect(() => second.register('script', () => {})).toThrow(/already registered/);
+		// And a game's own type is unaffected by the other instance existing.
+		expect(() => first.register('marker', () => {})).not.toThrow();
 	});
 });
 

@@ -23,6 +23,11 @@ export {
 	type ScriptSpawner,
 	type SpawnPlacement,
 } from './ScriptHost.js';
+export {
+	engineComponents,
+	scriptComponentFactory,
+	type ScriptSpawnExtras,
+} from './component.js';
 export { noScripts, staticScripts } from './providers.js';
 export {
 	scriptSdkShim,

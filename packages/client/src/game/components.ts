@@ -1,5 +1,5 @@
 /*
- * The component types a prefab file may name.
+ * The component types a prefab file may name that are not the engine's own.
  *
  * The engine can read a prefab and walk it; it cannot build an `item`, because
  * it has never heard of one. This is where the game says what its own
@@ -15,31 +15,23 @@
  * a mesh, and an `item` on a helmet is the helmet's mesh by definition rather
  * than by a path repeated inside its own file.
  *
- * ## The three of them
+ * ## Only two of them are here
  *
  * `actor` and `item` are pure description — a body, and a thing lying in the
- * grass. `script` is the one that matters: it names a class in the client's
- * `scripts/` directory and hands it the record's other fields as parameters, so
- * everything the game DECIDES can move into a file that can be edited without
- * rebuilding anything.
- *
- *     - { type: script, script: Spin, speed: 2 }
- *
- * Every field beyond `type` and `script` is a parameter, which is why this one
- * does not call `only`: the record's shape belongs to the script it names, and
- * a script that does not declare `speed` says so through the host rather than
- * through the reader.
+ * grass — and hexdelve's own vocabulary; the engine has never heard of either.
+ * `script` is not: `Script` and `ScriptHost` live IN the engine, so the engine
+ * already knows what building one means and registers the type itself — see
+ * `engineComponents` in `@hexdelve/engine`. This registry starts from that one
+ * rather than repeating it.
  */
 
 import {
 	buildSkeletonView,
-	ComponentRegistry,
+	engineComponents,
 	type ComponentContext,
 	type EntityAsset,
-	type Scene,
+	type ScriptSpawnExtras,
 } from '@hexdelve/engine';
-
-import type { ScriptHost } from '@hexdelve/engine';
 
 import { Actor } from './actor.js';
 import { BoneFollow } from './bonefollow.js';
@@ -48,12 +40,12 @@ import { Item } from './items.js';
 /**
  * What a factory is handed beyond the record itself.
  *
- * The entity is what a component's defaults come from. Everything else a
- * behaviour needs — the world it stands on, who to tell when it hits something
- * — is not here, because none of it belongs to a prefab: those arrive with the
- * scripts, through the systems the scripts talk to.
+ * `scripts` is the engine's own contract for a `script` component — see
+ * `ScriptSpawnExtras` — inherited rather than restated, so the two cannot drift
+ * apart. `entity` is this package's own addition: where an `actor` or an `item`
+ * takes its defaults from, and something only an entity has.
  */
-export interface SpawnExtras {
+export interface SpawnExtras extends ScriptSpawnExtras {
 	/**
 	 * What is being spawned, where a component's defaults come from.
 	 *
@@ -61,14 +53,6 @@ export interface SpawnExtras {
 	 * mesh and nothing to draw, so a factory that needs one says so by name.
 	 */
 	readonly entity?: EntityAsset;
-	/**
-	 * What runs the scripts, and the scene they reach things through.
-	 *
-	 * Absent when nothing is spawning scripts — a bench previewing a body has
-	 * no use for a script host, and a prefab that names one there should say so
-	 * rather than quietly do nothing.
-	 */
-	readonly scripts?: { readonly host: ScriptHost; readonly scene: Scene };
 }
 
 function extrasOf(context: ComponentContext): SpawnExtras {
@@ -139,41 +123,14 @@ function itemFactory(context: ComponentContext): void {
 }
 
 /**
- * A behaviour, by the name its file exports it under.
- *
- * The parameters are every other field in the record. They are read as raw
- * values rather than through the `Node` helpers, because a script's fields are
- * the script's to describe — the host checks them against what the class
- * declared and names the ones it does not know.
- */
-function scriptFactory(context: ComponentContext): void {
-	const { scripts } = extrasOf(context);
-	if (!scripts) {
-		throw new Error('nothing here runs scripts, and this prefab asks for one');
-	}
-
-	const name = context.fields.need('script').text();
-	/*
-	 * Through the host rather than `addComponent`. Every other component here
-	 * is built from data the reader has already loaded; a script is built from
-	 * a CLASS, found by name in a bundle compiled separately, which the host
-	 * can replace while the game runs. What comes out is an ordinary component
-	 * on the object.
-	 */
-	scripts.host.attach(context.object, name, {
-		scene: scripts.scene,
-		parameters: context.fields.rest('type', 'script'),
-	});
-}
-
-/**
  * Everything this package can build from a prefab.
  *
- * One registry, exported rather than constructed per caller, for the reason the
- * pose functions are: two libraries disagreeing about what `item` means is not
- * a state worth being able to reach.
+ * Starts from `engineComponents()`, which already knows what `script` means,
+ * and adds the two types that are this game's own vocabulary. One registry,
+ * exported rather than constructed per caller, for the reason the pose
+ * functions are: two libraries disagreeing about what `item` means is not a
+ * state worth being able to reach.
  */
-export const components = new ComponentRegistry()
+export const components = engineComponents()
 	.register('actor', actorFactory)
-	.register('item', itemFactory)
-	.register('script', scriptFactory);
+	.register('item', itemFactory);
