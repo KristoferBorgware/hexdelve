@@ -89,7 +89,9 @@ export {
 export {
 	emitYaml,
 	writeComponent,
+	writeClip,
 	writeEntity,
+	type ClipFile,
 	writePrefabNode,
 	type Emittable,
 } from './emit.js';

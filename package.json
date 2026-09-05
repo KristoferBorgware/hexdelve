@@ -29,6 +29,7 @@
 		"build:pages": "npm run build && node tools/build-pages.js",
 		"assets": "npm run build:libs && node tools/build-assets.mjs",
 		"audio": "node tools/build-audio.mjs",
+		"bake": "npm run build:libs && node tools/bake-clips.mjs",
 		"scripts:build": "node tools/build-scripts.mjs",
 		"dev:client": "npm run dev -w @hexdelve/client",
 		"dev:editor": "npm run dev -w @hexdelve/editor",

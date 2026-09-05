@@ -23,6 +23,7 @@
  * diff against a hand-written file.
  */
 
+import type { ClipEvent, PoseEntry, PoseKey } from '../anim/clip.js';
 import type { EntityDocument } from './entity.js';
 import type { ComponentSpec, PrefabNode } from './prefab.js';
 
@@ -187,6 +188,62 @@ export function emitYaml(value: Emittable): string {
 	const lines: string[] = [];
 	emitValue(value, '', lines);
 	return lines.length === 0 ? '' : `${lines.join('\n')}\n`;
+}
+
+/**
+ * A clip, as the file the loader reads.
+ *
+ * Pose-major, because that is the shape a clip is authored in and a written
+ * one has to sit beside a hand-written one without announcing which is which.
+ * A pose emits only the bones that have a key at that moment, so a bone that
+ * says nothing between two moments takes no room in either.
+ *
+ * `rig` is a path rather than an id: a clip names the skeleton its numbers
+ * mean something on, and that is how every other file in the tree points at
+ * one.
+ */
+export function writeClip(spec: ClipFile): string {
+	const poses = spec.poses.map((pose) => ({
+		t: pose.t,
+		...(pose.e !== undefined ? { ease: pose.e } : {}),
+		bones: Object.fromEntries(
+			Object.entries(pose.p).map(([bone, entry]) => [bone, writePoseEntry(entry)]),
+		),
+	}));
+
+	return emitYaml({
+		id: spec.id,
+		...(spec.name !== undefined ? { name: spec.name } : {}),
+		rig: spec.rig,
+		duration: spec.duration,
+		loop: spec.loop,
+		...(spec.events && spec.events.length > 0
+			? { events: spec.events.map((event) => ({ t: event.t, name: event.name })) }
+			: {}),
+		poses,
+	} as Emittable);
+}
+
+export interface ClipFile {
+	readonly id: string;
+	readonly name?: string;
+	/** The rig this clip's numbers are about, as a path from the clip. */
+	readonly rig: string;
+	readonly duration: number;
+	readonly loop: 'loop' | 'hold';
+	readonly events?: readonly ClipEvent[];
+	readonly poses: readonly PoseKey[];
+}
+
+/** Three numbers where that is all it is, and a mapping where it is not. */
+function writePoseEntry(entry: PoseEntry): Emittable {
+	if (Array.isArray(entry)) return [...entry] as Emittable;
+	const record = entry as { rot?: readonly number[]; pos?: readonly number[]; e?: string };
+	return {
+		...(record.rot ? { rot: [...record.rot] } : {}),
+		...(record.pos ? { pos: [...record.pos] } : {}),
+		...(record.e !== undefined ? { ease: record.e } : {}),
+	} as Emittable;
 }
 
 /**

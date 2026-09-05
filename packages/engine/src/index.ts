@@ -179,6 +179,19 @@ export {
 } from './anim/calibrate.js';
 
 /*
+ * The other direction: keys sampled off something that is not a clip, so a
+ * cycle worked out as a function can become a file somebody edits by hand.
+ */
+export {
+	bakeClip,
+	type Baked,
+	type BakeError,
+	type BakeOptions,
+	type BakeReport,
+	type BakeSampler,
+} from './anim/bake.js';
+
+/*
  * Blend trees: a pose from a set of numbers rather than from a clip name.
  * Engine-side because everything it touches is — poses, clips, skeletons — and
  * nothing in it knows what a renderer is.
@@ -277,7 +290,9 @@ export {
 	loadSystem,
 	emitYaml,
 	writeComponent,
+	writeClip,
 	writeEntity,
+	type ClipFile,
 	writePrefabNode,
 	type Emittable,
 	emptyPrefab,
