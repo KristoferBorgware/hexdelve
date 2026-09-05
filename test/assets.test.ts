@@ -9,7 +9,7 @@
  *
  * What is left here is the three things that outlive the migration.
  *
- * The files LOAD, and to the shapes the game expects: eleven entities, six
+ * The files LOAD, and to the shapes the game expects: twelve entities, six
  * rigs, the trees measuring their own thresholds. A file that stopped parsing
  * would be found by the render test too, but only as a blank picture.
  *
@@ -247,6 +247,7 @@ describe('entities', () => {
 		const all = await library.index();
 		expect(all.map((one) => one.id)).toEqual([
 			'wanderer',
+			'wanderer2',
 			'ghoul',
 			'bat',
 			'hellhound',
@@ -258,6 +259,25 @@ describe('entities', () => {
 			'sword',
 			'shield',
 		]);
+	});
+
+	it('gives the second wanderer the first one’s rig and every one of his animations', async () => {
+		const wanderer = await entity('wanderer');
+		const second = await entity('wanderer2');
+		expect(second.rig).toBe(wanderer.rig);
+		expect(second.mesh).not.toBe(wanderer.mesh);
+		expect([...second.animations.keys()]).toEqual([...wanderer.animations.keys()]);
+		for (const [name, animation] of wanderer.animations) {
+			const twin = second.animations.get(name)!;
+			expect(twin.duration, name).toBeCloseTo(animation.duration, 12);
+			expect(twin.clip === null, name).toBe(animation.clip === null);
+		}
+		expect(second.blendTrees.get('locomotion')).toBeDefined();
+		// The props attach to the rig's bones, so they fit him as they fit the wanderer.
+		for (const prop of ['helmet', 'sword', 'shield']) {
+			const worn = await entity(prop);
+			expect(worn.attach!.rig, prop).toBe(second.rig);
+		}
 	});
 
 	it('gives the wanderer and the ghoul the same rig, and nothing else', async () => {

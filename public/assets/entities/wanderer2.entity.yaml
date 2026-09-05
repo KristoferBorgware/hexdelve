@@ -1,0 +1,46 @@
+# The second wanderer: the player character in a second body.
+#
+# The wanderer's rig, the wanderer's animations, clips and tree, and a body
+# of its own — which is the arrangement the entity files exist to make:
+# nothing below this file knows which of the two it is dressing. The
+# animation block is the wanderer's, written out here because an entity
+# names its own animations; the files it names are shared, not copied.
+
+id: wanderer2
+name: Wanderer 2
+kind: character
+blurb: Grey-bearded fighter, bare-armed and broad, in a shoulder wrap and boots
+
+rig: ../rigs/humanoid.rig.yaml
+mesh: ../meshes/wanderer2.mesh.yaml
+
+animations:
+  # The gait is one function at three settings rather than three animations:
+  # `amp` is the throttle between standing and a full stride, `gait` between a
+  # walk and a run. The durations are the cycles those settings run at, and
+  # the contacts come from the function itself.
+  idle: { procedural: stride, label: Idle, args: { amp: 0 }, duration: tau / 1.8 }
+  walk: { procedural: stride, label: Walk, args: { amp: 1, gait: 0 }, sync: true }
+  run: { procedural: stride, label: Run, args: { amp: 1, gait: 1 }, sync: true }
+
+  # And the keyframed half, which is everything with a beginning and an end.
+  guard: ../clips/guard.clip.yaml
+  slash: ../clips/slash.clip.yaml
+  duck: ../clips/duck.clip.yaml
+  upright: ../clips/upright.clip.yaml
+  leanLeft: ../clips/lean-left.clip.yaml
+  leanRight: ../clips/lean-right.clip.yaml
+
+blendTrees:
+  locomotion: ../trees/locomotion.tree.yaml
+
+# What it is when it is standing in the world: one object, with a body on it.
+# The body is the rig and the mesh above — an actor on a wanderer is the
+# wanderer's, by definition rather than by a path repeated inside its own file.
+# What it DOES is not here yet; that arrives as a script component.
+object:
+  components:
+    - { type: actor }
+    # What it is in a fight. The numbers are the character's, not the rig's, so
+    # tuning a creature is editing this file rather than a script.
+    - { type: script, script: Character, hp: 20, faction: player, power: 5 }
