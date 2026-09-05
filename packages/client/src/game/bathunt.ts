@@ -343,12 +343,8 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 
 	/* ------------------------------------------------------------ the drawing -- */
 
-	/**
-	 * Draw whatever it is doing at this instant. See `Player.advance` for why
-	 * this is not the component's `update`.
-	 */
-	advance(dt: number, _time: number): void {
-		this.advanceFall(dt);
+	/** Draw whatever it is doing at this instant. */
+	protected override animate(dt: number): void {
 		this.acting.advance(dt);
 
 		const player = this.opponent;

@@ -130,14 +130,33 @@ export abstract class ActorBehaviour extends Component implements TurnTaker {
 	abstract beginTurn(): Action;
 
 	/**
-	 * Draw whatever it is doing at this instant, on the wall clock.
+	 * What this creature looks like doing what it is doing, this frame.
 	 *
-	 * Not `update`, and the difference is the whole shape of a frame: `update`
-	 * is where the game decides things, and this is where the picture of those
-	 * decisions is built. It needs the elapsed clock as well as the delta,
-	 * because a gait is a function of absolute time rather than of a step.
+	 * Called from `update` below, between the act being wound on and the pose
+	 * being solved — which is the order the whole frame turns on and the reason
+	 * `update` is written out here rather than left to each creature.
 	 */
-	abstract advance(dt: number, elapsed: number): void;
+	protected abstract animate(dt: number): void;
+
+	/**
+	 * One frame of this creature: wind the act on, draw it, plant it, solve it.
+	 *
+	 * An ordinary component update, so the scene drives it and nothing outside
+	 * the creature needs to know what order these four happen in — the order is
+	 * a fact about a creature.
+	 *
+	 * One method rather than four components in an entity file for the same
+	 * reason: each of these reads what the last one wrote, so a list an entity
+	 * file could reorder is a list it could reorder wrongly. What the file
+	 * decides is whether a creature HAS feet to plant; what it cannot decide is
+	 * whether they are planted before the pose is solved.
+	 */
+	override update(dt: number): void {
+		this.advanceFall(dt);
+		this.animate(dt);
+		this.applyFootIK();
+		this.solve();
+	}
 
 	/** The bones it moves. Required: a behaviour with nothing to pose is a bug. */
 	readonly rig: Rig;

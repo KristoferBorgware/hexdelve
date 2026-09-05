@@ -53,6 +53,7 @@ import {
 import {
 	HEX_FLAG_UNLIT,
 	Attach,
+	FootIK,
 	MeshRenderer,
 	Rig,
 	entityAnimations,
@@ -649,6 +650,12 @@ export class Simulation {
 		this.actors.length = 0;
 		this.actors.push(...this.scene.root.getComponentsInChildren(ActorBehaviour));
 
+		// Whether feet are planted is a switch on each pair of them, because
+		// every creature solves its own inside its own frame.
+		for (const footIK of this.scene.root.getComponentsInChildren(FootIK)) {
+			footIK.enabled = this.toggles.ik;
+		}
+
 		/*
 		 * Every component on the scene, which today means every script.
 		 *
@@ -670,19 +677,14 @@ export class Simulation {
 		this.emitters.length = 0;
 		this.emitters.push(...this.scene.root.getComponentsInChildren(Particles));
 
-		for (const actor of this.actors) {
-			actor.advance(dt, this.elapsed);
-			if (this.toggles.ik) actor.applyFootIK();
-			actor.solve();
-		}
-
 		/*
 		 * And then whatever is being carried, which has to be here and nowhere
-		 * else. A bone follow reads a pose the actors have just solved and
-		 * writes a local transform the scene is about to compose, so it sits
-		 * between the two — put in `update` with the other components it would
-		 * read last frame's pose and every prop would lag the body holding it
-		 * by a frame.
+		 * else. The actors drew themselves during `scene.update` above, each in
+		 * its own order — see `ActorBehaviour.update`. A bone follow reads a
+		 * pose the actors have just solved and writes a local transform the
+		 * scene is about to compose, so it sits between the two — put in
+		 * `update` with the other components it would read last frame's pose
+		 * and every prop would lag the body holding it by a frame.
 		 *
 		 * The second solve is the cost of that, and it is a handful of objects
 		 * rather than a scene graph.

@@ -399,14 +399,11 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	/**
 	 * Draw whatever he is doing at this instant.
 	 *
-	 * Named apart from the component hook on purpose: this is the ANIMATION
-	 * step, and it takes the simulation's own clock because the actors that
-	 * share this shape need one — his own gait is carried by the blend tree's
-	 * playhead, so he does not. The rules advanced in `resolveTurns` before this
-	 * ran; what happens here is the picture of them.
+	 * The rules decide in `beginTurn`; this is the picture of what they decided.
+	 * It needs no clock beyond the step, because his gait is carried by the
+	 * blend tree's own playhead.
 	 */
-	advance(dt: number, _elapsed: number): void {
-		this.advanceFall(dt);
+	protected override animate(dt: number): void {
 		this.acting.advance(dt);
 
 		const flight = this.acting.flight;
