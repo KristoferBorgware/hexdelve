@@ -85,6 +85,23 @@ afterAll(async () => {
 	await server?.close();
 });
 
+/**
+ * Wait until the hierarchy shows a given number of rows.
+ *
+ * A click returns before React has re-rendered, and `count()` asks once rather
+ * than retrying — so a query straight after an edit reads the tree as it was.
+ * Polled in Node rather than through `waitForFunction`, whose callback runs in
+ * the page and cannot see this file's types.
+ */
+async function rowsSettle(expected: number, within = 5000): Promise<void> {
+	const until = Date.now() + within;
+	for (;;) {
+		const rows = await page!.getByRole('treeitem').count();
+		if (rows === expected || Date.now() > until) return;
+		await new Promise((wake) => setTimeout(wake, 50));
+	}
+}
+
 describe('the entity bench', () => {
 	it('has a browser to run in', () => {
 		// Stated rather than skipped silently: a suite that quietly tests
@@ -120,14 +137,45 @@ describe('the entity bench', () => {
 		expect(await page.getByText('Height of the body above its feet').count()).toBe(1);
 	});
 
-	it('adds an object to the tree', async () => {
+	it('adds an object, and hangs the next one under it', async () => {
 		if (!page) return;
 		const add = page.locator('button').filter({ has: page.locator('svg[data-testid="AddIcon"]') });
-		await add.first().click();
 
+		await add.first().click();
 		await page.getByLabel('Name').fill('grip');
-		// The row in the hierarchy is the tree, redrawn from the draft.
-		expect(await page.getByText('grip', { exact: true }).count()).toBe(1);
+		await add.first().click();
+		await page.getByLabel('Name').fill('blade');
+
+		// Three rows, nested: the new object is added under the selection, and
+		// the selection follows what was just added.
+		await rowsSettle(3);
+		const rows = await page.getByRole('treeitem').allInnerTexts();
+		expect(rows[0], 'the root contains both').toContain('blade');
+		expect(rows[1], 'the grip contains the blade').toContain('blade');
+		expect(rows[2]!.trim()).toBe('blade');
+	});
+
+	/*
+	 * It is a tree rather than a list of indented rows, which is the whole
+	 * reason for the component: the roles are what make the depth of a row
+	 * audible, and collapsing a branch is what makes a deep prefab readable. A
+	 * flat outline passes every other test in this file.
+	 */
+	it('is a tree that collapses', async () => {
+		if (!page) return;
+		expect(await page.getByRole('tree').count()).toBe(1);
+		expect(await page.getByRole('treeitem').count(), 'three rows to start').toBe(3);
+
+		// The root's own collapse toggle, named rather than picked by position:
+		// a treeitem contains its descendants, so "the first icon inside it" is
+		// not reliably the one that belongs to it.
+		const root = page.getByRole('treeitem').first();
+		await root.locator('svg[data-testid="TreeViewCollapseIconIcon"]').first().click();
+
+		// Waited for rather than read straight back: a click returns before
+		// React has re-rendered, and `count()` asks once instead of retrying.
+		await rowsSettle(1);
+		expect(await page.getByRole('treeitem').count(), 'the branch shut').toBe(1);
 	});
 
 	it('came up without an error on the console', async () => {

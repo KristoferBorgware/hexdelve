@@ -161,7 +161,6 @@ export function EntityBenchView({ backend, running }: EntityBenchViewProps) {
 			{draft && (
 				<EntityTree
 					root={draft}
-					placed={placed}
 					selectedId={selectedId}
 					onSelect={setSelectedId}
 					onAdd={(parentId) => {

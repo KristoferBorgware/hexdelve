@@ -1,18 +1,30 @@
 /*
  * The object tree of a prefab, and the buttons that change its shape.
  *
- * One row an object, indented by depth. What it shows beside the name is the
- * component count, because an object with nothing on it is the thing most
- * likely to be a mistake — an empty named `grip` is deliberate, an empty named
- * `wanderer` is a prefab somebody has not finished.
+ * A real tree rather than a list of indented rows: `RichTreeView` brings the
+ * things a hand-rolled outline does not have and that a hierarchy needs as soon
+ * as it is more than one deep — branches that collapse, arrow keys that walk
+ * them, type-ahead, and the `tree`/`treeitem` roles that make the depth of a
+ * row audible rather than only visible.
+ *
+ * Rows carry the number of components on the object, because an object with
+ * nothing on it is the one most likely to be a mistake: an empty `grip` is
+ * deliberate, an empty `wanderer` is a prefab somebody has not finished.
  *
  * ## Why reparenting is buttons rather than dragging
  *
- * Indent makes an object a child of the sibling above it; outdent makes it a
- * sibling of its parent. Those two reach every arrangement a drag would, in a
- * pane this narrow, and they say what they did — a drop between two rows at a
- * particular indent is a guess about intent that the pointer has to make and
- * frequently gets wrong.
+ * Dragging rows about is a paid feature of this component, and the two buttons
+ * reach every arrangement it would: indent makes an object a child of the
+ * sibling above it, outdent makes it a sibling of its parent. They also say
+ * what they did, where a drop between two rows at a particular indent is a
+ * guess about intent that the pointer has to make and frequently gets wrong.
+ *
+ * ## Expansion
+ *
+ * Everything starts open and stays where it is put. A prefab is small enough
+ * that hiding any of it by default hides the thing somebody came to find, and
+ * an object added under a closed branch would otherwise be selected, renamed
+ * and invisible — so a new id arrives expanded.
  */
 
 import Box from '@mui/material/Box';
@@ -27,16 +39,15 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FormatIndentDecreaseIcon from '@mui/icons-material/FormatIndentDecrease';
 import FormatIndentIncreaseIcon from '@mui/icons-material/FormatIndentIncrease';
+import { RichTreeView } from '@mui/x-tree-view/RichTreeView';
+import { TreeItem, type TreeItemProps } from '@mui/x-tree-view/TreeItem';
+import { useTreeItemModel } from '@mui/x-tree-view/hooks';
+import { forwardRef, useEffect, useMemo, useState } from 'react';
 
-import {
-	parentOf,
-	type DraftNode,
-} from './entitydraft.js';
-import type { PlacedNode } from './gizmos.js';
+import { parentOf, subtreeIds, type DraftNode } from './entitydraft.js';
 
 export interface EntityTreeProps {
 	root: DraftNode;
-	placed: readonly PlacedNode[];
 	selectedId: string | null;
 	onSelect(id: string): void;
 	onAdd(parentId: string): void;
@@ -46,9 +57,65 @@ export interface EntityTreeProps {
 	onOutdent(id: string): void;
 }
 
+/**
+ * One row, in the shape the tree wants.
+ *
+ * Built rather than handed the draft directly: the draft's arrays are readonly
+ * and its nodes carry components the tree has no use for, and a row that
+ * carried the whole object would redraw every time any field on it changed.
+ */
+interface Row {
+	id: string;
+	label: string;
+	count: number;
+	children: Row[];
+}
+
+function toRows(node: DraftNode): Row {
+	return {
+		id: node.id,
+		label: node.name,
+		count: node.components.length,
+		children: node.children.map(toRows),
+	};
+}
+
+/**
+ * A row, with the number of components on it at the end.
+ *
+ * The count comes off the item model rather than out of a lookup closed over
+ * here, so a row knows what it is showing without the tree having to hand it
+ * down through props it does not otherwise have.
+ */
+const CountedItem = forwardRef(function CountedItem(
+	props: TreeItemProps,
+	ref: React.Ref<HTMLLIElement>,
+) {
+	const row = useTreeItemModel<Row>(props.itemId);
+	const count = row?.count ?? 0;
+
+	return (
+		<TreeItem
+			{...props}
+			ref={ref}
+			label={
+				<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+					<Typography variant="body2" noWrap sx={{ flex: 1 }}>
+						{row?.label ?? props.label}
+					</Typography>
+					{count > 0 && (
+						<Typography variant="caption" color="text.secondary">
+							{count}
+						</Typography>
+					)}
+				</Box>
+			}
+		/>
+	);
+});
+
 export function EntityTree({
 	root,
-	placed,
 	selectedId,
 	onSelect,
 	onAdd,
@@ -57,23 +124,34 @@ export function EntityTree({
 	onIndent,
 	onOutdent,
 }: EntityTreeProps) {
-	const counts = new Map<string, number>();
-	const walk = (node: DraftNode) => {
-		counts.set(node.id, node.components.length);
-		node.children.forEach(walk);
-	};
-	walk(root);
+	const rows = useMemo(() => [toRows(root)], [root]);
+	const ids = useMemo(() => subtreeIds(root), [root]);
 
-	const selected = selectedId;
-	const parent = selected ? parentOf(root, selected) : null;
+	const [expanded, setExpanded] = useState<string[]>(ids);
+
+	// Anything new starts open. Whatever was closed stays closed.
+	useEffect(() => {
+		setExpanded((current) => {
+			const known = new Set(current);
+			const added = ids.filter((id) => !known.has(id) && !closedOnce.has(id));
+			return added.length === 0 ? current : [...current, ...added];
+		});
+		// `closedOnce` is a ref-like set held outside React state on purpose: it
+		// records a decision rather than describing the view, so changing it must
+		// not redraw anything.
+	}, [ids]);
+
+	const [closedOnce] = useState(() => new Set<string>());
+
+	const parent = selectedId ? parentOf(root, selectedId) : null;
 	const siblings = parent?.children ?? [];
-	const at = siblings.findIndex((one) => one.id === selected);
-	const isRoot = selected === root.id;
+	const at = siblings.findIndex((one) => one.id === selectedId);
+	const isRoot = selectedId === root.id;
 
 	return (
 		<Box
 			sx={{
-				width: 260,
+				width: 280,
 				borderRight: 1,
 				borderColor: 'divider',
 				display: 'flex',
@@ -89,39 +167,33 @@ export function EntityTree({
 			<Divider />
 
 			<Box sx={{ flex: 1, overflow: 'auto', py: 0.5 }}>
-				{placed.map((node) => (
-					<Box
-						key={node.id}
-						onClick={() => onSelect(node.id)}
-						sx={{
-							display: 'flex',
-							alignItems: 'center',
-							gap: 1,
-							cursor: 'pointer',
-							px: 1,
-							py: 0.4,
-							pl: 1 + node.depth * 1.6,
-							bgcolor: node.id === selectedId ? 'action.selected' : 'transparent',
-							'&:hover': { bgcolor: node.id === selectedId ? 'action.selected' : 'action.hover' },
-						}}
-					>
-						<Typography variant="body2" noWrap sx={{ flex: 1 }}>
-							{node.name}
-						</Typography>
-						{(counts.get(node.id) ?? 0) > 0 && (
-							<Typography variant="caption" color="text.secondary">
-								{counts.get(node.id)}
-							</Typography>
-						)}
-					</Box>
-				))}
+				<RichTreeView
+					items={rows}
+					selectedItems={selectedId}
+					expandedItems={expanded}
+					getItemLabel={(item: Row) => item.label}
+					onSelectedItemsChange={(_event, id) => {
+						if (typeof id === 'string') onSelect(id);
+					}}
+					onExpandedItemsChange={(_event, next) => {
+						// Remember what was shut, so a redraw does not reopen it.
+						for (const id of expanded) if (!next.includes(id)) closedOnce.add(id);
+						for (const id of next) closedOnce.delete(id);
+						setExpanded(next);
+					}}
+					slots={{ item: CountedItem }}
+				/>
 			</Box>
 
 			<Divider />
 			<Stack direction="row" spacing={0.5} sx={{ p: 0.5 }}>
 				<Tooltip title="Add a child object">
 					<span>
-						<IconButton size="small" disabled={!selected} onClick={() => selected && onAdd(selected)}>
+						<IconButton
+							size="small"
+							disabled={!selectedId}
+							onClick={() => selectedId && onAdd(selectedId)}
+						>
 							<AddIcon fontSize="small" />
 						</IconButton>
 					</span>
@@ -130,8 +202,8 @@ export function EntityTree({
 					<span>
 						<IconButton
 							size="small"
-							disabled={!selected || isRoot}
-							onClick={() => selected && onRemove(selected)}
+							disabled={!selectedId || isRoot}
+							onClick={() => selectedId && onRemove(selectedId)}
 						>
 							<DeleteIcon fontSize="small" />
 						</IconButton>
@@ -142,8 +214,8 @@ export function EntityTree({
 					<span>
 						<IconButton
 							size="small"
-							disabled={!selected || at <= 0}
-							onClick={() => selected && onReorder(selected, -1)}
+							disabled={!selectedId || at <= 0}
+							onClick={() => selectedId && onReorder(selectedId, -1)}
 						>
 							<ArrowUpwardIcon fontSize="small" />
 						</IconButton>
@@ -153,8 +225,8 @@ export function EntityTree({
 					<span>
 						<IconButton
 							size="small"
-							disabled={!selected || at < 0 || at >= siblings.length - 1}
-							onClick={() => selected && onReorder(selected, 1)}
+							disabled={!selectedId || at < 0 || at >= siblings.length - 1}
+							onClick={() => selectedId && onReorder(selectedId, 1)}
 						>
 							<ArrowDownwardIcon fontSize="small" />
 						</IconButton>
@@ -164,8 +236,8 @@ export function EntityTree({
 					<span>
 						<IconButton
 							size="small"
-							disabled={!selected || at <= 0}
-							onClick={() => selected && onIndent(selected)}
+							disabled={!selectedId || at <= 0}
+							onClick={() => selectedId && onIndent(selectedId)}
 						>
 							<FormatIndentIncreaseIcon fontSize="small" />
 						</IconButton>
@@ -175,8 +247,8 @@ export function EntityTree({
 					<span>
 						<IconButton
 							size="small"
-							disabled={!selected || !parent || parent.id === root.id}
-							onClick={() => selected && onOutdent(selected)}
+							disabled={!selectedId || !parent || parent.id === root.id}
+							onClick={() => selectedId && onOutdent(selectedId)}
 						>
 							<FormatIndentDecreaseIcon fontSize="small" />
 						</IconButton>

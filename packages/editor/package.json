@@ -19,6 +19,7 @@
 		"@hexdelve/shared": "*",
 		"@mui/icons-material": "^9.4.0",
 		"@mui/material": "^9.4.0",
+		"@mui/x-tree-view": "^9.13.0",
 		"monaco-editor": "^0.56.0",
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8"
