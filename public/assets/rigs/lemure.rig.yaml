@@ -1,0 +1,93 @@
+# The lemure's rig.
+#
+# A larval demon: a humanoid that is mostly middle. Its head sits straight on
+# the chest with no neck, the arms are short and the legs shorter, and most of
+# what it is hangs between them — so beside the humanoid's stack this one has
+# a belly bone, a sac slung off the spine that can heave and sag on its own,
+# and a tail stub off the back of the pelvis. A jaw, because the mouth is the
+# face, and it hangs open.
+#
+# Bones hang or stand the way the humanoid's do, so every sign rule is the
+# same and the planar solve reads on it unchanged:
+#
+#   (the character faces +Z, +X is its left)
+#   limb bones hang down -Y   ->  rot.x < 0 swings FORWARD, rot.x > 0 swings BACK
+#   spine/chest/head point up ->  rot.x > 0 tips FORWARD (the head looks down)
+#   the jaw points forward    ->  rot.x > 0 opens it
+#   the belly hangs forward   ->  rot.x > 0 drops it
+#   the tail points back      ->  rot.x > 0 lifts it
+#   feet                      ->  rot.x > 0 points the toe DOWN
+#   rot.y > 0                 ->  turns towards the character's left
+
+id: lemure
+name: Lemure
+
+metrics:
+  # Hip height at rest: low, on legs a third of a man's.
+  hipHeight: 0.55
+  # Roughly the middle of the mass, for a camera to look at.
+  standHeight: 0.7
+
+bones:
+  - { name: root, offset: [0, hipHeight, 0] }
+  - { name: spine, parent: root, offset: [0, 0.18, 0] }
+  - { name: belly, parent: spine, offset: [0, -0.06, 0.1] }
+  - { name: chest, parent: spine, offset: [0, 0.22, 0] }
+  - { name: head, parent: chest, offset: [0, 0.16, 0.06] }
+  - { name: jaw, parent: head, offset: [0, -0.04, 0.09] }
+  - { name: armL, parent: chest, offset: [0.28, 0.06, 0.02] }
+  - { name: forearmL, parent: armL, offset: [0, -0.2, 0] }
+  - { name: handL, parent: forearmL, offset: [0, -0.17, 0] }
+  - { name: armR, parent: chest, offset: [-0.28, 0.06, 0.02] }
+  - { name: forearmR, parent: armR, offset: [0, -0.2, 0] }
+  - { name: handR, parent: forearmR, offset: [0, -0.17, 0] }
+  - { name: hipL, parent: root, offset: [0.16, -0.06, 0] }
+  - { name: shinL, parent: hipL, offset: [0, -0.24, 0] }
+  - { name: footL, parent: shinL, offset: [0, -0.19, 0] }
+  - { name: hipR, parent: root, offset: [-0.16, -0.06, 0] }
+  - { name: shinR, parent: hipR, offset: [0, -0.24, 0] }
+  - { name: footR, parent: shinR, offset: [0, -0.19, 0] }
+  - { name: tail, parent: root, offset: [0, 0.0, -0.16] }
+
+# Where a chain ends and there is no child bone to draw towards.
+tips:
+  - { bone: head, to: [0, 0.2, 0] }
+  - { bone: jaw, to: [0, -0.05, 0.14] }
+  - { bone: belly, to: [0, -0.2, 0.08] }
+  - { bone: handL, to: [0, -0.13, 0] }
+  - { bone: handR, to: [0, -0.13, 0] }
+  - { bone: footL, to: [0, -0.06, 0.16] }
+  - { bone: footR, to: [0, -0.06, 0.16] }
+  - { bone: tail, to: [0, -0.06, -0.2] }
+
+# The two that alternate, so a cycle's ground speed can be measured off them.
+feet: [footL, footR]
+
+groups:
+  arms: [armL, forearmL, handL, armR, forearmR, handR]
+  legs: [hipL, shinL, footL, hipR, shinR, footR]
+
+masks:
+  # Blend mask for playing an upper-body clip over the waddle. The spine is
+  # partial for the reason the humanoid's is: the two halves meet through
+  # it rather than hinging at it.
+  upperBody:
+    spine: 0.45
+    belly: 1
+    chest: 1
+    head: 1
+    jaw: 1
+    armL: 1
+    forearmL: 1
+    handL: 1
+    armR: 1
+    forearmR: 1
+    handR: 1
+
+# Read off the bones above rather than typed beside them: hip to ankle.
+measures:
+  legLength: { chain: [hipL, footL] }
+
+view:
+  focusY: standHeight
+  frameDistance: 3.2

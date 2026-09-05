@@ -9,8 +9,8 @@
  *
  * What is left here is the three things that outlive the migration.
  *
- * The files LOAD, and to the shapes the game expects: twelve entities, six
- * rigs, the trees measuring their own thresholds. A file that stopped parsing
+ * The files LOAD, and to the shapes the game expects: thirteen entities,
+ * seven rigs, the trees measuring their own thresholds. A file that stopped parsing
  * would be found by the render test too, but only as a blank picture.
  *
  * The loaders REFUSE what they should. Every one of these has a silent
@@ -88,6 +88,13 @@ import {
 	trollSleepPose,
 	HOUND_CHAIN,
 	HOUND_RUN_CONTACTS,
+	CLAW_HIT,
+	LEMURE_CHAIN,
+	LEMURE_SOLE,
+	lemureClawPose,
+	lemureWaddlePose,
+	WADDLE_CONTACTS,
+	WADDLE_PERIOD,
 	HOUND_STRIDE_PERIOD,
 	houndRunPose,
 	LEG_LENGTH,
@@ -243,6 +250,23 @@ describe('rigs', () => {
 		expect(rig.masks.upperBody!.jaw).toBe(1);
 	});
 
+	it('the lemure is a squat humanoid with a belly bone, a jaw and a tail stub', async () => {
+		const rig = await readRig('lemure');
+		expect(rig.bones).toHaveLength(19);
+		const bone = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!;
+		expect(bone('belly').parent).toBe('spine');
+		expect(bone('jaw').parent).toBe('head');
+		expect(bone('tail').parent).toBe('root');
+		// No neck: the head sits straight on the chest.
+		expect(bone('head').parent).toBe('chest');
+		expect(rig.bones).not.toContain('neck');
+		// Legs a third of a man's, under a hip a little above knee height.
+		expect(rig.metrics.hipHeight).toBeLessThan(0.6);
+		expect(rig.feet).toEqual(['footL', 'footR']);
+		expect(rig.groups.legs).toEqual(['hipL', 'shinL', 'footL', 'hipR', 'shinR', 'footR']);
+		expect(rig.masks.upperBody!.belly).toBe(1);
+	});
+
 	it('refuses a child that comes before its parent', () => {
 		const source = ['id: bad', 'bones:', '  - { name: hand, parent: arm, offset: [0, 0, 0] }'].join('\n');
 		expect(() => loadRig(source, 'bad.rig.yaml')).toThrow(/must precede/);
@@ -275,6 +299,7 @@ describe('entities', () => {
 			'zombie',
 			'spider',
 			'troll',
+			'lemure',
 			'helmet',
 			'sword',
 			'shield',
@@ -970,6 +995,75 @@ describe('the pose functions still agree with the rigs', () => {
 		for (const bone of rig.bones) expect(world[bone]!.p[1], bone).toBeGreaterThan(0.05);
 		for (const posed of [trollStompPose(0.7, 1, 0.3, {}), trollStompPose(0, 0, 2, {}), trollSmashPose(0.4, {}), trollSwipePose(0.4, {}), trollPokePose(0.4, {}), trollSleepPose(1, {})]) {
 			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
+	});
+
+	it('the waddle is solved on the lemure rig’s own legs', async () => {
+		const rig = await readRig('lemure');
+		const offset = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!.offset;
+		expect(LEMURE_CHAIN.hipHeight).toBeCloseTo(rig.metrics.hipHeight!, 12);
+		expect([...offset('hipL')]).toEqual([LEMURE_CHAIN.hipWidth, LEMURE_CHAIN.hip[0], LEMURE_CHAIN.hip[1]]);
+		expect([...offset('shinL')]).toEqual([0, LEMURE_CHAIN.thigh[0], LEMURE_CHAIN.thigh[1]]);
+		expect([...offset('footL')]).toEqual([0, LEMURE_CHAIN.shin[0], LEMURE_CHAIN.shin[1]]);
+		expect([...offset('spine')]).toEqual([0, LEMURE_CHAIN.spine[0], LEMURE_CHAIN.spine[1]]);
+		expect([...offset('chest')]).toEqual([0, LEMURE_CHAIN.chest[0], LEMURE_CHAIN.chest[1]]);
+	});
+
+	it('the waddle keeps each planted foot on the ground and carries the lemure forwards', async () => {
+		const rig = await readRig('lemure');
+		for (const [foot, offset] of [
+			['footL', 0],
+			['footR', Math.PI],
+		] as const) {
+			for (let i = 0; i <= 10; i++) {
+				const own = Math.PI / 2 + (Math.PI * i) / 10;
+				const world = solveWorld(rig.skeleton, lemureWaddlePose(own - offset, 1, 0, {}));
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeGreaterThan(LEMURE_SOLE - 0.015);
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeLessThan(LEMURE_SOLE + 0.03);
+			}
+		}
+		const lemure = await entity('lemure');
+		const walk = entityAnimations(lemure).get('walk')!;
+		expect(walk.duration).toBeCloseTo(WADDLE_PERIOD, 12);
+		expect(walk.contacts).toEqual(WADDLE_CONTACTS);
+		expect(walk.speed()!.z).toBeGreaterThan(0.3);
+		expect(walk.speed()!.z).toBeLessThan(1);
+		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
+		const idle = entityAnimations(lemure).get('idle')!;
+		expect(Math.abs(idle.speed()?.z ?? 0)).toBeLessThan(0.05);
+		// The strike carries the moment its claws land, for the rules to read.
+		const claw = entityAnimations(lemure).get('claw')!;
+		expect(claw.clip!.events.map((event) => event.name)).toEqual(['claw']);
+		expect(claw.clip!.events[0]!.t / claw.duration).toBeCloseTo(CLAW_HIT, 6);
+		for (const posed of [lemureWaddlePose(0.7, 1, 0.3, {}), lemureWaddlePose(0, 0, 2, {}), lemureClawPose(0.4, {})]) {
+			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
+	});
+
+	it('the lemure rears, then brings both claws down ahead of it on a step', async () => {
+		const rig = await readRig('lemure');
+		const at = (u: number) => solveWorld(rig.skeleton, lemureClawPose(u, {}));
+		const stand = at(0);
+		const reared = at(0.28);
+		const struck = at(CLAW_HIT);
+		// Reared: both hands up above the head; struck: both down and well ahead.
+		for (const hand of ['handL', 'handR']) {
+			expect(reared[hand]!.p[1], `${hand} reared`).toBeGreaterThan(reared.head!.p[1]);
+			expect(struck[hand]!.p[2], `${hand} struck`).toBeGreaterThan(stand[hand]!.p[2] + 0.25);
+			expect(struck[hand]!.p[1], `${hand} struck`).toBeLessThan(reared[hand]!.p[1] - 0.4);
+		}
+		// The feet on the ground throughout, the left one stepped in at the hit.
+		for (const u of [0, 0.28, CLAW_HIT, 0.6, 0.8, 1]) {
+			for (const foot of ['footL', 'footR']) {
+				expect(at(u)[foot]!.p[1], `${foot} at ${u}`).toBeGreaterThan(LEMURE_SOLE - 0.015);
+				expect(at(u)[foot]!.p[1], `${foot} at ${u}`).toBeLessThan(LEMURE_SOLE + 0.09);
+			}
+		}
+		expect(struck.footL!.p[2]).toBeGreaterThan(stand.footL!.p[2] + 0.1);
+		expect(struck.footR!.p[2]).toBeCloseTo(stand.footR!.p[2], 2);
+		// And back where it started.
+		for (const bone of ['handL', 'handR', 'head', 'footL', 'footR']) {
+			for (let axis = 0; axis < 3; axis++) expect(at(1)[bone]!.p[axis], `${bone} axis ${axis}`).toBeCloseTo(stand[bone]!.p[axis], 3);
 		}
 	});
 

@@ -47,6 +47,7 @@ import {
 	restPose,
 	runPose,
 } from './hellhoundpose.js';
+import { clawPose as lemureClawPose, WADDLE_CONTACTS, WADDLE_PERIOD, waddlePose } from './lemurepose.js';
 import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from './spiderpose.js';
 import { stridePose, stridePeriod, STRIDE_CONTACTS } from './stride.js';
 import {
@@ -304,6 +305,26 @@ const trollSleep: PoseFunction = {
 	build: () => (t, out) => trollSleepPose(t, out),
 };
 
+/** The lemure's waddle, and its stand: each foot solved onto the ground under the roll. */
+const lemureWaddle: PoseFunction = {
+	id: 'lemureWaddle',
+	duration: WADDLE_PERIOD,
+	contacts: WADDLE_CONTACTS,
+	build: ({ args, duration }) => {
+		const amp = arg(args, 'amp', 1);
+		const moving = amp >= 0.02;
+		return (t, out) => waddlePose(moving ? (t / duration) * TAU : 0, amp, t, out);
+	},
+};
+
+/** The lemure's strike, keyed by hand and not looping: rear, lurch, rake. */
+const lemureClaw: PoseFunction = {
+	id: 'lemureClaw',
+	duration: 1.2,
+	loop: false,
+	build: ({ duration }) => (t, out) => lemureClawPose(t / duration, out),
+};
+
 /**
  * Every pose function this package owns.
  *
@@ -332,4 +353,6 @@ export const poseFunctions = new PoseFunctionRegistry().register(
 	trollSwipe,
 	trollPoke,
 	trollSleep,
+	lemureWaddle,
+	lemureClaw,
 );
