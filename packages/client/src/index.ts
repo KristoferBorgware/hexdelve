@@ -151,6 +151,8 @@ export {
 	runPose as houndRunPose,
 	bitePose as houndBitePose,
 	restPose as houndRestPose,
+	HOUND_CHAIN,
+	HOUND_RUN_CONTACTS,
 	HOUND_STRIDE_PERIOD,
 	BITE_CONTACT as HOUND_BITE_CONTACT,
 } from './game/hellhoundpose.js';

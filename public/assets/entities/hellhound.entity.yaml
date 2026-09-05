@@ -3,11 +3,10 @@
 # A quadruped, so a third rig: front legs off the chest, hind legs off the
 # hips, and the spine between them a bridge rather than a stack.
 #
-# No blend tree yet, on purpose. The trot's legs are written to a different
-# sign convention from the humanoid's, so its gait declares no contact
-# schedule and nothing measures its ground speed — a threshold measured
-# through the wrong sign would be worse than an absent one. The three
-# animations are here and previewable; the tree waits for the gait.
+# The trot's paws are solved onto the ground, so it declares a contact
+# schedule and its ground speed measures forwards. A tree over it would have
+# honest thresholds; there is none yet because nothing in the yard drives a
+# hellhound, and a tree with no driver is an arrangement nobody reads.
 
 id: hellhound
 name: Hellhound

@@ -34,6 +34,7 @@ import {
 	attachmentPosition,
 	loadRig,
 	AssetWriteError,
+	measureGroundSpeed,
 	memoryIO,
 	readOnly,
 	solveWorld,
@@ -80,6 +81,8 @@ import {
 	trollSwipePose,
 	trollPokePose,
 	trollSleepPose,
+	HOUND_CHAIN,
+	HOUND_RUN_CONTACTS,
 	HOUND_STRIDE_PERIOD,
 	houndRunPose,
 	LEG_LENGTH,
@@ -465,6 +468,85 @@ describe('the pose functions still agree with the rigs', () => {
 	it('the hound’s cycle is the one its entity asks for', async () => {
 		const hound = await entity('hellhound');
 		expect(hound.animations.get('run')!.duration).toBeCloseTo(HOUND_STRIDE_PERIOD, 12);
+	});
+
+	it('the trot is solved on the hellhound rig’s own chain', async () => {
+		const rig = await readRig('hellhound');
+		const offset = (name: string): readonly [number, number] => {
+			const bone = rig.skeleton.find((candidate) => candidate.name === name)!;
+			return [bone.offset[1], bone.offset[2]];
+		};
+		expect(HOUND_CHAIN.hipHeight).toBeCloseTo(rig.metrics.hipHeight!, 12);
+		const pairs: [readonly [number, number], string][] = [
+			[HOUND_CHAIN.spineMid, 'spineMid'],
+			[HOUND_CHAIN.chest, 'chest'],
+			[HOUND_CHAIN.frontLeg, 'frontLegL'],
+			[HOUND_CHAIN.backLeg, 'backLegL'],
+			[HOUND_CHAIN.upper, 'frontShinL'],
+			[HOUND_CHAIN.lower, 'frontPawL'],
+		];
+		for (const [copy, bone] of pairs) {
+			expect(copy[0], bone).toBeCloseTo(offset(bone)[0], 12);
+			expect(copy[1], bone).toBeCloseTo(offset(bone)[1], 12);
+		}
+		// The hind pair carries the same two lengths as the front pair.
+		expect(HOUND_CHAIN.upper[0]).toBeCloseTo(offset('backShinL')[0], 12);
+		expect(HOUND_CHAIN.lower[0]).toBeCloseTo(offset('backPawL')[0], 12);
+	});
+
+	it('the trot stands the hound on all four paws', async () => {
+		const rig = await readRig('hellhound');
+		const tips = new Map(rig.tips.map((tip) => [tip.bone, tip.to[1]]));
+		const world = solveWorld(rig.skeleton, houndRunPose(0, 0, 0, {}));
+		for (const paw of ['frontPawL', 'frontPawR', 'backPawL', 'backPawR']) {
+			// The paw's tip is what touches, so the bone sits its own depth above.
+			const tip = world[paw]!.p[1] + tips.get(paw)!;
+			expect(tip, `${paw} standing`).toBeGreaterThan(-0.005);
+			expect(tip, `${paw} standing`).toBeLessThan(0.005);
+		}
+	});
+
+	it('the trot keeps every planted paw on the ground', async () => {
+		const rig = await readRig('hellhound');
+		const tips = new Map(rig.tips.map((tip) => [tip.bone, tip.to[1]]));
+		// Each paw's own phase: the left hind leads, the left front is the
+		// other diagonal and so runs half a cycle behind it.
+		for (const { paw, offset } of [
+			{ paw: 'backPawL', offset: 0 },
+			{ paw: 'frontPawL', offset: Math.PI },
+		]) {
+			for (let i = 0; i <= 10; i++) {
+				const own = Math.PI / 2 + (Math.PI * i) / 10;
+				const world = solveWorld(rig.skeleton, houndRunPose(own - offset, 1, 0, {}));
+				const tip = world[paw]!.p[1] + tips.get(paw)!;
+				expect(tip, `${paw} at ${i}/10 of its stance`).toBeGreaterThan(-0.005);
+				expect(tip, `${paw} at ${i}/10 of its stance`).toBeLessThan(0.005);
+			}
+		}
+	});
+
+	it('the trot carries the hellhound forwards, in proportion to its stride', async () => {
+		const rig = await readRig('hellhound');
+		const speedAt = (amp: number): number =>
+			measureGroundSpeed(
+				rig.skeleton,
+				(phase, out) => houndRunPose(phase * Math.PI * 2, amp, 0, out),
+				HOUND_STRIDE_PERIOD,
+				{ feet: rig.feet!, contactPhase: HOUND_RUN_CONTACTS[0] },
+			).z;
+
+		const full = speedAt(1);
+		expect(full).toBeGreaterThan(1);
+		// A paw planted on `groundPath` travels its whole stride at a constant
+		// rate, so the speed is the stride over the stance and nothing else —
+		// which is what makes a throttle mean what it says. It is proportional
+		// to within a part in ten thousand rather than exactly, and the
+		// remainder is the knees: splayed a twentieth of a radian to stand the
+		// paws under the shoulders, which tips each leg out of the plane the
+		// solve works in and lands a paw a third of a millimetre off target.
+		for (const amp of [0.25, 0.5, 0.75]) {
+			expect(Math.abs(speedAt(amp) / (full * amp) - 1), `amp ${amp}`).toBeLessThan(2e-4);
+		}
 	});
 
 	it('the gallop is solved on the dire hellhound rig’s own chain', async () => {

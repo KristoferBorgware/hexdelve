@@ -40,7 +40,13 @@ import {
 	SHAMBLE_PERIOD,
 	shamblePose,
 } from '../game/ghoulpose.js';
-import { bitePose, restPose, runPose } from '../game/hellhoundpose.js';
+import {
+	bitePose,
+	HOUND_RUN_CONTACTS,
+	HOUND_STRIDE_PERIOD,
+	restPose,
+	runPose,
+} from '../game/hellhoundpose.js';
 import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from '../game/spiderpose.js';
 import { stridePose, stridePeriod, STRIDE_CONTACTS, type Direction } from '../game/stride.js';
 import {
@@ -123,15 +129,15 @@ const lunge: PoseFunction = {
 /**
  * The hellhound's trot, and its standstill.
  *
- * Deliberately without a contact schedule. The humanoid's stride declares one
- * and its ground speed is measured off it; this gait's legs are written to a
- * different sign convention from the humanoid's, so a schedule asserted here
- * would produce a measured speed pointing the wrong way rather than an error.
- * Nothing measures it until the gait and the convention agree.
+ * Its paws are solved onto the ground the way the dire hellhound's and the
+ * ghoul's are, so a planted paw travels straight back at a constant rate and
+ * the ground speed measured at the schedule below is the ground the animal
+ * actually covers — `test/assets.test.ts` checks the sign and the magnitude.
  */
 const houndRun: PoseFunction = {
 	id: 'houndRun',
-	duration: 0.5,
+	duration: HOUND_STRIDE_PERIOD,
+	contacts: HOUND_RUN_CONTACTS,
 	build: ({ args, duration }) => {
 		const amp = arg(args, 'amp', 1);
 		const moving = amp >= 0.02;
@@ -157,10 +163,10 @@ const houndRest: PoseFunction = {
 /**
  * The dire hellhound's gallop, and its stare.
  *
- * This gait declares its contact schedule where the hellhound's trot does
- * not: its legs are written to the humanoid's sign convention, its rig names
- * a hind paw and a front paw as the pair that alternate, and the measured
- * ground speed comes out forwards — `test/assets.test.ts` checks the sign.
+ * Its rig names a hind paw and a front paw as the pair that alternate, because
+ * in a gallop that is the pair that does — a left and a right hind land a tenth
+ * of a cycle apart and would read as standing still. `test/assets.test.ts`
+ * checks the measured speed comes out forwards.
  */
 const direRun: PoseFunction = {
 	id: 'direRun',

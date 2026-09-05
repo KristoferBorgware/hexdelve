@@ -11,67 +11,6 @@ and how to write one. The open list stays in the order things were found.
 
 ## Open
 
-### F-001 — The hellhound's trot carries it backwards
-
-**Kind:** bug
-**Milestone:** game
-**Priority:** medium
-**Effort:** medium
-**Found:** 2026-09-03, working out which contact schedule the hound's asset files should declare
-**Where:** `leg()` and `runPose()` in `packages/client/src/game/hellhoundpose.ts`, `measureGroundSpeed` in `packages/engine/src/anim/measure.ts`
-
-**What happens.** `leg()` writes the thigh swing as
-`setSparse(out, bones[0], [swing, 0, stance])` where
-`swing = swingAmp * amp * Math.sin(phase)`. The humanoid's `stridePose` writes
-the same joint as `hipLx = -swing * sinT`, with a minus sign. Under the shared
-convention — a limb hanging down `-Y` swings forward for `rot.x < 0` — the
-hound's planted leg is at its rearmost at the phase where the knee is straight,
-so the planted paw travels forward through the body's frame and the body
-travels backwards.
-
-Measured with the engine's own `measureGroundSpeed`, reading the back pair
-(`backPawR` lands at phase 0.25, `backPawL` at 0.75, because `runPose` gives
-`backL` the phase `theta + PI`):
-
-> **[measured]** humanoid walk **+1.5580 m/s**; hellhound run **−2.1019 m/s**.
-
-**Why it matters.** Nobody yet: the hound has no blend tree and nothing measures
-its speed, because this was found before its asset files were written and they
-were left without a contact schedule for exactly this reason. It matters the
-moment the hound is given a gait axis, because a threshold measured through the
-wrong sign is worse than an absent one. It is also visible now if anyone looks:
-the animal moonwalks.
-
-**What would fix it.** Not what this entry first said, and the correction is
-the useful part.
-
-**[measured, 2026-09-04]** Negating `swing` in `leg()` changes the pose and does
-NOT change the measured ground speed. Both versions were built and measured:
-`0.6088159098633436` either way, identical to every digit. The reason is a
-symmetry — `runPose` gives `backL` the phase `theta + PI` and `backR` the phase
-`theta`, so negating the swing for all four legs maps the measured pair onto
-itself with the two legs swapped, and a measurement averaged over a whole cycle
-cannot see it.
-
-Two more things that measurement turned up, both of which have to be understood
-before this is worth attempting again:
-
-`measureGroundSpeed` returns exactly `0` for a single foot — `backPawR` alone,
-`backPawL` alone and `frontPawR` alone all measure zero, and only the pair reads
-anything. So it is measuring the alternation rather than the travel of one
-planted paw, and what it means for a quadruped is not obvious.
-
-The numbers above do not reconcile with the ones recorded when this was found
-(humanoid **+1.5580**, hound **−2.1019**). Measured the same afternoon through
-`stridePose` at `amp: 1, gait: 0` over `stridePeriod(1, 0)`, the humanoid comes
-out **−0.7738** and the hound **+0.6088** — the same disagreement in sign, at
-half the magnitude and with both signs flipped. Whoever picks this up should
-work out which sampling is right before trusting either pair of numbers.
-
-What still stands is the claim itself: the two gaits disagree in sign, so one of
-them travels the wrong way. What is now known is that the one-character fix is
-not the fix, and that the measurement has to be understood first.
-
 ### F-002 — WebGPU loses its device in the editor under software rasterisation
 
 **Kind:** risk
@@ -372,7 +311,121 @@ are not locomotion — the slash, the duck, the topple — stay where they are;
 they have a beginning and an end and are not what a tree is for. The work is
 mostly in deciding what `buildPose` keeps.
 
+### F-025 — A quadruped rig's legs are long enough to stand and not to walk
+
+**Kind:** risk
+**Milestone:** game
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-05, converting the hellhound's trot onto the ground solve
+**Where:** `public/assets/rigs/hellhound.rig.yaml`, `STAND` in
+`packages/client/src/game/hellhoundpose.ts`
+
+**What happens.** The hellhound's legs are 0.41 m, both pairs. Its hip joint
+sits 0.46 m up and its shoulder joint 0.57 m up, and a paw stands 0.05 m above
+the ground. So a hind leg hanging straight down reaches the ground exactly, with
+nothing left to stride with, and a front leg cannot reach it at all — it falls
+0.11 m short. Solved and measured on the standing pose, the front paws hung in
+the air a tenth of a metre above the grass while the hind paws touched.
+
+The gait works round it: `STAND` crouches the trunk 0.1 m and pitches it 0.16
+rad nose-down, which is a hound's stance anyway, and both pairs then have about
+0.21 m of ground either side of the joint they hang from. That is a pose making
+up for a skeleton.
+
+**Why it matters.** Nobody yet, because nothing in the yard drives a hellhound
+and the crouch reads correctly. It matters for two reasons. The animal now
+stands 0.1 m lower than its rig's `hipHeight` says, so anything reading that
+metric — a camera framing, a mesh authored against the rest pose, an attachment
+— is working from a height the animal is never at. And the next quadruped will
+hit the same wall: a rig whose limbs are drawn to just touch the ground at rest
+has no stride in it, and the failure is a silent one, either a floating paw or a
+crouch nobody asked for.
+
+**What would fix it.** Either lengthen the legs — the front pair by about 0.12 m
+and the hind by 0.06 m, which changes the mesh hung on them — or lower
+`hipHeight` and the chest offsets so the rest pose is the stance. The second is
+smaller and makes the rig honest about the animal's height, and it is the one to
+prefer; the crouch in `STAND` then goes back to being a gait's own dip rather
+than a correction. Either way a rig check worth having is that every foot the
+rig names can reach the ground with a stride's worth of room left over.
+
 ## Closed
+
+### F-001 — The hellhound's trot carries it backwards
+
+**Kind:** bug
+**Milestone:** game
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-03, working out which contact schedule the hound's asset files should declare
+**Where:** `leg()` and `runPose()` in `packages/client/src/game/hellhoundpose.ts`, `measureGroundSpeed` in `packages/engine/src/anim/measure.ts`
+
+**What happens.** `leg()` writes the thigh swing as
+`setSparse(out, bones[0], [swing, 0, stance])` where
+`swing = swingAmp * amp * Math.sin(phase)`. The humanoid's `stridePose` writes
+the same joint as `hipLx = -swing * sinT`, with a minus sign. Under the shared
+convention — a limb hanging down `-Y` swings forward for `rot.x < 0` — the
+hound's planted leg is at its rearmost at the phase where the knee is straight,
+so the planted paw travels forward through the body's frame and the body
+travels backwards.
+
+Measured with the engine's own `measureGroundSpeed`, reading the back pair
+(`backPawR` lands at phase 0.25, `backPawL` at 0.75, because `runPose` gives
+`backL` the phase `theta + PI`):
+
+> **[measured]** humanoid walk **+1.5580 m/s**; hellhound run **−2.1019 m/s**.
+
+**Why it matters.** Nobody yet: the hound has no blend tree and nothing measures
+its speed, because this was found before its asset files were written and they
+were left without a contact schedule for exactly this reason. It matters the
+moment the hound is given a gait axis, because a threshold measured through the
+wrong sign is worse than an absent one. It is also visible now if anyone looks:
+the animal moonwalks.
+
+**What would fix it.** Not what this entry first said, and the correction is
+the useful part.
+
+**[measured, 2026-09-04]** Negating `swing` in `leg()` changes the pose and does
+NOT change the measured ground speed. Both versions were built and measured:
+`0.6088159098633436` either way, identical to every digit. The reason is a
+symmetry — `runPose` gives `backL` the phase `theta + PI` and `backR` the phase
+`theta`, so negating the swing for all four legs maps the measured pair onto
+itself with the two legs swapped, and a measurement averaged over a whole cycle
+cannot see it.
+
+Two more things that measurement turned up, both of which have to be understood
+before this is worth attempting again:
+
+`measureGroundSpeed` returns exactly `0` for a single foot — `backPawR` alone,
+`backPawL` alone and `frontPawR` alone all measure zero, and only the pair reads
+anything. So it is measuring the alternation rather than the travel of one
+planted paw, and what it means for a quadruped is not obvious.
+
+The numbers above do not reconcile with the ones recorded when this was found
+(humanoid **+1.5580**, hound **−2.1019**). Measured the same afternoon through
+`stridePose` at `amp: 1, gait: 0` over `stridePeriod(1, 0)`, the humanoid comes
+out **−0.7738** and the hound **+0.6088** — the same disagreement in sign, at
+half the magnitude and with both signs flipped. Whoever picks this up should
+work out which sampling is right before trusting either pair of numbers.
+
+What still stands is the claim itself: the two gaits disagree in sign, so one of
+them travels the wrong way. What is now known is that the one-character fix is
+not the fix, and that the measurement has to be understood first.
+
+**Closed:** 2026-09-05, fixed — `runPose` in
+`packages/client/src/game/hellhoundpose.ts` is solved onto the ground with
+`groundPath` and `twoLink` rather than written as joint angles, so a planted
+paw travels straight back at a constant rate and the gait cannot express a
+moonwalk. The measurement question the entry leaves open is answered: the
+paw's HEIGHT was the missing half. Traced through a cycle, the old gait put
+`backPawL` at its lowest (y 0.046) at the phase where it swung FORWARD and at
+its highest (y 0.190) mid-stance, so the animal was on the ground only while
+travelling the wrong way — which is why two horizontal samples could report a
+plausible positive number for a gait that plainly moonwalked, and why negating
+`swing` changed nothing. The front pair never touched the ground at all; see
+F-025. The trot now measures **+1.2788 m/s** at amp 1 and is proportional to
+`amp` to within a part in ten thousand.
 
 ### F-007 — A script with a syntax error stops the editor from booting
 
