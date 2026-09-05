@@ -409,6 +409,43 @@ they have a beginning and an end and are not what a tree is for. The work is
 mostly in deciding what `buildPose` keeps.
 
 
+### F-028 — The bat is drawn by its pose functions, not by the clips its entity names
+
+**Kind:** gap
+**Milestone:** game
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-05, moving the pose functions out of the client once nothing in the asset format resolved one
+**Where:** `advance` in `packages/client/src/game/bathunt.ts`,
+`public/assets/entities/bat.entity.yaml`, `public/assets/trees/flight.tree.yaml`
+
+**What happens.** `bat.entity.yaml` names four clip files and a flight tree.
+`BatHunt` imports `flyPose`, `perchPose` and `lungePose` and blends them by
+hand with `mixSparse`, exactly as `Player` did with the stride before its gait
+moved onto its tree. So the bat has two descriptions of what it looks like and
+only one of them draws it, and the clips it declares are read by the bench and
+by nothing else.
+
+It is the last of these. Every other creature's animations are either read
+through its animator or not driven at all, and `BatHunt` is now the only thing
+left in the client that calls a pose function while the game is running.
+
+**Why it matters.** Two things describe the bat and re-baking one of them
+changes the bench and not the yard, which is the same trap the man was in — a
+bench that shows something other than what the game will do is a bench doing
+the opposite of its job. It also blocks a decision already taken: the pose
+functions are meant to leave the client for an authoring package, and they
+cannot while something the client ships at runtime imports three of them.
+
+**What would fix it.** What was done for the man: a small component holding the
+blend graph, driven by numbers rather than poses, taking its clips off the
+`Animator` beside it and its cycle from the `flight` tree. The bat's graph is
+simpler than the humanoid's — a wake between the perch and the beat, and a
+lunge laid over whatever that is — so this is smaller than `HumanoidAnimator`
+was. The measurement to keep afterwards is the one the man's move needed too:
+that what the energy table asks the bat to cross a hexagon in is what its beat
+delivers.
+
 ## Closed
 
 ### F-027 — Ten looping animations do not close on themselves
