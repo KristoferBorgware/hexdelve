@@ -327,6 +327,51 @@ return a rigless subject that draws a mesh and nothing else. The second is
 smaller and covers the case; the first stops there being two answers to what
 putting a thing on a stand means.
 
+### F-024 — The game's humanoid locomotion does not run through its blend tree
+
+**Kind:** gap
+**Milestone:** game
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-05, reading the animation system before starting on procedural animation
+**Where:** `buildPose` in `packages/client/src/game/player.ts`,
+`public/assets/trees/locomotion.tree.yaml`, `benchTree` in
+`packages/editor/src/bench/rigs.ts`
+
+**What happens.** `BlendTree` is constructed in exactly one place outside its
+own tests: `benchTree`, in the editor's character bench. The game never builds
+one. `Player.buildPose` writes the same arrangement by hand instead — it calls
+`stridePose` for the gait, adds the bank onto `root.rot[2]`, lays the guard
+clip over the result through `lerpPoseMasked` with the sword and shield masks,
+and then the slash or the duck through `lerpPoseMasked` with the upper-body
+mask. `locomotion.tree.yaml` describes that arrangement in a file: a `blend1d`
+over idle, walk and run, an `additive` lean, and a `layer` for the guard
+through the `upperBody` mask. Both exist and neither reads the other. The
+entity file's `walk` and `run` animations are likewise unread by the game,
+which reaches `stridePose` through a direct import; only `clipOf` pulls
+anything out of `EntityAsset.animations`, and only clips.
+
+**Why it matters.** Two things describe the wanderer's locomotion and only one
+of them draws him. Re-tuning the tree file changes what the bench shows and
+nothing else, so the bench stops being a picture of what the game will do —
+which is the one job a bench has. The game also gives up what the tree carries:
+the shared locomotion phase, the cycle length blended between a walk's 0.95 s
+and a run's 0.66 s, and the calibrated speed axis. `buildPose` keeps its own
+`theta` and advances it at `stridePeriod(this.gait)`, so the cadence is right
+by construction there, but nothing outside the player gets that for free, and
+the second creature that needs a gait axis will write a third copy.
+
+**What would fix it.** Two shapes. The smaller is to leave `buildPose` as it is
+and delete the claim — drop `locomotion.tree.yaml` from `wanderer.entity.yaml`
+and keep trees as a bench facility, which is honest but throws away the file
+format's best argument. The larger, and the one to prefer, is to have the
+player build its entity's `locomotion` tree, drive it through `advance` with
+`speed`, `turn`, `lean` and `guard` as parameters, and calibrate the speed axis
+once at spawn as `calibrateSpeed` already does for the bench. The overlays that
+are not locomotion — the slash, the duck, the topple — stay where they are;
+they have a beginning and an end and are not what a tree is for. The work is
+mostly in deciding what `buildPose` keeps.
+
 ## Closed
 
 ### F-007 — A script with a syntax error stops the editor from booting
