@@ -1,13 +1,13 @@
 /*
  * A man's pose, built from a handful of numbers describing what he is doing.
  *
- * Everything he can look like is one graph: a stride underneath, a guard held
+ * Everything he can look like is one graph: a gait underneath, a guard held
  * over it masked to the arms, and at most one whole-body clip — a stoop or a
  * cut — over that. What varies between one frame and the next is not the shape
  * of the graph but the weights, so this takes the weights and nothing else.
  *
- *   amp, gait, theta     the stride: how big, how fast, how far through
- *   yawRate              the lean into a turn, which the stride cannot know
+ *   speed                how fast he is travelling, in metres a second
+ *   yawRate              the lean into a turn, which the gait cannot know
  *   reachIn              how far he leans into a blow, along his own +Z
  *   armed, shielded      whether the guard is held, and by which arm
  *   overlay, phase       what his whole body is doing, and how far through it
@@ -30,11 +30,27 @@
  *
  * The clips come off the `Animator` beside it, so what he plays is what his
  * entity file gave him.
+ *
+ * ## Speed, rather than a stride and a cadence
+ *
+ * The gait underneath is his entity's `locomotion` tree, driven by one number
+ * in metres a second. Asking for a speed rather than for a stride length and a
+ * cadence is the whole argument for a tree: there is no clip for 1.2 m/s, and
+ * the two ends of the axis are the walk's and the run's own measured speeds, so
+ * a number on it means the same thing as a number anywhere else in the game.
+ *
+ * The axis is CALIBRATED once here, because it does not mean what it says until
+ * it is. Halfway between a walk and a run the tree blends the stride and the
+ * cadence separately and speed is one divided by the other, so the axis has to
+ * be bent before it is asked for a speed — see `calibrateSpeed`. That sweep is
+ * a few dozen tree evaluations at spawn, and after it the number handed in is
+ * the number the feet deliver.
  */
 
 import {
 	Animator,
 	bindClip,
+	calibrateSpeed,
 	Component,
 	createPose,
 	denseToSparse,
@@ -44,20 +60,18 @@ import {
 	Rig,
 	sampleBound,
 	sparseToDense,
+	type BlendTree,
 	type BoundClip,
 	type Clip,
 	type DensePose,
 	type GameObject,
 	type SparsePose,
+	type SpeedCalibration,
 } from '@hexdelve/engine';
 
 import { clamp, topple } from './actor.js';
-import { stridePose, type Direction } from './stride.js';
 
 const PI = Math.PI;
-
-/** On the grid he walks where he faces, so the stride needs one direction. */
-const FORWARD: Direction = { x: 0, z: 1 };
 
 /** How much of the guard the sword arm keeps at a full run. */
 const GUARD_AT_SPEED = 0.65;
@@ -74,12 +88,8 @@ export type HumanoidOverlay = 'none' | 'stoop' | 'swing';
 export class HumanoidAnimator extends Component {
 	/* ------------------------------------------------------------ the drive -- */
 
-	/** 0 standing, 1 a full stride. */
-	amp = 0;
-	/** 0 a walk, 1 a run. */
-	gait = 0;
-	/** How far through the gait cycle he is, in radians. */
-	theta = 0;
+	/** How fast he is travelling, in metres a second. Zero is standing. */
+	speed = 0;
 	/** Radians a second he is coming round, for the lean into it. */
 	yawRate = 0;
 	/** How far to reach into a blow, in metres along his own +Z. */
@@ -99,6 +109,15 @@ export class HumanoidAnimator extends Component {
 	private readonly rigOn: Rig;
 	private readonly bones: readonly string[];
 	private readonly hipHeight: number;
+
+	/** The gait, and what a number on its axis is really worth. */
+	private readonly tree: BlendTree;
+	private readonly calibration: SpeedCalibration;
+	/** The two speeds the axis is pinned to, for reading a gait back off it. */
+	private readonly walkSpeed: number;
+	private readonly runSpeed: number;
+	/** What the axis was last asked for, and what it could not deliver. */
+	private asked = 0;
 
 	private readonly clips: { readonly duck: Clip; readonly slash: Clip; readonly guard: Clip };
 	private readonly duckClip: BoundClip;
@@ -151,6 +170,29 @@ export class HumanoidAnimator extends Component {
 		this.slashClip = bindClip(this.clips.slash, asset.index);
 		this.guardClip = bindClip(this.clips.guard, asset.index);
 
+		/*
+		 * The gait, and the sweep that makes its axis honest. The other
+		 * parameters are held at zero through the sweep and driven at zero
+		 * below: the lean and the guard on the tree are a second answer to
+		 * what this class already does with three masks of its own, and two
+		 * answers to one question is how they come to disagree.
+		 */
+		const locomotion = animator.tree('locomotion');
+		this.tree = locomotion.tree();
+		this.walkSpeed = animator.animation('walk').speed()?.z ?? 0;
+		this.runSpeed = animator.animation('run').speed()?.z ?? this.walkSpeed;
+		const axis = locomotion.parameters.find((one) => one.name === 'speed');
+		this.calibration = calibrateSpeed(
+			locomotion.tree(),
+			asset.skeleton,
+			'speed',
+			[axis?.min ?? 0, axis?.max ?? this.runSpeed],
+			{
+				...(asset.feet ? { feet: asset.feet } : {}),
+				params: { turn: 0, lean: 0, guard: 0 },
+			},
+		);
+
 		this.GUARD_SHIELD = makeMask(this.bones, { armL: 1, forearmL: 1, handL: 1 }, 0);
 		this.GUARD_SWORD = makeMask(
 			this.bones,
@@ -169,20 +211,59 @@ export class HumanoidAnimator extends Component {
 		this.outPose = createPose(this.bones.length);
 	}
 
+	/**
+	 * How much of a stride he is taking, 0 standing and 1 at a full walk.
+	 *
+	 * The guard eases off with it, the bank scales by it, and the cut takes his
+	 * arms rather than his whole body above it — all of which are questions
+	 * about whether his legs are busy rather than about how fast he is going.
+	 */
+	get stride(): number {
+		return this.walkSpeed > 1e-6 ? clamp(this.speed / this.walkSpeed, 0, 1) : 0;
+	}
+
+	/** Where he is between a walk and a run, 0 to 1, for a readout. */
+	get gait(): number {
+		const span = this.runSpeed - this.walkSpeed;
+		return span > 1e-6 ? clamp((this.speed - this.walkSpeed) / span, 0, 1) : 0;
+	}
+
+	/** What the gait actually carries him at, which is what the axis delivers. */
+	get delivered(): number {
+		return this.calibration.speedFor(this.calibration.parameterFor(this.asked));
+	}
+
+	/** Asked-for less delivered: what the feet have to make up by sliding. */
+	get slip(): number {
+		return Math.max(0, this.asked - this.delivered);
+	}
+
 	/** The clips he plays, for anything that wants to measure one. */
 	get clip(): { readonly duck: Clip; readonly slash: Clip; readonly guard: Clip } {
 		return this.clips;
 	}
 
 	/** Build this frame's pose into the rig, from whatever the drive now says. */
-	build(dt: number, elapsed: number): void {
+	build(dt: number): void {
 		const pose = this.rigOn.pose;
-		stridePose(this.theta, this.amp, FORWARD, this.gait, elapsed, this.strideBuf);
+		const stride = this.stride;
 
-		// A lean into the turn, which is the one thing the stride cannot know:
-		// it is handed a heading, not the fact that the whole man is coming
-		// round.
-		const wantBank = -clamp(this.yawRate * 0.05, -0.2, 0.2) * this.amp;
+		/*
+		 * The gait. The tree carries its own playhead and its own cycle, so
+		 * advancing it is what keeps the footfalls where they belong: blend a
+		 * walk towards a run and the cadence speeds up with it rather than
+		 * stepping from one rate to the other.
+		 */
+		this.asked = this.speed;
+		this.tree.advance(
+			{ speed: this.calibration.parameterFor(this.speed), turn: 0, lean: 0, guard: 0 },
+			dt,
+		);
+		this.tree.toSparse(this.strideBuf);
+
+		// A lean into the turn, which is the one thing the gait cannot know: it
+		// is handed a speed, not the fact that the whole man is coming round.
+		const wantBank = -clamp(this.yawRate * 0.05, -0.2, 0.2) * stride;
 		this.bank += (wantBank - this.bank) * Math.min(1, dt * 6);
 		this.strideBuf['root']!.rot![2]! += this.bank;
 
@@ -219,11 +300,11 @@ export class HumanoidAnimator extends Component {
 				src = this.stancePose;
 			}
 			if (this.armed) {
-				const hold = 1 - (1 - GUARD_AT_SPEED) * this.amp;
+				const hold = 1 - (1 - GUARD_AT_SPEED) * stride;
 				lerpPoseMasked(this.stancePose, src, this.guardPose, this.guardWeight * hold, this.GUARD_SWORD);
 				src = this.stancePose;
 			}
-			const settled = 1 - this.amp;
+			const settled = 1 - stride;
 			if (settled > 0.01) {
 				lerpPoseMasked(this.stancePose, src, this.guardPose, this.guardWeight * settled, this.ROOT_ONLY);
 				src = this.stancePose;
@@ -249,7 +330,7 @@ export class HumanoidAnimator extends Component {
 			// leaves the legs to the walk. He cannot do both on the grid, but
 			// the mask is what makes that a rule of the game rather than of the
 			// animation.
-			const mask = this.amp > 0.05 ? this.UPPER : null;
+			const mask = stride > 0.05 ? this.UPPER : null;
 			if (mask) lerpPoseMasked(this.outPose, base, this.overlayPose, this.swingBlend, mask);
 			else lerpPose(this.outPose, base, this.overlayPose, this.swingBlend);
 		} else {

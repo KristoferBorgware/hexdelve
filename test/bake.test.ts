@@ -49,6 +49,8 @@ import {
 	shamblePose,
 } from '@hexdelve/client';
 
+import { hexSpeed, NORMAL_SPEED, RUN_SPEED, WALK_SPEED } from '@hexdelve/client';
+
 import { openLibrary } from './harness/assets.js';
 
 const TAU = Math.PI * 2;
@@ -303,4 +305,49 @@ describe('a baked clip closes on itself', () => {
 			}
 		});
 	}
+});
+
+describe('the wanderer, driven from clips through his tree', () => {
+	it('has no pose function left in his animator', async () => {
+		const wanderer = await library.entity('entities/wanderer.entity.yaml');
+		for (const [name, animation] of entityAnimations(wanderer)) {
+			expect(animation.kind, name).toBe('clip');
+		}
+	});
+
+	it('walks and runs at the speeds the stride did', async () => {
+		const wanderer = await library.entity('entities/wanderer.entity.yaml');
+		const animations = entityAnimations(wanderer);
+		expect(animations.get('walk')!.speed()!.z).toBeCloseTo(WALK_SPEED, 3);
+		expect(animations.get('run')!.speed()!.z).toBeCloseTo(RUN_SPEED, 3);
+	});
+
+	/*
+	 * The claim the whole turn clock rests on, end to end.
+	 *
+	 * One game turn is as long as the walk takes to cross a hexagon, so a man
+	 * at normal speed is asked for exactly the speed his walk carries him at.
+	 * If the tree delivered something else, his feet would make up the
+	 * difference by sliding, and the readout would be lying about the fight.
+	 */
+	it('delivers exactly what the energy table asks a normal man for', async () => {
+		const skeleton = await library.rig('rigs/humanoid.rig.yaml');
+		const wanderer = await library.entity('entities/wanderer.entity.yaml');
+		const tree = entityBlendTrees(wanderer).get('locomotion')!;
+		const axis = tree.parameters.find((one) => one.name === 'speed')!;
+
+		const calibration = calibrateSpeed(tree.tree(), skeleton.skeleton, 'speed', [axis.min, axis.max], {
+			feet: skeleton.feet!,
+			params: { turn: 0, lean: 0, guard: 0 },
+		});
+
+		const asked = hexSpeed(NORMAL_SPEED);
+		expect(calibration.speedFor(calibration.parameterFor(asked))).toBeCloseTo(asked, 3);
+
+		// And everywhere else on the axis, which is what calibrating it is for.
+		for (const fraction of [0.25, 0.5, 0.75, 1]) {
+			const want = axis.max * fraction;
+			expect(calibration.speedFor(calibration.parameterFor(want)), `${fraction} of the axis`).toBeCloseTo(want, 3);
+		}
+	});
 });

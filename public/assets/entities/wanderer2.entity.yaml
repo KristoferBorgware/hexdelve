@@ -7,9 +7,9 @@ object:
     - { type: mesh, mesh: ../meshes/wanderer2.mesh.yaml }
     - type: animator
       animations:
-        idle: { procedural: stride, label: Idle, args: { amp: 0 }, duration: tau / 1.8 }
-        walk: { procedural: stride, label: Walk, args: { amp: 1, gait: 0 }, sync: true }
-        run: { procedural: stride, label: Run, args: { amp: 1, gait: 1 }, sync: true }
+        idle: { clip: ../clips/wanderer-idle.clip.yaml, contacts: [0.25, 0.75] }
+        walk: { clip: ../clips/wanderer-walk.clip.yaml, sync: true, contacts: [0.25, 0.75] }
+        run: { clip: ../clips/wanderer-run.clip.yaml, sync: true, contacts: [0.25, 0.75] }
         guard: ../clips/guard.clip.yaml
         slash: ../clips/slash.clip.yaml
         duck: ../clips/duck.clip.yaml

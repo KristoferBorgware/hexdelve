@@ -58,12 +58,9 @@ import { playerOrders, type PlayerOrders } from './orders.js';
 import type { Item } from './items.js';
 import { actionSeconds, hexSpeed } from './pace.js';
 
-import { stridePeriod, strideFor, type StrideSetting } from './stride.js';
 import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
 import type { Tile, World } from '../scene/world.js';
 
-const PI = Math.PI;
-const TAU = PI * 2;
 
 /** Terraces he can step up or down in one move. */
 export const MAX_CLIMB = 1;
@@ -246,14 +243,13 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	private flight: InFlight | null = null;
 
 	/**
-	 * The stride that covers a hexagon in the time his speed allows — solved
-	 * once, because his place in the energy table does not change per frame.
+	 * How fast a hexagon in one action works out to — settled once, because his
+	 * place in the energy table does not change per frame.
 	 */
-	private readonly stride: StrideSetting;
+	private readonly pace: number;
 
-	private theta = 0;
-	amp = 0;
-	gait = 0;
+	/** What he is actually travelling at this frame, eased towards `pace`. */
+	private travel = 0;
 	private yawRate = 0;
 
 	/** How far this man's cut reaches, measured off his own clip and blade. */
@@ -275,7 +271,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		this.scripts = options.scripts ?? null;
 		this.cell = { q: options.cell.q, r: options.cell.r };
 		this.speed = options.speed ?? NORMAL_SPEED;
-		this.stride = strideFor(hexSpeed(this.speed));
+		this.pace = hexSpeed(this.speed);
 
 		/*
 		 * What he is drawn with, off the components beside this one rather than
@@ -409,11 +405,12 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	 * Draw whatever he is doing at this instant.
 	 *
 	 * Named apart from the component hook on purpose: this is the ANIMATION
-	 * step and it needs the simulation's own clock, where a component's
-	 * `update` gets a frame's delta and nothing else. The rules advanced in
-	 * `resolveTurns` before this ran; what happens here is the picture of them.
+	 * step, and it takes the simulation's own clock because the actors that
+	 * share this shape need one — his own gait is carried by the blend tree's
+	 * playhead, so he does not. The rules advanced in `resolveTurns` before this
+	 * ran; what happens here is the picture of them.
 	 */
-	advance(dt: number, elapsed: number): void {
+	advance(dt: number, _elapsed: number): void {
 		this.advanceFall(dt);
 		const flight = this.flight;
 		let moving = false;
@@ -462,16 +459,15 @@ export class Player extends ActorBehaviour implements TurnTaker {
 			this.yawRate = 0;
 		}
 
-		/* --------------------------------------------------------------- gait */
-		const wantAmp = moving ? this.stride.amp : 0;
-		const wantGait = moving ? this.stride.gait : 0;
-		this.amp += (wantAmp - this.amp) * Math.min(1, dt * 14);
-		this.gait += (wantGait - this.gait) * Math.min(1, dt * 6);
-		if (this.amp > 0.03) {
-			this.theta = (this.theta + (TAU / stridePeriod(this.gait)) * dt) % TAU;
-		}
+		/*
+		 * The gait, as one number. How fast he is going is a rule — a hexagon in
+		 * one action, at whatever his place in the energy table makes that — and
+		 * the tree underneath turns it into legs. Eased rather than stepped, so
+		 * setting off and stopping are not both a jump.
+		 */
+		this.travel += ((moving ? this.pace : 0) - this.travel) * Math.min(1, dt * 14);
 
-		this.buildPose(dt, elapsed);
+		this.buildPose(dt);
 	}
 
 	private faceTowards(targetX: number, targetZ: number, dt: number): void {
@@ -545,13 +541,11 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	 * anything. What that looks like is `HumanoidAnimator`, which is why this is
 	 * eight assignments rather than five pose buffers.
 	 */
-	private buildPose(dt: number, elapsed: number): void {
+	private buildPose(dt: number): void {
 		const animation = this.animation;
 		const flight = this.flight;
 
-		animation.amp = this.amp;
-		animation.gait = this.gait;
-		animation.theta = this.theta;
+		animation.speed = this.travel;
 		animation.yawRate = this.yawRate;
 		animation.reachIn = this.leanIn;
 		animation.armed = this.armed;
@@ -562,16 +556,16 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		animation.phase = flight && flight.seconds > 0 ? Math.min(1, flight.clock / flight.seconds) : 1;
 		animation.fall = this.fall;
 
-		animation.build(dt, elapsed);
+		animation.build(dt);
 	}
 
 	get stats(): PlayerStats {
 		const tile = this.ground.tileAt(this.cell.q, this.cell.r);
 		return {
-			speed: this.flight?.kind === 'move' ? this.stride.speed : 0,
-			slip: this.stride.slip,
-			amp: this.amp,
-			gait: this.gait,
+			speed: this.flight?.kind === 'move' ? this.animation.delivered : 0,
+			slip: this.animation.slip,
+			amp: this.animation.stride,
+			gait: this.animation.gait,
 			pelvisDrop: this.pelvisDrop,
 			state: this.control.state,
 			message: this.control.message,
