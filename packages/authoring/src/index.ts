@@ -142,3 +142,13 @@ export {
 	BACKHAND_HIT,
 	STAMP_HIT,
 } from './giantpose.js';
+export {
+	trudgePose as mummyTrudgePose,
+	graspPose as mummyGraspPose,
+	cloutPose as mummyCloutPose,
+	MUMMY_SOLE,
+	TRUDGE_CONTACTS,
+	TRUDGE_PERIOD,
+	GRASP_HIT,
+	CLOUT_HIT,
+} from './mummypose.js';

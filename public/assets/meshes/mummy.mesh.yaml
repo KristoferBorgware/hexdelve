@@ -1,0 +1,195 @@
+# The mummified human: hexagonal prisms on the humanoid rig.
+#
+# Same bones and same rig as the wanderer, the ghoul and the zombie. Where the
+# zombie is a body the flesh is still going from, this is one it went from
+# long ago: a man dried to leather and bound, and what is drawn is mostly
+# the binding. Every bone is wound in bands of linen, each band a prism a
+# little turned and a little tilted against its neighbours, so the wrapping
+# reads as wound rather than moulded, in linen gone three shades of dirty
+# with the mould on it. Under the bands each limb is a strut of dark dried
+# flesh, so where they gap what shows is what is inside.
+#
+# The wrappings have come away in places — the left forearm, the right
+# thigh, the right side of the belly with the ribs across the hole, and the
+# jaw, which is bare to the teeth — and the loose ends trail from the head,
+# the shoulders, the elbows and the heels. One eye is left in the slit the
+# wrappings leave for them, drawn unlit so it shows from every angle; the
+# other socket is empty. A scarab of gold on a cord lies on the chest, a
+# gold band is on the right wrist, and a broken collar of gold and blue
+# stone is at the neck: what it was buried with.
+
+id: mummy
+name: Mummified human body
+rig: ../rigs/humanoid.rig.yaml
+
+palette:
+  linen: 0xc9bb94
+  linenDark: 0xa39468
+  linenOld: 0x8c7d5a
+  mould: 0x6f7a4e
+  mouldDark: 0x4f5a38
+  flesh: 0x4a3626
+  fleshLight: 0x6b4f3a
+  bone: 0xd9d2bb
+  tooth: 0xd8d0b8
+  mouth: 0x1a100c
+  eye: 0xcdeaa8
+  gold: 0xc9a227
+  goldDark: 0x8f7318
+  lapis: 0x2a4a8a
+  cord: 0x7a6a48
+
+parts:
+  # The pelvis: four bands round the hips, a cord over them, a patch of
+  # mould on the front, and a loose end hanging off the left hip.
+  - { bone: root, at: [0.0, -0.1, 0.0], size: [0.218, 0.058, 0.158], euler: [0.06, -0.25, 0], color: linen }
+  - { bone: root, at: [0.0, -0.045, 0.0], size: [0.223, 0.058, 0.163], euler: [-0.06, 0.25, 0], color: linenDark }
+  - { bone: root, at: [0.0, 0.01, 0.0], size: [0.218, 0.058, 0.158], euler: [0.0, -0.25, 0], color: linen }
+  - { bone: root, at: [0.0, 0.065, 0.0], size: [0.223, 0.058, 0.163], euler: [0.06, 0.25, 0], color: linenOld }
+  - { bone: root, at: [0, 0.035, 0], size: [0.226, 0.012, 0.166], color: cord }
+  - { bone: root, at: [0.1, -0.06, 0.16], size: [0.045, 0.06, 0.008], euler: [0, 0, 0.3], color: mould }
+  - { bone: root, at: [0.2, -0.14, 0.05], size: [0.014, 0.16, 0.01], euler: [0.1, 0.3, 0.15], color: linenDark }
+
+  # The waist: four bands, and on the right side the hole where they have
+  # come away — the dark of the dried belly with three ribs across it and
+  # the torn edges round it — and mould on the back.
+  - { bone: spine, at: [0.0, -0.08, 0.0], size: [0.198, 0.058, 0.148], euler: [0.06, -0.25, 0], color: linen }
+  - { bone: spine, at: [0.0, -0.025, 0.0], size: [0.203, 0.058, 0.153], euler: [-0.06, 0.25, 0], color: linenOld }
+  - { bone: spine, at: [0.0, 0.03, 0.0], size: [0.198, 0.058, 0.148], euler: [0.0, -0.25, 0], color: linen }
+  - { bone: spine, at: [0.0, 0.085, 0.0], size: [0.203, 0.058, 0.153], euler: [0.06, 0.25, 0], color: linenDark }
+  - { bone: spine, at: [-0.11, 0.02, 0.135], size: [0.06, 0.09, 0.02], color: flesh }
+  - { bone: spine, from: [-0.165, 0.055, 0.145], along: [1, 0.05, 0.1], length: 0.1, radius: 0.007, color: bone }
+  - { bone: spine, from: [-0.165, 0.02, 0.145], along: [1, 0, 0.1], length: 0.1, radius: 0.007, color: bone }
+  - { bone: spine, from: [-0.165, -0.015, 0.145], along: [1, -0.05, 0.1], length: 0.09, radius: 0.007, color: bone }
+  - { bone: spine, at: [-0.05, 0.02, 0.153], size: [0.012, 0.1, 0.012], euler: [0, 0, 0.1], color: linenOld }
+  - { bone: spine, at: [-0.16, 0.0, 0.14], size: [0.012, 0.09, 0.02], euler: [0, 0, -0.15], color: linenOld }
+  - { bone: spine, at: [0.05, 0.03, -0.155], size: [0.06, 0.08, 0.008], euler: [0, 0, -0.2], color: mould }
+
+  # The chest: six bands and two crossing over the front of them, the
+  # shoulders capped, the scarab on its cord at the breastbone, the broken
+  # collar at the neck, mould on the front and the back, and loose ends
+  # hanging from the left shoulder.
+  - { bone: chest, at: [0.0, -0.1, 0.0], size: [0.243, 0.058, 0.168], euler: [0.06, -0.25, 0], color: linenDark }
+  - { bone: chest, at: [0.0, -0.045, 0.0], size: [0.248, 0.058, 0.173], euler: [-0.06, 0.25, 0], color: linen }
+  - { bone: chest, at: [0.0, 0.01, 0.0], size: [0.243, 0.058, 0.168], euler: [0.0, -0.25, 0], color: linenOld }
+  - { bone: chest, at: [0.0, 0.065, 0.0], size: [0.248, 0.058, 0.173], euler: [0.06, 0.25, 0], color: linen }
+  - { bone: chest, at: [0.0, 0.12, 0.0], size: [0.243, 0.058, 0.168], euler: [-0.06, -0.25, 0], color: linenDark }
+  - { bone: chest, at: [0.0, 0.175, 0.0], size: [0.248, 0.058, 0.173], euler: [0.0, 0.25, 0], color: linenOld }
+  - { bone: chest, at: [0, 0.03, 0.175], size: [0.2, 0.04, 0.012], euler: [0, 0, 0.5], color: linenDark }
+  - { bone: chest, at: [0, 0.03, 0.182], size: [0.2, 0.04, 0.01], euler: [0, 0, -0.5], color: linenOld }
+  - { bone: chest, at: [0, 0.06, 0.19], size: [0.035, 0.045, 0.012], color: gold }
+  - { bone: chest, at: [0, 0.065, 0.2], size: [0.012, 0.016, 0.006], color: lapis }
+  - { bone: chest, at: [0, 0.035, 0.2], size: [0.02, 0.008, 0.006], color: goldDark }
+  - { bone: chest, from: [-0.07, 0.21, 0.14], to: [0, 0.095, 0.19], radius: 0.005, color: cord }
+  - { bone: chest, from: [0.07, 0.21, 0.14], to: [0, 0.095, 0.19], radius: 0.005, color: cord }
+  - { bone: chest, at: [-0.1, 0.13, 0.178], size: [0.05, 0.05, 0.008], euler: [0, 0, 0.4], color: mould }
+  - { bone: chest, at: [0.08, -0.02, -0.176], size: [0.055, 0.07, 0.008], euler: [0, 0, -0.3], color: mouldDark }
+  - { bone: chest, at: [0.25, 0.02, 0.06], size: [0.014, 0.16, 0.012], euler: [0.2, 0.3, 0.25], color: linenDark }
+  - { bone: chest, at: [0.27, -0.03, -0.05], size: [0.012, 0.12, 0.012], euler: [-0.2, -0.3, 0.2], color: linenOld }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: chest, at: [0.24, 0.12, 0], size: [0.07, 0.07, 0.07], color: linenOld }
+      - { bone: chest, at: [0.075, 0.2, 0.115], size: [0.03, 0.016, 0.012], euler: [0, 0.5, 0], color: gold }
+      - { bone: chest, at: [0.11, 0.195, 0.09], size: [0.01, 0.012, 0.01], color: lapis }
+
+  # The neck: two bands, and a loose end trailing from the back of it.
+  - { bone: neck, at: [0.0, 0.02, 0.0], size: [0.06, 0.062, 0.06], euler: [0.06, -0.25, 0], color: linenOld }
+  - { bone: neck, at: [0.0, 0.085, 0.0], size: [0.065, 0.062, 0.065], euler: [-0.06, 0.25, 0], color: linen }
+  - { bone: neck, from: [0, 0.1, -0.06], along: [0.1, -0.6, -1], length: 0.1, radius: 0.007, color: linenDark }
+
+  # The head: six bands up the skull and a cap over the crown, a slit left
+  # between two of them for the eyes, with one eye in it and the other
+  # socket empty under a flap hanging loose; the jaw bare, the dried lips
+  # gone from a row of teeth, a band under the chin; loose ends trailing
+  # from the crown and the temple, and mould on the back of the skull.
+  - { bone: head, at: [0.0, -0.1, 0.0], size: [0.148, 0.055, 0.138], euler: [0.06, -0.25, 0], color: linenDark }
+  - { bone: head, at: [0.0, -0.045, 0.0], size: [0.153, 0.055, 0.143], euler: [-0.06, 0.25, 0], color: linen }
+  - { bone: head, at: [0.0, 0.01, 0.0], size: [0.148, 0.055, 0.138], euler: [0.0, -0.25, 0], color: linenOld }
+  - { bone: head, at: [0.0, 0.1, 0.0], size: [0.153, 0.055, 0.143], euler: [0.06, 0.25, 0], color: linen }
+  - { bone: head, at: [0.0, 0.15, 0.0], size: [0.148, 0.055, 0.138], euler: [-0.06, -0.25, 0], color: linenDark }
+  - { bone: head, at: [0, 0.19, -0.01], size: [0.115, 0.05, 0.105], euler: [0.05, 0.3, 0], color: linenOld }
+  - { bone: head, at: [0, 0.055, 0], size: [0.146, 0.04, 0.136], color: linenDark }
+  - { bone: head, at: [0, 0.058, 0.128], size: [0.13, 0.026, 0.02], color: mouth }
+  - { bone: head, at: [-0.05, 0.058, 0.142], size: [0.015, 0.013, 0.008], color: eye, unlit: true }
+  - { bone: head, at: [0.055, 0.035, 0.14], size: [0.035, 0.05, 0.008], euler: [0.15, 0, 0.25], color: linenDark }
+  - { bone: head, at: [0, -0.085, 0.07], size: [0.075, 0.05, 0.065], color: flesh }
+  - { bone: head, at: [0, -0.06, 0.1], size: [0.06, 0.012, 0.05], color: fleshLight }
+  - { bone: head, at: [-0.03, -0.072, 0.13], size: [0.006, 0.02, 0.006], color: tooth }
+  - { bone: head, at: [-0.015, -0.072, 0.13], size: [0.006, 0.02, 0.006], color: tooth }
+  - { bone: head, at: [0.0, -0.072, 0.13], size: [0.006, 0.02, 0.006], color: tooth }
+  - { bone: head, at: [0.015, -0.072, 0.13], size: [0.006, 0.02, 0.006], color: tooth }
+  - { bone: head, at: [0.03, -0.072, 0.13], size: [0.006, 0.02, 0.006], color: tooth }
+  - { bone: head, at: [0, -0.125, 0.05], size: [0.085, 0.035, 0.075], euler: [0.1, -0.2, 0], color: linenDark }
+  - { bone: head, from: [0.03, 0.17, -0.1], along: [0.2, -1, -0.45], length: 0.16, radius: 0.007, color: linenDark }
+  - { bone: head, from: [-0.05, 0.12, -0.12], along: [-0.3, -1, -0.3], length: 0.13, radius: 0.006, color: linen }
+  - { bone: head, at: [0.15, 0.0, 0.05], size: [0.01, 0.12, 0.014], euler: [0.1, 0, 0.15], color: linenDark }
+  - { bone: head, at: [-0.06, 0.1, -0.135], size: [0.04, 0.05, 0.008], euler: [0, 0, 0.3], color: mould }
+
+  # The arms: the upper arm and the forearm each a strut of dried flesh
+  # with the bands wound round it, a loose end at the elbow, and a hand
+  # wrapped across the palm with the fingers stiff and hooked, two of them
+  # bare bone, and the thumb out.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'arm*', from: [0, 0, 0], to: { bone: 'forearm*' }, radius: 0.038, color: flesh }
+      - { bone: 'arm*', at: [0.0, -0.03, 0.0], size: [0.048, 0.062, 0.046], euler: [0.06, -0.25, 0], color: linen }
+      - { bone: 'arm*', at: [0.0, -0.09, 0.0], size: [0.053, 0.062, 0.051], euler: [-0.06, 0.25, 0], color: linenDark }
+      - { bone: 'arm*', at: [0.0, -0.15, 0.0], size: [0.048, 0.062, 0.046], euler: [0.0, -0.25, 0], color: linen }
+      - { bone: 'arm*', at: [0.0, -0.21, 0.0], size: [0.053, 0.062, 0.051], euler: [0.06, 0.25, 0], color: linenOld }
+      - { bone: 'arm*', at: [0.0, -0.27, 0.0], size: [0.048, 0.062, 0.046], euler: [-0.06, -0.25, 0], color: linen }
+      - { bone: 'arm*', at: [0.0, -0.32, 0.0], size: [0.053, 0.062, 0.051], euler: [0.0, 0.25, 0], color: linenDark }
+      - { bone: 'arm*', at: [0.03, -0.32, 0.04], size: [0.012, 0.09, 0.02], euler: [0.3, 0.4, 0.2], color: linenDark }
+      - { bone: 'forearm*', from: [0, 0, 0], to: { bone: 'hand*' }, radius: 0.032, color: flesh }
+      - { bone: 'forearm*', at: [0, 0, 0], size: [0.048, 0.05, 0.048], euler: [0, 0.2, 0], color: linenOld }
+      - { bone: 'forearm*', at: [0.0, -0.05, 0.0], size: [0.04, 0.058, 0.038], euler: [0.06, -0.25, 0], color: linen }
+      - { bone: 'forearm*', at: [0.0, -0.11, 0.0], size: [0.045, 0.058, 0.043], euler: [-0.06, 0.25, 0], color: linenOld }
+      - { bone: 'forearm*', at: [0.0, -0.17, 0.0], size: [0.04, 0.058, 0.038], euler: [0.0, -0.25, 0], color: linen }
+      - { bone: 'forearm*', at: [0.0, -0.23, 0.0], size: [0.045, 0.058, 0.043], euler: [0.06, 0.25, 0], color: linenDark }
+      - { bone: 'forearm*', at: [0.0, -0.28, 0.0], size: [0.04, 0.058, 0.038], euler: [-0.06, -0.25, 0], color: linenOld }
+      - { bone: 'hand*', at: [0, -0.012, 0], size: [0.03, 0.024, 0.042], euler: [0, 0.2, 0], color: linenDark }
+      - { bone: 'hand*', at: [0, -0.045, 0.004], size: [0.026, 0.06, 0.04], color: linen }
+      - { bone: 'hand*', from: [0, -0.07, -0.03], along: [-0.1, -1, 0.15], length: 0.05, radius: 0.009, color: linen }
+      - { bone: 'hand*', from: [0, -0.072, -0.01], along: [-0.1, -1, 0.15], length: 0.058, radius: 0.009, color: bone }
+      - { bone: 'hand*', from: [0, -0.072, 0.01], along: [-0.1, -1, 0.15], length: 0.058, radius: 0.009, color: linenOld }
+      - { bone: 'hand*', from: [0, -0.07, 0.03], along: [-0.1, -1, 0.15], length: 0.05, radius: 0.009, color: bone }
+      - { bone: 'hand*', from: [-0.012, -0.025, 0.03], along: [-0.5, -0.6, 0.6], length: 0.04, radius: 0.009, color: linen }
+  # The left forearm bare where its bands have gone, the loose end of them
+  # hanging; the right wrist in a band of gold.
+  - { bone: forearmL, at: [0, -0.17, 0], size: [0.036, 0.07, 0.036], color: flesh }
+  - { bone: forearmL, at: [0.04, -0.2, 0.02], size: [0.012, 0.12, 0.016], euler: [0.5, 0.2, 0.3], color: linenDark }
+  - { bone: forearmR, at: [0, -0.275, 0], size: [0.046, 0.024, 0.044], color: gold }
+
+  # The legs: the thigh and the shin each a strut of dried flesh with the
+  # bands wound round it, the knee in a band of its own, and a wrapped foot
+  # with a heel, the toes bound together and two of them bare, and a loose
+  # end trailing from the heel.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'hip*', from: [0, 0, 0], to: { bone: 'shin*' }, radius: 0.05, color: flesh }
+      - { bone: 'hip*', at: [0.0, -0.04, 0.0], size: [0.068, 0.07, 0.066], euler: [0.06, -0.25, 0], color: linenDark }
+      - { bone: 'hip*', at: [0.0, -0.11, 0.0], size: [0.073, 0.07, 0.071], euler: [-0.06, 0.25, 0], color: linen }
+      - { bone: 'hip*', at: [0.0, -0.18, 0.0], size: [0.068, 0.07, 0.066], euler: [0.0, -0.25, 0], color: linenOld }
+      - { bone: 'hip*', at: [0.0, -0.25, 0.0], size: [0.073, 0.07, 0.071], euler: [0.06, 0.25, 0], color: linen }
+      - { bone: 'hip*', at: [0.0, -0.32, 0.0], size: [0.068, 0.07, 0.066], euler: [-0.06, -0.25, 0], color: linenDark }
+      - { bone: 'hip*', at: [0.0, -0.39, 0.0], size: [0.073, 0.07, 0.071], euler: [0.0, 0.25, 0], color: linenOld }
+      - { bone: 'shin*', from: [0, 0, 0], to: { bone: 'foot*' }, radius: 0.045, color: flesh }
+      - { bone: 'shin*', at: [0, 0, 0.01], size: [0.062, 0.05, 0.06], euler: [0, 0.2, 0], color: linenOld }
+      - { bone: 'shin*', at: [0.0, -0.06, 0.0], size: [0.056, 0.066, 0.054], euler: [0.06, -0.25, 0], color: linenOld }
+      - { bone: 'shin*', at: [0.0, -0.13, 0.0], size: [0.061, 0.066, 0.059], euler: [-0.06, 0.25, 0], color: linen }
+      - { bone: 'shin*', at: [0.0, -0.2, 0.0], size: [0.056, 0.066, 0.054], euler: [0.0, -0.25, 0], color: linenDark }
+      - { bone: 'shin*', at: [0.0, -0.27, 0.0], size: [0.061, 0.066, 0.059], euler: [0.06, 0.25, 0], color: linenOld }
+      - { bone: 'shin*', at: [0.0, -0.33, 0.0], size: [0.056, 0.066, 0.054], euler: [-0.06, -0.25, 0], color: linen }
+      - { bone: 'foot*', at: [0, -0.04, 0.03], size: [0.075, 0.06, 0.08], euler: [0, 0.1, 0], color: linen }
+      - { bone: 'foot*', at: [0, -0.045, -0.03], size: [0.06, 0.05, 0.04], color: linenOld }
+      - { bone: 'foot*', at: [0, -0.05, 0.11], size: [0.07, 0.05, 0.05], euler: [0, -0.15, 0], color: linenDark }
+      - { bone: 'foot*', at: [-0.02, -0.065, 0.15], size: [0.012, 0.025, 0.02], color: bone }
+      - { bone: 'foot*', at: [0.012, -0.065, 0.15], size: [0.011, 0.025, 0.02], color: bone }
+      - { bone: 'foot*', from: [0, -0.06, -0.05], along: [0, -0.1, -1], length: 0.09, radius: 0.006, color: linenDark }
+  # The right thigh bare where its bands have gone, the loose end of them
+  # hanging, and mould on the left shin.
+  - { bone: hipR, at: [0, -0.2, 0], size: [0.056, 0.08, 0.054], color: flesh }
+  - { bone: hipR, at: [-0.06, -0.24, 0.03], size: [0.014, 0.13, 0.02], euler: [0.4, -0.3, -0.3], color: linenDark }
+  - { bone: shinL, at: [0.03, -0.2, 0.05], size: [0.04, 0.05, 0.008], euler: [0, 0.6, 0.2], color: mould }

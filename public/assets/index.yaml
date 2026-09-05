@@ -21,6 +21,7 @@ entities:
   - ./entities/lemure.entity.yaml
   - ./entities/kobold.entity.yaml
   - ./entities/giant.entity.yaml
+  - ./entities/mummy.entity.yaml
   - ./entities/terrain.entity.yaml
   - ./entities/anvil.entity.yaml
   - ./entities/smithy.entity.yaml

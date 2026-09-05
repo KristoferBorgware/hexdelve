@@ -133,4 +133,11 @@ export const bakeJobs: readonly BakeJob[] = [
 	{ id: 'giant-pound', label: 'Attack pound', rig: GIANT, procedural: 'giantPound', events: [{ at: 0.5, name: 'pound' }] },
 	{ id: 'giant-backhand', label: 'Attack backhand', rig: GIANT, procedural: 'giantBackhand', events: [{ at: 0.5, name: 'backhand' }] },
 	{ id: 'giant-stamp', label: 'Attack stamp', rig: GIANT, procedural: 'giantStamp', events: [{ at: 0.5, name: 'stamp' }] },
+
+	// The mummified human, on the man's rig and none of his animations: a
+	// trudge, the stand it sets out from, and two blows carrying their moments.
+	{ id: 'mummy-idle', label: 'Idle', rig: HUMANOID, procedural: 'mummyTrudge', args: { amp: 0 }, duration: cycle(0.6) },
+	{ id: 'mummy-walk', label: 'Walk', rig: HUMANOID, procedural: 'mummyTrudge', args: { amp: 1 } },
+	{ id: 'mummy-grasp', label: 'Attack grasp', rig: HUMANOID, procedural: 'mummyGrasp', events: [{ at: 0.5, name: 'grasp' }] },
+	{ id: 'mummy-clout', label: 'Attack clout', rig: HUMANOID, procedural: 'mummyClout', events: [{ at: 0.5, name: 'clout' }] },
 ];

@@ -9,7 +9,7 @@
  *
  * What is left here is the three things that outlive the migration.
  *
- * The files LOAD, and to the shapes the game expects: fifteen entities,
+ * The files LOAD, and to the shapes the game expects: twenty entities,
  * nine rigs, the trees measuring their own thresholds. A file that stopped parsing
  * would be found by the render test too, but only as a blank picture.
  *
@@ -106,6 +106,14 @@ import {
 	POUND_HIT,
 	BACKHAND_HIT,
 	STAMP_HIT,
+	mummyTrudgePose,
+	mummyGraspPose,
+	mummyCloutPose,
+	MUMMY_SOLE,
+	TRUDGE_CONTACTS,
+	TRUDGE_PERIOD,
+	GRASP_HIT,
+	CLOUT_HIT,
 	SCURRY_CONTACTS,
 	SCURRY_RUN_PERIOD,
 	SCURRY_WALK_PERIOD,
@@ -363,6 +371,7 @@ describe('entities', () => {
 			'lemure',
 			'kobold',
 			'giant',
+			'mummy',
 			'terrain',
 			'anvil',
 			'smithy',
@@ -447,6 +456,28 @@ describe('entities', () => {
 		}
 		expect(struck.footL!.p[1]).toBeGreaterThan(HUMANOID_SOLE - 0.02);
 		expect(struck.footL!.p[1]).toBeLessThan(HUMANOID_SOLE + 0.05);
+	});
+
+	it('gives the mummified human the humanoid rig, a trudge, a grasp and a clout', async () => {
+		const wanderer = await entity('wanderer');
+		const mummy = await entity('mummy');
+		expect(entityRig(mummy)).toBe(entityRig(wanderer));
+		expect([...entityAnimations(mummy).keys()]).toEqual(['idle', 'walk', 'grasp', 'clout']);
+		// Its trudge is its own clip, not one of the wanderer's.
+		const walk = entityAnimations(mummy).get('walk')!.clip;
+		expect(walk).not.toBeNull();
+		expect(walk!.name).toBe('mummy-walk');
+		expect(entityBlendTrees(mummy).get('locomotion')!.id).toBe('trudge');
+		// Each blow holds its last pose and carries its moment.
+		for (const [name, hit] of [
+			['grasp', GRASP_HIT],
+			['clout', CLOUT_HIT],
+		] as const) {
+			const blow = entityAnimations(mummy).get(name)!;
+			expect(blow.clip!.loop).toBe('hold');
+			expect(blow.clip!.events.map((event) => event.name)).toEqual([name]);
+			expect(blow.clip!.events[0]!.t / blow.duration).toBeCloseTo(hit, 6);
+		}
 	});
 
 	it('the ghoul’s leap lands in the next hexagon, strikes there, and comes back', async () => {
@@ -1341,6 +1372,79 @@ describe('the pose functions still agree with the rigs', () => {
 		for (const posed of [giantLumberPose(0.7, 1, 0.3, {}), giantLumberPose(0, 0, 2, {}), giantPoundPose(0.4, {}), giantBackhandPose(0.4, {}), giantStampPose(0.4, {})]) {
 			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
 		}
+	});
+
+	it('the trudge keeps both feet on the ground, scrapes them, and carries the mummified human slowly', async () => {
+		const rig = await readRig('humanoid');
+		for (const [foot, offset] of [
+			['footL', 0],
+			['footR', Math.PI],
+		] as const) {
+			for (let i = 0; i <= 10; i++) {
+				const own = Math.PI / 2 + (Math.PI * i) / 10;
+				const world = solveWorld(rig.skeleton, mummyTrudgePose(own - offset, 1, 0, {}));
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeGreaterThan(MUMMY_SOLE - 0.02);
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeLessThan(MUMMY_SOLE + 0.02);
+			}
+			// Carried barely off the ground mid-swing.
+			expect(solveWorld(rig.skeleton, mummyTrudgePose(-offset, 1, 0, {}))[foot]!.p[1]).toBeLessThan(MUMMY_SOLE + 0.06);
+		}
+		const mummy = await entity('mummy');
+		const walk = entityAnimations(mummy).get('walk')!;
+		expect(walk.duration).toBeCloseTo(TRUDGE_PERIOD, 12);
+		expect(walk.contacts).toEqual(TRUDGE_CONTACTS);
+		expect(walk.speed()!.z).toBeGreaterThan(0.3);
+		expect(walk.speed()!.z).toBeLessThan(0.6);
+		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
+		expect(Math.abs(entityAnimations(mummy).get('idle')!.speed()?.z ?? 0)).toBeLessThan(0.05);
+		for (const posed of [mummyTrudgePose(0.7, 1, 0.3, {}), mummyTrudgePose(0, 0, 2, {}), mummyGraspPose(0.4, {}), mummyCloutPose(0.4, {})]) {
+			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
+	});
+
+	it('the mummified human lunges with both hands at a throat, and swings a stiff arm round', async () => {
+		const rig = await readRig('humanoid');
+		const at = (pose: typeof mummyGraspPose, u: number) => solveWorld(rig.skeleton, pose(u, {}));
+		const stand = solveWorld(rig.skeleton, mummyTrudgePose(0, 0, 0, {}));
+		for (const pose of [mummyGraspPose, mummyCloutPose]) {
+			// The feet: on the ground where they stand, a foot mid-step at most.
+			for (const u of [0, 0.3, 0.5, 0.64, 0.84, 1]) {
+				const world = at(pose, u);
+				for (const foot of ['footL', 'footR']) {
+					expect(world[foot]!.p[1], `${foot} at ${u}`).toBeGreaterThan(MUMMY_SOLE - 0.02);
+					expect(world[foot]!.p[1], `${foot} at ${u}`).toBeLessThan(MUMMY_SOLE + 0.06);
+				}
+			}
+			// Back where it started.
+			const back = at(pose, 1);
+			for (const bone of ['handR', 'handL', 'head', 'footL', 'footR']) {
+				for (let axis = 0; axis < 3; axis++) expect(back[bone]!.p[axis], `${bone} axis ${axis}`).toBeCloseTo(stand[bone]!.p[axis], 3);
+			}
+		}
+		// The grasp: the hands drawn back and apart, then ahead of the head at
+		// the height of a man's throat and close together, the root lunged
+		// forward and the left foot stepped in under it.
+		const drawn = at(mummyGraspPose, 0.3);
+		const closed = at(mummyGraspPose, GRASP_HIT);
+		expect(drawn.handL!.p[0] - drawn.handR!.p[0]).toBeGreaterThan(closed.handL!.p[0] - closed.handR!.p[0] + 0.2);
+		for (const hand of ['handL', 'handR']) {
+			expect(closed[hand]!.p[2], hand).toBeGreaterThan(stand[hand]!.p[2] + 0.3);
+			expect(closed[hand]!.p[2], hand).toBeGreaterThan(closed.head!.p[2]);
+			expect(closed[hand]!.p[1], hand).toBeGreaterThan(1.1);
+			expect(closed[hand]!.p[1], hand).toBeLessThan(1.6);
+		}
+		expect(closed.root!.p[2]).toBeGreaterThan(0.25);
+		expect(closed.footL!.p[2]).toBeGreaterThan(stand.footL!.p[2] + 0.25);
+		// The clout: the right hand out on the right when wound, then ahead,
+		// then across on the left, at about the same height throughout.
+		const wound = at(mummyCloutPose, 0.3);
+		const through = at(mummyCloutPose, CLOUT_HIT);
+		const past = at(mummyCloutPose, 0.62);
+		expect(wound.handR!.p[0]).toBeLessThan(-0.4);
+		expect(wound.handR!.p[2]).toBeLessThan(0);
+		expect(through.handR!.p[2]).toBeGreaterThan(0.6);
+		expect(past.handR!.p[0]).toBeGreaterThan(0.2);
+		expect(Math.abs(past.handR!.p[1] - wound.handR!.p[1])).toBeLessThan(0.3);
 	});
 
 });

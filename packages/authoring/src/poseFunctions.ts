@@ -57,6 +57,13 @@ import {
 } from './giantpose.js';
 import { SCURRY_CONTACTS, scurryPeriod, scurryPose, stabPose as koboldStabPose } from './koboldpose.js';
 import { clawPose as lemureClawPose, WADDLE_CONTACTS, WADDLE_PERIOD, waddlePose } from './lemurepose.js';
+import {
+	cloutPose as mummyCloutPose,
+	graspPose as mummyGraspPose,
+	TRUDGE_CONTACTS,
+	TRUDGE_PERIOD,
+	trudgePose,
+} from './mummypose.js';
 import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from './spiderpose.js';
 import { stridePose, stridePeriod, STRIDE_CONTACTS } from './stride.js';
 import {
@@ -395,6 +402,36 @@ const giantStamp: PoseFunction = {
 	build: ({ duration }) => (t, out) => giantStampPose(t / duration, out),
 };
 
+/** The mummified human's trudge, and its stand: each foot solved onto the ground through the plane of the body. */
+const mummyTrudge: PoseFunction = {
+	id: 'mummyTrudge',
+	duration: TRUDGE_PERIOD,
+	contacts: TRUDGE_CONTACTS,
+	build: ({ args, duration }) => {
+		const amp = arg(args, 'amp', 1);
+		const moving = amp >= 0.02;
+		return (t, out) => trudgePose(moving ? (t / duration) * TAU : 0, amp, t, out);
+	},
+};
+
+/**
+ * The mummified human's two blows, keyed by hand and not looping: both
+ * hands driven out to close on a throat, and the right arm swung out stiff
+ * and round.
+ */
+const mummyGrasp: PoseFunction = {
+	id: 'mummyGrasp',
+	duration: 1.6,
+	loop: false,
+	build: ({ duration }) => (t, out) => mummyGraspPose(t / duration, out),
+};
+const mummyClout: PoseFunction = {
+	id: 'mummyClout',
+	duration: 1.6,
+	loop: false,
+	build: ({ duration }) => (t, out) => mummyCloutPose(t / duration, out),
+};
+
 /**
  * Every pose function this package owns.
  *
@@ -431,4 +468,7 @@ export const poseFunctions = new PoseFunctionRegistry().register(
 	giantPound,
 	giantBackhand,
 	giantStamp,
+	mummyTrudge,
+	mummyGrasp,
+	mummyClout,
 );
