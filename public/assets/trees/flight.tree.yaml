@@ -1,8 +1,12 @@
 # The bat's flight tree: one axis, from asleep to working.
 #
-# Deliberately the plain case next to the humanoid's. A single blend1d over
-# three leaves is what most of a real tree is made of, and it is worth being
-# able to look at one without four parameters on top of it.
+# Deliberately the plain case next to the humanoid's. A single blend1d over a
+# handful of leaves is what most of a real tree is made of, and it is worth
+# being able to look at one without four parameters on top of it.
+#
+# Four leaves rather than three, because the axis has to cover the beat the bat
+# actually uses: it settles at well under a hover and thrashes at half again a
+# cruise, and an axis that stopped at the cruise would clamp both ends.
 #
 # No speed measured off anything here. It has feet, but nothing it does with
 # them is walking, so a ground speed read off them would be a number about
@@ -21,7 +25,7 @@ parameters:
     max: 1
     step: 0.01
     initial: 1
-    hint: Asleep on its feet, hovering, or working the wings
+    hint: Asleep on its feet, hovering, cruising, or thrashing
 
 root:
   blend1d:
@@ -29,5 +33,6 @@ root:
     label: effort, 0 to 1
     entries:
       - { at: 0, node: { leaf: perch } }
-      - { at: 0.5, node: { leaf: hover } }
-      - { at: 1, node: { leaf: fly } }
+      - { at: 0.4, node: { leaf: hover } }
+      - { at: 0.8, node: { leaf: fly } }
+      - { at: 1, node: { leaf: thrash } }

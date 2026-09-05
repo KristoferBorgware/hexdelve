@@ -409,6 +409,8 @@ they have a beginning and an end and are not what a tree is for. The work is
 mostly in deciding what `buildPose` keeps.
 
 
+## Closed
+
 ### F-028 — The bat is drawn by its pose functions, not by the clips its entity names
 
 **Kind:** gap
@@ -446,7 +448,13 @@ was. The measurement to keep afterwards is the one the man's move needed too:
 that what the energy table asks the bat to cross a hexagon in is what its beat
 delivers.
 
-## Closed
+**Closed:** 2026-09-05, fixed — `BatAnimator` holds the blend graph and
+`BatHunt` hands it numbers, the way `Player` and `HumanoidAnimator` already
+split. Its `flight` tree gained a fourth leaf: the bat settles at well under a
+hover and thrashes at half again a cruise, so an axis stopping at the cruise
+would have clamped both ends of the beat it actually uses. The reach its rules
+lean on is measured off the lunge CLIP now rather than the function, so
+re-baking that strike moves the reach with it.
 
 ### F-027 — Ten looping animations do not close on themselves
 

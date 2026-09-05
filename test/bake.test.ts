@@ -449,3 +449,38 @@ describe('the man’s gait, solved onto the ground', () => {
 		expect(RUN_SPEED / WALK_SPEED).toBeGreaterThan(1.7);
 	});
 });
+
+describe('the bat, driven from clips through its tree', () => {
+	it('has no pose function left in its animator', async () => {
+		const bat = await library.entity('entities/bat.entity.yaml');
+		for (const [name, animation] of entityAnimations(bat)) {
+			expect(animation.kind, name).toBe('clip');
+		}
+	});
+
+	it('covers the whole beat it uses, not just the cruise', async () => {
+		/*
+		 * The bat settles at well under a hover and thrashes at half again a
+		 * cruise. An axis that stopped at the cruise would clamp the top of
+		 * that, so the tree has a fourth leaf and the beats it was baked at are
+		 * what `BatAnimator` maps onto it.
+		 */
+		const bat = await library.entity('entities/bat.entity.yaml');
+		const names = [...entityAnimations(bat).keys()];
+		for (const leaf of ['perch', 'hover', 'fly', 'thrash']) {
+			expect(names, leaf).toContain(leaf);
+		}
+		const tree = entityBlendTrees(bat).get('flight')!;
+		expect(tree.parameters.map((one) => one.name)).toEqual(['effort']);
+	});
+
+	it('measures its reach off the strike it actually plays', async () => {
+		const bat = await library.entity('entities/bat.entity.yaml');
+		const lunge = entityAnimations(bat).get('lunge')!;
+		expect(lunge.clip).not.toBeNull();
+		// A clip rather than the function it was baked from: re-baking the
+		// strike has to move the reach with it, or the rules would go on
+		// claiming a reach the animation no longer has.
+		expect(lunge.clip!.name).toBe('bat-lunge');
+	});
+});

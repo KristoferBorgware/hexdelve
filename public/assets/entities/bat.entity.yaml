@@ -9,6 +9,7 @@ object:
       animations:
         fly: { clip: ../clips/bat-fly.clip.yaml, sync: true }
         hover: { clip: ../clips/bat-hover.clip.yaml, sync: true }
+        thrash: { clip: ../clips/bat-thrash.clip.yaml, sync: true }
         perch: ../clips/bat-perch.clip.yaml
         lunge: ../clips/bat-lunge.clip.yaml
       blendTrees:

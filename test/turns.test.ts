@@ -309,7 +309,10 @@ describe('reach against the grid', () => {
 			clipOf(cast.player, 'slash'),
 			entityMesh(sword)!.anchors.tip!.at,
 		);
-		const bite = measureBiteReach(entityRig(cast.enemy)!);
+		const bite = measureBiteReach(
+			entityRig(cast.enemy)!,
+			entityAnimations(cast.enemy).get('lunge')!.clip!,
+		);
 
 		expect(reach.distance).toBeLessThan(HEX_SPACING);
 		expect(reach.distance + leanIn(reach)).toBeCloseTo(HEX_SPACING, 9);

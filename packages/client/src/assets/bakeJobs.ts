@@ -80,6 +80,7 @@ export const bakeJobs: readonly BakeJob[] = [
 	// a bat does rather than beating faster.
 	{ id: 'bat-fly', label: 'Fly', rig: BAT, procedural: 'flight', args: { amp: 1 } },
 	{ id: 'bat-hover', label: 'Hover', rig: BAT, procedural: 'flight', args: { amp: 0.45 } },
+	{ id: 'bat-thrash', label: 'Thrash', rig: BAT, procedural: 'flight', args: { amp: 1.45 } },
 	{ id: 'bat-perch', label: 'Perch', rig: BAT, procedural: 'perch', duration: cycle(0.75) },
 	{ id: 'bat-lunge', label: 'Lunge', rig: BAT, procedural: 'lunge' },
 
