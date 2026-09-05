@@ -353,21 +353,9 @@ The number of spells a caster may know is `(adj_mag_study[stat] * levels + 50) /
 
 ## 4.11 Digging and unlocking
 
-```c
-chance[RUBBLE]  = digging * 8;
-chance[MAGMA]   = (digging - 10) * 4;
-chance[QUARTZ]  = (digging - 20) * 2;
-chance[GRANITE] = (digging - 40) * 1;
-chance[DOORS]   = (digging * 4 - 119) / 3;    /* "approximately 1/1200 per skill point over 30" */
-```
+`SKILL_DIGGING` is assembled as `race + adj_str_dig + 20 per TUNNEL point + 20/40/60 for shovels/picks/mattocks + weapon weight in lb`, so a Dwarf (40) with 18/50 STR (25) wielding a 12 lb weapon has 40 + 25 + 12 = 77. Note the weapon-weight term: a heavy weapon digs better than a light one even with no digging bonus at all. What that number converts to per terrain, and the `randint0(1600)` test it feeds, are in *Traps and Doors* 17.7.
 
-Each is clamped at 0; the tunnelling code succeeds when `randint0(1600) < chance` (see the Movement chapter). Digging skill is `race + adj_str_dig + 20 per TUNNEL point + 20/40/60 for shovels/picks/mattocks + weapon weight in lb`, so a Dwarf (40) with 18/50 STR (25) wielding a 12 lb weapon has 40 + 25 + 12 = 77: rubble 616/1600 per turn, magma 268, quartz 114, granite 37.
-
-```c
-unlock_chance = MAX(2, disarm_phys / (blind or unseen ? 10 : 1) / (confused or hallucinating ? 10 : 1) - 4 * lock_power);
-```
-
-is a percentage. A level 10 Rogue (45 + 20 = 65 plus a DEX bonus of, say, 3 = 68) against a lock of power 5 has 48%; a Warrior with 40 against power 7 has 12%.
+`SKILL_DISARM_PHYS` does double duty: it disarms traps (17.5), opens locked doors and chests (17.6, 17.8), and in each case is divided by 10 while blind or in the dark and again while confused or hallucinating. The lock-picking chance itself is in 17.6. A level 10 Rogue reaches about 68 here, a Warrior about 40, which is the difference between opening a power-5 lock roughly half the time and roughly one time in five.
 
 ## 4.12 Timed effect and hunger modifiers
 

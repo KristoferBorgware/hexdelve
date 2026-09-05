@@ -178,14 +178,15 @@ Every blow that matters teaches the monster something under `birth_ai_learn` (`u
 
 ## 7.8 Damage to monsters
 
-`mon_take_hit(mon, p, dam, &fear, note)`:
-
-1. A hit that does not kill wakes the monster and makes it aware (100%); a camouflaged monster is revealed. Zero damage does nothing else.
-2. Being hit ends `TMD_COVERTRACKS`.
-3. `hp -= dam`. If `hp < 0` (note: strictly negative; a monster at exactly 0 is alive) the monster dies: `player_kill_monster()` gives experience (Experience chapter), records unique kills, then `monster_death()` drops carried and generated loot (Monsters chapter) and checks quests.
-4. Otherwise `monster_scared_by_damage()`: if already afraid, `randint1(dam)` reduces the fear and may cure it; else if the monster can be scared (not NO_FEAR; bodyguards never; servants 2/3 of the time; each other member of its group gives a 1-in-20 chance of standing firm), it becomes afraid when `randint1(10) >= hp%` (i.e. at or below 10% health, with increasing likelihood as it drops) or when the hit took at least half its remaining HP (`dam >= hp`, 80% chance). Fear lasts `1d10 + 20` if it was a big hit on a healthy monster, otherwise `1d10 + (11 − hp%) × 5`.
-
-Monsters hurt by other monsters (`mon_take_nonplayer_hit()`) and by projections (`project_m_player_attack()`) go through the same fear logic; uniques and arena opponents can only be *killed* by the player (their HP is floored at 0 by other sources).
+`mon_take_hit(mon, p, dam, &fear, note)` — the wake-and-reveal, the
+`hp < 0` death test (a monster at exactly 0 is alive), the kill
+bookkeeping and the `monster_scared_by_damage()` fear rules, with a
+worked example — is in *Chapter 12* 12.8. Two points belong here rather
+than there: monsters hurt by other monsters
+(`mon_take_nonplayer_hit()`) and by projections
+(`project_m_player_attack()`) run the same fear logic, and uniques and
+arena opponents can only be *killed* by the player, their hit points
+being floored at 0 by every other source.
 
 Pain messages (`pain.txt`, `mon-msg.c: get_pain_msg_code()`) are chosen by the percentage of hit points the monster has left *relative to what it had before the blow*: `100 × hp_after / hp_before` above 95 gives the mildest message ("shrugs off the attack"), then the bands above 75, 50, 35, 20 and 10, down to the feeblest message ("cries out feebly") when less than 10% of the previous total remains. Each monster base has one of 12 message sets (type 1 "shrugs off / grunts / cries out / screams", type 2 for oozes, type 3 for dogs, and so on).
 
