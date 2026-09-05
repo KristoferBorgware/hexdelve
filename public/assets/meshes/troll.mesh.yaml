@@ -151,47 +151,48 @@ parts:
       - { bone: 'forearm*', at: [0, -0.76, 0], size: [0.19, 0.03, 0.19], color: rope }
 
   # The right hand: a fist closed round the club's handle, which runs down
-  # through it along the forearm. The palm is a block, the four fingers curl
-  # round the front of it in two segments each, and the thumb crosses over
-  # them, the nails on the ends.
-  - { bone: handR, at: [0, -0.15, 0], size: [0.17, 0.3, 0.12], color: skin }
-  - { bone: handR, at: [0, -0.17, 0.11], size: [0.16, 0.12, 0.05], color: skinLight }
-  - { bone: handR, from: [-0.105, -0.28, 0.1], along: [0, -0.4, 1], length: 0.13, radius: 0.036, color: skin }
-  - { bone: handR, from: [-0.105, -0.33, 0.22], along: [0, -1, -0.5], length: 0.1, radius: 0.032, color: skin }
-  - { bone: handR, at: [-0.105, -0.42, 0.17], size: [0.025, 0.035, 0.025], color: nail }
-  - { bone: handR, from: [-0.035, -0.29, 0.1], along: [0, -0.4, 1], length: 0.14, radius: 0.038, color: skin }
-  - { bone: handR, from: [-0.035, -0.345, 0.23], along: [0, -1, -0.5], length: 0.11, radius: 0.034, color: skin }
-  - { bone: handR, at: [-0.035, -0.44, 0.18], size: [0.025, 0.035, 0.025], color: nail }
-  - { bone: handR, from: [0.035, -0.29, 0.1], along: [0, -0.4, 1], length: 0.14, radius: 0.038, color: skin }
-  - { bone: handR, from: [0.035, -0.345, 0.23], along: [0, -1, -0.5], length: 0.11, radius: 0.034, color: skin }
-  - { bone: handR, at: [0.035, -0.44, 0.18], size: [0.025, 0.035, 0.025], color: nail }
-  - { bone: handR, from: [0.105, -0.28, 0.1], along: [0, -0.4, 1], length: 0.13, radius: 0.036, color: skin }
-  - { bone: handR, from: [0.105, -0.33, 0.22], along: [0, -1, -0.5], length: 0.1, radius: 0.032, color: skin }
-  - { bone: handR, at: [0.105, -0.42, 0.17], size: [0.025, 0.035, 0.025], color: nail }
-  - { bone: handR, from: [-0.15, -0.1, 0.06], along: [1, -0.3, 0.9], length: 0.17, radius: 0.04, color: skin }
-  - { bone: handR, from: [-0.01, -0.15, 0.19], along: [1, -0.2, 0.1], length: 0.11, radius: 0.035, color: skin }
-  - { bone: handR, at: [0.1, -0.17, 0.2], size: [0.025, 0.025, 0.03], color: nail }
+  # through it along the forearm. The back of the hand faces out and the
+  # palm in towards the body, as a hanging hand's does; the four fingers
+  # curl in from the knuckles and back up towards the wrist, and the thumb
+  # lies across them from the front, the nails on the ends.
+  - { bone: handR, at: [-0.03, -0.15, 0], size: [0.085, 0.3, 0.15], color: skin }
+  - { bone: handR, at: [-0.1, -0.25, 0], size: [0.03, 0.1, 0.14], color: skinLight }
+  - { bone: handR, from: [0, -0.3, -0.105], along: [1, -0.35, 0], length: 0.13, radius: 0.036, color: skin }
+  - { bone: handR, from: [0.123, -0.343, -0.105], along: [0.1, 1, 0], length: 0.1, radius: 0.032, color: skin }
+  - { bone: handR, at: [0.138, -0.233, -0.105], size: [0.02, 0.03, 0.025], color: nail }
+  - { bone: handR, from: [0, -0.3, -0.035], along: [1, -0.35, 0], length: 0.14, radius: 0.036, color: skin }
+  - { bone: handR, from: [0.132, -0.346, -0.035], along: [0.1, 1, 0], length: 0.11, radius: 0.032, color: skin }
+  - { bone: handR, at: [0.148, -0.227, -0.035], size: [0.02, 0.03, 0.025], color: nail }
+  - { bone: handR, from: [0, -0.3, 0.035], along: [1, -0.35, 0], length: 0.14, radius: 0.036, color: skin }
+  - { bone: handR, from: [0.132, -0.346, 0.035], along: [0.1, 1, 0], length: 0.11, radius: 0.032, color: skin }
+  - { bone: handR, at: [0.148, -0.227, 0.035], size: [0.02, 0.03, 0.025], color: nail }
+  - { bone: handR, from: [0, -0.3, 0.105], along: [1, -0.35, 0], length: 0.13, radius: 0.036, color: skin }
+  - { bone: handR, from: [0.123, -0.343, 0.105], along: [0.1, 1, 0], length: 0.1, radius: 0.032, color: skin }
+  - { bone: handR, at: [0.138, -0.233, 0.105], size: [0.02, 0.03, 0.025], color: nail }
+  - { bone: handR, from: [0, -0.08, 0.15], along: [1, -0.5, -0.1], length: 0.15, radius: 0.04, color: skin }
+  - { bone: handR, from: [0.134, -0.147, 0.137], along: [0.1, -0.35, -1], length: 0.13, radius: 0.035, color: skin }
+  - { bone: handR, at: [0.151, -0.19, 0.00448], size: [0.02, 0.025, 0.025], color: nail }
 
-  # The left hand: open, hanging, the fingers spread a little and hooked at
-  # the last joint, the thumb out to the side, the nails on the ends, the
-  # knuckles standing out of the back of the hand.
-  - { bone: handL, at: [0, -0.14, 0], size: [0.16, 0.28, 0.08], color: skin }
-  - { bone: handL, at: [0, -0.06, -0.07], size: [0.15, 0.1, 0.03], color: skinLight }
-  - { bone: handL, from: [-0.11, -0.28, 0], along: [-0.12, -1, 0.05], length: 0.14, radius: 0.036, color: skin }
-  - { bone: handL, from: [-0.127, -0.42, 0.007], along: [-0.05, -1, 0.35], length: 0.09, radius: 0.031, color: skin }
-  - { bone: handL, at: [-0.132, -0.51, 0.04], size: [0.025, 0.04, 0.025], color: nail }
-  - { bone: handL, from: [-0.038, -0.28, 0], along: [-0.03, -1, 0.05], length: 0.16, radius: 0.038, color: skin }
-  - { bone: handL, from: [-0.043, -0.44, 0.008], along: [0, -1, 0.35], length: 0.1, radius: 0.033, color: skin }
-  - { bone: handL, at: [-0.043, -0.54, 0.042], size: [0.025, 0.04, 0.025], color: nail }
-  - { bone: handL, from: [0.038, -0.28, 0], along: [0.03, -1, 0.05], length: 0.16, radius: 0.038, color: skin }
-  - { bone: handL, from: [0.043, -0.44, 0.008], along: [0, -1, 0.35], length: 0.1, radius: 0.033, color: skin }
-  - { bone: handL, at: [0.043, -0.54, 0.042], size: [0.025, 0.04, 0.025], color: nail }
-  - { bone: handL, from: [0.11, -0.28, 0], along: [0.12, -1, 0.05], length: 0.14, radius: 0.036, color: skin }
-  - { bone: handL, from: [0.127, -0.42, 0.007], along: [0.05, -1, 0.35], length: 0.09, radius: 0.031, color: skin }
-  - { bone: handL, at: [0.132, -0.51, 0.04], size: [0.025, 0.04, 0.025], color: nail }
-  - { bone: handL, from: [-0.14, -0.1, 0.03], along: [-0.6, -0.8, 0.4], length: 0.14, radius: 0.038, color: skin }
-  - { bone: handL, from: [-0.22, -0.2, 0.08], along: [-0.2, -1, 0.3], length: 0.09, radius: 0.033, color: skin }
-  - { bone: handL, at: [-0.238, -0.29, 0.107], size: [0.025, 0.04, 0.025], color: nail }
+  # The left hand: open, hanging with the palm in towards the body and the
+  # back of the hand out, the fingers spread a little and hooked in at the
+  # last joint, the thumb out ahead, the nails on the ends.
+  - { bone: handL, at: [0, -0.14, 0], size: [0.06, 0.28, 0.16], color: skin }
+  - { bone: handL, at: [0.05, -0.07, 0], size: [0.025, 0.1, 0.15], color: skinLight }
+  - { bone: handL, from: [0, -0.28, -0.115], along: [0, -1, -0.12], length: 0.14, radius: 0.036, color: skin }
+  - { bone: handL, from: [0, -0.419, -0.132], along: [-0.4, -1, 0], length: 0.09, radius: 0.031, color: skin }
+  - { bone: handL, at: [-0.0414, -0.513, -0.132], size: [0.025, 0.035, 0.022], color: nail }
+  - { bone: handL, from: [0, -0.28, -0.04], along: [0, -1, -0.03], length: 0.16, radius: 0.036, color: skin }
+  - { bone: handL, from: [0, -0.44, -0.0448], along: [-0.4, -1, 0], length: 0.1, radius: 0.031, color: skin }
+  - { bone: handL, at: [-0.0451, -0.543, -0.0448], size: [0.025, 0.035, 0.022], color: nail }
+  - { bone: handL, from: [0, -0.28, 0.04], along: [0, -1, 0.03], length: 0.16, radius: 0.036, color: skin }
+  - { bone: handL, from: [0, -0.44, 0.0448], along: [-0.4, -1, 0], length: 0.1, radius: 0.031, color: skin }
+  - { bone: handL, at: [-0.0451, -0.543, 0.0448], size: [0.025, 0.035, 0.022], color: nail }
+  - { bone: handL, from: [0, -0.28, 0.115], along: [0, -1, 0.12], length: 0.14, radius: 0.036, color: skin }
+  - { bone: handL, from: [0, -0.419, 0.132], along: [-0.4, -1, 0], length: 0.09, radius: 0.031, color: skin }
+  - { bone: handL, at: [-0.0414, -0.513, 0.132], size: [0.025, 0.035, 0.022], color: nail }
+  - { bone: handL, from: [-0.01, -0.08, 0.15], along: [-0.35, -0.7, 0.6], length: 0.14, radius: 0.038, color: skin }
+  - { bone: handL, from: [-0.0597, -0.179, 0.235], along: [-0.3, -1, 0.15], length: 0.09, radius: 0.032, color: skin }
+  - { bone: handL, at: [-0.0933, -0.275, 0.248], size: [0.025, 0.035, 0.022], color: nail }
 
   # The thighs: the bone as a strut, the quad over the front and the
   # hamstring behind, the hip capped, the knee knobbed on the shin below.
