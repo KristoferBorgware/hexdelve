@@ -26,6 +26,7 @@
 import {
 	Animator,
 	Component,
+	FootIK,
 	MeshRenderer,
 	Rig,
 	setSparse,
@@ -36,6 +37,8 @@ import {
 	type WorldPose,
 } from '@hexdelve/engine';
 import type { Axial } from '@hexdelve/shared';
+
+import type { Action, TurnTaker } from './turns.js';
 
 export const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
 
@@ -113,7 +116,29 @@ export function turnTowards(
 	return Math.abs(diff);
 }
 
-export abstract class ActorBehaviour extends Component {
+export abstract class ActorBehaviour extends Component implements TurnTaker {
+	/** For the readout, and for telling two of them apart in a log. */
+	abstract readonly name: string;
+	/** Angband-style, offset by 110. See `NORMAL_SPEED`. */
+	abstract readonly speed: number;
+	/** What it has banked towards its next action. */
+	abstract energy: number;
+	/** Whether it is still playing out its last turn. */
+	abstract readonly busy: boolean;
+
+	/** Decide, start, and say what it cost. */
+	abstract beginTurn(): Action;
+
+	/**
+	 * Draw whatever it is doing at this instant, on the wall clock.
+	 *
+	 * Not `update`, and the difference is the whole shape of a frame: `update`
+	 * is where the game decides things, and this is where the picture of those
+	 * decisions is built. It needs the elapsed clock as well as the delta,
+	 * because a gait is a function of absolute time rather than of a step.
+	 */
+	abstract advance(dt: number, elapsed: number): void;
+
 	/** The bones it moves. Required: a behaviour with nothing to pose is a bug. */
 	readonly rig: Rig;
 
@@ -228,6 +253,18 @@ export abstract class ActorBehaviour extends Component {
 
 	solve(): WorldPose {
 		return this.rig.solve();
+	}
+
+	/**
+	 * Plant its feet on whatever is underneath them, if it has any to plant.
+	 *
+	 * A `footIK` component on the object, or nothing at all — a bat has no feet
+	 * on the ground and asks for none, and the answer is a missing component
+	 * rather than a branch here. What the ground IS is wired into that component
+	 * by whoever built the creature; the solve itself is the engine's.
+	 */
+	applyFootIK(): void {
+		this.object.getComponent(FootIK)?.solve();
 	}
 
 	/**

@@ -726,6 +726,14 @@ takes, what it looks like, and where the blade or the teeth end up.
 | `PlayerInput` | `Player` | `HumanoidAnimator`, `FootIK` |
 | `Hunter` | `BatHunt` | — |
 
+Whose turn it is is a system script too — `Turns`, beside `Combat` on the
+system prefab. It reads everything that acts out of the scene rather than
+being handed a list, so a third creature is an entity file and no line
+anywhere: the order the scene holds them in IS the tie-break, which is why the
+man is spawned first rather than compared against. A yard built without the
+system prefab therefore has no clock, exactly as one built without it has no
+combat rule.
+
 The third column is the same split again, one level down. `Player` says he is
 cutting and how far through it he is; `HumanoidAnimator` turns eight numbers
 like that into a pose, and `FootIK` puts the result on the terraces. A body can
@@ -757,7 +765,9 @@ runs — `test/combat.test.ts` drives the real simulation through it.
 | `Player` / `BatHunt` | `emit(Swing, { at, facing, reach, amount })` |
 | `Combat` | `@on(Swing)` → asks the registry what is in front → `target.send(Damage)` |
 | `Character` | `@on(Damage)` → takes the hit points off, announces `Died` |
-| the game | `host.on(Damage)` → motes, a flinch, the readout |
+| `Hunter` | `@on(Damage)` → loses its next move to being thrown about |
+| `Turns` | `@on(Died)` → takes it out of the order, and it falls |
+| the game | `host.on(Damage)` → motes and the readout |
 
 None of the first three knows the other two, so a trap or a falling rock is a
 fourth script and no change to the rest.

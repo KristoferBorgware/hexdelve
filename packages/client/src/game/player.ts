@@ -289,8 +289,8 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		 * nothing about a hexagon; what the ground IS is this world's, so it is
 		 * wired in here rather than named in a file that cannot know it.
 		 */
-		this.footIK = object.getComponent(FootIK);
-		if (this.footIK) this.footIK.groundAt = (x, z) => this.ground.groundAt(x, z);
+		const footIK = object.getComponent(FootIK);
+		if (footIK) footIK.groundAt = (x, z) => this.ground.groundAt(x, z);
 
 		const slash = this.animation.clip.slash;
 		this.reach = measureReach(rig.skeleton, slash, options.swordTip);
@@ -325,8 +325,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	/** What turns the numbers below into a pose. Required: he has to be drawn. */
 	readonly animation: HumanoidAnimator;
 
-	/** What puts his feet on the terraces, if his file asked for any. */
-	private readonly footIK: FootIK | null;
+
 
 	/* --------------------------------------------------------------- the turn -- */
 
@@ -564,16 +563,6 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		animation.fall = this.fall;
 
 		animation.build(dt, elapsed);
-	}
-
-	/**
-	 * Plant his feet on the terraces.
-	 *
-	 * The solve is `FootIK`'s and is not about a man at all — what is his is the
-	 * ground it asks about, wired in when he is built.
-	 */
-	applyFootIK(): void {
-		this.footIK?.solve();
 	}
 
 	get stats(): PlayerStats {

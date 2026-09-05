@@ -36,3 +36,11 @@ object:
     - name: combat
       components:
         - { type: script, script: Combat }
+
+    # Whose turn it is. Everything that acts is read out of the scene, so a
+    # third creature is an entity file and no line here — and the order the
+    # scene holds them in is the tie-break, which is why the man is spawned
+    # first rather than compared against.
+    - name: turns
+      components:
+        - { type: script, script: Turns }

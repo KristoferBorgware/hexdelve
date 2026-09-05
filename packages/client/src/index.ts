@@ -70,6 +70,7 @@ export {
 	type PlayerDecision,
 	type PlayerOrders,
 } from './game/orders.js';
+export { EMPTY_SCHEDULE, turnOrder, TURNS, type TurnOrder } from './game/turnorder.js';
 export {
 	huntOrders,
 	HUNTER,

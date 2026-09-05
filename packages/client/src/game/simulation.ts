@@ -1,30 +1,44 @@
 /*
- * The yard, taking turns.
+ * The yard: a world, a frame of instances, and what a click means.
  *
- * Owns the world, the two actors, the three props and the readouts drawn on
- * the ground, and turns one frame's input into one frame's instances. It knows
- * nothing about a canvas, a renderer or a browser event — the client hands it
- * a description of what the player is asking for, and it hands back prisms.
+ * It knows nothing about a canvas, a renderer or a browser event — the client
+ * hands it a description of what the player is asking for, and it hands back
+ * prisms. What is left in it after the game moved out is deliberately all of
+ * one kind: the terrain, the instance buffers, the markers drawn on the ground,
+ * where the camera looks, and the readout.
  *
- * What changed with the clock is the shape of `update`. In lab 09 it handed
- * every actor a slice of the frame and each moved by its speed times that
- * slice. Here a frame does two separate things:
+ * ## What is not here any more, and where it went
  *
- *   resolveTurns   hands out turns while nobody is mid-action, which is what
- *                  advances game time — and does nothing at all while the man
- *                  has asked for nothing, which is what makes the world wait
- *   the actors     draw whatever their current action looks like at this
- *                  instant, on the wall clock
+ *   whose turn it is    `Turns`, a system script. It reads everything that
+ *                       acts out of the scene, so a third creature is an
+ *                       entity file and no line here
+ *   what a click means  `PlayerInput`, on the man
+ *   whether it has
+ *   heard you           `Hunter`, on the bat
+ *   what a blow does    `Combat`, and `Character` takes the hit points off
  *
- * The first is the game; the second is the picture of it. Keeping them apart
- * is what lets the rules be tested without a GPU and the animation be
- * retimed without touching a rule.
+ * So this drives a frame rather than a game. It refreshes the list of things
+ * that act, lets the scene update, and then asks each of them to draw whatever
+ * its current action looks like at this instant — on the wall clock, which is
+ * the one clock the game itself does not use.
  *
- * One consequence to know: exactly one creature is ever mid-action. That is
- * not a limitation dressed up — it is what makes a turn a turn, and it is why
- * this file has no keep-apart radius, no interruption handling and no
- * collision response. Nothing can walk into anything, because nothing moves
- * while anything else is moving.
+ * Keeping those apart is what lets the rules be tested without a GPU and the
+ * animation be retimed without touching a rule.
+ *
+ * ## One consequence to know
+ *
+ * Exactly one creature is ever mid-action. That is not a limitation dressed up
+ * — it is what makes a turn a turn, and it is why this file has no keep-apart
+ * radius, no interruption handling and no collision response. Nothing can walk
+ * into anything, because nothing moves while anything else is moving.
+ *
+ * ## The two it still names
+ *
+ * `player` and `bat` remain, and only the readout and the input use them. A
+ * status line showing what you are carrying needs to know which one is you, and
+ * a demo with a man and a bat in it is entitled to say so. Nothing in the frame
+ * loop names either: the actors are read out of the scene, in the order the
+ * scene holds them.
  */
 
 import {
@@ -57,7 +71,7 @@ import {
 } from '@hexdelve/shared';
 
 import { buildWorld, type World } from '../scene/world.js';
-import { Damage, Died, Missed } from './events.js';
+import { Damage, Missed } from './events.js';
 import type { Cast } from './cast.js';
 import { components, type SpawnExtras } from './components.js';
 import { spawnEntity } from './spawn.js';
@@ -65,24 +79,13 @@ import { BatHunt } from './bathunt.js';
 import { Item } from './items.js';
 import { SECONDS_PER_GAME_TURN } from './pace.js';
 import { playerOrders, type PlayerOrders } from './orders.js';
+import { ActorBehaviour } from './actor.js';
+import { EMPTY_SCHEDULE, turnOrder, type TurnOrder } from './turnorder.js';
 import { Player, type PlayerStats } from './player.js';
 import { Schedule, speedFactor, type TurnTaker } from './turns.js';
 
 const PI = Math.PI;
 const TAU = PI * 2;
-
-/**
- * How many turns one frame may resolve before giving up and trying again next
- * frame.
- *
- * There is a real reason for a cap rather than a `while (true)`: a turn that
- * takes no time on screen — a sleeping bat, a man hemmed in — does not stop
- * the loop, so a state where nobody can ever do anything visible would spin
- * here. The cap turns that from a hung tab into a slow frame, and the fact
- * that the number is never approached in practice is worth more than the
- * cleverness of proving it cannot be.
- */
-const TURNS_PER_FRAME = 64;
 
 /** What the client observed this frame, in terms the game understands. */
 export interface FrameInput {
@@ -263,16 +266,22 @@ export class Simulation {
 	readonly bat: BatHunt;
 	readonly items: Item[];
 	readonly toggles: SimulationToggles;
-	readonly schedule: Schedule<TurnTaker>;
 
 	/** Where the camera should be looking, when it is following. */
 	readonly focus = { x: 0, y: 0, z: 0 };
 
 	private readonly motes: Motes;
+
+	/**
+	 * Everything that acts, refreshed at the top of each frame.
+	 *
+	 * Held rather than re-walked, because `build` runs after `update` and both
+	 * want the same list — and a list that changed between the two would draw
+	 * something that had not moved.
+	 */
+	private readonly actors: ActorBehaviour[] = [];
 	private readonly perch: Axial;
 	private elapsed = 0;
-	private actions = 0;
-	private lastAction = 'nobody has moved';
 	private hover: Axial | null = null;
 	private hoverReachable = false;
 	/** The action count the hover answer was worked out at. */
@@ -449,13 +458,6 @@ export class Simulation {
 		this.listen();
 
 		/*
-		 * The man is first in the list, which is Angband's tie-break: among
-		 * creatures ready to act on the same turn, the ones with strictly more
-		 * energy than him go first, then him, then the rest.
-		 */
-		this.schedule = new Schedule<TurnTaker>([this.player, this.bat]);
-
-		/*
 		 * Compose the world transforms once before anybody asks for one.
 		 *
 		 * Everything above has written LOCAL transforms — the gear where it
@@ -472,6 +474,22 @@ export class Simulation {
 	}
 
 	/* --------------------------------------------------------------- orders -- */
+
+	/**
+	 * Whose turn it is — a script on the systems object.
+	 *
+	 * Looked up each time rather than kept, for the reason his orders are: a
+	 * hot reload replaces the instance, and a reference taken once would name
+	 * the version it replaced.
+	 */
+	private get turns(): TurnOrder | null {
+		return turnOrder(this.scene);
+	}
+
+	/** Who is still taking turns. Empty where nothing is handing them out. */
+	get schedule(): Schedule<TurnTaker> {
+		return this.turns?.schedule ?? EMPTY_SCHEDULE;
+	}
 
 	/**
 	 * What the man has been asked to do — a script on his object.
@@ -518,69 +536,22 @@ export class Simulation {
 	/* ---------------------------------------------------------------- frames -- */
 
 	/**
-	 * Hand out turns while there is nobody mid-action and the man has asked for
-	 * something.
+	 * Hear what the rules decided, and put it on the screen.
 	 *
-	 * Those two conditions are the whole of the turn system. The first makes
-	 * actions sequential, so only ever one creature is moving. The second is
-	 * what a turn-based world *is*: with no orders standing, this returns
-	 * without touching the clock, so nothing gains energy, the bat does not
-	 * move, and the yard holds still with its wings out until you decide.
-	 */
-	private resolveTurns(): void {
-		for (let guard = 0; guard < TURNS_PER_FRAME; guard++) {
-			if (this.player.busy || this.bat.busy) return;
-			if (!(this.orders?.hasOrders ?? false)) return;
-			const who = this.schedule.next();
-			if (!who) return;
-			const action = who.beginTurn();
-			this.schedule.spend(who, action.cost);
-			this.actions++;
-			this.lastAction = `${who.name} · ${action.kind}`;
-		}
-	}
-
-	/**
-	 * Hear what the rules decided, and draw it.
-	 *
-	 * The scripts settle whether a blow landed and what it cost; none of that
-	 * is drawn, because a shower of motes and a creature flinching are not
-	 * things a rule should know about. So the game listens.
+	 * Two things only, and both are the picture rather than the game: a shower
+	 * of motes where a blow landed, and the swinger's tally of what came of it.
+	 * What a blow COSTS is settled by the scripts, and what being hit does to
+	 * the thing hit is heard by that thing — `Hunter` takes the bat's next move
+	 * off it, and nothing here is told about that.
 	 *
 	 * The tallies go back to whoever threw the blow rather than being kept
-	 * here, because a hit is his hit — the readout has always been the actor's,
-	 * and only the question of whether it landed has moved.
+	 * here, because a hit is his hit.
 	 */
 	private listen(): void {
 		this.scripts.on(Damage, (blow) => {
 			this.motes.spawn(blow.at.x, blow.at.y, blow.at.z, 9, 1.6, 1.9);
-			if (blow.from === 'player') {
-				this.player.reportBlow(true, 'hit it');
-				this.bat.reel();
-			} else {
-				this.bat.reportBite(true, 'bit you');
-			}
-		});
-
-		/*
-		 * And a creature that has run out of hit points stops taking turns.
-		 *
-		 * `Character` announces the death; what to DO about it is the game's.
-		 * Two things: it stops taking turns, and it falls over. The second is
-		 * an animation and belongs with the other animations rather than in a
-		 * rule — see `topple` in actor.ts — which is why the script says only
-		 * that it died and this decides what that looks like.
-		 */
-		this.scripts.on(Died, (death) => {
-			// By the OBJECT's name, which is what a script sees, rather than the
-			// turn member's: the man is `player` in the scene and `you` in the
-			// readout, and the two are different words on purpose.
-			const fallen = [this.player, this.bat].find((one) => one.object.name === death.who);
-			if (!fallen || !this.schedule.remove(fallen)) return;
-			this.lastAction = `${fallen.name} fell`;
-			// It stops taking turns, and it goes down. The first is the rule and
-			// the second is the picture; both belong here rather than in a script.
-			fallen.fell();
+			if (blow.from === 'player') this.player.reportBlow(true, 'hit it');
+			else this.bat.reportBite(true, 'bit you');
 		});
 
 		this.scripts.on(Missed, (miss) => {
@@ -634,7 +605,8 @@ export class Simulation {
 		 * cell under the cursor, or somebody having moved since.
 		 */
 		const hover = input.hover ? worldToAxial(input.hover.x, input.hover.z) : null;
-		const moved = this.hoverAsked !== this.actions;
+		const actions = this.turns?.actions ?? 0;
+		const moved = this.hoverAsked !== actions;
 		const elsewhere =
 			hover === null ||
 			this.hover === null ||
@@ -643,13 +615,26 @@ export class Simulation {
 		this.hover = hover;
 		if (hover && (moved || elsewhere)) {
 			this.hoverReachable = this.orders?.reachable(hover) ?? false;
-			this.hoverAsked = this.actions;
+			this.hoverAsked = actions;
 		} else if (!hover) {
 			this.hoverReachable = false;
 		}
 
 		this.motes.update(dt);
-		this.resolveTurns();
+
+		/*
+		 * Everything in the scene that acts, in the order the scene holds them.
+		 *
+		 * Read rather than listed: this file used to name the two of them and
+		 * drive each by hand, which meant a third creature was a line here as
+		 * well as an entity file. The order is the spawn order, which is what
+		 * the turn schedule's tie-break is built on — the man goes in first, so
+		 * among creatures ready on the same game turn he acts after the faster
+		 * ones and before the rest.
+		 */
+		this.actors.length = 0;
+		this.actors.push(...this.scene.root.getComponentsInChildren(ActorBehaviour));
+
 
 		/*
 		 * Every component on the scene, which today means every script.
@@ -663,12 +648,11 @@ export class Simulation {
 		 */
 		this.scene.update(dt);
 
-		this.player.advance(dt, this.elapsed);
-		if (this.toggles.ik) this.player.applyFootIK();
-		this.player.solve();
-
-		this.bat.advance(dt, this.elapsed);
-		this.bat.solve();
+		for (const actor of this.actors) {
+			actor.advance(dt, this.elapsed);
+			if (this.toggles.ik) actor.applyFootIK();
+			actor.solve();
+		}
 
 		/*
 		 * And then whatever is being carried, which has to be here and nowhere
@@ -710,8 +694,7 @@ export class Simulation {
 		opaque.pushAll(this.world.statics);
 
 		const ghost = this.toggles.skeleton;
-		this.player.emit(opaque, blended, ghost);
-		this.bat.emit(opaque, blended, ghost);
+		for (const actor of this.actors) actor.emit(opaque, blended, ghost);
 
 		// One path, whether it is on a head or in the grass: the object's world
 		// transform says where it is, and that is the whole of the difference.
@@ -806,8 +789,8 @@ export class Simulation {
 		return {
 			...this.player.stats,
 			gameTurn: this.schedule.gameTurn,
-			actions: this.actions,
-			lastAction: this.lastAction,
+			actions: this.turns?.actions ?? 0,
+			lastAction: this.turns?.last ?? 'nobody has moved',
 			waitingForYou: !(this.orders?.hasOrders ?? false) && !this.player.busy && !this.bat.busy,
 			secondsPerGameTurn: SECONDS_PER_GAME_TURN,
 			batMessage: this.bat.message,

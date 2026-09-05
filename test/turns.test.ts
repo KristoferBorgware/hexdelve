@@ -54,10 +54,11 @@ import {
 	MeshRenderer,
 	scriptsFromBundle,
 	type ScriptProvider,
+	type SystemAsset,
 } from '@hexdelve/engine';
 
 import { bundleScripts } from '../tools/build-scripts.mjs';
-import { loadYardCast } from './harness/assets.js';
+import { loadYardCast, openLibrary } from './harness/assets.js';
 import { SDK_MODULES } from './harness/sdk.js';
 
 describe('the energy table', () => {
@@ -275,14 +276,18 @@ describe('the yard', () => {
 	 */
 	let cast: Cast;
 	let scripts: ScriptProvider;
+	let systems: SystemAsset;
 
 	/*
-	 * The yard needs its scripts compiled, because the man's ORDERS are one:
-	 * what a click means is `PlayerInput`, and a simulation built without it has
-	 * a body that can be drawn and nothing telling it where to go.
+	 * The yard needs its scripts compiled and its systems spawned, because both
+	 * halves of what these tests check are scripts now: what a click means is
+	 * `PlayerInput`, and who acts next is `Turns` on the system prefab. A
+	 * simulation built without them has two bodies that can be drawn and no
+	 * clock to move them.
 	 */
 	beforeAll(async () => {
 		cast = await loadYardCast();
+		systems = await openLibrary().system('systems/game.system.yaml');
 		scripts = scriptsFromBundle((await bundleScripts()).code, SDK_MODULES);
 	}, 120_000);
 
@@ -293,13 +298,15 @@ describe('the yard', () => {
 		return found;
 	}
 
+	const axialEqual = (a: Axial, b: Axial): boolean => a.q === b.q && a.r === b.r;
+
 	/** Run the simulation as a client would, for a number of seconds. */
 	function run(sim: Simulation, seconds: number): void {
 		for (let i = 0; i < Math.round(seconds / FRAME); i++) sim.update(FRAME, { hover: null });
 	}
 
 	it('holds still until you ask for something', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		const where = { ...sim.bat.cell };
 		const state = sim.bat.state;
 
@@ -316,7 +323,7 @@ describe('the yard', () => {
 	});
 
 	it('walks him to the hexagon you clicked, one hexagon per turn', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		const from = { ...sim.player.cell };
 
 		// Three tiles away, and away from the bat so the walk is not a fight.
@@ -344,7 +351,7 @@ describe('the yard', () => {
 	});
 
 	it('spends one turn on a click where he already stands', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		run(sim, 0.2);
 		expect(sim.schedule.gameTurn).toBe(0);
 
@@ -368,14 +375,14 @@ describe('the yard', () => {
 	});
 
 	it('refuses a hexagon there is no way to', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		// Well outside the ground's radius, so there is no tile at all.
 		expect(sim.pickCell({ q: 40, r: 40 })).toBe(false);
 		expect(orders(sim).goal).toBeNull();
 	});
 
 	it('picks a thing up by standing on its hexagon', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		const sword = sim.items.find((i) => i.name === 'sword')!;
 		expect(sword.worn).toBe(false);
 
@@ -408,7 +415,7 @@ describe('the yard', () => {
 	 * is allowed to disagree.
 	 */
 	it('draws a carried prop exactly where the old two-path arrangement did', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		const sword = sim.items.find((i) => i.name === 'sword')!;
 
 		expect(sim.pickCell({ ...sword.cell })).toBe(true);
@@ -446,7 +453,7 @@ describe('the yard', () => {
 	 * stayed where it was dropped for ever, and only the drawing knew better.
 	 */
 	it('carries what it picked up, in the scene rather than only in the picture', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		const sword = sim.items.find((i) => i.name === 'sword')!;
 
 		expect(sim.pickCell({ ...sword.cell })).toBe(true);
@@ -468,7 +475,7 @@ describe('the yard', () => {
 	});
 
 	it('lets the bat take two hexagons for every one of his', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		// Walk him at the bat until it wakes and comes for him.
 		expect(sim.pickCell(sim.bat.cell)).toBe(true);
 
@@ -497,23 +504,36 @@ describe('the yard', () => {
 	 * left to notice.
 	 */
 	it('sends the bat home to the hexagon it woke from, and back to sleep', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		const perch = { ...sim.bat.cell };
 
-		expect(sim.pickCell(sim.bat.cell)).toBe(true);
-		run(sim, 20);
+		/*
+		 * The quarry is moved rather than walked at, and both halves of the test
+		 * do it. Walking him at the bat would start a fight — the yard has its
+		 * combat rule in it now — and a bat being bitten and reeling is not what
+		 * this is about. What it hunts is whatever its opponent says, which is
+		 * the only thing it reads him through.
+		 *
+		 * He still has to ask for something each round, because a turn is only
+		 * handed out while he has: a yard where nobody wants anything does not
+		 * tick, which is the whole of what turn-based means here.
+		 */
+		const step = (until: () => boolean): void => {
+			for (let i = 0; i < 60 && !until(); i++) {
+				sim.hold();
+				run(sim, 2);
+			}
+		};
+
+		sim.bat.opponent = { cell: { q: perch.q - 2, r: perch.r }, x: 0, z: 0 };
+		step(() => sim.bat.state !== 'asleep');
 		expect(sim.bat.state, 'it woke and came for him').not.toBe('asleep');
+		step(() => !axialEqual(sim.bat.cell, perch));
 		expect(sim.bat.cell, 'and left the perch').not.toEqual(perch);
 
 		// Somewhere it can never reach and never sees again.
 		sim.bat.opponent = { cell: { q: 60, r: 60 }, x: 120, z: 120 };
-
-		// He keeps walking, because a turn is only handed out while he has asked
-		// for something — a yard where nobody wants anything does not tick.
-		for (let i = 0; i < 40 && sim.bat.state !== 'asleep'; i++) {
-			sim.pickCell(sim.player.cell);
-			run(sim, 2);
-		}
+		step(() => sim.bat.state === 'asleep');
 
 		expect(sim.bat.cell, 'it flew back to where it started').toEqual(perch);
 		expect(sim.bat.state).toBe('asleep');
@@ -526,13 +546,13 @@ describe('the yard', () => {
 	 * nothing on screen would say so.
 	 */
 	it('takes the bat’s ranges from its entity file', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		expect(sim.stats.wakeRange).toBe(3);
 		expect(sim.stats.loseRange).toBe(6);
 	});
 
 	it('never lets either of them stand on the other', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		expect(sim.pickCell(sim.bat.cell)).toBe(true);
 		for (let i = 0; i < 60 * 30; i++) {
 			sim.update(FRAME, { hover: null });
@@ -541,7 +561,7 @@ describe('the yard', () => {
 	});
 
 	it('only ever has one of them mid-action', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		expect(sim.pickCell(sim.bat.cell)).toBe(true);
 		for (let i = 0; i < 60 * 20; i++) {
 			sim.update(FRAME, { hover: null });
@@ -550,7 +570,7 @@ describe('the yard', () => {
 	});
 
 	it('marks a hexagon as unreachable when it is', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		// The anvil's own cell is solid; its neighbours are not.
 		expect(orders(sim).reachable(sim.world.anvil.cell)).toBe(true);
 		const beside = axialNeighbours(sim.world.anvil.cell).some((c) => orders(sim).reachable(c));

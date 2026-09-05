@@ -23,7 +23,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 import { Damage, Simulation, type Cast } from '@hexdelve/client';
 import { HexInstances } from '@hexdelve/engine';
-import { scriptsFromBundle, type ScriptProvider } from '@hexdelve/engine';
+import { loadSystem, scriptsFromBundle, type ScriptProvider } from '@hexdelve/engine';
 import { axialDistance, axialNeighbours, type Axial } from '@hexdelve/shared';
 
 import { bundleScripts } from '../tools/build-scripts.mjs';
@@ -136,12 +136,23 @@ describe('a blow, end to end', () => {
 
 	/*
 	 * The negative case, and the one worth having: a swing announced into a
-	 * yard with no rules in it must not quietly land. Without the system prefab
-	 * there is no `Combat`, so nothing answers, and the man should record a
-	 * swing that did nothing rather than a hit nobody adjudicated.
+	 * yard with no rule to answer it must not quietly land. So the yard is
+	 * given a clock and nothing else — a systems prefab with `Turns` on it and
+	 * no `Combat` — and the man should record a swing that did nothing rather
+	 * than a hit nobody adjudicated.
+	 *
+	 * A clock is needed because it is a system script too: without one nothing
+	 * is handed a turn, and a man who never acts proves nothing about what a
+	 * blow does.
 	 */
 	it('lands nothing when there is no combat rule in the scene', () => {
-		const sim = new Simulation({ cast, seed: 37, scripts });
+		const clockOnly = loadSystem(
+			['id: clock', 'object:', '  name: systems', '  components:', '    - { type: script, script: Turns }'].join(
+				'\n',
+			),
+			'clock.system.yaml',
+		);
+		const sim = new Simulation({ cast, seed: 37, systems: [clockOnly], scripts });
 		expect(sim.attack()).toBe(true);
 		run(sim, 40);
 

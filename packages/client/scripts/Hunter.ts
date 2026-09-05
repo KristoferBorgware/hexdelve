@@ -27,9 +27,11 @@
  * a waypoint radius were three tuned constants standing in for one row.
  */
 
-import { param, Script } from '@hexdelve/engine';
+import { on, param, Script } from '@hexdelve/engine';
 import { axialDistance, axialNeighbours, findPath, type Axial } from '@hexdelve/shared';
 import { BatHunt, NOWHERE, type HuntDecision, type HuntState } from '@hexdelve/client';
+
+import { Damage } from './events.js';
 
 export class Hunter extends Script {
 	/** Tiles: how close you get before it notices you. */
@@ -62,6 +64,21 @@ export class Hunter extends Script {
 	struck(): void {
 		this.hit = true;
 		this.path = null;
+	}
+
+	/**
+	 * Hit. It loses its next move to being thrown about, which is what a blow
+	 * costs on a turn clock — there is no knockback in metres to apply and
+	 * nothing to interrupt, because it was not in the middle of anything.
+	 *
+	 * Heard here rather than passed in by whoever drew the blow: `Damage` is
+	 * sent to the thing that was hit, and this is on it. What being thrown
+	 * about LOOKS like is the body's, which is the other line.
+	 */
+	@on(Damage)
+	reel(): void {
+		this.struck();
+		this.body?.flinch();
 	}
 
 	/**

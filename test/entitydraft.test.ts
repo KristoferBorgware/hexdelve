@@ -207,7 +207,7 @@ describe('what a draft writes', () => {
 		expect(draftToEmittable(draftFromPrefab(after.prefab))).toEqual(
 			draftToEmittable(draftFromPrefab(before.prefab)),
 		);
-		expect(after.prefab.children.map((one) => one.name)).toEqual(['characters', 'combat']);
+		expect(after.prefab.children.map((one) => one.name)).toEqual(['characters', 'combat', 'turns']);
 	});
 
 	it('sets a transform on one axis and leaves the others', () => {
