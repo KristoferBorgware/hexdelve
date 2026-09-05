@@ -44,6 +44,7 @@ import {
 	type RigAnchor,
 	type RigAsset,
 	type Clip,
+	type ClipEvent,
 } from '@hexdelve/engine';
 import { axialDistance, HEX_SPACING, type Axial, type Random } from '@hexdelve/shared';
 
@@ -60,7 +61,6 @@ import {
 } from './actor.js';
 import { Swing } from './events.js';
 import { huntOrders, type HuntOrders, type HuntState } from './hunt.js';
-import { LUNGE_CONTACT } from './batpose.js';
 import { BatAnimator } from './batanimator.js';
 import { actionSeconds } from './pace.js';
 import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
@@ -99,11 +99,24 @@ export interface BiteReach {
  * a file — the jaw tip is an anchor in `bat.rig.yaml`, so a longer snout moves
  * the reach without anybody editing this line.
  */
+/**
+ * When in the strike the jaws arrive, as a fraction of it.
+ *
+ * Read off the clip's own `bite` event rather than typed beside it, so
+ * re-baking the lunge moves the moment the blow lands — the same argument
+ * `swingLand` makes about the man's cut.
+ */
+export function biteLand(lunge: Clip): number {
+	const bite = lunge.events.find((event: ClipEvent) => event.name === 'bite');
+	if (!bite) throw new Error(`the lunge clip has no 'bite' event to land on`);
+	return bite.t / lunge.duration;
+}
+
 export function measureBiteReach(rig: RigAsset, lunge: Clip): BiteReach {
 	const jawTip = rig.anchors.jawTip;
 	if (!jawTip) throw new Error(`the rig '${rig.id}' has no 'jawTip' anchor to bite with`);
 	const dense = createPose(rig.bones.length);
-	sampleBound(bindClip(lunge, rig.index), LUNGE_CONTACT * lunge.duration, dense);
+	sampleBound(bindClip(lunge, rig.index), biteLand(lunge) * lunge.duration, dense);
 	const pose = denseToSparse(rig.bones, dense, {});
 	const tip = attachmentPosition(rig.skeleton, pose, jawTip.bone, jawTip.at);
 	return { distance: Math.hypot(tip[0], tip[2]), height: tip[1] };
@@ -185,6 +198,8 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 
 	/** How far this bat's jaws get, measured off its own rig and its lunge. */
 	readonly reach: BiteReach;
+	/** How far through the strike the jaws arrive, off the clip's own event. */
+	private readonly biteAt: number;
 	/** And the shortfall against the grid, which the body leans out. */
 	readonly leanIn: number;
 	private readonly jaw: RigAnchor;
@@ -219,6 +234,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		 * than leaving the rules claiming one it no longer has.
 		 */
 		this.animation = this.object.addComponent(BatAnimator);
+		this.biteAt = biteLand(this.animation.strike);
 		this.reach = measureBiteReach(rig, this.animation.strike);
 		this.leanIn = batLean(this.reach);
 	}
@@ -374,7 +390,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 					this.lunge = u;
 					this.lungeBlend = Math.min(1, this.lungeBlend + dt * 7);
 					flapAmp = 0.5;
-					if (!flight.done && u >= LUNGE_CONTACT) {
+					if (!flight.done && u >= this.biteAt) {
 						flight.done = true;
 						this.landBite(flight.target);
 					}

@@ -126,6 +126,12 @@ async function main() {
 		const duration =
 			job.duration ?? (typeof fn.duration === 'function' ? fn.duration(args) : fn.duration);
 		const contacts = job.contacts ?? fn.contacts ?? [];
+		// A job states a moment as a fraction of the cycle; a clip carries it in
+		// seconds, which is what a player reading it back divides by again.
+		const events = (job.events ?? []).map((one) => ({
+			t: Math.round(one.at * duration * 1e6) / 1e6,
+			name: one.name,
+		}));
 
 		// Built through the same reader the game uses, so what is baked is what
 		// an entity naming this function would have played.
@@ -142,6 +148,7 @@ async function main() {
 			animation.loop ? 'loop' : 'hold',
 			animation.sample,
 			{ anchors: contacts, tolerance, maxKeys },
+			events,
 		);
 		const { keys, bones, worst, exhausted, wrapGap } = result.report;
 		worstOverall = Math.max(worstOverall, worst.error);
@@ -168,6 +175,7 @@ async function main() {
 				rig: job.rig,
 				duration,
 				loop: animation.loop ? 'loop' : 'hold',
+				events,
 				poses: result.poses,
 			});
 			await writeFile(join(assetRoot, file), text, 'utf8');

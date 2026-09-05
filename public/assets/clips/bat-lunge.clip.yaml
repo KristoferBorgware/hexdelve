@@ -3,6 +3,8 @@ name: Lunge
 rig: ../rigs/bat.rig.yaml
 duration: 0.9
 loop: hold
+events:
+  - { t: 0.414, name: bite }
 poses:
   - t: 0
     bones:

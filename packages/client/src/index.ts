@@ -155,7 +155,6 @@ export {
 	flyPose,
 	lungePose,
 	FLAP_PERIOD,
-	LUNGE_CONTACT,
 } from './game/batpose.js';
 export {
 	runPose as houndRunPose,

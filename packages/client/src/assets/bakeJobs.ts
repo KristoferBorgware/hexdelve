@@ -30,6 +30,15 @@ export interface BakeJob {
 	readonly duration?: number;
 	/** Where in the cycle (0..1) each foot lands. Absent takes the function's. */
 	readonly contacts?: readonly number[];
+	/**
+	 * Moments in the cycle worth naming, as a fraction of it.
+	 *
+	 * A strike's contact is the one that matters: the rules ask when the blow
+	 * lands and the answer belongs to the animation, so it is written into the
+	 * clip and read back off it rather than typed beside the code that plays
+	 * it. Re-time the strike and the moment moves with it.
+	 */
+	readonly events?: readonly { readonly at: number; readonly name: string }[];
 }
 
 const HUMANOID = '../rigs/humanoid.rig.yaml';
@@ -82,7 +91,7 @@ export const bakeJobs: readonly BakeJob[] = [
 	{ id: 'bat-hover', label: 'Hover', rig: BAT, procedural: 'flight', args: { amp: 0.45 } },
 	{ id: 'bat-thrash', label: 'Thrash', rig: BAT, procedural: 'flight', args: { amp: 1.45 } },
 	{ id: 'bat-perch', label: 'Perch', rig: BAT, procedural: 'perch', duration: cycle(0.75) },
-	{ id: 'bat-lunge', label: 'Lunge', rig: BAT, procedural: 'lunge' },
+	{ id: 'bat-lunge', label: 'Lunge', rig: BAT, procedural: 'lunge', events: [{ at: 0.46, name: 'bite' }] },
 
 	// The zombie: one shuffle, and the stand it drags itself out of.
 	{ id: 'zombie-idle', label: 'Idle', rig: HUMANOID, procedural: 'zombieShuffle', args: { amp: 0 }, duration: cycle(0.7) },
