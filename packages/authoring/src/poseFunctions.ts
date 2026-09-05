@@ -47,6 +47,7 @@ import {
 	restPose,
 	runPose,
 } from './hellhoundpose.js';
+import { SCURRY_CONTACTS, scurryPeriod, scurryPose, stabPose as koboldStabPose } from './koboldpose.js';
 import { clawPose as lemureClawPose, WADDLE_CONTACTS, WADDLE_PERIOD, waddlePose } from './lemurepose.js';
 import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from './spiderpose.js';
 import { stridePose, stridePeriod, STRIDE_CONTACTS } from './stride.js';
@@ -326,6 +327,31 @@ const lemureClaw: PoseFunction = {
 };
 
 /**
+ * The small kobold's scurry, and its stand: one function at two settings
+ * of `gait`, a walk and a run, whose cycles differ — so the duration is a
+ * function of the arguments, as the humanoid's stride's is.
+ */
+const koboldScurry: PoseFunction = {
+	id: 'koboldScurry',
+	duration: (args) => scurryPeriod(arg(args, 'gait', 0)),
+	contacts: SCURRY_CONTACTS,
+	build: ({ args, duration }) => {
+		const amp = arg(args, 'amp', 1);
+		const gait = arg(args, 'gait', 0);
+		const moving = amp >= 0.02;
+		return (t, out) => scurryPose(moving ? (t / duration) * TAU : 0, amp, gait, t, out);
+	},
+};
+
+/** The small kobold's strike, keyed by hand and not looping: coil, step in, stab, twist. */
+const koboldStab: PoseFunction = {
+	id: 'koboldStab',
+	duration: 0.7,
+	loop: false,
+	build: ({ duration }) => (t, out) => koboldStabPose(t / duration, out),
+};
+
+/**
  * Every pose function this package owns.
  *
  * One registry, exported rather than constructed per caller, because two
@@ -355,4 +381,6 @@ export const poseFunctions = new PoseFunctionRegistry().register(
 	trollSleep,
 	lemureWaddle,
 	lemureClaw,
+	koboldScurry,
+	koboldStab,
 );

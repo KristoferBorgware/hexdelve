@@ -48,6 +48,7 @@ const BAT = '../rigs/bat.rig.yaml';
 const SPIDER = '../rigs/spider.rig.yaml';
 const TROLL = '../rigs/troll.rig.yaml';
 const LEMURE = '../rigs/lemure.rig.yaml';
+const KOBOLD = '../rigs/kobold.rig.yaml';
 
 /** A cycle stated by its rate, which is how every stand below picks one. */
 const cycle = (rate: number): number => (Math.PI * 2) / rate;
@@ -116,4 +117,11 @@ export const bakeJobs: readonly BakeJob[] = [
 	{ id: 'lemure-idle', label: 'Idle', rig: LEMURE, procedural: 'lemureWaddle', args: { amp: 0 }, duration: cycle(0.5) },
 	{ id: 'lemure-walk', label: 'Walk', rig: LEMURE, procedural: 'lemureWaddle', args: { amp: 1 } },
 	{ id: 'lemure-claw', label: 'Attack claw', rig: LEMURE, procedural: 'lemureClaw', events: [{ at: 0.48, name: 'claw' }] },
+
+	// The small kobold: one scurry at a walk and at a run, the fidgeting
+	// stand it goes from, and a stab, whose moment the clip carries.
+	{ id: 'kobold-idle', label: 'Idle', rig: KOBOLD, procedural: 'koboldScurry', args: { amp: 0 }, duration: cycle(0.6) },
+	{ id: 'kobold-walk', label: 'Walk', rig: KOBOLD, procedural: 'koboldScurry', args: { amp: 1, gait: 0 } },
+	{ id: 'kobold-run', label: 'Run', rig: KOBOLD, procedural: 'koboldScurry', args: { amp: 1, gait: 1 } },
+	{ id: 'kobold-stab', label: 'Attack stab', rig: KOBOLD, procedural: 'koboldStab', events: [{ at: 0.42, name: 'stab' }] },
 ];

@@ -363,6 +363,39 @@ back to being a gait's own dip rather than a correction. Either way a rig check
 worth having is that every foot the rig names can reach the ground with a
 stride's worth of room left over.
 
+### F-029 — A baked clip's key cap is the same for a ten-second stand as for a one-second stride
+
+**Kind:** idea
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-05, baking the small kobold's stand
+**Where:** `maxKeys` in `tools/bake-clips.mjs`, `bakeClip` in `packages/engine/src/anim/bake.ts`
+
+**What happens.** The baker refines a clip until every channel is within
+0.002 of its source, and stops at 128 keys whatever the clip's length. The
+keys are shared across every bone, so the density any one moment gets is set
+by the sharpest channel at that moment. A stand is baked over the cycle its
+slowest rhythm needs — ten seconds for the kobold, twelve for the lemure —
+and the keys a fidget needs depend on how large and how sharp it is, not on
+how long it lasts: an ear flick of half a radian shaped as `sin^8` wants
+about sixty keys on its own, and a tail wagging at 3 rad/s through the whole
+cycle about a hundred. The kobold's stand as first written wanted about 170
+keys and got 128, and the report said REFINEMENT EXHAUSTED with the ears
+a third out of tolerance. The stand that is committed fits under the cap
+because it has fewer and smaller fidgets, which is an authoring answer to a
+tooling limit.
+
+**Why it matters.** A long stand is where a character does most of its
+living, and the cap is met by making it duller. Nothing tells an author this
+until the bake reports drift, and the number that lifts it is a flag on the
+command line rather than anything the job states.
+
+**What would fix it.** Let a bake job state its own key cap, or scale the
+default with the duration — so many keys per second of clip, with a floor —
+so a ten-second stand can carry what a ten-second stand has in it. A per-job
+`maxKeys` is a field on `BakeJob` and one line in the baker.
+
 ## Closed
 
 ### F-026 — The game's humanoid locomotion does not run through its blend tree

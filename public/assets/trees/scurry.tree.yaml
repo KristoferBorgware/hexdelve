@@ -1,0 +1,36 @@
+# The small kobold's locomotion tree: one axis, from the stand through the
+# walk to the run.
+#
+# The humanoid's locomotion tree without the layers over it, because a
+# kobold has nothing to carry and nothing to lean: a single blend1d over
+# three leaves. The thresholds on the axis are measured off the scurry's own
+# feet at each setting, and the axis is calibrated the same way the
+# wanderer's is, so the slider is in true metres per second.
+#
+# It refers to its leaves by NAME, not by path. The entity file says what
+# `walk` and `run` are.
+
+id: scurry
+label: Scurry tree
+rig: ../rigs/kobold.rig.yaml
+fallbackCycle: walk
+
+parameters:
+  - name: speed
+    label: Speed
+    unit: m/s
+    min: 0
+    max: { speedOf: run }
+    step: 0.01
+    initial: { speedOf: walk }
+    calibrated: true
+    hint: Calibrated, so the number on the slider is the speed it delivers
+
+root:
+  blend1d:
+    param: speed
+    label: speed, m/s
+    entries:
+      - { at: 0, node: { leaf: idle } }
+      - { at: { speedOf: walk }, node: { leaf: walk } }
+      - { at: { speedOf: run }, node: { leaf: run } }

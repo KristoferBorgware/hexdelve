@@ -9,8 +9,8 @@
  *
  * What is left here is the three things that outlive the migration.
  *
- * The files LOAD, and to the shapes the game expects: thirteen entities,
- * seven rigs, the trees measuring their own thresholds. A file that stopped parsing
+ * The files LOAD, and to the shapes the game expects: fourteen entities,
+ * eight rigs, the trees measuring their own thresholds. A file that stopped parsing
  * would be found by the render test too, but only as a blank picture.
  *
  * The loaders REFUSE what they should. Every one of these has a silent
@@ -88,6 +88,14 @@ import {
 	trollSleepPose,
 	HOUND_CHAIN,
 	HOUND_RUN_CONTACTS,
+	KOBOLD_CHAIN,
+	KOBOLD_SOLE,
+	koboldScurryPose,
+	koboldStabPose,
+	SCURRY_CONTACTS,
+	SCURRY_RUN_PERIOD,
+	SCURRY_WALK_PERIOD,
+	STAB_HIT,
 	CLAW_HIT,
 	LEMURE_CHAIN,
 	LEMURE_SOLE,
@@ -267,6 +275,23 @@ describe('rigs', () => {
 		expect(rig.masks.upperBody!.belly).toBe(1);
 	});
 
+	it('the small kobold is a squat humanoid with a jaw, two ears and a tail in two bones', async () => {
+		const rig = await readRig('kobold');
+		expect(rig.bones).toHaveLength(22);
+		const bone = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!;
+		expect(bone('jaw').parent).toBe('head');
+		expect(bone('earL').parent).toBe('head');
+		expect(bone('earR').offset[0]).toBeCloseTo(-bone('earL').offset[0], 12);
+		expect(bone('tail').parent).toBe('root');
+		expect(bone('tailTip').parent).toBe('tail');
+		// A man's knee for a hip, and arms long for it.
+		expect(rig.metrics.hipHeight).toBeLessThan(0.55);
+		expect(rig.feet).toEqual(['footL', 'footR']);
+		expect(rig.groups.ears).toEqual(['earL', 'earR']);
+		expect(rig.anchors.point!.bone).toBe('handR');
+		expect(rig.masks.upperBody!.earL).toBe(1);
+	});
+
 	it('refuses a child that comes before its parent', () => {
 		const source = ['id: bad', 'bones:', '  - { name: hand, parent: arm, offset: [0, 0, 0] }'].join('\n');
 		expect(() => loadRig(source, 'bad.rig.yaml')).toThrow(/must precede/);
@@ -300,6 +325,7 @@ describe('entities', () => {
 			'spider',
 			'troll',
 			'lemure',
+			'kobold',
 			'helmet',
 			'sword',
 			'shield',
@@ -1060,6 +1086,77 @@ describe('the pose functions still agree with the rigs', () => {
 			}
 		}
 		expect(struck.footL!.p[2]).toBeGreaterThan(stand.footL!.p[2] + 0.1);
+		expect(struck.footR!.p[2]).toBeCloseTo(stand.footR!.p[2], 2);
+		// And back where it started.
+		for (const bone of ['handL', 'handR', 'head', 'footL', 'footR']) {
+			for (let axis = 0; axis < 3; axis++) expect(at(1)[bone]!.p[axis], `${bone} axis ${axis}`).toBeCloseTo(stand[bone]!.p[axis], 3);
+		}
+	});
+
+	it('the scurry is solved on the small kobold rig’s own legs', async () => {
+		const rig = await readRig('kobold');
+		const offset = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!.offset;
+		expect(KOBOLD_CHAIN.hipHeight).toBeCloseTo(rig.metrics.hipHeight!, 12);
+		expect([...offset('hipL')]).toEqual([KOBOLD_CHAIN.hipWidth, KOBOLD_CHAIN.hip[0], KOBOLD_CHAIN.hip[1]]);
+		expect([...offset('shinL')]).toEqual([0, KOBOLD_CHAIN.thigh[0], KOBOLD_CHAIN.thigh[1]]);
+		expect([...offset('footL')]).toEqual([0, KOBOLD_CHAIN.shin[0], KOBOLD_CHAIN.shin[1]]);
+		expect([...offset('spine')]).toEqual([0, KOBOLD_CHAIN.spine[0], KOBOLD_CHAIN.spine[1]]);
+		expect([...offset('chest')]).toEqual([0, KOBOLD_CHAIN.chest[0], KOBOLD_CHAIN.chest[1]]);
+	});
+
+	it('the scurry keeps each planted foot on the ground at a walk and a run, and the run is the faster', async () => {
+		const rig = await readRig('kobold');
+		for (const gait of [0, 1]) {
+			for (const [foot, offset] of [
+				['footL', 0],
+				['footR', Math.PI],
+			] as const) {
+				for (let i = 0; i <= 10; i++) {
+					const own = Math.PI / 2 + (Math.PI * i) / 10;
+					const world = solveWorld(rig.skeleton, koboldScurryPose(own - offset, 1, gait, 0, {}));
+					expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance, gait ${gait}`).toBeGreaterThan(KOBOLD_SOLE - 0.015);
+					expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance, gait ${gait}`).toBeLessThan(KOBOLD_SOLE + 0.03);
+				}
+			}
+		}
+		const kobold = await entity('kobold');
+		const walk = entityAnimations(kobold).get('walk')!;
+		const run = entityAnimations(kobold).get('run')!;
+		expect(walk.duration).toBeCloseTo(SCURRY_WALK_PERIOD, 12);
+		expect(run.duration).toBeCloseTo(SCURRY_RUN_PERIOD, 12);
+		expect(walk.contacts).toEqual(SCURRY_CONTACTS);
+		expect(walk.speed()!.z).toBeGreaterThan(0.3);
+		expect(walk.speed()!.z).toBeLessThan(1);
+		expect(run.speed()!.z).toBeGreaterThan(walk.speed()!.z + 0.4);
+		expect(run.speed()!.z).toBeLessThan(2.5);
+		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
+		expect(Math.abs(entityAnimations(kobold).get('idle')!.speed()?.z ?? 0)).toBeLessThan(0.05);
+		const stab = entityAnimations(kobold).get('stab')!;
+		expect(stab.clip!.events.map((event) => event.name)).toEqual(['stab']);
+		expect(stab.clip!.events[0]!.t / stab.duration).toBeCloseTo(STAB_HIT, 6);
+		for (const posed of [koboldScurryPose(0.7, 1, 0, 0.3, {}), koboldScurryPose(0.7, 1, 1, 0.3, {}), koboldScurryPose(0, 0, 0, 2, {}), koboldStabPose(0.4, {})]) {
+			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
+	});
+
+	it('the small kobold steps in and drives the knife hand out ahead of it', async () => {
+		const rig = await readRig('kobold');
+		const at = (u: number) => solveWorld(rig.skeleton, koboldStabPose(u, {}));
+		const stand = at(0);
+		const coiled = at(0.25);
+		const struck = at(STAB_HIT);
+		// Coiled: the knife hand drawn back behind the shoulder; struck: well ahead.
+		expect(coiled.handR!.p[2]).toBeLessThan(stand.handR!.p[2]);
+		expect(struck.handR!.p[2]).toBeGreaterThan(stand.handR!.p[2] + 0.25);
+		expect(struck.handR!.p[2]).toBeGreaterThan(struck.head!.p[2]);
+		// The feet on the ground throughout, the left one stepped in at the hit.
+		for (const u of [0, 0.25, STAB_HIT, 0.55, 0.75, 1]) {
+			for (const foot of ['footL', 'footR']) {
+				expect(at(u)[foot]!.p[1], `${foot} at ${u}`).toBeGreaterThan(KOBOLD_SOLE - 0.015);
+				expect(at(u)[foot]!.p[1], `${foot} at ${u}`).toBeLessThan(KOBOLD_SOLE + 0.07);
+			}
+		}
+		expect(struck.footL!.p[2]).toBeGreaterThan(stand.footL!.p[2] + 0.12);
 		expect(struck.footR!.p[2]).toBeCloseTo(stand.footR!.p[2], 2);
 		// And back where it started.
 		for (const bone of ['handL', 'handR', 'head', 'footL', 'footR']) {

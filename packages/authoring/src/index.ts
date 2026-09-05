@@ -106,3 +106,14 @@ export {
 	WADDLE_CONTACTS,
 	WADDLE_PERIOD,
 } from './lemurepose.js';
+export {
+	scurryPose as koboldScurryPose,
+	stabPose as koboldStabPose,
+	scurryPeriod,
+	KOBOLD_CHAIN,
+	KOBOLD_SOLE,
+	SCURRY_CONTACTS,
+	SCURRY_WALK_PERIOD,
+	SCURRY_RUN_PERIOD,
+	STAB_HIT,
+} from './koboldpose.js';

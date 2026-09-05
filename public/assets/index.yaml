@@ -16,6 +16,7 @@ entities:
   - ./entities/spider.entity.yaml
   - ./entities/troll.entity.yaml
   - ./entities/lemure.entity.yaml
+  - ./entities/kobold.entity.yaml
   - ./entities/helmet.entity.yaml
   - ./entities/sword.entity.yaml
   - ./entities/shield.entity.yaml

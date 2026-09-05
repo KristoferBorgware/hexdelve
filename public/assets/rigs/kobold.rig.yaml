@@ -1,0 +1,106 @@
+# The small kobold's rig.
+#
+# A humanoid a little over a metre tall, on the humanoid's stack — pelvis,
+# spine, chest, neck, head, two-bone arms and legs — cut to a squat body with
+# short legs and long arms, and with the bones a dog-faced thing needs that a
+# man does not: a jaw, so the muzzle opens on a snarl; an ear either side, so
+# they flick and lie back; and a tail in two bones, so it twitches and wags.
+# Twenty-two bones, and every one of them is doing work.
+#
+# Bones hang or stand the way the humanoid's do, so every sign rule is the
+# same and the planar solve reads on it unchanged:
+#
+#   (the character faces +Z, +X is its left)
+#   limb bones hang down -Y   ->  rot.x < 0 swings FORWARD, rot.x > 0 swings BACK
+#   spine/chest/head point up ->  rot.x > 0 tips FORWARD (the head looks down)
+#   the jaw points forward    ->  rot.x > 0 opens it
+#   the ears stand up         ->  rot.x > 0 lays them BACK
+#   the tail points back      ->  rot.x > 0 lifts it
+#   feet                      ->  rot.x > 0 points the toe DOWN
+#   rot.y > 0                 ->  turns towards the character's left
+
+id: kobold
+name: Small kobold
+
+metrics:
+  # Hip height at rest: a man's knee.
+  hipHeight: 0.5
+  # Roughly the middle of the animal, for a camera to look at.
+  standHeight: 0.6
+
+bones:
+  - { name: root, offset: [0, hipHeight, 0] }
+  - { name: spine, parent: root, offset: [0, 0.1, 0] }
+  - { name: chest, parent: spine, offset: [0, 0.14, 0] }
+  - { name: neck, parent: chest, offset: [0, 0.1, 0.02] }
+  - { name: head, parent: neck, offset: [0, 0.07, 0.03] }
+  - { name: jaw, parent: head, offset: [0, -0.02, 0.06] }
+  - { name: earL, parent: head, offset: [0.06, 0.075, -0.02] }
+  - { name: earR, parent: head, offset: [-0.06, 0.075, -0.02] }
+  - { name: armL, parent: chest, offset: [0.13, 0.08, 0] }
+  - { name: forearmL, parent: armL, offset: [0, -0.19, 0] }
+  - { name: handL, parent: forearmL, offset: [0, -0.17, 0] }
+  - { name: armR, parent: chest, offset: [-0.13, 0.08, 0] }
+  - { name: forearmR, parent: armR, offset: [0, -0.19, 0] }
+  - { name: handR, parent: forearmR, offset: [0, -0.17, 0] }
+  - { name: hipL, parent: root, offset: [0.09, -0.03, 0] }
+  - { name: shinL, parent: hipL, offset: [0, -0.22, 0] }
+  - { name: footL, parent: shinL, offset: [0, -0.2, 0] }
+  - { name: hipR, parent: root, offset: [-0.09, -0.03, 0] }
+  - { name: shinR, parent: hipR, offset: [0, -0.22, 0] }
+  - { name: footR, parent: shinR, offset: [0, -0.2, 0] }
+  - { name: tail, parent: root, offset: [0, -0.02, -0.08] }
+  - { name: tailTip, parent: tail, offset: [0, -0.03, -0.12] }
+
+# Where a chain ends and there is no child bone to draw towards.
+tips:
+  - { bone: head, to: [0, 0.12, 0] }
+  - { bone: jaw, to: [0, -0.02, 0.1] }
+  - { bone: earL, to: [0.03, 0.08, -0.01] }
+  - { bone: earR, to: [-0.03, 0.08, -0.01] }
+  - { bone: handL, to: [0, -0.08, 0] }
+  - { bone: handR, to: [0, -0.08, 0] }
+  - { bone: footL, to: [0, -0.05, 0.1] }
+  - { bone: footR, to: [0, -0.05, 0.1] }
+  - { bone: tailTip, to: [0, -0.02, -0.1] }
+
+# The two that alternate, so a cycle's ground speed can be measured off them.
+feet: [footL, footR]
+
+groups:
+  arms: [armL, forearmL, handL, armR, forearmR, handR]
+  legs: [hipL, shinL, footL, hipR, shinR, footR]
+  ears: [earL, earR]
+  tail: [tail, tailTip]
+
+masks:
+  # Blend mask for playing an upper-body clip over the scurry. The spine is
+  # partial for the reason the humanoid's is: the two halves meet through
+  # it rather than hinging at it.
+  upperBody:
+    spine: 0.45
+    chest: 1
+    neck: 1
+    head: 1
+    jaw: 1
+    earL: 1
+    earR: 1
+    armL: 1
+    forearmL: 1
+    handL: 1
+    armR: 1
+    forearmR: 1
+    handR: 1
+
+anchors:
+  # The point of the flint knife in the right fist, in the hand's own space:
+  # what a stab has to reach with.
+  point: { bone: handR, at: [0, -0.25, 0.015] }
+
+# Read off the bones above rather than typed beside them: hip to ankle.
+measures:
+  legLength: { chain: [hipL, footL] }
+
+view:
+  focusY: standHeight
+  frameDistance: 2.9
