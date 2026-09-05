@@ -34,6 +34,13 @@ export interface BakeJob {
 
 const HUMANOID = '../rigs/humanoid.rig.yaml';
 const HELLHOUND = '../rigs/hellhound.rig.yaml';
+const DIREHOUND = '../rigs/direhound.rig.yaml';
+const BAT = '../rigs/bat.rig.yaml';
+const SPIDER = '../rigs/spider.rig.yaml';
+const TROLL = '../rigs/troll.rig.yaml';
+
+/** A cycle stated by its rate, which is how every stand below picks one. */
+const cycle = (rate: number): number => (Math.PI * 2) / rate;
 
 /**
  * Every clip in the tree that came off a pose function.
@@ -44,21 +51,52 @@ const HELLHOUND = '../rigs/hellhound.rig.yaml';
 export const bakeJobs: readonly BakeJob[] = [
 	// The man. One function at three settings — standing, a full walk, a run —
 	// which the tree then blends continuously between.
-	{ id: 'wanderer-idle', label: 'Idle', rig: HUMANOID, procedural: 'stride', args: { amp: 0 }, duration: (Math.PI * 2) / 1.8 },
+	{ id: 'wanderer-idle', label: 'Idle', rig: HUMANOID, procedural: 'stride', args: { amp: 0 }, duration: cycle(1.8) },
 	{ id: 'wanderer-walk', label: 'Walk', rig: HUMANOID, procedural: 'stride', args: { amp: 1, gait: 0 } },
 	{ id: 'wanderer-run', label: 'Run', rig: HUMANOID, procedural: 'stride', args: { amp: 1, gait: 1 } },
 
 	// The ghoul, on the man's rig and none of his animations: a hunched shamble
 	// and a scramble on all fours. Its stand takes two breaths to a cycle so
 	// the slow sway in it closes.
-	{ id: 'ghoul-idle', label: 'Idle', rig: HUMANOID, procedural: 'ghoulShamble', args: { amp: 0 }, duration: (Math.PI * 2) / 0.85 },
+	{ id: 'ghoul-idle', label: 'Idle', rig: HUMANOID, procedural: 'ghoulShamble', args: { amp: 0 }, duration: cycle(0.85) },
 	{ id: 'ghoul-walk', label: 'Walk', rig: HUMANOID, procedural: 'ghoulShamble', args: { amp: 1 } },
 	{ id: 'ghoul-run', label: 'Run', rig: HUMANOID, procedural: 'ghoulScramble', args: { amp: 1 } },
 
 	// The hellhound: a trot, and the three things it does when it is not
 	// trotting. Its stand and its rest both run to the slowest rhythm in them.
-	{ id: 'hellhound-idle', label: 'Idle', rig: HELLHOUND, procedural: 'houndRun', args: { amp: 0 }, duration: (Math.PI * 2) / 0.85 },
+	{ id: 'hellhound-idle', label: 'Idle', rig: HELLHOUND, procedural: 'houndRun', args: { amp: 0 }, duration: cycle(0.85) },
 	{ id: 'hellhound-run', label: 'Run', rig: HELLHOUND, procedural: 'houndRun', args: { amp: 1 } },
 	{ id: 'hellhound-bite', label: 'Bite', rig: HELLHOUND, procedural: 'houndBite' },
 	{ id: 'hellhound-rest', label: 'Rest', rig: HELLHOUND, procedural: 'houndRest' },
+
+	// The dire hellhound: a gallop, a strike, and the stare it does neither
+	// from. Both of the still ones run to the slowest rhythm they carry.
+	{ id: 'direhound-idle', label: 'Idle', rig: DIREHOUND, procedural: 'direRun', args: { amp: 0 }, duration: cycle(0.8) },
+	{ id: 'direhound-run', label: 'Run', rig: DIREHOUND, procedural: 'direRun', args: { amp: 1 } },
+	{ id: 'direhound-bite', label: 'Attack bite', rig: DIREHOUND, procedural: 'direBite' },
+	{ id: 'direhound-rest', label: 'Rest', rig: DIREHOUND, procedural: 'direRest', duration: cycle(0.65) },
+
+	// The bat. A hover is the same beat at a shallower amplitude, which is what
+	// a bat does rather than beating faster.
+	{ id: 'bat-fly', label: 'Fly', rig: BAT, procedural: 'flight', args: { amp: 1 } },
+	{ id: 'bat-hover', label: 'Hover', rig: BAT, procedural: 'flight', args: { amp: 0.45 } },
+	{ id: 'bat-perch', label: 'Perch', rig: BAT, procedural: 'perch', duration: cycle(0.75) },
+	{ id: 'bat-lunge', label: 'Lunge', rig: BAT, procedural: 'lunge' },
+
+	// The zombie: one shuffle, and the stand it drags itself out of.
+	{ id: 'zombie-idle', label: 'Idle', rig: HUMANOID, procedural: 'zombieShuffle', args: { amp: 0 }, duration: cycle(0.7) },
+	{ id: 'zombie-walk', label: 'Walk', rig: HUMANOID, procedural: 'zombieShuffle', args: { amp: 1 } },
+
+	// The spider: eight legs solved onto the ground, and the wait between.
+	{ id: 'spider-idle', label: 'Idle', rig: SPIDER, procedural: 'spiderRun', args: { amp: 0 }, duration: cycle(0.8) },
+	{ id: 'spider-run', label: 'Run', rig: SPIDER, procedural: 'spiderRun', args: { amp: 1 } },
+	{ id: 'spider-spit', label: 'Spit', rig: SPIDER, procedural: 'spiderSpit' },
+
+	// The troll: a stomp, three ways of swinging a club, and a sleep.
+	{ id: 'troll-idle', label: 'Idle', rig: TROLL, procedural: 'trollStomp', args: { amp: 0 }, duration: cycle(1.1) },
+	{ id: 'troll-walk', label: 'Walk', rig: TROLL, procedural: 'trollStomp', args: { amp: 1 } },
+	{ id: 'troll-smash', label: 'Attack smash', rig: TROLL, procedural: 'trollSmash' },
+	{ id: 'troll-swipe', label: 'Attack swipe', rig: TROLL, procedural: 'trollSwipe' },
+	{ id: 'troll-poke', label: 'Attack poke', rig: TROLL, procedural: 'trollPoke' },
+	{ id: 'troll-rest', label: 'Rest', rig: TROLL, procedural: 'trollSleep', duration: cycle(1.2) },
 ];

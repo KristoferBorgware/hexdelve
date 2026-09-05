@@ -213,6 +213,8 @@ const target: [number, number, number] = [0, 0, 0];
 export function runPose(theta: number, amp: number, time = 0, out: SparsePose = {}): SparsePose {
 	const still = 1 - clamp01(amp);
 	const sinT = Math.sin(theta);
+	// Every rhythm in the wait is a multiple of 0.8, the rate its cycle is
+	// declared at, so the clip this bakes to closes on itself.
 	const settle = 0.006 * still * Math.sin(time * 1.6);
 
 	const pitch = 0.02 * amp * Math.sin(2 * theta);
@@ -231,7 +233,7 @@ export function runPose(theta: number, amp: number, time = 0, out: SparsePose = 
 		target[2] = z;
 		// Standing, the front legs lift in turn and feel at the air ahead.
 		if (still > 0 && LEGS.indexOf(leg) % 4 === 0) {
-			const feel = Math.pow(Math.max(0, Math.sin(time * 0.9 + (leg.side > 0 ? 0 : 2.5))), 6) * still;
+			const feel = Math.pow(Math.max(0, Math.sin(time * 0.8 + (leg.side > 0 ? 0 : 2.5))), 6) * still;
 			target[1] += 0.14 * feel;
 			target[2] += 0.1 * feel;
 		}
@@ -240,9 +242,9 @@ export function runPose(theta: number, amp: number, time = 0, out: SparsePose = 
 
 	// The abdomen bobs behind at a run and pulses at the stand; the head
 	// nods with the stride; the fangs twitch.
-	const twitch = Math.pow(Math.sin(time * 2.3), 8) * still;
+	const twitch = Math.pow(Math.sin(time * 2.4), 8) * still;
 	setSparse(out, 'abdomen', [0.06 * amp * Math.sin(2 * theta + 0.5) + 0.02 * still * Math.sin(time * 1.6), 0, 0]);
-	setSparse(out, 'head', [0.03 * amp * Math.sin(2 * theta) + 0.02 * still * Math.sin(time * 0.7), 0.05 * still * Math.sin(time * 0.4), 0]);
+	setSparse(out, 'head', [0.03 * amp * Math.sin(2 * theta) + 0.02 * still * Math.sin(time * 0.8), 0.05 * still * Math.sin(time * 0.8 + 1.9), 0]);
 	setSparse(out, 'fangL', [-0.15 * twitch, 0.1 * twitch, 0]);
 	setSparse(out, 'fangR', [-0.15 * twitch, -0.1 * twitch, 0]);
 	return out;

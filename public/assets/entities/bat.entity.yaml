@@ -7,10 +7,10 @@ object:
     - { type: mesh, mesh: ../meshes/bat.mesh.yaml }
     - type: animator
       animations:
-        fly: { procedural: flight, label: Fly, args: { amp: 1 }, sync: true }
-        hover: { procedural: flight, label: Hover, args: { amp: 0.45 }, sync: true }
-        perch: { procedural: perch, label: Perch }
-        lunge: { procedural: lunge, label: Lunge }
+        fly: { clip: ../clips/bat-fly.clip.yaml, sync: true }
+        hover: { clip: ../clips/bat-hover.clip.yaml, sync: true }
+        perch: ../clips/bat-perch.clip.yaml
+        lunge: ../clips/bat-lunge.clip.yaml
       blendTrees:
         flight: ../trees/flight.tree.yaml
     - { type: script, script: Hunter, wakeRange: 3, loseRange: 6, climb: 2 }

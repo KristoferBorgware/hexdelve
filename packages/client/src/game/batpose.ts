@@ -89,12 +89,17 @@ function wing(
  * of the body, which is what lets the thing sit on a single hexagon.
  */
 export function perchPose(time: number, out: SparsePose = {}): SparsePose {
+	/*
+	 * Two rhythms, the slower one the cycle: a perch is declared at 0.75 and
+	 * breathes at twice that, so both come round together and the clip this
+	 * bakes to closes on itself rather than jumping once a wrap.
+	 */
 	const breath = Math.sin(time * 1.5);
 
 	setSparse(out, 'root', [0.2, 0, 0], [0, SETTLE + 0.012 * breath, 0]);
 	setSparse(out, 'chest', [0.16 + 0.02 * breath, 0, 0]);
 	setSparse(out, 'neck', [0.2, 0, 0]);
-	setSparse(out, 'head', [0.28, 0.05 * Math.sin(time * 0.6), 0]);
+	setSparse(out, 'head', [0.28, 0.05 * Math.sin(time * 0.75), 0]);
 	setSparse(out, 'jaw', [0.04, 0, 0]);
 	setSparse(out, 'earL', [-0.15, 0, 0.1]);
 	setSparse(out, 'earR', [-0.15, 0, -0.1]);
@@ -120,17 +125,16 @@ export function perchPose(time: number, out: SparsePose = {}): SparsePose {
  * an oar, beat them a beat apart and the stroke travels out along the wing as
  * a wave, the way a real one does.
  */
-export function flyPose(theta: number, amp: number, time = 0, out: SparsePose = {}): SparsePose {
+export function flyPose(theta: number, amp: number, _time = 0, out: SparsePose = {}): SparsePose {
 	const LAG = 0.5;
 	const LIFT = [0.85, 0.5, 0.42, 0.3];
-	const drift = 0.05 * Math.sin(time * 0.9); // never perfectly still
 
 	const lift: number[] = [];
 	const sweep: number[] = [];
 	const twist: number[] = [];
 	for (let i = 0; i < 4; i++) {
 		const phase = theta - i * LAG;
-		lift.push(0.12 + amp * LIFT[i]! * Math.sin(phase) + (1 - amp) * drift);
+		lift.push(0.12 + amp * LIFT[i]! * Math.sin(phase));
 		// The wing rows forward as it comes down and back as it goes up, so the
 		// stroke has somewhere to push.
 		sweep.push(-amp * 0.14 * Math.cos(phase) + (i === 0 ? 0.05 : 0));

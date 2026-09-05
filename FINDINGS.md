@@ -409,6 +409,8 @@ they have a beginning and an end and are not what a tree is for. The work is
 mostly in deciding what `buildPose` keeps.
 
 
+## Closed
+
 ### F-027 — Ten looping animations do not close on themselves
 
 **Kind:** bug
@@ -467,7 +469,13 @@ keys because of it.
 `bakeClip` reports the gap as `wrapGap` and `tools/bake-clips.mjs --check`
 fails on it, so whoever takes this can see each one shrink to zero.
 
-## Closed
+**Closed:** 2026-09-05, fixed — every rhythm in every stand now runs at a
+multiple of the rate its own cycle is declared at, and every `time`-driven term
+fades out with the stride, so a gait is a function of its phase alone. The
+troll's uses harmonics rather than phase offsets, because its strikes end by
+returning to the stand at rest and an offset would have moved where that is.
+`tools/bake-clips.mjs --check` reports every one of the twenty-nine clips
+closing, against a limit of 0.01.
 
 ### F-001 — The hellhound's trot carries it backwards
 

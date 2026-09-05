@@ -7,8 +7,8 @@ object:
     - { type: mesh, mesh: ../meshes/zombie.mesh.yaml }
     - type: animator
       animations:
-        idle: { procedural: zombieShuffle, label: Idle, args: { amp: 0 }, duration: tau / 0.7 }
-        walk: { procedural: zombieShuffle, label: Walk, args: { amp: 1 }, sync: true }
+        idle: { clip: ../clips/zombie-idle.clip.yaml, contacts: [0.25, 0.75] }
+        walk: { clip: ../clips/zombie-walk.clip.yaml, sync: true, contacts: [0.25, 0.75] }
         slash: ../clips/overhead.clip.yaml
       blendTrees:
         locomotion: ../trees/shuffle.tree.yaml

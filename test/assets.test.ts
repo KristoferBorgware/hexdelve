@@ -323,7 +323,10 @@ describe('entities', () => {
 		const zombie = await entity('zombie');
 		expect(entityRig(zombie)).toBe(entityRig(wanderer));
 		expect([...entityAnimations(zombie).keys()]).toEqual(['idle', 'walk', 'slash']);
-		expect(entityAnimations(zombie).get('walk')!.clip).toBeNull();
+		// Its shuffle is its own clip, not one of the wanderer's.
+		const walk = entityAnimations(zombie).get('walk')!.clip;
+		expect(walk).not.toBeNull();
+		expect(walk!.name).toBe('zombie-walk');
 		expect(entityBlendTrees(zombie).get('locomotion')!.id).toBe('shuffle');
 
 		const slash = entityAnimations(zombie).get('slash')!;

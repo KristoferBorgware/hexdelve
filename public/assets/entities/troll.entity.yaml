@@ -7,12 +7,12 @@ object:
     - { type: mesh, mesh: ../meshes/troll.mesh.yaml }
     - type: animator
       animations:
-        idle: { procedural: trollStomp, label: Idle, args: { amp: 0 }, duration: tau / 1.1 }
-        walk: { procedural: trollStomp, label: Walk, args: { amp: 1 }, sync: true }
-        smash: { procedural: trollSmash, label: Attack smash }
-        swipe: { procedural: trollSwipe, label: Attack swipe }
-        poke: { procedural: trollPoke, label: Attack poke }
-        rest: { procedural: trollSleep, label: Rest, duration: tau / 1.2 }
+        idle: { clip: ../clips/troll-idle.clip.yaml, contacts: [0.25, 0.75] }
+        walk: { clip: ../clips/troll-walk.clip.yaml, sync: true, contacts: [0.25, 0.75] }
+        smash: ../clips/troll-smash.clip.yaml
+        swipe: ../clips/troll-swipe.clip.yaml
+        poke: ../clips/troll-poke.clip.yaml
+        rest: ../clips/troll-rest.clip.yaml
       blendTrees:
         locomotion: ../trees/stomp.tree.yaml
     - { type: script, script: Character, hp: 120, faction: foe, power: 18, lift: 2.1 }
