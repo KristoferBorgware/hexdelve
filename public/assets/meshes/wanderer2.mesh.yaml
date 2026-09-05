@@ -1,0 +1,214 @@
+# The second wanderer: hexagonal prisms on the humanoid rig.
+#
+# Every part is the unit hex prism under a different scale and rotation, bound
+# to a bone, and nothing here is animated directly — posing the rig poses the
+# character. The rig is the wanderer's and so are the animations, the clips
+# and the tree; only the body is this file's.
+#
+# He is built as a fighter: broad through the shoulders and bare-armed, with
+# the muscle laid over each limb and the chest as its own prisms, a wrap of
+# cloth over the right shoulder and across the chest to the left hip, a wide
+# belt with a buckle and a strap hanging off it, dark trousers into strapped
+# boots, and dark leather cuffs at the wrists. Nothing hangs off the pelvis
+# below the belt, so the legs are never inside cloth and every clip reads on
+# him unchanged. A full grey beard and grey hair swept back, on a heavy brow.
+#
+# The helmet, sword and shield attach to bones, not to this body, so they sit
+# on him where they sit on the wanderer: the head is the same size and the
+# hands and forearms are close enough that a hilt and a strap still fit.
+
+id: wanderer2
+name: Wanderer 2 body
+rig: ../rigs/humanoid.rig.yaml
+
+palette:
+  skin: 0xcf9b76
+  skinLight: 0xdcab86
+  skinShade: 0xb5825d
+  hair: 0x8b837a
+  hairDark: 0x6c655d
+  beard: 0x8d857a
+  beardDark: 0x625b53
+  brow: 0x5c554d
+  eye: 0x241d19
+  cloth: 0xcec5b4
+  clothShade: 0xb3a997
+  clothEdge: 0x9f9483
+  belt: 0x6d4a2e
+  beltDark: 0x4a301d
+  buckle: 0x8f8c85
+  strap: 0x8c6b45
+  trouser: 0x4a3a2c
+  trouserShade: 0x392c21
+  boot: 0x5e3f28
+  bootDark: 0x42291a
+  sole: 0x2a1d14
+  cuff: 0x4a301d
+  cord: 0x7a6a52
+  tooth: 0xd9d0b8
+
+parts:
+  # Pelvis: the top of the trousers, the belt over it with its two edges,
+  # the buckle and its pin, the belt's end hanging down the left front, a
+  # pouch on the right hip, and the end of the shoulder wrap tucked into the
+  # belt on the left.
+  - { bone: root, at: [0, -0.04, 0], size: [0.25, 0.24, 0.18], color: trouser }
+  - { bone: root, at: [0, -0.14, 0], size: [0.24, 0.06, 0.17], color: trouserShade }
+  - { bone: root, at: [0, 0.03, 0.01], size: [0.275, 0.075, 0.205], color: belt }
+  - { bone: root, at: [0, 0.066, 0.01], size: [0.28, 0.012, 0.21], color: beltDark }
+  - { bone: root, at: [0, -0.006, 0.01], size: [0.28, 0.012, 0.21], color: beltDark }
+  - { bone: root, at: [0, 0.03, 0.2], size: [0.05, 0.055, 0.025], color: buckle }
+  - { bone: root, at: [0, 0.03, 0.217], size: [0.008, 0.04, 0.01], color: beltDark }
+  - { bone: root, from: [0.05, 0.0, 0.2], along: [0.05, -1, 0.12], length: 0.22, radius: 0.014, color: strap }
+  - { bone: root, at: [0.062, -0.22, 0.228], size: [0.017, 0.03, 0.012], color: beltDark }
+  - { bone: root, at: [-0.17, -0.075, 0.06], size: [0.06, 0.1, 0.05], color: beltDark }
+  - { bone: root, at: [-0.17, -0.03, 0.065], size: [0.063, 0.03, 0.053], color: belt }
+  - { bone: root, at: [-0.17, -0.06, 0.112], size: [0.012, 0.02, 0.01], color: buckle }
+  - { bone: root, at: [0.12, 0.09, 0.16], size: [0.075, 0.06, 0.024], euler: [0, 0, -0.44], color: cloth }
+  - { bone: root, at: [0.14, 0.05, 0.175], size: [0.06, 0.05, 0.02], euler: [0, 0, -0.44], color: clothShade }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: root, at: [0.13, 0.03, 0.14], size: [0.012, 0.02, 0.012], color: buckle }
+      - { bone: root, at: [0.2, 0.03, -0.06], size: [0.012, 0.02, 0.012], color: buckle }
+
+  # The waist: bare, the abdomen ridged, an oblique either side, and the
+  # wrap crossing it on its way down to the belt.
+  - { bone: spine, at: [0, 0.02, 0], size: [0.22, 0.2, 0.16], color: skin }
+  - { bone: spine, at: [0, 0.03, 0.155], size: [0.012, 0.14, 0.012], color: skinShade }
+  - { bone: spine, at: [0, 0.075, 0.155], size: [0.09, 0.012, 0.012], color: skinShade }
+  - { bone: spine, at: [0, 0.015, 0.157], size: [0.09, 0.012, 0.012], color: skinShade }
+  - { bone: spine, at: [0.075, 0.03, 0.175], size: [0.08, 0.14, 0.022], euler: [0, 0, -0.44], color: cloth }
+  - { bone: spine, at: [0.115, -0.06, 0.17], size: [0.08, 0.12, 0.022], euler: [0, 0, -0.44], color: clothShade }
+  - { bone: spine, at: [0.075, 0.03, -0.155], size: [0.075, 0.14, 0.022], euler: [0, 0, -0.44], color: cloth }
+  - { bone: spine, at: [0.115, -0.06, -0.15], size: [0.075, 0.12, 0.022], euler: [0, 0, -0.44], color: clothShade }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: spine, at: [0.04, 0.045, 0.16], size: [0.035, 0.04, 0.015], color: skinLight }
+      - { bone: spine, at: [0.04, -0.01, 0.16], size: [0.035, 0.04, 0.015], color: skinLight }
+      - { bone: spine, at: [0.19, 0.03, 0.02], size: [0.05, 0.16, 0.13], color: skinShade }
+
+  # The chest: the ribcage wider than the wanderer's, a pec either side of a
+  # cleft, the traps rising behind the neck, a shoulder blade either side,
+  # the collar bones, and the wrap — a pad over the right shoulder, a run of
+  # plates down the chest on one diagonal to the left hip and its twin down
+  # the back, the clasp that pins it, and a cord round the neck with a tooth
+  # on it. The plates are all turned the same way about z, so the band reads
+  # as one strip of cloth rather than a stack of steps.
+  - { bone: chest, at: [0, 0.05, 0], size: [0.3, 0.32, 0.19], color: skin }
+  - { bone: chest, at: [0, 0.2, -0.04], size: [0.2, 0.08, 0.12], color: skin }
+  - { bone: chest, at: [0, 0.07, 0.19], size: [0.012, 0.13, 0.015], color: skinShade }
+  - { bone: chest, at: [-0.17, 0.21, 0.0], size: [0.1, 0.06, 0.14], color: cloth }
+  - { bone: chest, at: [-0.17, 0.245, 0.0], size: [0.075, 0.03, 0.11], color: clothShade }
+  - { bone: chest, at: [-0.11, 0.15, 0.2], size: [0.08, 0.14, 0.022], euler: [0, 0, -0.44], color: cloth }
+  - { bone: chest, at: [-0.05, 0.03, 0.205], size: [0.08, 0.14, 0.022], euler: [0, 0, -0.44], color: cloth }
+  - { bone: chest, at: [0.015, -0.1, 0.2], size: [0.08, 0.14, 0.022], euler: [0, 0, -0.44], color: clothShade }
+  - { bone: chest, at: [-0.045, 0.02, 0.216], size: [0.01, 0.34, 0.008], euler: [0, 0, -0.44], color: clothEdge }
+  - { bone: chest, at: [-0.11, 0.15, -0.18], size: [0.075, 0.14, 0.022], euler: [0, 0, -0.44], color: cloth }
+  - { bone: chest, at: [-0.05, 0.03, -0.185], size: [0.075, 0.14, 0.022], euler: [0, 0, -0.44], color: cloth }
+  - { bone: chest, at: [0.015, -0.1, -0.18], size: [0.075, 0.14, 0.022], euler: [0, 0, -0.44], color: clothShade }
+  - { bone: chest, at: [-0.14, 0.2, 0.12], size: [0.028, 0.032, 0.02], color: buckle }
+  - { bone: chest, from: [-0.11, 0.21, 0.12], to: [0.11, 0.21, 0.12], radius: 0.007, color: cord }
+  - { bone: chest, from: [0.11, 0.21, 0.12], along: [0, -1, 0.35], length: 0.05, radius: 0.007, color: cord }
+  - { bone: chest, from: [-0.11, 0.21, 0.12], along: [0, -1, 0.35], length: 0.05, radius: 0.007, color: cord }
+  - { bone: chest, at: [0, 0.14, 0.17], size: [0.012, 0.04, 0.01], euler: [0.1, 0, 0.1], color: tooth }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: chest, at: [0.1, 0.07, 0.17], size: [0.11, 0.13, 0.04], euler: [0.1, 0, 0.08], color: skinLight }
+      - { bone: chest, at: [0.1, 0.08, -0.165], size: [0.09, 0.15, 0.03], color: skinShade }
+      - { bone: chest, from: [0.02, 0.19, 0.14], along: [1, 0.05, -0.12], length: 0.2, radius: 0.016, color: skinLight }
+
+  # Neck: thick, the tendons standing out either side.
+  - { bone: neck, at: [0, 0.03, 0], size: [0.08, 0.16, 0.08], color: skin }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: neck, from: [0.05, -0.02, 0.03], along: [0.15, 1, 0.1], length: 0.14, radius: 0.014, color: skinShade }
+
+  # Head: a heavy brow with the eyes sunk under it, a broken nose, the
+  # cheekbones, the ears, grey hair swept back off the forehead and cut
+  # short at the sides, and a full grey beard — jaw, cheeks, chin and
+  # moustache — with the lip showing between.
+  - { bone: head, at: [0, 0.02, 0], size: [0.18, 0.23, 0.165], color: skin }
+  - { bone: head, at: [0, 0.078, 0.135], size: [0.14, 0.035, 0.045], color: skin }
+  - { bone: head, at: [0, 0.02, 0.17], size: [0.028, 0.065, 0.035], euler: [0.05, 0, 0.06], color: skin }
+  - { bone: head, at: [0, 0.052, 0.16], size: [0.02, 0.03, 0.022], color: skin }
+  - { bone: head, at: [0, -0.06, 0.162], size: [0.03, 0.012, 0.018], color: skinShade }
+  - { bone: head, at: [0, -0.09, 0.09], size: [0.14, 0.15, 0.1], color: beard }
+  - { bone: head, at: [0, -0.175, 0.07], size: [0.09, 0.06, 0.07], color: beard }
+  - { bone: head, at: [0, -0.21, 0.06], size: [0.06, 0.04, 0.05], color: beardDark }
+  - { bone: head, at: [0, -0.125, 0.14], size: [0.1, 0.06, 0.03], color: beardDark }
+  - { bone: head, at: [0, -0.032, 0.155], size: [0.06, 0.025, 0.04], color: beardDark }
+  - { bone: head, at: [0, 0.155, -0.01], size: [0.185, 0.08, 0.172], color: hair }
+  - { bone: head, at: [0, 0.055, -0.105], size: [0.14, 0.16, 0.075], color: hair }
+  - { bone: head, at: [0, 0.165, 0.11], size: [0.1, 0.045, 0.07], euler: [-0.3, 0, 0], color: hairDark }
+  - { bone: head, at: [0, 0.19, 0.03], size: [0.06, 0.02, 0.11], color: hairDark }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: head, at: [0.045, 0.086, 0.163], size: [0.036, 0.012, 0.015], euler: [0, 0, 0.18], color: brow }
+      - { bone: head, at: [0.042, 0.056, 0.152], size: [0.032, 0.028, 0.012], color: skinShade }
+      - { bone: head, at: [0.042, 0.054, 0.16], size: [0.022, 0.018, 0.01], color: eye }
+      - { bone: head, at: [0.078, 0.02, 0.115], size: [0.04, 0.05, 0.04], color: skinLight }
+      - { bone: head, at: [0.18, 0.02, 0.0], size: [0.02, 0.05, 0.035], color: skin }
+      - { bone: head, at: [0.088, -0.02, 0.05], size: [0.03, 0.11, 0.07], color: beard }
+      - { bone: head, at: [0.05, -0.045, 0.142], size: [0.022, 0.032, 0.03], color: beard }
+      - { bone: head, at: [0.15, 0.09, -0.02], size: [0.04, 0.09, 0.1], color: hairDark }
+      - { bone: head, at: [0.03, -0.185, 0.07], size: [0.02, 0.04, 0.02], euler: [0, 0, 0.3], color: beard }
+
+  # Arms: bare. A deltoid capping the shoulder, the biceps over the front of
+  # the upper arm and the triceps behind, the elbow, the forearm with its
+  # own bulge, a dark leather cuff at the wrist with its edges, and a hand
+  # loosely closed — a fist a hilt goes through — with the knuckles and the
+  # thumb standing off it. Nothing is held: the right fist is as free as the
+  # left, and the sword and shield hang off the bones as they do on the
+  # wanderer.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'arm*', at: [0, -0.01, 0], size: [0.11, 0.14, 0.11], color: skin }
+      - { bone: 'arm*', at: [0.035, 0.0, 0], size: [0.08, 0.1, 0.08], color: skinLight }
+      - { bone: 'arm*', at: [0, -0.14, 0], size: [0.085, 0.2, 0.085], color: skin }
+      - { bone: 'arm*', at: [0, -0.16, 0.05], size: [0.06, 0.13, 0.05], color: skinLight }
+      - { bone: 'arm*', at: [0.01, -0.18, -0.05], size: [0.055, 0.14, 0.045], color: skinShade }
+      - { bone: 'arm*', at: [0, -0.3, 0], size: [0.07, 0.08, 0.07], color: skin }
+      - { bone: 'forearm*', at: [0, 0, 0], size: [0.07, 0.07, 0.07], color: skinShade }
+      - { bone: 'forearm*', at: [0, -0.11, 0], size: [0.072, 0.2, 0.072], color: skin }
+      - { bone: 'forearm*', at: [0, -0.08, 0.03], size: [0.05, 0.12, 0.04], color: skinLight }
+      - { bone: 'forearm*', at: [0, -0.235, 0], size: [0.08, 0.11, 0.08], color: cuff }
+      - { bone: 'forearm*', at: [0, -0.19, 0], size: [0.084, 0.012, 0.084], color: strap }
+      - { bone: 'forearm*', at: [0, -0.28, 0], size: [0.084, 0.012, 0.084], color: strap }
+      - { bone: 'forearm*', at: [0.08, -0.235, 0.0], size: [0.01, 0.02, 0.012], color: buckle }
+      - { bone: 'hand*', at: [0, -0.05, 0.005], size: [0.062, 0.1, 0.05], color: skin }
+      - { bone: 'hand*', at: [0, -0.1, 0.015], size: [0.064, 0.03, 0.046], color: skinShade }
+      - { bone: 'hand*', at: [-0.03, -0.105, 0.03], size: [0.014, 0.016, 0.014], color: skinLight }
+      - { bone: 'hand*', at: [-0.01, -0.108, 0.032], size: [0.014, 0.016, 0.014], color: skinLight }
+      - { bone: 'hand*', at: [0.01, -0.108, 0.032], size: [0.014, 0.016, 0.014], color: skinLight }
+      - { bone: 'hand*', at: [0.03, -0.105, 0.03], size: [0.014, 0.016, 0.014], color: skinLight }
+      - { bone: 'hand*', at: [-0.02, -0.045, 0.04], size: [0.014, 0.05, 0.014], euler: [0.35, 0, -0.3], color: skin }
+
+  # Legs: dark trousers, bunched a little at the top of the thigh and seamed
+  # down the outside, a patch over the knee, and the trouser tucked into a
+  # strapped boot with a folded top, two straps with their buckles, a toe
+  # cap, a sole and a heel.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'hip*', at: [0, -0.2, 0], size: [0.105, 0.36, 0.1], color: trouser }
+      - { bone: 'hip*', at: [0, -0.05, 0.03], size: [0.1, 0.07, 0.085], color: trouser }
+      - { bone: 'hip*', at: [0.1, -0.2, 0], size: [0.01, 0.34, 0.012], color: trouserShade }
+      - { bone: 'hip*', at: [0, -0.34, 0.055], size: [0.07, 0.08, 0.05], color: trouserShade }
+      - { bone: 'shin*', at: [0, 0.0, 0.055], size: [0.07, 0.08, 0.045], color: trouserShade }
+      - { bone: 'shin*', at: [0, -0.1, 0], size: [0.09, 0.2, 0.09], color: trouser }
+      - { bone: 'shin*', at: [0, -0.24, 0.005], size: [0.098, 0.22, 0.1], color: boot }
+      - { bone: 'shin*', at: [0, -0.14, 0.005], size: [0.104, 0.04, 0.106], color: bootDark }
+      - { bone: 'shin*', at: [0, -0.2, 0.005], size: [0.102, 0.018, 0.104], color: strap }
+      - { bone: 'shin*', at: [0, -0.27, 0.005], size: [0.104, 0.018, 0.106], color: strap }
+      - { bone: 'shin*', at: [0.1, -0.2, 0.03], size: [0.012, 0.022, 0.015], color: buckle }
+      - { bone: 'shin*', at: [0.1, -0.27, 0.03], size: [0.012, 0.022, 0.015], color: buckle }
+      - { bone: 'foot*', at: [0, -0.05, 0.02], size: [0.098, 0.1, 0.11], color: boot }
+      - { bone: 'foot*', at: [0, -0.06, 0.12], size: [0.085, 0.07, 0.09], color: bootDark }
+      - { bone: 'foot*', at: [0, -0.078, 0.05], size: [0.1, 0.02, 0.15], color: sole }
+      - { bone: 'foot*', at: [0, -0.07, -0.03], size: [0.09, 0.04, 0.05], color: sole }
