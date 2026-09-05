@@ -54,7 +54,7 @@ export {
 	type TurnMember,
 	type TurnTaker,
 } from './game/turns.js';
-export { SECONDS_PER_GAME_TURN, actionSeconds, hexSpeed } from './game/pace.js';
+export { secondsPerGameTurn, setWalkSpeed, actionSeconds, hexSpeed } from './game/pace.js';
 export { ActorBehaviour, NOWHERE, turnTowards, wrapAngle, type Turnable } from './game/actor.js';
 export { HumanoidAnimator, type HumanoidOverlay } from './game/humanoidanimator.js';
 

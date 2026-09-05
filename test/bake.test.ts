@@ -52,6 +52,7 @@ import {
 import {
 	hexSpeed,
 	NORMAL_SPEED,
+	setWalkSpeed,
 	RUN_SPEED,
 	STRIDE_CONTACTS,
 	stridePeriod,
@@ -341,6 +342,10 @@ describe('the wanderer, driven from clips through his tree', () => {
 	it('delivers exactly what the energy table asks a normal man for', async () => {
 		const skeleton = await library.rig('rigs/humanoid.rig.yaml');
 		const wanderer = await library.entity('entities/wanderer.entity.yaml');
+		// The clock is a tenth of the time his walk takes to cross a hexagon,
+		// measured off the clip he is drawn with — so setting it and reading it
+		// back is the round trip this whole arrangement rests on.
+		setWalkSpeed(entityAnimations(wanderer).get('walk')!.speed()!.z);
 		const tree = entityBlendTrees(wanderer).get('locomotion')!;
 		const axis = tree.parameters.find((one) => one.name === 'speed')!;
 

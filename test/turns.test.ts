@@ -32,7 +32,8 @@ import {
 	clipOf,
 	type Cast,
 	RUN_SPEED,
-	SECONDS_PER_GAME_TURN,
+	secondsPerGameTurn,
+	setWalkSpeed,
 	Schedule,
 	playerOrders,
 	Simulation,
@@ -188,9 +189,9 @@ describe('the schedule', () => {
 
 describe('the wall clock', () => {
 	it('draws a normal-speed step at exactly the speed his legs walk', () => {
-		expect(HEX_SPACING / actionSeconds(ACTION_ENERGY, NORMAL_SPEED)).toBeCloseTo(WALK_SPEED, 6);
-		expect(SECONDS_PER_GAME_TURN * gameTurnsPerAction(NORMAL_SPEED)).toBeCloseTo(
-			HEX_SPACING / WALK_SPEED,
+		expect(HEX_SPACING / actionSeconds(ACTION_ENERGY, NORMAL_SPEED)).toBeCloseTo(clipWalk, 6);
+		expect(secondsPerGameTurn() * gameTurnsPerAction(NORMAL_SPEED)).toBeCloseTo(
+			HEX_SPACING / clipWalk,
 			6,
 		);
 	});
@@ -201,6 +202,22 @@ describe('the wall clock', () => {
 			6,
 		);
 	});
+});
+
+/*
+ * The clock, before anything asks it the time.
+ *
+ * One game turn is a tenth of the time the player's walk takes to cross a
+ * hexagon, and what that walk carries him at is measured off the clip he is
+ * drawn with — so it comes off the asset tree rather than out of an import,
+ * exactly as it does when the game builds a simulation.
+ */
+let clipWalk = 0;
+
+beforeAll(async () => {
+	const wanderer = await openLibrary().entity('entities/wanderer.entity.yaml');
+	clipWalk = entityAnimations(wanderer).get('walk')!.speed()!.z;
+	setWalkSpeed(clipWalk);
 });
 
 describe('the rules asking the gait for a speed', () => {
@@ -233,7 +250,7 @@ describe('the rules asking the gait for a speed', () => {
 
 	it('answers a normal-speed step with a plain walk', async () => {
 		const asked = hexSpeed(NORMAL_SPEED);
-		expect(asked).toBeCloseTo(WALK_SPEED, 6);
+		expect(asked).toBeCloseTo(clipWalk, 6);
 		expect(calibration.speedFor(calibration.parameterFor(asked))).toBeCloseTo(asked, 3);
 	});
 
