@@ -1,0 +1,109 @@
+# The troll's rig.
+#
+# A humanoid two and a half times the wanderer's height, with the proportions
+# of something that is mostly shoulders and arms: the same stack of pelvis,
+# spine, chest, neck and head, the same two-bone legs under it, and on top of
+# that three things the wanderer's seventeen bones have nowhere to put — a
+# clavicle either side, so the shoulders can shrug, hunch and drive into a
+# swing rather than staying nailed to the chest; a jaw, so the mouth opens on
+# the roar of a blow; and arms long enough that the hands hang below the
+# knees, which is where a troll's do.
+#
+# Bones hang or stand the way the humanoid's do, so every sign rule is the
+# same and a pose written for one reads on the other:
+#
+#   (the character faces +Z, +X is its left)
+#   limb bones hang down -Y   ->  rot.x < 0 swings FORWARD, rot.x > 0 swings BACK
+#   spine/chest/head point up ->  rot.x > 0 tips FORWARD (the head looks down)
+#   the jaw points forward    ->  rot.x > 0 opens it
+#   clavicles point out ±X    ->  rot.z lifts the shoulder, rot.y hunches it
+#   feet                      ->  rot.x > 0 points the toe DOWN
+#   rot.y > 0                 ->  turns towards the character's left
+#
+# The right hand is the club hand. The club is not here yet; `anchors.grip`
+# is where its handle passes through the fist, so a club attached later hangs
+# off the same point every strike is animated to.
+
+id: troll
+name: Troll
+
+metrics:
+  # Hip height at rest. Two and a half times the wanderer's, near enough.
+  hipHeight: 2.4
+  # Roughly the middle of the animal, for a camera to look at.
+  standHeight: 2.1
+
+bones:
+  - { name: root, offset: [0, hipHeight, 0] }
+  - { name: spine, parent: root, offset: [0, 0.42, 0] }
+  - { name: chest, parent: spine, offset: [0, 0.58, 0] }
+  - { name: neck, parent: chest, offset: [0, 0.32, 0.1] }
+  - { name: head, parent: neck, offset: [0, 0.26, 0.04] }
+  - { name: jaw, parent: head, offset: [0, -0.04, 0.1] }
+  # The clavicles run out from the top of the chest to the shoulder joints,
+  # which sit 0.9 m either side of the middle: the width of the shoulders.
+  - { name: shoulderL, parent: chest, offset: [0.35, 0.45, 0] }
+  - { name: armL, parent: shoulderL, offset: [0.55, 0, 0] }
+  - { name: forearmL, parent: armL, offset: [0, -0.95, 0] }
+  - { name: handL, parent: forearmL, offset: [0, -0.85, 0] }
+  - { name: shoulderR, parent: chest, offset: [-0.35, 0.45, 0] }
+  - { name: armR, parent: shoulderR, offset: [-0.55, 0, 0] }
+  - { name: forearmR, parent: armR, offset: [0, -0.95, 0] }
+  - { name: handR, parent: forearmR, offset: [0, -0.85, 0] }
+  # The legs: hip to knee 1.1, knee to ankle 0.95, the ankle 0.25 up.
+  - { name: hipL, parent: root, offset: [0.36, -0.1, 0] }
+  - { name: shinL, parent: hipL, offset: [0, -1.1, 0] }
+  - { name: footL, parent: shinL, offset: [0, -0.95, 0] }
+  - { name: hipR, parent: root, offset: [-0.36, -0.1, 0] }
+  - { name: shinR, parent: hipR, offset: [0, -1.1, 0] }
+  - { name: footR, parent: shinR, offset: [0, -0.95, 0] }
+
+# Where a chain ends and there is no child bone to draw towards.
+tips:
+  - { bone: head, to: [0, 0.5, 0] }
+  - { bone: jaw, to: [0, -0.1, 0.3] }
+  - { bone: handL, to: [0, -0.4, 0] }
+  - { bone: handR, to: [0, -0.4, 0] }
+  - { bone: footL, to: [0, -0.25, 0.55] }
+  - { bone: footR, to: [0, -0.25, 0.55] }
+
+# The two that alternate, so a cycle's ground speed can be measured off them.
+feet: [footL, footR]
+
+groups:
+  armL: [shoulderL, armL, forearmL, handL]
+  armR: [shoulderR, armR, forearmR, handR]
+  legL: [hipL, shinL, footL]
+  legR: [hipR, shinR, footR]
+
+masks:
+  # Blend mask for playing an upper-body clip over the stomp. The spine is
+  # partial for the reason the humanoid's is: the two halves meet through
+  # it rather than hinging at it.
+  upperBody:
+    spine: 0.45
+    chest: 1
+    neck: 1
+    head: 1
+    jaw: 1
+    shoulderL: 1
+    armL: 1
+    forearmL: 1
+    handL: 1
+    shoulderR: 1
+    armR: 1
+    forearmR: 1
+    handR: 1
+
+anchors:
+  # Where the club's handle passes through the right fist, in the hand's
+  # own space: the club hangs off this point.
+  grip: { bone: handR, at: [0, -0.16, 0] }
+
+# Read off the bones above rather than typed beside them: hip to ankle.
+measures:
+  legLength: { chain: [hipL, footL] }
+
+view:
+  focusY: standHeight
+  frameDistance: 10.5

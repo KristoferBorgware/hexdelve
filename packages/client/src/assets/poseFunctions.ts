@@ -43,6 +43,15 @@ import {
 import { bitePose, restPose, runPose } from '../game/hellhoundpose.js';
 import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from '../game/spiderpose.js';
 import { stridePose, stridePeriod, STRIDE_CONTACTS, type Direction } from '../game/stride.js';
+import {
+	pokePose as trollPokePose,
+	sleepPose as trollSleepPose,
+	smashPose as trollSmashPose,
+	STOMP_CONTACTS,
+	STOMP_PERIOD,
+	stompPose,
+	swipePose as trollSwipePose,
+} from '../game/trollpose.js';
 import { SHUFFLE_CONTACTS, SHUFFLE_PERIOD, shufflePose } from '../game/zombiepose.js';
 
 const TAU = Math.PI * 2;
@@ -239,6 +248,50 @@ const spiderSpit: PoseFunction = {
 	build: ({ duration }) => (t, out) => spiderSpitPose(t / duration, out),
 };
 
+/** The troll's stomp, and its stand: each leg solved onto the ground from wherever the pelvis is. */
+const trollStomp: PoseFunction = {
+	id: 'trollStomp',
+	duration: STOMP_PERIOD,
+	contacts: STOMP_CONTACTS,
+	build: ({ args, duration }) => {
+		const amp = arg(args, 'amp', 1);
+		const moving = amp >= 0.02;
+		return (t, out) => stompPose(moving ? (t / duration) * TAU : 0, amp, t, out);
+	},
+};
+
+/**
+ * The troll's three strikes, keyed by hand and not looping: the club up and
+ * down, the club round level, the club driven forward.
+ */
+const trollSmash: PoseFunction = {
+	id: 'trollSmash',
+	duration: 1.7,
+	loop: false,
+	build: ({ duration }) => (t, out) => trollSmashPose(t / duration, out),
+};
+
+const trollSwipe: PoseFunction = {
+	id: 'trollSwipe',
+	duration: 1.4,
+	loop: false,
+	build: ({ duration }) => (t, out) => trollSwipePose(t / duration, out),
+};
+
+const trollPoke: PoseFunction = {
+	id: 'trollPoke',
+	duration: 1.3,
+	loop: false,
+	build: ({ duration }) => (t, out) => trollPokePose(t / duration, out),
+};
+
+/** Asleep on his side. One breath: the pose breathes at 1.2 rad/s, so this is exactly one. */
+const trollSleep: PoseFunction = {
+	id: 'trollSleep',
+	duration: TAU / 1.2,
+	build: () => (t, out) => trollSleepPose(t, out),
+};
+
 /**
  * Every pose function this package owns.
  *
@@ -262,4 +315,9 @@ export const poseFunctions = new PoseFunctionRegistry().register(
 	zombieShuffle,
 	spiderRun,
 	spiderSpit,
+	trollStomp,
+	trollSmash,
+	trollSwipe,
+	trollPoke,
+	trollSleep,
 );

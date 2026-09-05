@@ -9,7 +9,7 @@
  *
  * What is left here is the three things that outlive the migration.
  *
- * The files LOAD, and to the shapes the game expects: ten entities, five
+ * The files LOAD, and to the shapes the game expects: eleven entities, six
  * rigs, the trees measuring their own thresholds. A file that stopped parsing
  * would be found by the render test too, but only as a blank picture.
  *
@@ -68,6 +68,18 @@ import {
 	SPIT_AT,
 	spiderRunPose,
 	spiderSpitPose,
+	STOMP_CONTACTS,
+	STOMP_PERIOD,
+	SMASH_HIT,
+	SWIPE_HIT,
+	POKE_HIT,
+	TROLL_CHAIN,
+	TROLL_SOLE,
+	trollStompPose,
+	trollSmashPose,
+	trollSwipePose,
+	trollPokePose,
+	trollSleepPose,
 	HOUND_STRIDE_PERIOD,
 	houndRunPose,
 	LEG_LENGTH,
@@ -192,6 +204,25 @@ describe('rigs', () => {
 		expect(rig.groups.leg3R).toEqual(['coxa3R', 'tibia3R', 'tarsus3R', 'tip3R']);
 	});
 
+	it('the troll is a humanoid with clavicles and a jaw, two and a half times the height', async () => {
+		const rig = await readRig('troll');
+		expect(rig.bones).toHaveLength(20);
+		const bone = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!;
+		expect(bone('jaw').parent).toBe('head');
+		expect(bone('shoulderL').parent).toBe('chest');
+		expect(bone('armL').parent).toBe('shoulderL');
+		expect(bone('armR').parent).toBe('shoulderR');
+		// The clavicle runs out to the shoulder joint, and the right is the left mirrored.
+		expect(bone('armL').offset[0]).toBeGreaterThan(0);
+		expect(bone('armR').offset[0]).toBeCloseTo(-bone('armL').offset[0], 12);
+		expect(bone('shoulderR').offset[0]).toBeCloseTo(-bone('shoulderL').offset[0], 12);
+		expect(rig.metrics.hipHeight).toBeGreaterThan(2.4 * 0.92);
+		expect(rig.feet).toEqual(['footL', 'footR']);
+		expect(rig.anchors.grip!.bone).toBe('handR');
+		expect(rig.groups.armR).toEqual(['shoulderR', 'armR', 'forearmR', 'handR']);
+		expect(rig.masks.upperBody!.jaw).toBe(1);
+	});
+
 	it('refuses a child that comes before its parent', () => {
 		const source = ['id: bad', 'bones:', '  - { name: hand, parent: arm, offset: [0, 0, 0] }'].join('\n');
 		expect(() => loadRig(source, 'bad.rig.yaml')).toThrow(/must precede/);
@@ -222,6 +253,7 @@ describe('entities', () => {
 			'direhound',
 			'zombie',
 			'spider',
+			'troll',
 			'helmet',
 			'sword',
 			'shield',
@@ -695,6 +727,107 @@ describe('the pose functions still agree with the rigs', () => {
 		expect(reared.head!.p[1]).toBeGreaterThan(at(0).head!.p[1] + 0.1);
 		for (const u of [0, 1]) {
 			for (const tip of SPIDER_TIPS) expect(Math.abs(at(u)[tip]!.p[1] - SPIDER_TIP), `${tip} at ${u}`).toBeLessThan(0.02);
+		}
+	});
+
+	it('the stomp is solved on the troll rig’s own legs', async () => {
+		const rig = await readRig('troll');
+		const offset = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!.offset;
+		expect(TROLL_CHAIN.hipHeight).toBeCloseTo(rig.metrics.hipHeight!, 12);
+		expect([...offset('hipL')]).toEqual([TROLL_CHAIN.hip[0], TROLL_CHAIN.hip[1], 0]);
+		expect([...offset('shinL')]).toEqual([0, -TROLL_CHAIN.thigh, 0]);
+		expect([...offset('footL')]).toEqual([0, -TROLL_CHAIN.shin, 0]);
+		expect(offset('spine')[1]).toBe(TROLL_CHAIN.spine);
+		expect(offset('chest')[1]).toBe(TROLL_CHAIN.chest);
+		expect([...offset('shoulderL')]).toEqual([TROLL_CHAIN.shoulder[0], TROLL_CHAIN.shoulder[1], 0]);
+		expect(offset('armL')[0]).toBe(TROLL_CHAIN.arm);
+		expect(offset('forearmL')[1]).toBe(-TROLL_CHAIN.upperArm);
+		expect(offset('handL')[1]).toBe(-TROLL_CHAIN.forearm);
+	});
+
+	it('the stomp keeps each planted foot on the ground and carries the troll forwards', async () => {
+		const rig = await readRig('troll');
+		for (const [foot, offset] of [
+			['footL', 0],
+			['footR', Math.PI],
+		] as const) {
+			const restX = offset === 0 ? 0.42 : -0.42;
+			for (let i = 0; i <= 10; i++) {
+				const own = Math.PI / 2 + (Math.PI * i) / 10;
+				const world = solveWorld(rig.skeleton, trollStompPose(own - offset, 1, 0, {}));
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeGreaterThan(TROLL_SOLE - 0.02);
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeLessThan(TROLL_SOLE + 0.05);
+				// Solved in three dimensions, so the pelvis rolling and turning
+				// does not drag the foot sideways.
+				expect(world[foot]!.p[0], `${foot} at ${i}/10 of its stance`).toBeCloseTo(restX, 2);
+			}
+		}
+		const troll = await entity('troll');
+		const walk = troll.animations.get('walk')!;
+		expect(walk.duration).toBeCloseTo(STOMP_PERIOD, 12);
+		expect(walk.contacts).toEqual(STOMP_CONTACTS);
+		expect(walk.speed()!.z).toBeGreaterThan(1.5);
+		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
+		const idle = troll.animations.get('idle')!;
+		expect(Math.abs(idle.speed()?.z ?? 0)).toBeLessThan(0.05);
+	});
+
+	it('the troll’s strikes keep both feet planted and swing the club hand where the strike says', async () => {
+		const rig = await readRig('troll');
+		const at = (pose: typeof trollSmashPose, u: number) => solveWorld(rig.skeleton, pose(u, {}));
+		// The feet: at every key, on the ground where they stand, a heel
+		// lifted or a foot mid-step aside.
+		for (const pose of [trollSmashPose, trollSwipePose, trollPokePose]) {
+			for (const u of [0, 0.3, 0.5, 0.62, 1]) {
+				const world = at(pose, u);
+				for (const foot of ['footL', 'footR']) {
+					expect(world[foot]!.p[1], `${foot} at ${u}`).toBeGreaterThan(TROLL_SOLE - 0.02);
+					expect(world[foot]!.p[1], `${foot} at ${u}`).toBeLessThan(TROLL_SOLE + 0.4);
+				}
+			}
+			// Back where it started.
+			const stand = solveWorld(rig.skeleton, trollStompPose(0, 0, 0, {}));
+			const back = at(pose, 1);
+			for (const bone of ['handR', 'handL', 'head', 'footL', 'footR']) {
+				for (let axis = 0; axis < 3; axis++) expect(back[bone]!.p[axis], `${bone} axis ${axis}`).toBeCloseTo(stand[bone]!.p[axis], 3);
+			}
+		}
+		// The smash: the fist up behind the head at the windup, then low and
+		// well ahead at the blow, the head following it down.
+		const windup = at(trollSmashPose, 0.32);
+		const smash = at(trollSmashPose, SMASH_HIT);
+		expect(windup.handR!.p[1]).toBeGreaterThan(3.4);
+		expect(windup.handR!.p[2]).toBeLessThan(0);
+		expect(smash.handR!.p[2]).toBeGreaterThan(2);
+		expect(smash.handR!.p[1]).toBeLessThan(windup.handR!.p[1] - 1.2);
+		expect(smash.head!.p[1]).toBeLessThan(windup.head!.p[1] - 0.5);
+		// The swipe: the fist out behind on the right, then ahead, then across
+		// on the left, at about the same height throughout.
+		const wound = at(trollSwipePose, 0.3);
+		const through = at(trollSwipePose, SWIPE_HIT);
+		const past = at(trollSwipePose, 0.62);
+		expect(wound.handR!.p[2]).toBeLessThan(-1);
+		expect(through.handR!.p[2]).toBeGreaterThan(2);
+		expect(past.handR!.p[0]).toBeGreaterThan(1);
+		expect(Math.abs(past.handR!.p[1] - wound.handR!.p[1])).toBeLessThan(0.8);
+		// The poke: the fist driven out ahead, the right foot lunging with it.
+		const drawn = at(trollPokePose, 0.3);
+		const shoved = at(trollPokePose, POKE_HIT);
+		expect(shoved.handR!.p[2]).toBeGreaterThan(drawn.handR!.p[2] + 1.5);
+		expect(shoved.footR!.p[2]).toBeGreaterThan(drawn.footR!.p[2] + 0.6);
+	});
+
+	it('the troll sleeps on its side, everything on or above the ground', async () => {
+		const rig = await readRig('troll');
+		const world = solveWorld(rig.skeleton, trollSleepPose(0.5, {}));
+		expect(world.root!.p[1]).toBeLessThan(0.8);
+		expect(world.head!.p[1]).toBeLessThan(1.6);
+		// The head is off to the right and the feet to the left: lying along x.
+		expect(world.head!.p[0]).toBeLessThan(-0.4);
+		expect(world.footL!.p[0]).toBeGreaterThan(0.8);
+		for (const bone of rig.bones) expect(world[bone]!.p[1], bone).toBeGreaterThan(0.05);
+		for (const posed of [trollStompPose(0.7, 1, 0.3, {}), trollStompPose(0, 0, 2, {}), trollSmashPose(0.4, {}), trollSwipePose(0.4, {}), trollPokePose(0.4, {}), trollSleepPose(1, {})]) {
+			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
 		}
 	});
 

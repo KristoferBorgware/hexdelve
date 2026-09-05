@@ -1,0 +1,46 @@
+# The troll.
+#
+# Its own rig, because a humanoid two and a half times the wanderer's height
+# with clavicles and a jaw is not the wanderer's seventeen bones under a
+# bigger body — and nothing downstream had to change for that, which is the
+# point the rig files make and this one inherits. Everything it does is a
+# pose function: the stomp, because it is a gait; the three strikes, because
+# each keys where the pelvis goes and solves the legs to feet that stay put;
+# the sleep, because it breathes.
+#
+# There is no club yet. The strikes are animated to one, and `grip` on the
+# rig is where its handle will pass through the fist.
+
+id: troll
+name: Troll
+kind: character
+blurb: Four and a half metres of shoulder, arm and jaw, tusked, blue-grey, slow to wake
+
+rig: ../rigs/troll.rig.yaml
+mesh: ../meshes/troll.mesh.yaml
+
+animations:
+  # The stomp is one function at two settings: `amp` is the throttle between
+  # standing and a full stride. Standing, it breathes at 1.1 rad/s, and the
+  # duration is one breath.
+  idle: { procedural: trollStomp, label: Idle, args: { amp: 0 }, duration: tau / 1.1 }
+  walk: { procedural: trollStomp, label: Walk, args: { amp: 1 }, sync: true }
+  smash: { procedural: trollSmash, label: Attack smash }
+  swipe: { procedural: trollSwipe, label: Attack swipe }
+  poke: { procedural: trollPoke, label: Attack poke }
+  rest: { procedural: trollSleep, label: Rest, duration: tau / 1.2 }
+
+blendTrees:
+  locomotion: ../trees/stomp.tree.yaml
+
+# What it is when it is standing in the world: one object, with a body on it.
+# The body is the rig and the mesh above — an actor on a wanderer is the
+# wanderer's, by definition rather than by a path repeated inside its own file.
+# What it DOES is not here yet; that arrives as a script component.
+object:
+  components:
+    - { type: actor }
+    # What it is in a fight. The numbers are the character's, not the rig's, so
+    # tuning a creature is editing this file rather than a script. The lift is
+    # the middle of the chest: what a blade has to reach.
+    - { type: script, script: Character, hp: 120, faction: foe, power: 18, lift: 2.1 }
