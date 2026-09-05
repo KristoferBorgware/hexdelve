@@ -74,3 +74,10 @@ export {
 	resolve,
 	type AssetLibraryOptions,
 } from './library.js';
+export {
+	emitYaml,
+	writeComponent,
+	writeEntity,
+	writePrefabNode,
+	type Emittable,
+} from './emit.js';
