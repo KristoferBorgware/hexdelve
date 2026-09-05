@@ -30,15 +30,11 @@ export {
 } from './game/player.js';
 export {
 	BatHunt,
-	BAT_CLIMB,
 	batLean,
 	measureBiteReach,
 	type BiteReach,
 	BAT_SPEED,
-	WAKE_RANGE,
-	LOSE_RANGE,
 	type BatOptions,
-	type HuntState,
 } from './game/bathunt.js';
 
 /*
@@ -73,6 +69,13 @@ export {
 	type PlayerDecision,
 	type PlayerOrders,
 } from './game/orders.js';
+export {
+	huntOrders,
+	HUNTER,
+	type HuntDecision,
+	type HuntOrders,
+	type HuntState,
+} from './game/hunt.js';
 export { spawnEntity } from './game/spawn.js';
 export {
 	loadCast,

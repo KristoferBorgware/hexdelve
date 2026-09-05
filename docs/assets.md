@@ -709,6 +709,35 @@ it is: `scene.getComponent(CharacterRegistry)` for the one system there is,
 `object.getComponent(Character)` for the thing in front of you. An event is
 fire-and-forget and cannot hand anything back.
 
+### Deciding and doing are different components
+
+A creature is two things on one object. One decides — what a click means, or
+whether it has heard you — and the other knows how long the resulting action
+takes, what it looks like, and where the blade or the teeth end up.
+
+| decides (a script) | does (a component) |
+|---|---|
+| `PlayerInput` | `Player` |
+| `Hunter` | `BatHunt` |
+
+The decision is the script, because the rules of moving about are what somebody
+edits, and a script can be reloaded while the yard is running. The body is a
+component, because it is drawn every frame whether or not anything is driving
+it — which is what lets a bench show a creature with no behaviour on it.
+
+The seam is an interface declared on the calling side — `PlayerOrders` in
+`game/orders.ts`, `HuntOrders` in `game/hunt.ts` — because scripts are compiled
+apart from that module graph and nothing in it can import the class. Each is
+found by name through `GameObject.getComponentNamed`, which is the only handle
+a compiled-apart class has, and **null is an ordinary answer**: a body with no
+decider stands still rather than failing.
+
+What the decider is tuned by are its `param()`s, set in the entity file. The
+bat's ranges are the clearest case — `{ type: script, script: Hunter,
+wakeRange: 3, loseRange: 6, climb: 2 }` — so nothing in `Hunter` is about a
+bat, and a creature on the ground carries the same script at different
+settings.
+
 The swing in the yard is the shape this exists for, and it is what actually
 runs — `test/combat.test.ts` drives the real simulation through it.
 

@@ -483,6 +483,54 @@ describe('the yard', () => {
 		expect(sim.stats.batEnergy).toBeLessThan(ACTION_ENERGY);
 	});
 
+	/*
+	 * The other half of the hunt, and the half nothing else here walks: it gives
+	 * up, goes home, and folds its wings. Home is the hexagon it was standing on
+	 * when it first acted rather than a number handed to it, so this is also
+	 * what pins that — a bat that learned the wrong perch would settle in the
+	 * wrong place, or never settle at all.
+	 *
+	 * Walking away does not do it, and that is a fact about the game rather
+	 * than about this test: it is twice his speed, so a man on foot cannot open
+	 * a gap of `loseRange` in the first place. What loses it is the quarry
+	 * ceasing to be where it thinks — so the quarry is moved, and the hunt is
+	 * left to notice.
+	 */
+	it('sends the bat home to the hexagon it woke from, and back to sleep', () => {
+		const sim = new Simulation({ cast, seed: 37, scripts });
+		const perch = { ...sim.bat.cell };
+
+		expect(sim.pickCell(sim.bat.cell)).toBe(true);
+		run(sim, 20);
+		expect(sim.bat.state, 'it woke and came for him').not.toBe('asleep');
+		expect(sim.bat.cell, 'and left the perch').not.toEqual(perch);
+
+		// Somewhere it can never reach and never sees again.
+		sim.bat.opponent = { cell: { q: 60, r: 60 }, x: 120, z: 120 };
+
+		// He keeps walking, because a turn is only handed out while he has asked
+		// for something — a yard where nobody wants anything does not tick.
+		for (let i = 0; i < 40 && sim.bat.state !== 'asleep'; i++) {
+			sim.pickCell(sim.player.cell);
+			run(sim, 2);
+		}
+
+		expect(sim.bat.cell, 'it flew back to where it started').toEqual(perch);
+		expect(sim.bat.state).toBe('asleep');
+	});
+
+	/*
+	 * The ranges are the script's parameters, set in `bat.entity.yaml`. Read
+	 * back through the readout, which is the only place they are shown: a hunt
+	 * whose numbers did not arrive from the file would hunt at its defaults and
+	 * nothing on screen would say so.
+	 */
+	it('takes the bat’s ranges from its entity file', () => {
+		const sim = new Simulation({ cast, seed: 37, scripts });
+		expect(sim.stats.wakeRange).toBe(3);
+		expect(sim.stats.loseRange).toBe(6);
+	});
+
 	it('never lets either of them stand on the other', () => {
 		const sim = new Simulation({ cast, seed: 37, scripts });
 		expect(sim.pickCell(sim.bat.cell)).toBe(true);

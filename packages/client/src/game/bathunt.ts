@@ -1,35 +1,37 @@
 /*
- * The bat, back on the clock.
+ * The bat's body: what a turn of hunting looks like, and where its teeth get to.
  *
- * It never left the grid — that was the whole point of it in lab 08, and lab
- * 09 changed nothing but the line that asks which cell the man is in. What
- * changes here is time. It used to hunt in seconds: a cruise speed, a path
- * followed by metres per frame, a bite on a cooldown. Now it hunts in turns,
- * and its speed is one number in the energy table instead of three tuned ones.
+ * The hunt itself is not here. Whether it has heard you, whether it has lost
+ * you, and which hexagon it moves to are `Hunter`, a script on the same object
+ * — see `hunt.ts` for the seam. What is here is the other half: how long an
+ * action takes, the wings coming out and folding again, the lunge, the reach
+ * measured off the pose as it plays, and the announcement that jaws closed on
+ * a piece of the world.
  *
- * That number is +10, which in `extract_energy` is exactly double. So it takes
- * two hexagons for every one of yours and bites twice while you cut once, and
- * nothing here implements that — it falls out of the table. The three constants
- * a cruise speed used to need are gone with it:
+ * ## It hunts in turns, and its speed is one number
  *
- *   speed          -> `speed`, one row of the energy table
- *   bite cooldown  -> the 100 energy a bite costs, like every other action
- *   waypoint radius -> nothing. A step is one hexagon, so there is no line
- *                      between waypoints to be circled, and no path to be
- *                      checked between its corners.
+ * +10 in the energy table, which `extract_energy` makes exactly double. So it
+ * takes two hexagons for every one of yours and bites twice while you cut
+ * once, and nothing anywhere implements that — it falls out of the table. The
+ * three constants a cruise speed needed do not exist:
  *
- * That last one is worth dwelling on. Lab 09 needed a keep-apart radius,
- * because A* would not route the bat through the man's hexagon but the flight
- * between two corners of the path went clean through him anyway. On a turn
+ *   speed           `speed`, one row of the energy table
+ *   bite cooldown   the 100 energy a bite costs, like every other action
+ *   waypoint radius nothing. A step is one hexagon, so there is no line
+ *                   between waypoints to be circled, and no path to be checked
+ *                   between its corners
+ *
+ * That last one is worth dwelling on, because it is a whole class of problem
+ * rather than a constant. A keep-apart radius exists to stop a flight between
+ * two corners of a path passing through something A* routed around. On a turn
  * clock there is no between: a move ends on a cell or does not happen, and two
- * creatures cannot occupy one cell. The whole class of problem is gone, and so
- * is the constant that patched it.
+ * creatures cannot occupy one cell.
  *
- *   asleep -> hunting <-> returning -> asleep
+ * ## Waking and settling are actions, not states
  *
- * The states it lost are the ones that were only ever animations: waking,
- * striking, recovering and settling were phases of a clip, and a phase of a
- * clip is what an action already is.
+ * The hunt has three states and they are all in the script. Waking, striking,
+ * recovering and settling are not among them, because each is a phase of a
+ * clip — and a phase of a clip is what an action already is.
  */
 
 import {
@@ -40,14 +42,7 @@ import {
 	type RigAsset,
 	type SparsePose,
 } from '@hexdelve/engine';
-import {
-	axialDistance,
-	axialNeighbours,
-	findPath,
-	HEX_SPACING,
-	type Axial,
-	type Random,
-} from '@hexdelve/shared';
+import { axialDistance, HEX_SPACING, type Axial, type Random } from '@hexdelve/shared';
 
 import type { ScriptHost } from '@hexdelve/engine';
 
@@ -61,6 +56,7 @@ import {
 	type Opponent,
 } from './actor.js';
 import { Swing } from './events.js';
+import { huntOrders, type HuntOrders, type HuntState } from './hunt.js';
 import { flyPose, FLAP_PERIOD, LUNGE_CONTACT, lungePose, perchPose } from './batpose.js';
 import { actionSeconds } from './pace.js';
 import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
@@ -68,12 +64,6 @@ import type { Tile, World } from '../scene/world.js';
 
 const TAU = Math.PI * 2;
 
-/** Terraces a pair of wings clears in one step. */
-export const BAT_CLIMB = 2;
-/** Tiles: how close you get before it notices you. */
-export const WAKE_RANGE = 3;
-/** Tiles: how far you get before it stops caring. */
-export const LOSE_RANGE = 6;
 /**
  * Its place in the energy table: +10, which is exactly twice normal. Every
  * "it is faster than you" in this file is this line and nothing else.
@@ -124,15 +114,11 @@ export function batLean(reach: BiteReach): number {
 	return Math.max(0, HEX_SPACING - reach.distance);
 }
 
-export type HuntState = 'asleep' | 'hunting' | 'returning';
-
 type BatActionKind = 'move' | 'bite' | 'wake' | 'settle' | 'reel' | 'wait';
 
 export interface BatOptions {
 	/** The ground it flies over and paths across. */
 	world: World;
-	/** The hexagon it returns to when it loses him. */
-	perch: Axial;
 	/** For its starting energy, so it is not in lockstep with you from turn one. */
 	random?: Random;
 	/**
@@ -146,7 +132,7 @@ export interface BatOptions {
 	scripts?: ScriptHost;
 	/** Which way it faces to start. */
 	yaw?: number;
-	/** The hexagon it sleeps on. */
+	/** The hexagon it starts on, which its hunt takes for its perch. */
 	cell: Axial;
 	speed?: number;
 }
@@ -167,14 +153,11 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	readonly speed: number;
 	energy: number;
 
-	state: HuntState = 'asleep';
 	message = 'asleep';
 	cell: Axial;
-	/** The route it is following, kept for the overlay rather than for flying. */
-	path: Axial[] | null = null;
 
-	private readonly ground: World;
-	private readonly perch: Axial;
+	/** The ground it flies over and paths across. Read by its hunt. */
+	readonly ground: World;
 	private readonly scripts: ScriptHost | null;
 	/**
 	 * The man, as it needs to see him: which hexagon he is on, and nothing
@@ -182,7 +165,6 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	 */
 	opponent: Opponent | null = null;
 	private flight: InFlight | null = null;
-	private struck = false;
 
 	/** 0 folded, 1 flying. */
 	private wake = 0;
@@ -213,7 +195,6 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		if (!tile) throw new Error(`the bat cannot perch on ${options.cell.q},${options.cell.r}`);
 		this.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
 		this.ground = options.world;
-		this.perch = options.perch;
 		this.scripts = options.scripts ?? null;
 		this.cell = { q: options.cell.q, r: options.cell.r };
 		this.speed = options.speed ?? BAT_SPEED;
@@ -241,28 +222,41 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		return this.flight !== null;
 	}
 
+	/**
+	 * The hunt driving it — a script on its own object, see `hunt.ts`.
+	 *
+	 * Looked up each time rather than kept: a hot reload replaces the instance,
+	 * and a reference taken once would name the version it replaced.
+	 */
+	get hunt(): HuntOrders | null {
+		return huntOrders(this.object);
+	}
+
+	/**
+	 * Asleep unless something is hunting through it.
+	 *
+	 * The drawing reads this — a folded bat is a bat with nothing to chase —
+	 * so a body with no hunt on it is drawn perched rather than left hovering.
+	 */
+	get state(): HuntState {
+		return this.hunt?.state ?? 'asleep';
+	}
+
+	/** The route it is following, for the overlay. */
+	get path(): readonly Axial[] | null {
+		return this.hunt?.path ?? null;
+	}
+
 	tilesToPlayer(): number {
 		return axialDistance(this.cell, (this.opponent?.cell ?? NOWHERE));
 	}
 
 	/**
-	 * The same ground asked the other way: a terrace is a step to him and a
-	 * flap to it, and neither may enter the cell the other is in.
-	 */
-	private readonly flyable = (cell: Axial, from: Axial | null): boolean => {
-		const player = (this.opponent?.cell ?? NOWHERE);
-		if (cell.q === player.q && cell.r === player.r) return false;
-		return this.ground.passable(cell, from, BAT_CLIMB);
-	};
-
-	/**
-	 * Hit. It loses its next move to being thrown about, which is what a blow
-	 * costs on a turn clock — there is no knockback in metres to apply and
-	 * nothing to interrupt, because it was not in the middle of anything.
+	 * Hit. The hunt loses its next move to being thrown about; here it is the
+	 * wings snapping out and the lunge being dropped half-thrown.
 	 */
 	reel(): void {
-		this.struck = true;
-		this.path = null;
+		this.hunt?.struck();
 		this.wake = 1;
 		this.lunge = 0;
 		this.lungeBlend = 0;
@@ -270,74 +264,31 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 
 	/* --------------------------------------------------------------- its turn -- */
 
-	beginTurn(): Action {
-		const player = (this.opponent?.cell ?? NOWHERE);
-		const range = axialDistance(this.cell, player);
-
-		if (this.struck) {
-			this.struck = false;
-			this.state = 'hunting';
-			return this.start('reel', 'hit', this.tile(), this.cell, null);
-		}
-
-		if (this.state === 'asleep') {
-			// It hears you coming. Three tiles, measured on the grid it lives on.
-			if (range > WAKE_RANGE) return this.pass('asleep');
-			this.state = 'hunting';
-			return this.start('wake', 'waking', this.tile(), this.cell, null);
-		}
-
-		if (this.state === 'hunting') {
-			if (range > LOSE_RANGE) {
-				this.state = 'returning';
-				return this.fly(this.perch, 'losing you');
-			}
-			// It attacks from the hexagon it is on, so the condition is about
-			// the grid and nothing else: next to him, and it is its turn.
-			if (range <= 1) return this.start('bite', 'biting', this.tile(), this.cell, player);
-			return this.fly(this.approach(player) ?? player, 'hunting');
-		}
-
-		// Returning.
-		if (range <= WAKE_RANGE) {
-			this.state = 'hunting';
-			return this.fly(this.approach(player) ?? player, 'hunting');
-		}
-		if (this.cell.q === this.perch.q && this.cell.r === this.perch.r) {
-			this.state = 'asleep';
-			this.path = null;
-			return this.start('settle', 'settling', this.tile(), this.cell, null);
-		}
-		return this.fly(this.perch, 'going home');
-	}
-
 	/**
-	 * Path to a tile beside the man, not onto him: the grid is for getting
-	 * there, the last hexagon is the bite's business.
+	 * One turn: start what its hunt decided on, and say what it cost.
+	 *
+	 * Nothing here decides anything. Whether it has heard you and which hexagon
+	 * it moves to is `Hunter`; this knows how long each takes and what it looks
+	 * like. A body with no hunt on it passes the turn asleep.
 	 */
-	private approach(goal: Axial): Axial | null {
-		let best: Axial | null = null;
-		let bestScore = Infinity;
-		for (const n of axialNeighbours(goal)) {
-			if (!this.flyable(n, null)) continue;
-			const d = axialDistance(this.cell, n);
-			if (d < bestScore) {
-				bestScore = d;
-				best = n;
+	beginTurn(): Action {
+		const decision = this.hunt?.decide() ?? { kind: 'pass' as const, message: 'asleep' };
+		switch (decision.kind) {
+			case 'reel':
+				return this.start('reel', 'hit', this.tile(), this.cell, null);
+			case 'wake':
+				return this.start('wake', 'waking', this.tile(), this.cell, null);
+			case 'settle':
+				return this.start('settle', 'settling', this.tile(), this.cell, null);
+			case 'bite':
+				return this.start('bite', 'biting', this.tile(), this.cell, decision.target);
+			case 'move': {
+				const tile = this.ground.tileAt(decision.to.q, decision.to.r)!;
+				return this.start('move', decision.message, tile, decision.to, null);
 			}
+			case 'pass':
+				return this.pass(decision.message);
 		}
-		return best;
-	}
-
-	/** One hexagon towards a goal, re-pathed every turn because the quarry moves. */
-	private fly(goal: Axial, message: string): Action {
-		const route = findPath(this.cell, goal, { passable: this.flyable });
-		this.path = route && route.length > 1 ? route.slice(1) : null;
-		const step = this.path?.[0];
-		if (!step) return this.pass(message === 'hunting' ? 'cornered' : message);
-		const tile = this.ground.tileAt(step.q, step.r);
-		if (!tile) return this.pass(message);
-		return this.start('move', message, tile, step, null);
 	}
 
 	private start(

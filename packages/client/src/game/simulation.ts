@@ -61,7 +61,7 @@ import { Damage, Died, Missed } from './events.js';
 import type { Cast } from './cast.js';
 import { components, type SpawnExtras } from './components.js';
 import { spawnEntity } from './spawn.js';
-import { BatHunt, LOSE_RANGE, WAKE_RANGE } from './bathunt.js';
+import { BatHunt } from './bathunt.js';
 import { Item } from './items.js';
 import { SECONDS_PER_GAME_TURN } from './pace.js';
 import { playerOrders, type PlayerOrders } from './orders.js';
@@ -432,7 +432,6 @@ export class Simulation {
 				cell: this.perch,
 				yaw: 2.4,
 				world: this.world,
-				perch: this.perch,
 				random,
 				scripts: this.scripts,
 				...(options.batSpeed !== undefined ? { speed: options.batSpeed } : {}),
@@ -766,7 +765,10 @@ export class Simulation {
 		ring(blended, this.bat.cell, 0.93, 0.03, BAT_CELL_COLOR, 0.34);
 
 		if (this.toggles.routes) {
-			if (this.bat.state === 'asleep') ring(blended, this.perch, 0.75, 0.015, PERCH_COLOR, 0.3);
+			// Its own perch rather than this file's copy of it: where it sleeps
+			// is where it was put, and the hunt is what learned that.
+			const perch = this.bat.hunt?.home ?? this.perch;
+			if (this.bat.state === 'asleep') ring(blended, perch, 0.75, 0.015, PERCH_COLOR, 0.3);
 
 			const batPath = this.bat.path;
 			if (batPath) {
@@ -816,8 +818,8 @@ export class Simulation {
 			batSpeedFactor: speedFactor(this.bat.speed),
 			bites: this.bat.bites,
 			batMissed: this.bat.missed,
-			wakeRange: WAKE_RANGE,
-			loseRange: LOSE_RANGE,
+			wakeRange: this.bat.hunt?.wakeRange ?? 0,
+			loseRange: this.bat.hunt?.loseRange ?? 0,
 			reach: this.player.reach.distance,
 			lean: this.player.leanIn,
 			hover: this.hover,
