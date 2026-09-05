@@ -1,0 +1,17 @@
+<!--
+	The tab icon for both apps: one hexagonal prism, which is the only shape
+	this project draws. Three faces in the three tones the renderer gives a
+	prism — the top lit, the front in shade, the sides darker still — so the
+	mark reads as the thing on screen rather than as a flat hexagon.
+
+	SVG rather than an .ico, so it is a file a person can read and edit, and
+	one drawing serves every size a browser asks for.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+	<g stroke-linejoin="round" stroke-width="0.6">
+		<path fill="#5f7a4e" stroke="#5f7a4e" d="M4 12v7l6 5.5v-7z" />
+		<path fill="#5f7a4e" stroke="#5f7a4e" d="M28 12v7l-6 5.5v-7z" />
+		<path fill="#7d9a68" stroke="#7d9a68" d="M10 17.5v7h12v-7z" />
+		<path fill="#a8c48f" stroke="#a8c48f" d="M4 12l6-5.5h12L28 12l-6 5.5H10z" />
+	</g>
+</svg>

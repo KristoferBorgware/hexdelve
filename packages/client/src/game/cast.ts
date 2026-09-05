@@ -22,7 +22,7 @@
 import type { AssetLibrary, EntityAsset } from '@hexdelve/engine';
 
 /** The default yard: a wanderer, a bat, and the three things lying in the grass. */
-export const YARD_PLAYER = 'wanderer';
+export const YARD_PLAYER = 'wanderer2';
 export const YARD_ENEMY = 'bat';
 export const YARD_PROPS: readonly string[] = ['helmet', 'sword', 'shield'];
 

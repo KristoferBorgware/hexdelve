@@ -103,8 +103,8 @@ export interface ClientOptions {
 	 */
 	assets?: OpenAssetsOptions;
 	/**
-	 * Who is in the yard, by entity id. Defaults to the wanderer, the bat and
-	 * the three things lying in the grass.
+	 * Who is in the yard, by entity id. Defaults to the second wanderer, the
+	 * bat and the three things lying in the grass.
 	 */
 	cast?: CastOptions;
 	/** The system prefab to spawn once. Defaults to the game's own. */

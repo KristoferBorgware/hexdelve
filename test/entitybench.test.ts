@@ -75,7 +75,14 @@ beforeAll(async () => {
 	page = await browser.newPage({ viewport: { width: 1400, height: 800 } });
 	page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
 	page.on('console', (message) => {
-		if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+		if (message.type() !== 'error') return;
+		/*
+		 * With the URL, because a failed subresource says only that something
+		 * answered 404 — the file it asked for is in the location, and without
+		 * it the log names nothing to go and look at.
+		 */
+		const where = message.location().url;
+		errors.push(`console: ${message.text()}${where ? ` (${where})` : ''}`);
 	});
 	await page.goto(`http://127.0.0.1:${address.port}`, { waitUntil: 'load' });
 	await page.getByRole('button', { name: 'WebGL2' }).click();
