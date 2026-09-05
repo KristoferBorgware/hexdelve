@@ -318,7 +318,7 @@ there is no rig to stand on the bench and shows nothing.
 hierarchy: a weapon with a socket on it, a shield with a boss that hangs off a
 bone. Editing that tree against a blank panel is the case the bench is least
 useful in, and from the outside the blankness looks like something broken rather
-than like a consequence of the entity's kind.
+than like a consequence of the entity having nothing to pose.
 
 **What would fix it.** The prop bench already draws a prop on the same stand,
 with the wearer and the attachment it declares. Either lift that subject out of
@@ -326,6 +326,41 @@ with the wearer and the attachment it declares. Either lift that subject out of
 return a rigless subject that draws a mesh and nothing else. The second is
 smaller and covers the case; the first stops there being two answers to what
 putting a thing on a stand means.
+
+### F-024 — A body is drawn from its local transform, so one under a parent draws in the wrong place
+
+**Kind:** risk
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-05, moving the drawing out of `Actor` and into a `MeshRenderer` component
+**Where:** `emit` in `packages/engine/src/scene/components/MeshRenderer.ts`, `emitView` in `packages/engine/src/scene/components/Rig.ts`
+
+**What happens.** A skinned draw composes the object's placement with the bone
+and then the part, and it reads that placement off `this.object.transform` —
+the LOCAL transform, in the parent's space. Every other placement in the scene
+goes through `object.world`, which `Scene.solve` composes down the tree. The two
+agree only while the object is a child of the scene root, which every character
+in the yard is. A body spawned under any other object is drawn at its offset
+from the origin rather than at where it is standing.
+
+The detached path in the same method does not have this: a prop reads
+`object.world` and is correct at any depth, which is why a sword in a hand is
+right today.
+
+**Why it matters.** Nothing reaches it yet — the yard spawns both creatures at
+the root. It is reachable the moment anything groups characters under a parent
+object: a mounted rider, a squad under a formation node, a level that spawns its
+occupants under a room. The symptom is a body drawn somewhere else entirely
+while its hit tests and its IK, which read the pose in the object's own space,
+stay right — so it looks like a rendering bug in a rig that is behaving.
+
+**What would fix it.** Read the world transform, as the detached path does. The
+obstacle is the shape of `Model.emit`, which takes `x, y, z, yaw` rather than a
+quaternion, and a world rotation is a quaternion — a body under a parent that
+pitches has no single yaw to give it. So it is either a second `Model.emit`
+taking a rotation, or `emitDetached`'s composition applied per bone. Small
+either way, and worth doing before something is parented rather than after.
 
 ## Closed
 

@@ -128,8 +128,15 @@ describe('the entity bench', () => {
 
 	it('shows the components the file puts on it', async () => {
 		if (!page) return;
-		expect(await page.getByText('actor', { exact: true }).count()).toBe(1);
-		expect(await page.getByText('script · Character').count()).toBe(1);
+		// What the wanderer is made of, as his file lists it: bones, a body to
+		// draw on them, the animations that pose them, and what he does. By
+		// heading rather than by text, because `rig` is also the name of a field
+		// on the record the heading belongs to.
+		const heading = (name: string) => page!.getByRole('heading', { name, exact: true }).count();
+		expect(await heading('rig')).toBe(1);
+		expect(await heading('mesh')).toBe(1);
+		expect(await heading('animator')).toBe(1);
+		expect(await heading('script · Character')).toBe(1);
 	});
 
 	/*

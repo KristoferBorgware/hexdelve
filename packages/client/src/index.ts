@@ -59,8 +59,7 @@ export {
 	type TurnTaker,
 } from './game/turns.js';
 export { SECONDS_PER_GAME_TURN, actionSeconds, hexSpeed } from './game/pace.js';
-export { Actor, ActorBehaviour, turnTowards, wrapAngle, type Turnable } from './game/actor.js';
-export { BoneFollow } from './game/bonefollow.js';
+export { ActorBehaviour, turnTowards, wrapAngle, type Turnable } from './game/actor.js';
 
 /*
  * The component types a prefab file may name, and the one call that spawns an
@@ -78,7 +77,7 @@ export {
 	type Cast,
 	type CastOptions,
 } from './game/cast.js';
-export { Item, type ItemOptions } from './game/items.js';
+export { Item } from './game/items.js';
 
 export { buildWorld, type World, type Tile, type WorldOptions } from './scene/world.js';
 
@@ -283,7 +282,6 @@ export type {
 	BlendTreeAsset,
 	ClipAsset,
 	EntityAsset,
-	EntityKind,
 	MeshAsset,
 	RigAsset,
 	TreeParameter,

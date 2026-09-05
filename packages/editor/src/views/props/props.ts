@@ -13,7 +13,7 @@
  * what is really true of a prop today.
  */
 
-import type { ColorInput, Model } from '@hexdelve/engine';
+import { entityAttachment, entityMesh, type ColorInput, type Model } from '@hexdelve/engine';
 import type { EntityAsset } from '@hexdelve/client';
 import { quat, type QuatLike } from '@hexdelve/shared';
 
@@ -97,17 +97,22 @@ export function partRows(prop: BenchProp): PropPartRow[] {
  * nothing is simply gear, rather than being forced into one of three boxes.
  */
 export function benchProp(entity: EntityAsset): BenchProp | null {
-	if (entity.kind !== 'prop') return null;
+	// A prop is a thing that can be worn, and an entity that can be worn is one
+	// carrying an attach. Anything else belongs on the character bench.
+	const attachment = entityAttachment(entity);
+	const mesh = entityMesh(entity);
+	if (!attachment || !mesh) return null;
+
 	let built: Model | null = null;
 	return {
 		id: entity.id,
 		label: entity.name,
 		kind: kindOf(entity),
-		bone: entity.attach?.bone ?? 'root',
-		groundLift: entity.ground?.lift ?? 0,
-		groundTilt: entity.ground?.tilt ?? 0,
-		palette: entity.mesh.palette,
-		model: () => (built ??= entity.mesh.model()),
+		bone: attachment.bone,
+		groundLift: attachment.lift,
+		groundTilt: attachment.tilt,
+		palette: mesh.palette,
+		model: () => (built ??= mesh.model()),
 	};
 }
 

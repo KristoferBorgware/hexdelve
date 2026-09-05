@@ -1,47 +1,19 @@
-# The ghoul.
-#
-# The same seventeen bones as the wanderer under a different body — a mesh is
-# the only file a second body on the same rig needs — and none of the
-# wanderer's animations. A man walks upright; a ghoul goes hunched, on legs
-# that never straighten, drops onto all fours to run, and does not cut with a
-# sword, it leaps with its claws. So its gaits are its own pose functions, its
-# strike is its own clip, and its tree blends the three states it has. What
-# the shared rig still buys is everything downstream of the pose: the visible
-# skeleton, the IK, the hit tests and the bench read it with nothing added.
-
 id: ghoul
 name: Ghoul
-kind: character
 
-rig: ../rigs/humanoid.rig.yaml
-mesh: ../meshes/ghoul.mesh.yaml
-
-animations:
-  # The walk is one function at two settings: `amp` is the throttle between
-  # the hunched stand and a full shamble. Standing, it sways, breathes and
-  # twitches, and the duration is one breath. The run is its own function,
-  # because on all fours the arms are legs.
-  idle: { procedural: ghoulShamble, label: Idle, args: { amp: 0 }, duration: tau / 1.7 }
-  walk: { procedural: ghoulShamble, label: Walk, args: { amp: 1 }, sync: true }
-  run: { procedural: ghoulScramble, label: Run, args: { amp: 1 }, sync: true }
-  # And the keyframed half: the pounce.
-  leap: ../clips/leap.clip.yaml
-
-blendTrees:
-  locomotion: ../trees/shamble.tree.yaml
-
-# Where a bench looks. The rig's own focus is a standing man's hips; a ghoul
-# stands crouched with its head out in front, so its middle is lower.
 view:
   focusY: 0.78
 
-# What it is when it is standing in the world: one object, with a body on it.
-# The body is the rig and the mesh above — an actor on a wanderer is the
-# wanderer's, by definition rather than by a path repeated inside its own file.
-# What it DOES is not here yet; that arrives as a script component.
 object:
   components:
-    - { type: actor }
-    # What it is in a fight. The numbers are the character's, not the rig's, so
-    # tuning a creature is editing this file rather than a script.
+    - { type: rig, rig: ../rigs/humanoid.rig.yaml }
+    - { type: mesh, mesh: ../meshes/ghoul.mesh.yaml }
+    - type: animator
+      animations:
+        idle: { procedural: ghoulShamble, label: Idle, args: { amp: 0 }, duration: tau / 1.7 }
+        walk: { procedural: ghoulShamble, label: Walk, args: { amp: 1 }, sync: true }
+        run: { procedural: ghoulScramble, label: Run, args: { amp: 1 }, sync: true }
+        leap: ../clips/leap.clip.yaml
+      blendTrees:
+        locomotion: ../trees/shamble.tree.yaml
     - { type: script, script: Character, hp: 14, faction: foe, power: 4 }

@@ -121,9 +121,9 @@ export function EntityBenchView({ backend, running }: EntityBenchViewProps) {
 
 	/*
 	 * What this build can instantiate. Read from the client's registry, which is
-	 * where the game says what its components are — the engine has never heard
-	 * of an `actor`, and a list written here would be a second answer able to
-	 * disagree with the one that does the building.
+	 * where the engine's five and the game's own meet — the engine has never
+	 * heard of an `item`, and a list written here would be a second answer able
+	 * to disagree with the one that does the building.
 	 */
 	const componentTypes = useMemo(() => components.types, []);
 

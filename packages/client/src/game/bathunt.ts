@@ -149,8 +149,6 @@ export interface BatOptions {
 	/** The hexagon it sleeps on. */
 	cell: Axial;
 	speed?: number;
-	/** Its rig, for the jaw anchor it bites with and the height it hovers at. */
-	rig: RigAsset;
 }
 
 interface InFlight {
@@ -213,7 +211,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		super(object);
 		const tile = options.world.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the bat cannot perch on ${options.cell.q},${options.cell.r}`);
-		this.body.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
+		this.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
 		this.ground = options.world;
 		this.perch = options.perch;
 		this.scripts = options.scripts ?? null;
@@ -223,11 +221,14 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		// so a pack does not step in unison.
 		this.energy = Math.floor((options.random?.() ?? 0) * 50);
 
-		const jaw = options.rig.anchors.jawTip;
-		if (!jaw) throw new Error(`the rig '${options.rig.id}' has no 'jawTip' anchor to bite with`);
+		// Off the rig on this object rather than passed in: the jaw it bites with
+		// is the jaw of the body it is a behaviour of, by definition.
+		const rig = this.rig.asset;
+		const jaw = rig.anchors.jawTip;
+		if (!jaw) throw new Error(`the rig '${rig.id}' has no 'jawTip' anchor to bite with`);
 		this.jaw = jaw;
-		this.hoverY = options.rig.metrics.hoverHeight ?? 0;
-		this.reach = measureBiteReach(options.rig);
+		this.hoverY = rig.metrics.hoverHeight ?? 0;
+		this.reach = measureBiteReach(rig);
 		this.leanIn = batLean(this.reach);
 	}
 

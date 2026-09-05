@@ -50,6 +50,11 @@ export { GameObject, type GameObjectOptions } from './scene/GameObject.js';
  * answer to how an object gets behaviour.
  */
 export { Component, type ComponentClass } from './scene/components/Component.js';
+export { Animator } from './scene/components/Animator.js';
+export { Attach } from './scene/components/Attach.js';
+export { MeshRenderer } from './scene/components/MeshRenderer.js';
+export { Rig } from './scene/components/Rig.js';
+export { registerSceneComponents } from './scene/components/factories.js';
 export { Script, type ScriptBinding } from './scene/components/Script.js';
 
 /*
@@ -239,10 +244,9 @@ export {
 	type ClipAsset,
 	type ClipDocument,
 	type ClipRequest,
+	type ComponentAssets,
 	type EntityAsset,
 	type EntityDocument,
-	type EntityKind,
-	type Grounding,
 	type MeshAsset,
 	type PoseFunction,
 	type PoseFunctionContext,
@@ -253,6 +257,21 @@ export {
 	type RigView,
 	type TreeParameter,
 	type Vec3 as AssetVec3,
+	assetsUnder,
+	componentAssets,
+	entityAnimations,
+	entityAttachment,
+	entityBlendTrees,
+	entityMesh,
+	entityRig,
+	findComponent,
+	readAnimations,
+	readAttachment,
+	ANIMATOR_KEYS,
+	ATTACH_KEYS,
+	MESH_COMPONENT_KEYS,
+	NO_ASSETS,
+	RIG_COMPONENT_KEYS,
 	ComponentRegistry,
 	instantiate,
 	loadSystem,

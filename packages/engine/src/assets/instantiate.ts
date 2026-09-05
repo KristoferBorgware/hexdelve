@@ -30,6 +30,7 @@
 
 import { GameObject } from '../scene/GameObject.js';
 import type { Scene } from '../scene/Scene.js';
+import { NO_ASSETS, type ComponentAssets } from './binding.js';
 import { AssetError, type Node } from './document.js';
 import { unknownComponent, type ComponentSpec, type PrefabNode } from './prefab.js';
 
@@ -41,6 +42,13 @@ export interface ComponentContext {
 	readonly object: GameObject;
 	/** The record, minus `type`. Read it with the same `Node` API asset files use. */
 	readonly fields: Node;
+	/**
+	 * What the file references in that record loaded to.
+	 *
+	 * Empty for a record that named none, and for a prefab nothing resolved —
+	 * a system, which has no assets to name. See assets/binding.ts.
+	 */
+	readonly assets: ComponentAssets;
 	/** Which file this came from, for an error that names it. */
 	readonly file: string;
 	/**
@@ -140,7 +148,7 @@ function spawn(
 	}
 
 	for (const spec of node.components) {
-		registry.build(spec, { object, fields: spec.fields, file, extras });
+		registry.build(spec, { object, fields: spec.fields, assets: spec.assets ?? NO_ASSETS, file, extras });
 	}
 	for (const child of node.children) spawn(child, object, registry, file, extras);
 

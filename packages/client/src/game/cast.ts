@@ -19,7 +19,7 @@
  * question for the level, and this will be the function it calls.
  */
 
-import type { AssetLibrary, EntityAsset } from '@hexdelve/engine';
+import { entityAnimations, findComponent, type AssetLibrary, type EntityAsset } from '@hexdelve/engine';
 
 /** The default yard: a wanderer, a bat, and the three things lying in the grass. */
 export const YARD_PLAYER = 'wanderer2';
@@ -62,23 +62,31 @@ export async function loadCast(library: AssetLibrary, options: CastOptions = {})
 	const all = await library.index();
 	const byId = new Map(all.map((entity) => [entity.id, entity]));
 
-	const need = (id: string, wanted: 'character' | 'prop'): EntityAsset => {
+	/*
+	 * What a part needs is a component, not a label. The yard wants two things
+	 * it can pose and three it can pick up, and an entity that can be posed is
+	 * one carrying an `animator` — which is the same sentence, asked of the file
+	 * rather than of a field somebody had to remember to set.
+	 */
+	const need = (id: string, wanted: 'animator' | 'attach', part: string): EntityAsset => {
 		const entity = byId.get(id);
 		if (!entity) {
 			throw new Error(
 				`no entity '${id}' in the manifest; it has ${all.map((one) => one.id).join(', ')}`,
 			);
 		}
-		if (entity.kind !== wanted) {
-			throw new Error(`entity '${id}' is a ${entity.kind}, and the yard wants a ${wanted} here`);
+		if (!findComponent(entity.prefab, wanted)) {
+			throw new Error(`entity '${id}' has no '${wanted}' component, and the yard wants ${part}`);
 		}
 		return entity;
 	};
 
 	return {
-		player: need(options.player ?? YARD_PLAYER, 'character'),
-		enemy: need(options.enemy ?? YARD_ENEMY, 'character'),
-		props: (options.props ?? YARD_PROPS).map((id) => need(id, 'prop')),
+		player: need(options.player ?? YARD_PLAYER, 'animator', 'a body it can pose here'),
+		enemy: need(options.enemy ?? YARD_ENEMY, 'animator', 'a body it can pose here'),
+		props: (options.props ?? YARD_PROPS).map((id) =>
+			need(id, 'attach', 'something that can be carried here'),
+		),
 		spawnable: (options.spawnable ?? []).map((id) => {
 			const entity = byId.get(id);
 			if (!entity) {
@@ -99,10 +107,11 @@ export async function loadCast(library: AssetLibrary, options: CastOptions = {})
  * than finding it out when he is made.
  */
 export function clipOf(entity: EntityAsset, name: string): import('@hexdelve/engine').Clip {
-	const animation = entity.animations.get(name);
+	const animations = entityAnimations(entity);
+	const animation = animations.get(name);
 	if (!animation) {
 		throw new Error(
-			`'${entity.id}' has no animation '${name}'; it has ${[...entity.animations.keys()].join(', ')}`,
+			`'${entity.id}' has no animation '${name}'; it has ${[...animations.keys()].join(', ')}`,
 		);
 	}
 	if (!animation.clip) {

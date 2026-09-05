@@ -32,6 +32,11 @@ import { describe, expect, it } from 'vitest';
 import {
 	AssetLibrary,
 	attachmentPosition,
+	entityAnimations,
+	entityAttachment,
+	entityBlendTrees,
+	entityMesh,
+	entityRig,
 	loadRig,
 	AssetWriteError,
 	memoryIO,
@@ -126,6 +131,20 @@ const entity = (id: string): Promise<EntityAsset> => library.entity(`entities/${
 
 function readRig(name: string): Promise<RigAsset> {
 	return library.rig(`rigs/${name}.rig.yaml`);
+}
+
+/**
+ * The real tree with one file laid over it.
+ *
+ * What a test checking a refusal wants: a document written here, and the rigs
+ * and meshes it points at read from the tree that already has them.
+ */
+function withFile(path: string, text: string): AssetLibrary {
+	const disk = diskIO(root);
+	return new AssetLibrary(
+		readOnly({ ...disk, read: (at) => (at === path ? Promise.resolve(text) : disk.read(at)) }),
+		{ poseFunctions },
+	);
 }
 
 
@@ -264,50 +283,50 @@ describe('entities', () => {
 	it('gives the second wanderer the first one’s rig and every one of his animations', async () => {
 		const wanderer = await entity('wanderer');
 		const second = await entity('wanderer2');
-		expect(second.rig).toBe(wanderer.rig);
-		expect(second.mesh).not.toBe(wanderer.mesh);
-		expect([...second.animations.keys()]).toEqual([...wanderer.animations.keys()]);
-		for (const [name, animation] of wanderer.animations) {
-			const twin = second.animations.get(name)!;
+		expect(entityRig(second)).toBe(entityRig(wanderer));
+		expect(entityMesh(second)).not.toBe(entityMesh(wanderer));
+		expect([...entityAnimations(second).keys()]).toEqual([...entityAnimations(wanderer).keys()]);
+		for (const [name, animation] of entityAnimations(wanderer)) {
+			const twin = entityAnimations(second).get(name)!;
 			expect(twin.duration, name).toBeCloseTo(animation.duration, 12);
 			expect(twin.clip === null, name).toBe(animation.clip === null);
 		}
-		expect(second.blendTrees.get('locomotion')).toBeDefined();
+		expect(entityBlendTrees(second).get('locomotion')).toBeDefined();
 		// The props attach to the rig's bones, so they fit him as they fit the wanderer.
 		for (const prop of ['helmet', 'sword', 'shield']) {
 			const worn = await entity(prop);
-			expect(worn.attach!.rig, prop).toBe(second.rig);
+			expect(entityRig(worn), prop).toBe(entityRig(second));
 		}
 	});
 
 	it('gives the wanderer and the ghoul the same rig, and nothing else', async () => {
 		const wanderer = await entity('wanderer');
 		const ghoul = await entity('ghoul');
-		expect(ghoul.rig).toBe(wanderer.rig);
-		expect(ghoul.mesh).not.toBe(wanderer.mesh);
+		expect(entityRig(ghoul)).toBe(entityRig(wanderer));
+		expect(entityMesh(ghoul)).not.toBe(entityMesh(wanderer));
 		// Its gait and its strike are its own: none of the wanderer's clips,
 		// and a tree over its own two states.
-		expect([...ghoul.animations.keys()]).toEqual(['idle', 'walk', 'run', 'leap']);
-		expect(ghoul.animations.get('walk')!.clip).toBeNull();
-		expect(ghoul.animations.get('leap')!.clip).not.toBeNull();
-		expect([...ghoul.blendTrees.keys()]).toEqual(['locomotion']);
-		expect(ghoul.blendTrees.get('locomotion')!.id).toBe('shamble');
+		expect([...entityAnimations(ghoul).keys()]).toEqual(['idle', 'walk', 'run', 'leap']);
+		expect(entityAnimations(ghoul).get('walk')!.clip).toBeNull();
+		expect(entityAnimations(ghoul).get('leap')!.clip).not.toBeNull();
+		expect([...entityBlendTrees(ghoul).keys()]).toEqual(['locomotion']);
+		expect(entityBlendTrees(ghoul).get('locomotion')!.id).toBe('shamble');
 	});
 
 	it('gives the zombie the humanoid rig, a shuffle, and an overhead slash', async () => {
 		const wanderer = await entity('wanderer');
 		const zombie = await entity('zombie');
-		expect(zombie.rig).toBe(wanderer.rig);
-		expect([...zombie.animations.keys()]).toEqual(['idle', 'walk', 'slash']);
-		expect(zombie.animations.get('walk')!.clip).toBeNull();
-		expect(zombie.blendTrees.get('locomotion')!.id).toBe('shuffle');
+		expect(entityRig(zombie)).toBe(entityRig(wanderer));
+		expect([...entityAnimations(zombie).keys()]).toEqual(['idle', 'walk', 'slash']);
+		expect(entityAnimations(zombie).get('walk')!.clip).toBeNull();
+		expect(entityBlendTrees(zombie).get('locomotion')!.id).toBe('shuffle');
 
-		const slash = zombie.animations.get('slash')!;
+		const slash = entityAnimations(zombie).get('slash')!;
 		const clip = slash.clip!;
 		expect(clip.loop).toBe('hold');
 		const blow = clip.events.find((event) => event.name === 'slash')!;
 		expect(blow).toBeDefined();
-		const world = (t: number) => solveWorld(zombie.rig!.skeleton, slash.sample(t, {}));
+		const world = (t: number) => solveWorld(entityRig(zombie)!.skeleton, slash.sample(t, {}));
 		// Both arms up over the head at the top of the wind-up, both hands
 		// down and out in front at the blow, a lunge forward and back.
 		const reared = world(0.45);
@@ -334,7 +353,7 @@ describe('entities', () => {
 
 	it('the ghoul’s leap lands in the next hexagon, strikes there, and comes back', async () => {
 		const ghoul = await entity('ghoul');
-		const leap = ghoul.animations.get('leap')!;
+		const leap = entityAnimations(ghoul).get('leap')!;
 		const clip = leap.clip!;
 		expect(clip.loop).toBe('hold');
 		const strike = clip.events.find((event) => event.name === 'strike')!;
@@ -350,7 +369,7 @@ describe('entities', () => {
 		expect(Math.abs(rootAt(clip.duration)[2])).toBeLessThan(0.05);
 		// And the soles are on the ground at every key that stands on them.
 		for (const t of [0, 0.3, strike.t, 0.72, clip.duration]) {
-			const world = solveWorld(ghoul.rig!.skeleton, leap.sample(t, {}));
+			const world = solveWorld(entityRig(ghoul)!.skeleton, leap.sample(t, {}));
 			for (const foot of ['footL', 'footR']) {
 				expect(world[foot]!.p[1], `${foot} at ${t}s`).toBeGreaterThan(0.06);
 				expect(world[foot]!.p[1], `${foot} at ${t}s`).toBeLessThan(0.12);
@@ -359,7 +378,7 @@ describe('entities', () => {
 		// It lands on all fours: at the strike and through the rake the palms
 		// are on the ground too, a metre forward.
 		for (const t of [strike.t, 0.72]) {
-			const world = solveWorld(ghoul.rig!.skeleton, leap.sample(t, {}));
+			const world = solveWorld(entityRig(ghoul)!.skeleton, leap.sample(t, {}));
 			for (const hand of ['handL', 'handR']) {
 				expect(world[hand]!.p[1], `${hand} at ${t}s`).toBeGreaterThan(0.03);
 				expect(world[hand]!.p[1], `${hand} at ${t}s`).toBeLessThan(0.08);
@@ -368,38 +387,56 @@ describe('entities', () => {
 		}
 	});
 
-	it('gives a prop no rig, and a bone to hang from', async () => {
+	it('gives a prop a bone to hang from, and nothing to pose', async () => {
 		const helmet = await entity('helmet');
-		expect(helmet.kind).toBe('prop');
-		expect(helmet.rig).toBeNull();
-		expect(helmet.animations.size).toBe(0);
-		expect(helmet.attach?.bone).toBe('head');
-		expect(helmet.ground?.lift).toBeCloseTo(0.2, 12);
+		// It borrows the humanoid's bones to name one, and has no animator: a
+		// helmet is worn rather than posed, and that is the whole difference.
+		expect(entityRig(helmet)!.id).toBe('humanoid');
+		expect(entityAnimations(helmet).size).toBe(0);
+		expect(entityAttachment(helmet)!.bone).toBe('head');
+		expect(entityAttachment(helmet)!.lift).toBeCloseTo(0.2, 12);
 	});
 
-	it('refuses a prop that claims a rig', async () => {
-		const source = ['id: bad', 'kind: prop', 'rig: ../rigs/humanoid.rig.yaml', 'mesh: x.mesh.yaml'].join('\n');
-		const one = new AssetLibrary(memoryIO({ 'bad.entity.yaml': source }));
-		await expect(one.entity('bad.entity.yaml')).rejects.toThrow(/a prop has no rig/);
+	it('refuses a bone the rig in scope does not have', async () => {
+		const at = 'entities/bad.entity.yaml';
+		const source = [
+			'id: bad',
+			'object:',
+			'  components:',
+			'    - { type: rig, rig: ../rigs/humanoid.rig.yaml }',
+			'    - { type: attach, bone: elbow }',
+		].join('\n');
+		await expect(withFile(at, source).entity(at)).rejects.toThrow(/no bone called 'elbow'/);
+	});
+
+	it('refuses a mesh with no rig in scope to hang it on', async () => {
+		const at = 'entities/bad.entity.yaml';
+		const source = [
+			'id: bad',
+			'object:',
+			'  components:',
+			'    - { type: mesh, mesh: ../meshes/helmet.mesh.yaml }',
+		].join('\n');
+		await expect(withFile(at, source).entity(at)).rejects.toThrow(/needs a rig/);
 	});
 });
 
 describe('animations', () => {
 	it("measures the walk and the run off the wanderer's own feet", async () => {
 		const wanderer = await entity('wanderer');
-		const walk = wanderer.animations.get('walk')!;
-		const run = wanderer.animations.get('run')!;
+		const walk = entityAnimations(wanderer).get('walk')!;
+		const run = entityAnimations(wanderer).get('run')!;
 		expect(walk.speed()!.z).toBeGreaterThan(0.5);
 		expect(run.speed()!.z).toBeGreaterThan(walk.speed()!.z);
 	});
 
 	it('carries a blend tree whose thresholds are those measurements', async () => {
 		const wanderer = await entity('wanderer');
-		const locomotion = wanderer.blendTrees.get('locomotion')!;
+		const locomotion = entityBlendTrees(wanderer).get('locomotion')!;
 		const speed = locomotion.parameters.find((one) => one.name === 'speed')!;
 		expect(speed.unit).toBe('m/s');
 		expect(speed.calibrated).toBe(true);
-		expect(speed.max).toBeCloseTo(wanderer.animations.get('run')!.speed()!.z, 9);
+		expect(speed.max).toBeCloseTo(entityAnimations(wanderer).get('run')!.speed()!.z, 9);
 
 		// A tree owns a playhead, so two subjects must never share one.
 		expect(locomotion.tree()).not.toBe(locomotion.tree());
@@ -407,9 +444,9 @@ describe('animations', () => {
 
 	it('holds the tree in phase at a blend of walk and run', async () => {
 		const wanderer = await entity('wanderer');
-		const tree = wanderer.blendTrees.get('locomotion')!.tree();
-		const walk = wanderer.animations.get('walk')!.speed()!.z;
-		const run = wanderer.animations.get('run')!.speed()!.z;
+		const tree = entityBlendTrees(wanderer).get('locomotion')!.tree();
+		const walk = entityAnimations(wanderer).get('walk')!.speed()!.z;
+		const run = entityAnimations(wanderer).get('run')!.speed()!.z;
 
 		tree.resolve({ speed: (walk + run) / 2, turn: 0, lean: 0, guard: 0 });
 		for (let i = 0; i < 30; i++) tree.advance({ speed: (walk + run) / 2, turn: 0, lean: 0, guard: 0 }, 1 / 60);
@@ -434,8 +471,8 @@ describe('the pose functions still agree with the rigs', () => {
 
 	it('the stride’s cycles are the ones the wanderer’s entity asks for', async () => {
 		const wanderer = await entity('wanderer');
-		expect(wanderer.animations.get('walk')!.duration).toBeCloseTo(WALK_PERIOD, 12);
-		expect(wanderer.animations.get('run')!.duration).toBeCloseTo(RUN_PERIOD, 12);
+		expect(entityAnimations(wanderer).get('walk')!.duration).toBeCloseTo(WALK_PERIOD, 12);
+		expect(entityAnimations(wanderer).get('run')!.duration).toBeCloseTo(RUN_PERIOD, 12);
 	});
 
 	it('the wing beat walks the bones the bat rig groups', async () => {
@@ -464,7 +501,7 @@ describe('the pose functions still agree with the rigs', () => {
 
 	it('the hound’s cycle is the one its entity asks for', async () => {
 		const hound = await entity('hellhound');
-		expect(hound.animations.get('run')!.duration).toBeCloseTo(HOUND_STRIDE_PERIOD, 12);
+		expect(entityAnimations(hound).get('run')!.duration).toBeCloseTo(HOUND_STRIDE_PERIOD, 12);
 	});
 
 	it('the gallop is solved on the dire hellhound rig’s own chain', async () => {
@@ -514,7 +551,7 @@ describe('the pose functions still agree with the rigs', () => {
 
 	it('the gallop carries the dire hellhound forwards, and its entity measures it', async () => {
 		const hound = await entity('direhound');
-		const run = hound.animations.get('run')!;
+		const run = entityAnimations(hound).get('run')!;
 		expect(run.duration).toBeCloseTo(DIRE_STRIDE_PERIOD, 12);
 		expect(run.contacts).toEqual(DIRE_RUN_CONTACTS);
 		const speed = run.speed()!;
@@ -522,7 +559,7 @@ describe('the pose functions still agree with the rigs', () => {
 		expect(Math.abs(speed.x)).toBeLessThan(0.05);
 		// Standing still is still the same function, and goes nowhere — bar the
 		// breathing, which shifts its weight a fraction.
-		expect(Math.abs(hound.animations.get('idle')!.speed()!.z)).toBeLessThan(0.01);
+		expect(Math.abs(entityAnimations(hound).get('idle')!.speed()!.z)).toBeLessThan(0.01);
 	});
 
 	it('the dire hellhound rests with its chest and all four paws on the ground', async () => {
@@ -602,7 +639,7 @@ describe('the pose functions still agree with the rigs', () => {
 			}
 		}
 		const ghoul = await entity('ghoul');
-		const walk = ghoul.animations.get('walk')!;
+		const walk = entityAnimations(ghoul).get('walk')!;
 		expect(walk.duration).toBeCloseTo(SHAMBLE_PERIOD, 12);
 		expect(walk.contacts).toEqual(SHAMBLE_CONTACTS);
 		expect(walk.speed()!.z).toBeGreaterThan(0.5);
@@ -632,8 +669,8 @@ describe('the pose functions still agree with the rigs', () => {
 			}
 		}
 		const ghoul = await entity('ghoul');
-		const run = ghoul.animations.get('run')!;
-		const walk = ghoul.animations.get('walk')!;
+		const run = entityAnimations(ghoul).get('run')!;
+		const walk = entityAnimations(ghoul).get('walk')!;
 		expect(run.duration).toBeCloseTo(SCRAMBLE_PERIOD, 12);
 		expect(run.contacts).toEqual(SCRAMBLE_CONTACTS);
 		expect(run.speed()!.z).toBeGreaterThan(walk.speed()!.z);
@@ -666,11 +703,11 @@ describe('the pose functions still agree with the rigs', () => {
 
 		const zombie = await entity('zombie');
 		const ghoul = await entity('ghoul');
-		const walk = zombie.animations.get('walk')!;
+		const walk = entityAnimations(zombie).get('walk')!;
 		expect(walk.duration).toBeCloseTo(SHUFFLE_PERIOD, 12);
 		expect(walk.contacts).toEqual(SHUFFLE_CONTACTS);
 		expect(walk.speed()!.z).toBeGreaterThan(0.3);
-		expect(walk.speed()!.z).toBeLessThan(ghoul.animations.get('walk')!.speed()!.z);
+		expect(walk.speed()!.z).toBeLessThan(entityAnimations(ghoul).get('walk')!.speed()!.z);
 		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
 		for (const posed of [shufflePose(0.7, 1, 0.3, {}), shufflePose(0, 0, 2, {})]) {
 			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
@@ -723,7 +760,7 @@ describe('the pose functions still agree with the rigs', () => {
 			}
 		}
 		const spider = await entity('spider');
-		const run = spider.animations.get('run')!;
+		const run = entityAnimations(spider).get('run')!;
 		expect(run.duration).toBeCloseTo(SPIDER_RUN_PERIOD, 12);
 		expect(run.contacts).toEqual(SPIDER_RUN_CONTACTS);
 		expect(run.speed()!.z).toBeGreaterThan(1.5);
@@ -783,12 +820,12 @@ describe('the pose functions still agree with the rigs', () => {
 			}
 		}
 		const troll = await entity('troll');
-		const walk = troll.animations.get('walk')!;
+		const walk = entityAnimations(troll).get('walk')!;
 		expect(walk.duration).toBeCloseTo(STOMP_PERIOD, 12);
 		expect(walk.contacts).toEqual(STOMP_CONTACTS);
 		expect(walk.speed()!.z).toBeGreaterThan(1.5);
 		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
-		const idle = troll.animations.get('idle')!;
+		const idle = entityAnimations(troll).get('idle')!;
 		expect(Math.abs(idle.speed()?.z ?? 0)).toBeLessThan(0.05);
 	});
 

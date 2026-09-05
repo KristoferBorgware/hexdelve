@@ -1,38 +1,14 @@
-# The dire hellhound.
-#
-# The hellhound's bigger, heavier relative: a second quadruped rig rather than
-# a second body on the first one, because a scapula, a pastern, a hock, a
-# second neck segment and a third tail segment are joints the hellhound's rig
-# has nowhere to put. The hellhound stays as it is beside this.
-#
-# Its gait declares a contact schedule, which the hellhound's does not: the
-# gallop is written to the humanoid's sign convention and its rig names the
-# pair of paws that alternate, so the run's ground speed is measurable and
-# comes out forwards.
-
 id: direhound
 name: Dire hellhound
-kind: character
 
-rig: ../rigs/direhound.rig.yaml
-mesh: ../meshes/direhound.mesh.yaml
-
-animations:
-  # The gallop is one function at two settings: `amp` is the throttle between
-  # standing and a full run. Standing, the animal stares and breathes, and
-  # the duration is one breath.
-  idle: { procedural: direRun, label: Idle, args: { amp: 0 }, duration: tau / 1.6 }
-  run: { procedural: direRun, label: Run, args: { amp: 1 }, sync: true }
-  bite: { procedural: direBite, label: Attack bite }
-  rest: { procedural: direRest, label: Rest, duration: tau / 1.3 }
-
-# What it is when it is standing in the world: one object, with a body on it.
-# The body is the rig and the mesh above — an actor on a wanderer is the
-# wanderer's, by definition rather than by a path repeated inside its own file.
-# What it DOES is not here yet; that arrives as a script component.
 object:
   components:
-    - { type: actor }
-    # What it is in a fight. The numbers are the character's, not the rig's, so
-    # tuning a creature is editing this file rather than a script.
+    - { type: rig, rig: ../rigs/direhound.rig.yaml }
+    - { type: mesh, mesh: ../meshes/direhound.mesh.yaml }
+    - type: animator
+      animations:
+        idle: { procedural: direRun, label: Idle, args: { amp: 0 }, duration: tau / 1.6 }
+        run: { procedural: direRun, label: Run, args: { amp: 1 }, sync: true }
+        bite: { procedural: direBite, label: Attack bite }
+        rest: { procedural: direRest, label: Rest, duration: tau / 1.3 }
     - { type: script, script: Character, hp: 30, faction: foe, power: 7 }

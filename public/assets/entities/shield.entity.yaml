@@ -1,28 +1,10 @@
-# The shield.
-#
-# On the forearm rather than in the hand, because the arm goes through the
-# straps — see the mesh, where getting that the wrong way round is the mistake
-# worth the comment.
-
 id: shield
 name: Shield
-kind: prop
 tags: [shield]
 
-mesh: ../meshes/shield.mesh.yaml
-
-attach:
-  rig: ../rigs/humanoid.rig.yaml
-  bone: forearmL
-
-ground:
-  lift: 0.05
-  tilt: pi / 2
-
-# What it is when it is lying in the grass: one object, with the thing itself
-# attached to it. The bone it hangs from and the two numbers above are read off
-# this file rather than repeated here — there is no second place to say how a
-# it lies.
 object:
   components:
+    - { type: rig, rig: ../rigs/humanoid.rig.yaml }
+    - { type: mesh, mesh: ../meshes/shield.mesh.yaml }
+    - { type: attach, bone: forearmL, lift: 0.05, tilt: pi / 2 }
     - { type: item }

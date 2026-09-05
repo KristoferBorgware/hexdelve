@@ -1,37 +1,15 @@
-# The zombie.
-#
-# The same seventeen bones as the wanderer under a third body, and none of
-# his animations. A corpse walks the way the mind left it: one leg stepping
-# and the other dragged after it, the head hanging, one arm out. Its gait is
-# its own pose function, its strike — both arms up over the head and brought
-# down together — is its own clip, and its tree blends the two states it has.
-
 id: zombie
 name: Zombie
-kind: character
 
-rig: ../rigs/humanoid.rig.yaml
-mesh: ../meshes/zombie.mesh.yaml
-
-animations:
-  # The gait is one function at two settings: `amp` is the throttle between
-  # the swaying stand and the full shuffle. The stand sways at 0.7 rad/s, and
-  # the duration is one sway.
-  idle: { procedural: zombieShuffle, label: Idle, args: { amp: 0 }, duration: tau / 0.7 }
-  walk: { procedural: zombieShuffle, label: Walk, args: { amp: 1 }, sync: true }
-  # And the keyframed half: the overhead slash.
-  slash: ../clips/overhead.clip.yaml
-
-blendTrees:
-  locomotion: ../trees/shuffle.tree.yaml
-
-# What it is when it is standing in the world: one object, with a body on it.
-# The body is the rig and the mesh above — an actor on a wanderer is the
-# wanderer's, by definition rather than by a path repeated inside its own file.
-# What it DOES is not here yet; that arrives as a script component.
 object:
   components:
-    - { type: actor }
-    # What it is in a fight. The numbers are the character's, not the rig's, so
-    # tuning a creature is editing this file rather than a script.
+    - { type: rig, rig: ../rigs/humanoid.rig.yaml }
+    - { type: mesh, mesh: ../meshes/zombie.mesh.yaml }
+    - type: animator
+      animations:
+        idle: { procedural: zombieShuffle, label: Idle, args: { amp: 0 }, duration: tau / 0.7 }
+        walk: { procedural: zombieShuffle, label: Walk, args: { amp: 1 }, sync: true }
+        slash: ../clips/overhead.clip.yaml
+      blendTrees:
+        locomotion: ../trees/shuffle.tree.yaml
     - { type: script, script: Character, hp: 16, faction: foe, power: 5 }

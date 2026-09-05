@@ -196,19 +196,13 @@ describe('what a draft writes', () => {
 		const path = resolve(import.meta.dirname, '..', 'public', 'assets', 'systems', 'game.system.yaml');
 
 		// A system file is a prefab with children and script components on them,
-		// which is the shape the bench exists to edit.
-		const source = await readFile(path, 'utf8');
-		const before = readEntity(
-			source.replace(/^object:/m, 'mesh: ../meshes/wanderer.mesh.yaml\nrig: ../rigs/humanoid.rig.yaml\nobject:'),
-			'game.system.yaml',
-		);
+		// which is the shape the bench exists to edit — and an entity file is an
+		// id and that same tree, so the one reads as the other unchanged.
+		const before = readEntity(await readFile(path, 'utf8'), 'game.system.yaml');
 
 		const draft = draftFromPrefab(before.prefab);
 		const written = emitYaml({ object: draftToEmittable(draft) });
-		const after = readEntity(
-			`id: game\nmesh: ../meshes/wanderer.mesh.yaml\nrig: ../rigs/humanoid.rig.yaml\n${written}`,
-			'again.yaml',
-		);
+		const after = readEntity(`id: game\n${written}`, 'again.yaml');
 
 		expect(draftToEmittable(draftFromPrefab(after.prefab))).toEqual(
 			draftToEmittable(draftFromPrefab(before.prefab)),
@@ -260,16 +254,16 @@ describe('saving an edited tree back into its entity file', () => {
 
 		const after = readEntity(writeEntity(before, draftToEmittable(draft)), file);
 
-		// The half of the file the bench never touched.
-		expect(after.rig).toBe(before.rig);
-		expect(after.mesh).toBe(before.mesh);
-		expect(after.animations.map((one) => one.name)).toEqual(
-			before.animations.map((one) => one.name),
-		);
-		expect(after.blendTrees).toEqual(before.blendTrees);
+		// What the file said about itself, which the bench never touched.
+		expect(after.id).toBe(before.id);
+		expect(after.name).toBe(before.name);
+		expect(after.tags).toEqual(before.tags);
+		expect(after.view).toEqual(before.view);
 
-		// And the half it did.
-		expect(after.prefab.components.map((one) => one.type)).toEqual(['actor', 'script']);
+		// And the tree it did touch, whose records carry the rest of the file.
+		expect(after.prefab.components.map((one) => one.type)).toEqual(
+			before.prefab.components.map((one) => one.type),
+		);
 		expect(after.prefab.children).toHaveLength(1);
 		const written = after.prefab.children[0]!;
 		expect(written.name).toBe('grip');
