@@ -117,6 +117,47 @@ export function perchPose(time: number, out: SparsePose = {}): SparsePose {
 
 /* -------------------------------------------------------------------- fly -- */
 
+/** How far behind the joint inboard of it each wing joint beats, in radians. */
+const LAG = 0.5;
+
+/** The share of the stroke each bone takes, outboard from the shoulder. */
+const LIFT = [0.85, 0.5, 0.42, 0.3];
+
+/**
+ * How far the whole wing swings, per unit of amplitude, in radians.
+ *
+ * Four sinusoids a fixed lag apart sum to one sinusoid, and this is its
+ * amplitude — read off `LIFT` and `LAG` rather than stated, so that retuning
+ * the shape of the stroke cannot leave the limit below describing a wing that
+ * no longer exists. It is well short of the four lifts added up, because the
+ * lag is what stops the joints peaking together.
+ */
+const SPAN = Math.hypot(
+	LIFT.reduce((sum, l, i) => sum + l * Math.cos(i * LAG), 0),
+	LIFT.reduce((sum, l, i) => sum + l * Math.sin(i * LAG), 0),
+);
+
+/**
+ * How far the wing is held above level between strokes, per bone.
+ *
+ * The whole arm carries four of these, so the wing sits a little above the
+ * shoulder rather than straight out of it.
+ */
+const DIHEDRAL = 0.04;
+
+/**
+ * How far the wing folds either side of that, at the very most.
+ *
+ * The animal has one right angle of arc to beat through and no more: a wing
+ * folded past vertical is a wing lying over its own back, and the membrane
+ * behind the spar gets there before the spar does. So the stroke saturates
+ * rather than scaling — `tanh` is the whole of it, linear where there is room
+ * and asymptotic where there is not. What a harder beat then buys is the row,
+ * the twist and the lift of the body, all of which go on scaling; the fold
+ * itself has nowhere left to go, which is also true of the animal.
+ */
+const FOLD = 1.4;
+
 /**
  * Wings working.
  *
@@ -126,15 +167,15 @@ export function perchPose(time: number, out: SparsePose = {}): SparsePose {
  * a wave, the way a real one does.
  */
 export function flyPose(theta: number, amp: number, _time = 0, out: SparsePose = {}): SparsePose {
-	const LAG = 0.5;
-	const LIFT = [0.85, 0.5, 0.42, 0.3];
+	// What `amp` comes to once the fold has run out of arc to open into.
+	const stroke = (FOLD * Math.tanh((amp * SPAN) / FOLD)) / SPAN;
 
 	const lift: number[] = [];
 	const sweep: number[] = [];
 	const twist: number[] = [];
 	for (let i = 0; i < 4; i++) {
 		const phase = theta - i * LAG;
-		lift.push(0.12 + amp * LIFT[i]! * Math.sin(phase));
+		lift.push(DIHEDRAL + stroke * LIFT[i]! * Math.sin(phase));
 		// The wing rows forward as it comes down and back as it goes up, so the
 		// stroke has somewhere to push.
 		sweep.push(-amp * 0.14 * Math.cos(phase) + (i === 0 ? 0.05 : 0));
