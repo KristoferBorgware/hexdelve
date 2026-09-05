@@ -609,6 +609,41 @@ zero and rises later: `sin(1.2t - 0.5)` for the sniff, `sin(1.2t - 2.2)`
 for the left flick, and a sway on a harmonic with no offset, then rebake
 `kobold-idle` and confirm it still fits under the key cap. A line each.
 
+### F-036 — The bat's strike drags each wing's root membrane out the far side of its body
+
+**Kind:** bug
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-05, bounding the fold in the bat's wing beat
+**Where:** `LUNGE_KEYS` in `packages/authoring/src/batpose.ts`, against the
+shoulder and finger membranes in `public/assets/meshes/bat.mesh.yaml`
+
+**What happens.** The throw and the contact sweep the wings back by 0.85 and
+0.95 radians at the shoulder. Each membrane patch turns with the bone it hangs
+off, and the shoulder patch reaches 0.375 m behind its joint, so a rearward
+sweep of that size swings its inboard corner across the animal's centre line:
+the left wing's root membrane comes out 0.22 m into the right half, and the
+outer finger's patch 0.20 m, from a body only 0.095 m wide either side. Both
+wings do it at once, so the two sheets cross behind the tail through the whole
+middle of the strike, from about a fifth of the way in to four fifths.
+
+**Why it matters.** Behind the body there is nothing to hide it — the wing root
+that disappears into the flank at a beat is out in the open here, and what a
+player sees is the far wing's membrane emerging through the near one. The
+strike is the bat's one attack and the pose is held longest at contact, which
+is exactly when it is being looked at.
+
+**What would fix it.** The beat's fold saturates against the right angle the
+animal has, and the sweep needs the same treatment against the arc the body
+allows behind it — but the strike is hand-keyed rather than driven, so the bound
+has to be applied to the keys rather than to a drive. Either bring the throw and
+contact sweeps down to about 0.6 rad, which is where the corner clears, or pull
+the membrane patches' inboard edges outboard so they do not reach past the
+shoulder joint. The first changes how hard the strike reads; the second changes
+every pose the wing takes, the perch's wrap included. Measure both before
+choosing.
+
 ## Closed
 
 **Closed in part:** 2026-09-05, the humanoid is fixed; the hellhound is not.
