@@ -13,4 +13,5 @@ object:
         lunge: { procedural: lunge, label: Lunge }
       blendTrees:
         flight: ../trees/flight.tree.yaml
+    - { type: script, script: Hunter, wakeRange: 3, loseRange: 6, climb: 2 }
     - { type: script, script: Character, hp: 6, faction: foe, power: 2, lift: 0.72 }
