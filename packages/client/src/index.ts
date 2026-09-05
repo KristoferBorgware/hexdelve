@@ -97,12 +97,7 @@ export {
 	type EmitterPlacement,
 } from './game/effects.js';
 
-export {
-	buildBuildings,
-	type Buildings,
-	type BuildingsOptions,
-	type Chimney,
-} from './scene/buildings.js';
+
 
 /*
  * Level generation, exported for the same reason the rigs are: the editor's

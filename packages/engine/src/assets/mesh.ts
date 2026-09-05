@@ -351,10 +351,23 @@ class MeshReader {
 	private color(entry: Node): number {
 		const node = entry.need('color');
 		if (typeof node.value !== 'string') return node.number();
+
+		/*
+		 * `#rrggbb` is a colour with no name, which is what a baked part has.
+		 * The palette is for colours that are shared and meant — `steel`, used
+		 * on nine plates, changed in one place. A building written down by
+		 * `bake-buildings.mjs` has a jittered colour per log and no two alike,
+		 * and naming two hundred of them would be a palette nobody could read.
+		 */
+		if (/^#[0-9a-fA-F]{6}$/.test(node.value)) return Number.parseInt(node.value.slice(1), 16);
+
 		const named = this.palette[node.value];
 		if (named === undefined) {
 			const known = Object.keys(this.palette).sort().join(', ');
-			node.fail(`no colour called '${node.value}'; this palette has ${known || 'nothing'}`);
+			node.fail(
+				`no colour called '${node.value}'; this palette has ${known || 'nothing'}, ` +
+					'and a colour with no name is written #rrggbb',
+			);
 		}
 		return named;
 	}

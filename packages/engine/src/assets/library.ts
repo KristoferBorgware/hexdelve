@@ -41,7 +41,7 @@ import { loadMesh, type MeshAsset } from './mesh.js';
 import { readParticleEffect } from './particles.js';
 import type { ComponentSpec, PrefabNode } from './prefab.js';
 import type { AssetIO } from './io.js';
-import { loadRig, type RigAsset, type RigView } from './rig.js';
+import { loadRig, STATIC_RIG, type RigAsset, type RigView } from './rig.js';
 import { readScene, type SceneAsset, type SceneObject } from './scene.js';
 import { loadSystem, type SystemAsset } from './system.js';
 import type { ParticleEffect } from '../particles/effect.js';
@@ -356,8 +356,17 @@ export class AssetLibrary {
 				 * check bone names against.
 				 */
 				const named = fields.get('mesh');
+				/*
+				 * A rig where there is one, and a single-boned stand-in where
+				 * there is not. A rig is what a mesh checks its bone names
+				 * against, and a building has no bones — every prism of it is on
+				 * `root`, which is exactly what `STATIC_RIG` has and all it has.
+				 * So a mesh that names a bone gets the same refusal either way,
+				 * and an entity that is a thing rather than a creature carries
+				 * no rig it would never pose.
+				 */
 				const mesh = named.present
-					? await this.mesh(resolve(at, named.text()), needsRig())
+					? await this.mesh(resolve(at, named.text()), rig ?? STATIC_RIG)
 					: null;
 				return { rig, mesh, effect: null, animations: new Map(), blendTrees: new Map() };
 			}

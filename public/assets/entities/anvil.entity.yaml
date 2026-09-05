@@ -1,0 +1,7 @@
+id: anvil
+name: Anvil
+
+object:
+  components:
+    - { type: mesh, mesh: ../meshes/anvil.mesh.yaml }
+    - { type: script, script: Footing, halfX: 0.4, halfZ: 0.4 }

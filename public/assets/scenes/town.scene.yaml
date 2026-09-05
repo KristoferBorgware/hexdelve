@@ -4,6 +4,19 @@ name: The town
 objects:
   - entity: ../entities/terrain.entity.yaml
 
+  # What stands on it. Each sits at the height of the tile under it and blocks
+  # the ground it covers — see the `Footing` on each — so a scene says where a
+  # thing is on the map and not how far off the ground it is.
+  - entity: ../entities/anvil.entity.yaml
+
+  - entity: ../entities/smithy.entity.yaml
+    at: [-4.1, 0, -3.5]
+    euler: [0, 0.864182, 0]
+
+  - entity: ../entities/cabin.entity.yaml
+    at: [0.2, 0, 6.8]
+    euler: [0, -3.112189, 0]
+
   - entity: ../entities/wanderer2.entity.yaml
     name: player
     at: [0, 0, -5.4]

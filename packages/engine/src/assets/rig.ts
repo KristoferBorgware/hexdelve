@@ -55,6 +55,30 @@ export interface RigAsset {
 	readonly view: RigView;
 }
 
+/**
+ * A rig with one bone in it, for a thing that is not articulated.
+ *
+ * A mesh is read against a rig because its parts hang on bones, and a building
+ * has none — every prism of it sits at the object's own origin. Rather than ask
+ * every such file to carry a rig it will never pose, they are read against this:
+ * `root` and nothing else, so a part naming any other bone is still refused by
+ * name, which is the check the rig was there for.
+ */
+export const STATIC_RIG: RigAsset = Object.freeze({
+	id: 'static',
+	name: 'Static',
+	skeleton: [{ name: 'root', parent: null, offset: [0, 0, 0] as const }],
+	bones: ['root'],
+	index: new Map([['root', 0]]),
+	tips: [],
+	groups: {},
+	masks: {},
+	anchors: {},
+	metrics: {},
+	feet: null,
+	view: { focusY: 0, frameDistance: 8 },
+});
+
 export interface RigView {
 	readonly focusY: number;
 	readonly frameDistance: number;

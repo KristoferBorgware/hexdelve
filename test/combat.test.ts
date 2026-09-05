@@ -218,16 +218,26 @@ describe('a blow, end to end', () => {
 	});
 
 	/*
-	 * The opposite case, and the one an embedder reaches: a manifest with no
-	 * `particles` section at all. A yard with no smoke over the chimney is a
-	 * yard; a yard that refuses to start over one is not.
+	 * The opposite case, and the one an embedder reaches: a client given no
+	 * effects at all.
+	 *
+	 * The chimneys still smoke, because that emitter is a component in the
+	 * building's own entity file and comes with the building — an effect a
+	 * thing always has belongs to the thing. What the runtime map gates is
+	 * blood, which is thrown where a blow lands and belongs to no object until
+	 * one is struck. So the count does not move across the fight, and the fight
+	 * still runs: a yard with nothing spattering is a yard.
 	 */
-	it('runs a whole fight with no effects loaded at all', () => {
+	it('runs a whole fight with no effects handed to it', () => {
 		const sim = yard();
-		expect(sim.scene.getComponents(Particles)).toHaveLength(0);
+		const chimneys = sim.scene.getComponents(Particles).length;
+		expect(chimneys, 'the buildings brought their own smoke').toBe(2);
+
 		expect(sim.attack()).toBe(true);
 		run(sim, 40);
+
 		expect(sim.player.swing.hits).toBeGreaterThan(0);
+		expect(sim.scene.getComponents(Particles)).toHaveLength(chimneys);
 	});
 
 	it('stops a creature taking turns once it has fallen', () => {

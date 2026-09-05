@@ -74,9 +74,8 @@ import {
 	type Axial,
 } from '@hexdelve/shared';
 
-import { buildBuildings, type Buildings } from '../scene/buildings.js';
 import { terrainOn, type TerrainQuery } from './terrain.js';
-import { BLOOD_EFFECT, SMOKE_EFFECT, spawnEmitter } from './effects.js';
+import { BLOOD_EFFECT, spawnEmitter } from './effects.js';
 import { Damage, Missed } from './events.js';
 import { components, type SpawnExtras } from './components.js';
 import { spawnEntity } from './spawn.js';
@@ -198,8 +197,6 @@ export interface YardStats extends PlayerStats {
 export class Simulation {
 	/** The ground, as its script answers for it. */
 	readonly terrain: TerrainQuery;
-	/** What stands on it. */
-	readonly buildings: Buildings;
 	readonly player: Player;
 	readonly bat: BatHunt;
 	readonly items: Item[];
@@ -345,12 +342,10 @@ export class Simulation {
 			const spawned = instantiate(object.prefab, this.scene, components, {
 				extras: this.scriptExtras(),
 				file: `${scene.id}.scene.yaml`,
+				at: object.at,
+				euler: object.euler,
 				...(object.name !== null ? { name: object.name } : {}),
 			});
-			spawned.transform.setPosition(object.at[0], object.at[1], object.at[2]);
-			if (object.euler[0] || object.euler[1] || object.euler[2]) {
-				spawned.transform.setEuler(object.euler[0], object.euler[1], object.euler[2]);
-			}
 			placed.set(spawned.name, spawned);
 		}
 
@@ -363,7 +358,6 @@ export class Simulation {
 			);
 		}
 		this.terrain = terrain;
-		this.buildings = buildBuildings(terrain, { random });
 
 		/*
 		 * The gear, found in what was placed rather than listed here. An item is
@@ -389,21 +383,6 @@ export class Simulation {
 			const cell = worldToAxial(transform.position[0]!, transform.position[2]!);
 			const tile = this.terrain.tileAt(cell.q, cell.r);
 			if (tile) item.ground(tile.x, tile.z, transform.yaw, tile.top);
-		}
-
-		/*
-		 * Smoke over both chimneys.
-		 *
-		 * The buildings are prisms baked into the static list and are not in the
-		 * scene at all, so the emitter is not under one — it stands where the
-		 * chimney vents, and `buildings.chimneys` is the only thing either half
-		 * knows about the other.
-		 */
-		const smoke = this.effects.get(SMOKE_EFFECT);
-		if (smoke) {
-			for (const [index, chimney] of this.buildings.chimneys.entries()) {
-				spawnEmitter(this.scene, smoke, { ...chimney, name: `smoke ${index}` });
-			}
 		}
 
 		/*
@@ -732,8 +711,6 @@ export class Simulation {
 		opaque.clear();
 		blended.clear();
 		overlay.clear();
-
-		opaque.pushAll(this.buildings.statics);
 
 		/*
 		 * The scenery: every mesh in the scene that is neither a body nor a

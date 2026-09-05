@@ -630,8 +630,11 @@ describe('the yard', () => {
 	it('marks a hexagon as unreachable when it is', () => {
 		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		// The anvil's own cell is solid; its neighbours are not.
-		expect(orders(sim).reachable(sim.buildings.anvil.cell)).toBe(true);
-		const beside = axialNeighbours(sim.buildings.anvil.cell).some((c) => orders(sim).reachable(c));
+		// The anvil's own cell is solid — its `Footing` said so — and its
+		// neighbours are not, which is what makes it a thing to walk up to.
+		const anvil = { q: 0, r: 0 };
+		expect(orders(sim).reachable(anvil)).toBe(true);
+		const beside = axialNeighbours(anvil).some((c) => orders(sim).reachable(c));
 		expect(beside).toBe(true);
 		expect(orders(sim).reachable({ q: 40, r: 40 })).toBe(false);
 	});

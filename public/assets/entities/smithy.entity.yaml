@@ -1,0 +1,12 @@
+id: smithy
+name: Smithy
+
+object:
+  components:
+    - { type: mesh, mesh: ../meshes/smithy.mesh.yaml }
+    - { type: script, script: Footing, halfX: 1.95, halfZ: 1.5, margin: 0.5 }
+  children:
+    - name: chimney
+      at: [-0.75, 5.52, -0.95]
+      components:
+        - { type: particles, effect: ../particles/smoke.particles.yaml }

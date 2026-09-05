@@ -500,6 +500,45 @@ default with the duration — so many keys per second of clip, with a floor —
 so a ten-second stand can carry what a ten-second stand has in it. A per-job
 `maxKeys` is a field on `BakeJob` and one line in the baker.
 
+### F-033 — A mesh naming a bone its rig has not got ships, and fails when something draws it
+
+**Kind:** gap
+**Milestone:** unscheduled
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-05, baking the buildings into mesh files and writing a test that a static mesh may not name a bone
+**Where:** `MeshAsset.model` in `packages/engine/src/assets/mesh.ts`, `main` in `tools/build-assets.mjs`
+
+**What happens.** A mesh's parts are read the first time its prisms are wanted,
+not when the file is loaded — `model()` is a method and the reader builds
+nothing until it is called. So every check inside part reading happens then:
+a bone the rig has not got, a frame that was never declared, a colour with no
+name.
+
+`npm run assets` loads every entity, which loads every mesh, and never calls
+`model()`. A mesh naming `head` against a rig that has no head therefore packs
+cleanly and fails in the browser the first time something tries to draw it.
+
+> **[measured]** `loadMesh(helmet, STATIC_RIG)` resolves; `model()` on the
+> result throws `parts[0].bone: no bone called 'head' in rig 'static'`.
+
+**Why it matters.** It is the one class of asset error the build does not
+catch, and the build catches everything else — a missing clip, an unknown
+component type, a script parameter that was renamed. The failure it leaves is
+also the worst-looking kind: the page loads, the yard starts, and one creature
+is invisible or the whole frame throws mid-draw.
+
+Nothing hits it today because every shipped mesh is drawn by a test. It is
+reachable the moment a mesh exists that no test draws — which the buildings now
+are, since they are only drawn by the render harness.
+
+**What would fix it.** Call `model()` on every mesh in `build-assets.mjs`, in
+the loop that already walks the entities. It costs building each mesh once at
+pack time and turns the whole class of error into a build failure that names
+the file and the part. The alternative — reading parts eagerly in `loadMesh` —
+would make every entity load pay for prisms nothing may ever draw, which is why
+they are lazy in the first place.
+
 ## Closed
 
 **Closed in part:** 2026-09-05, the humanoid is fixed; the hellhound is not.

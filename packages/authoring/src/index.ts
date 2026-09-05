@@ -20,6 +20,16 @@
 
 export { poseFunctions } from './poseFunctions.js';
 export { bakeJobs, type BakeJob } from './bakeJobs.js';
+export { AXIS_X, AXIS_Z, PrismField, type PrismSink } from './prismfield.js';
+export { buildCabin } from './cabin.js';
+export {
+	bakeAnvil,
+	bakeCabin,
+	bakeSmithy,
+	bakeStructures,
+	type BakedPrism,
+	type BakedStructure,
+} from './structures.js';
 
 /* The functions themselves, for the bench and for anything measuring one. */
 export { groundPath, twoLink, plus, turn, span, bearing, heading, type Planar } from './planar.js';

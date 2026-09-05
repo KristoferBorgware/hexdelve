@@ -269,6 +269,7 @@ export {
 	loadBlendTree,
 	loadMesh,
 	loadRig,
+	STATIC_RIG,
 	Node as AssetNode,
 	normalise as normaliseAssetPath,
 	poseFunctionAnimation,

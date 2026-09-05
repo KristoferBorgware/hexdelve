@@ -47,7 +47,7 @@ export {
 } from './scene.js';
 export { loadSystem, type SystemAsset } from './system.js';
 
-export { loadRig, type RigAnchor, type RigAsset, type RigView } from './rig.js';
+export { loadRig, STATIC_RIG, type RigAnchor, type RigAsset, type RigView } from './rig.js';
 export { loadMesh, type Anchor, type MeshAsset } from './mesh.js';
 export {
 	parseParticleEffect,

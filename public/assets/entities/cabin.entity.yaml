@@ -1,0 +1,12 @@
+id: cabin
+name: Log house
+
+object:
+  components:
+    - { type: mesh, mesh: ../meshes/cabin.mesh.yaml }
+    - { type: script, script: Footing, halfX: 2.2, halfZ: 1.6, margin: 0.55 }
+  children:
+    - name: chimney
+      at: [2.625, 4.736, -0.64]
+      components:
+        - { type: particles, effect: ../particles/smoke.particles.yaml }

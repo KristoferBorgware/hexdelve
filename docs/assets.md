@@ -169,6 +169,28 @@ one during play — reading an entity takes a fetch and a tick cannot wait for o
 it places: a scene naming something that is not there fails the build rather
 than failing when somebody clicks play.
 
+### Baked things
+
+Two kinds of asset are derived by code and shipped as files, on the same
+bargain. A pose function is a good way to work out a cycle and a poor way to
+ship one; a building's construction is worth keeping — the cabin's logs
+interlock because the side walls sit half a course higher, the roof is hexagons
+tiled across two slope planes — and is not expressible as a list. So the code
+stays in `@hexdelve/authoring` as the thing that DERIVES the shape, and a tool
+writes down what it derived.
+
+| | derived by | written by | into |
+|---|---|---|---|
+| clips | pose functions | `npm run bake` | `clips/*.clip.yaml` |
+| buildings | `structures.ts` | `npm run bake:buildings` | `meshes/*.mesh.yaml` |
+
+Both take `--check`, which bakes and fails if a file has drifted from what the
+code now produces, without touching the tree.
+
+Baking freezes the seeded jitter into real numbers, and that is a gain rather
+than a loss: after it, one plank can be repainted without re-deriving the wall
+it is in, and the editor can open the building at all.
+
 ## Components
 
 A file with no `object:` still spawns: it gets one object named after the
@@ -201,6 +223,18 @@ both are `param` fields an editor may set as well. `autoDestroy` takes the
 object out of the scene once the effect has run out and the last particle has
 gone, which is what a one-shot spawned where a blow landed wants and what a
 chimney must never have.
+
+A mesh record with **no path** is an empty mesh, for an object whose prisms are
+worked out at run time — the ground is the case that wanted it. A mesh with a
+path but **no rig in scope** is read against `STATIC_RIG`, one bone called
+`root` and nothing else: a building has no bones, every prism of it sits at the
+object's own origin, and a part naming any other bone still fails by name.
+
+A colour is a palette name or `#rrggbb`. The palette is for colours that are
+shared and meant — `steel`, used on nine plates, changed in one place. A
+building written down by `bake-buildings.mjs` has a jittered colour per log and
+no two alike, and naming two hundred of them would be a palette nobody could
+read.
 
 `footIK` plants a rig's feet on ground that is not flat, and nothing in it is
 about a particular creature: which bones are feet is the rig's own answer, and
