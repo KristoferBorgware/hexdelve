@@ -31,13 +31,11 @@ import {
 	measureReach,
 	clipOf,
 	type Cast,
-	RUN_SPEED,
 	secondsPerGameTurn,
 	setWalkSpeed,
 	Schedule,
 	playerOrders,
 	Simulation,
-	WALK_SPEED,
 	actionSeconds,
 	energyPerTurn,
 	gameTurnsPerAction,
@@ -46,6 +44,10 @@ import {
 	type PlayerOrders,
 	type TurnMember,
 } from '@hexdelve/client';
+import {
+	RUN_SPEED,
+	WALK_SPEED,
+} from '@hexdelve/authoring';
 
 import {
 	calibrateSpeed,

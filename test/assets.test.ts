@@ -95,7 +95,7 @@ import {
 	RUN_PERIOD,
 	stridePose,
 	WALK_PERIOD,
-} from '@hexdelve/client';
+} from '@hexdelve/authoring';
 
 const root = resolvePath(import.meta.dirname, '..', 'public', 'assets');
 

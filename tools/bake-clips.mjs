@@ -24,8 +24,10 @@
  * `--check` is the form for a build: it bakes everything and fails if any clip
  * has drifted from its source, without touching the tree.
  *
- * ESM and `dist/` for the same reason as build-assets.mjs: this reads the
- * asset files through the readers the game uses, and those are TypeScript.
+ * ESM and `dist/` for the same reason as build-assets.mjs: this reads the asset
+ * files through the readers the game uses, and those are TypeScript. The
+ * functions come from `@hexdelve/authoring` rather than from the client,
+ * because the client does not have them — that is the point of the split.
  */
 
 import { readdir, readFile, writeFile } from 'node:fs/promises';
@@ -36,7 +38,7 @@ import { pathToFileURL } from 'node:url';
 const root = resolve(import.meta.dirname, '..');
 const assetRoot = join(root, 'public', 'assets');
 const engineDist = join(root, 'packages', 'engine', 'dist', 'index.js');
-const clientDist = join(root, 'packages', 'client', 'dist', 'index.js');
+const authoringDist = join(root, 'packages', 'authoring', 'dist', 'index.js');
 
 /**
  * How far a baked channel may sit from the function it came from, in radians
@@ -81,7 +83,7 @@ async function main() {
 	const tolerance = numberFlag(argv, 'tolerance', TOLERANCE);
 	const maxKeys = numberFlag(argv, 'max-keys', 128);
 
-	for (const dist of [engineDist, clientDist]) {
+	for (const dist of [engineDist, authoringDist]) {
 		if (!existsSync(dist)) {
 			throw new Error(
 				`missing ${relative(root, dist)} — run \`npm run build:libs\` first, ` +
@@ -97,7 +99,7 @@ async function main() {
 	const { AssetLibrary, memoryIO, bakeClip, writeClip, poseFunctionAnimation } = await import(
 		pathToFileURL(engineDist).href
 	);
-	const { poseFunctions, bakeJobs } = await import(pathToFileURL(clientDist).href);
+	const { poseFunctions, bakeJobs } = await import(pathToFileURL(authoringDist).href);
 
 	const library = new AssetLibrary(memoryIO(pack));
 	const jobs = wanted.length === 0 ? bakeJobs : bakeJobs.filter((job) => wanted.some((one) => job.id.includes(one)));

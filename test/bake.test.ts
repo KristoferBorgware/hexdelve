@@ -47,18 +47,16 @@ import {
 	SHAMBLE_CONTACTS,
 	SHAMBLE_PERIOD,
 	shamblePose,
-} from '@hexdelve/client';
+} from '@hexdelve/authoring';
 
+import { hexSpeed, NORMAL_SPEED, setWalkSpeed } from '@hexdelve/client';
 import {
-	hexSpeed,
-	NORMAL_SPEED,
-	setWalkSpeed,
 	RUN_SPEED,
 	STRIDE_CONTACTS,
 	stridePeriod,
 	stridePose,
 	WALK_SPEED,
-} from '@hexdelve/client';
+} from '@hexdelve/authoring';
 
 import { openLibrary } from './harness/assets.js';
 

@@ -24,14 +24,14 @@
 import type { PoseFunction } from '@hexdelve/engine';
 import { PoseFunctionRegistry } from '@hexdelve/engine';
 
-import { flyPose, lungePose, perchPose } from '../game/batpose.js';
+import { flyPose, lungePose, perchPose } from './batpose.js';
 import {
 	bitePose as direBitePose,
 	DIRE_RUN_CONTACTS,
 	DIRE_STRIDE_PERIOD,
 	restPose as direRestPose,
 	runPose as direRunPose,
-} from '../game/direhoundpose.js';
+} from './direhoundpose.js';
 import {
 	SCRAMBLE_CONTACTS,
 	SCRAMBLE_PERIOD,
@@ -39,16 +39,16 @@ import {
 	SHAMBLE_CONTACTS,
 	SHAMBLE_PERIOD,
 	shamblePose,
-} from '../game/ghoulpose.js';
+} from './ghoulpose.js';
 import {
 	bitePose,
 	HOUND_RUN_CONTACTS,
 	HOUND_STRIDE_PERIOD,
 	restPose,
 	runPose,
-} from '../game/hellhoundpose.js';
-import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from '../game/spiderpose.js';
-import { stridePose, stridePeriod, STRIDE_CONTACTS } from '../game/stride.js';
+} from './hellhoundpose.js';
+import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from './spiderpose.js';
+import { stridePose, stridePeriod, STRIDE_CONTACTS } from './stride.js';
 import {
 	pokePose as trollPokePose,
 	sleepPose as trollSleepPose,
@@ -57,8 +57,8 @@ import {
 	STOMP_PERIOD,
 	stompPose,
 	swipePose as trollSwipePose,
-} from '../game/trollpose.js';
-import { SHUFFLE_CONTACTS, SHUFFLE_PERIOD, shufflePose } from '../game/zombiepose.js';
+} from './trollpose.js';
+import { SHUFFLE_CONTACTS, SHUFFLE_PERIOD, shufflePose } from './zombiepose.js';
 
 const TAU = Math.PI * 2;
 
