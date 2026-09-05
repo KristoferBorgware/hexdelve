@@ -119,6 +119,56 @@ an animator and a thing that can be worn has an attach, and both statements are
 already in the components. There is no `kind`, and there is nothing for one to
 say that the parts do not.
 
+## A scene is a set of them
+
+An entity file describes one thing. A scene file describes a set, and it is the
+same file with two differences: several roots instead of one, and a root may
+name an ENTITY instead of listing components.
+
+```yaml
+id: town
+objects:
+  - entity: ../entities/terrain.entity.yaml
+
+  - entity: ../entities/wanderer2.entity.yaml
+    name: player
+    at: [0, 0, -5.4]
+
+  - name: campfire
+    at: [2, 0, 1]
+    components:
+      - { type: particles, effect: ../particles/smoke.particles.yaml }
+```
+
+**An entity is a partial scene.** Both kinds of root are read by
+`readPrefabNode`, which is the point of the format being a superset rather than
+a second format that resembles the first — a component record means the same
+thing in both, and there is one reader for it.
+
+`name`, `at` and `euler` on a reference override what the entity file says, and
+that is the whole of what a scene does to an instance: where it stands and what
+it is called here. Anything else is in the entity, because two files able to
+say the same thing are two files able to disagree. The yard wants a `wanderer2`
+called `player` — what a thing IS and what PART it plays are different
+questions, which is why the override exists.
+
+Order in the file is order of spawning, and it matters in one place: the ground
+has to be down before anything that stands on it, because a building sits at
+the height of the tile under it. The town scene says so by putting the terrain
+first — a thing a reader can see rather than a rule inside the loader.
+
+**Systems are not in it.** Whose turn it is, what a blow does and where the
+characters are are present in *every* scene, so they are spawned by the client
+ahead of whatever the scene lists. A line each scene had to remember to carry
+would be a line each scene could forget.
+
+`spawnable:` lists entities loaded and left unplaced, for a script that spawns
+one during play — reading an entity takes a fetch and a tick cannot wait for one.
+
+`npm run assets` loads every scene the manifest lists, which reads every entity
+it places: a scene naming something that is not there fails the build rather
+than failing when somebody clicks play.
+
 ## Components
 
 A file with no `object:` still spawns: it gets one object named after the

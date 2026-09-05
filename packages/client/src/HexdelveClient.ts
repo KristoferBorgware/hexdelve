@@ -24,12 +24,11 @@ import {
 } from '@hexdelve/engine';
 import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
-import { noScripts, type ScriptProvider } from '@hexdelve/engine';
+import { noScripts, type SceneAsset, type ScriptProvider } from '@hexdelve/engine';
 
 import { openAssets, type OpenAssetsOptions } from './assets/library.js';
 import { loadEffects } from './game/effects.js';
 import { loadScripts } from './game/scripts.js';
-import { loadCast, type Cast, type CastOptions } from './game/cast.js';
 import { Controls } from './input/Controls.js';
 import {
 	Simulation,
@@ -43,6 +42,9 @@ const VIEW_HEIGHT = 5.5;
 
 /** The one-of-a-kind objects, spawned before anything that registers with them. */
 const SYSTEM_PREFAB = 'systems/game.system.yaml';
+
+/** The world a client opens when nothing says otherwise. */
+const TOWN_SCENE = 'scenes/town.scene.yaml';
 
 /**
  * What `options.scripts` means, resolved to a provider.
@@ -105,10 +107,13 @@ export interface ClientOptions {
 	 */
 	assets?: OpenAssetsOptions;
 	/**
-	 * Who is in the yard, by entity id. Defaults to the second wanderer, the
-	 * bat and the three things lying in the grass.
+	 * Which world to open, by the path of its scene file.
+	 *
+	 * A scene says what is in it and where — the ground, who is standing on it,
+	 * what is lying in the grass. Defaults to the town, which is the only one
+	 * there is.
 	 */
-	cast?: CastOptions;
+	scene?: string;
 	/** The system prefab to spawn once. Defaults to the game's own. */
 	systemPrefab?: string;
 	/**
@@ -193,15 +198,15 @@ export class HexdelveClient {
 		const box: { client: HexdelveClient | null } = { client: null };
 
 		const assets = openAssets(options.assets ?? {});
-		const casting = loadCast(assets, options.cast ?? {});
+		const opening = assets.scene(options.scene ?? TOWN_SCENE);
 		/*
-		 * The particle effects, off the same manifest. Read beside the cast
+		 * The particle effects, off the same manifest. Read beside the scene
 		 * rather than after it: the manifest is one file and both lists are in
 		 * it, so the second read is already cached.
 		 */
 		const effects = loadEffects(assets);
 		/*
-		 * The systems, read beside the cast. Both are files and neither needs
+		 * The systems, read beside the scene. Both are files and neither needs
 		 * the other, so neither waits: `Promise.all` below is one round trip
 		 * rather than two.
 		 */
@@ -224,13 +229,13 @@ export class HexdelveClient {
 			},
 		});
 
-		const [cast, system, scripts, particles] = await Promise.all([
-			casting,
+		const [scene, system, scripts, particles] = await Promise.all([
+			opening,
 			systems,
 			behaviour,
 			effects,
 		]);
-		box.client = new HexdelveClient(options, renderer, assets, cast, [system], scripts, particles);
+		box.client = new HexdelveClient(options, renderer, assets, scene, [system], scripts, particles);
 		return box.client;
 	}
 
@@ -238,7 +243,7 @@ export class HexdelveClient {
 		options: ClientOptions,
 		renderer: Renderer,
 		assets: AssetLibrary,
-		cast: Cast,
+		scene: SceneAsset,
 		systems: readonly SystemAsset[],
 		scripts: ScriptProvider,
 		effects: ReadonlyMap<string, ParticleEffect>,
@@ -264,7 +269,7 @@ export class HexdelveClient {
 		});
 
 		this.simulationOptions = {
-			cast,
+			scene,
 			systems,
 			scripts,
 			effects,

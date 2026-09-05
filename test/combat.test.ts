@@ -21,33 +21,33 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { Damage, loadEffects, Simulation, type Cast } from '@hexdelve/client';
+import { Damage, loadEffects, Simulation } from '@hexdelve/client';
 import { HexInstances, Particles, type ParticleEffect } from '@hexdelve/engine';
-import { loadSystem, scriptsFromBundle, type ScriptProvider } from '@hexdelve/engine';
+import { loadSystem, scriptsFromBundle, type SceneAsset, type ScriptProvider } from '@hexdelve/engine';
 import { axialDistance, axialNeighbours, type Axial } from '@hexdelve/shared';
 
 import { bundleScripts } from '../tools/build-scripts.mjs';
 import { SDK_MODULES } from './harness/sdk.js';
-import { loadYardCast, openLibrary } from './harness/assets.js';
+import { loadTownScene, openLibrary } from './harness/assets.js';
 
 /** The frame the client runs at, near enough. */
 const FRAME = 1 / 60;
 
 describe('a blow, end to end', () => {
-	let cast: Cast;
+	let scene: SceneAsset;
 	let scripts: ScriptProvider;
 	let effects: ReadonlyMap<string, ParticleEffect>;
 	let systems: Awaited<ReturnType<ReturnType<typeof openLibrary>['system']>>;
 
 	beforeAll(async () => {
-		cast = await loadYardCast();
+		scene = await loadTownScene();
 		systems = await openLibrary().system('systems/game.system.yaml');
 		effects = await loadEffects(openLibrary());
 		scripts = scriptsFromBundle((await bundleScripts()).code, SDK_MODULES);
 	}, 120_000);
 
 	function yard(): Simulation {
-		return new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		return new Simulation({ scene, seed: 37, systems: [systems], scripts });
 	}
 
 	/**
@@ -59,8 +59,8 @@ describe('a blow, end to end', () => {
 	 * code.
 	 */
 	it('spawns an entity by name, where a script asked for one', async () => {
-		const withSpawnable = await loadYardCast({ spawnable: ['sword'] });
-		const sim = new Simulation({ cast: withSpawnable, seed: 37, systems: [systems], scripts });
+		const withSpawnable = await loadTownScene(['sword']);
+		const sim = new Simulation({ scene: withSpawnable, seed: 37, systems: [systems], scripts });
 
 		const before = sim.scene.all().length;
 		const made = sim.scripts.spawn('sword', { at: { x: 2, y: 0, z: -1 }, yaw: 1, name: 'thrown' });
@@ -154,7 +154,7 @@ describe('a blow, end to end', () => {
 			),
 			'clock.system.yaml',
 		);
-		const sim = new Simulation({ cast, seed: 37, systems: [clockOnly], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [clockOnly], scripts });
 		expect(sim.attack()).toBe(true);
 		run(sim, 40);
 
@@ -197,7 +197,7 @@ describe('a blow, end to end', () => {
 	 * `Damage` and spawns it, and the component takes its own object out again.
 	 */
 	it('throws blood where a blow landed, and clears it up afterwards', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts, effects });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts, effects });
 		const emitters = (): Particles[] => sim.scene.getComponents(Particles);
 
 		// The chimneys, and nothing else: those are placed when the yard is

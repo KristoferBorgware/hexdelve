@@ -1,0 +1,26 @@
+id: town
+name: The town
+
+objects:
+  - entity: ../entities/terrain.entity.yaml
+
+  - entity: ../entities/wanderer2.entity.yaml
+    name: player
+    at: [0, 0, -5.4]
+
+  - entity: ../entities/bat.entity.yaml
+    name: bat
+    at: [3.9, 0, 1.2]
+    euler: [0, 2.4, 0]
+
+  - entity: ../entities/helmet.entity.yaml
+    at: [-2.4, 0, -3.1]
+    euler: [0, -0.7, 0]
+
+  - entity: ../entities/sword.entity.yaml
+    at: [1.9, 0, -3.4]
+    euler: [0, 1.1, 0]
+
+  - entity: ../entities/shield.entity.yaml
+    at: [-3.4, 0, 0.4]
+    euler: [0, 2.3, 0]

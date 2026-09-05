@@ -83,6 +83,15 @@ async function main() {
 	const entities = await library.index();
 
 	/*
+	 * Every scene the manifest lists, which reads every entity it places.
+	 *
+	 * The check worth having: a scene naming an entity that is not there is a
+	 * world that will not open, and finding that out here beats finding it out
+	 * when somebody clicks play.
+	 */
+	const scenes = await library.sceneIndex();
+
+	/*
 	 * Every system prefab too. They are not reachable from the manifest — a
 	 * system is not an entity — so they are found by where they sit, and an
 	 * unreachable file is reported below either way.
@@ -188,6 +197,12 @@ async function main() {
 	);
 	if (systems.length) {
 		console.log(`checked ${systems.length} system(s): ${systems.map((one) => one.id).join(', ')}`);
+	}
+	if (scenes.length) {
+		console.log(
+			`checked ${scenes.length} scene(s): ` +
+				scenes.map((one) => `${one.id} (${one.objects.length} objects)`).join(', '),
+		);
 	}
 	if (orphans.length) {
 		console.log(`\nnot reached from the manifest, and packed anyway:\n  ${orphans.join('\n  ')}`);

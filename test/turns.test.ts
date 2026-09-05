@@ -29,8 +29,6 @@ import {
 	leanIn,
 	NORMAL_SPEED,
 	measureReach,
-	clipOf,
-	type Cast,
 	secondsPerGameTurn,
 	setWalkSpeed,
 	Schedule,
@@ -58,12 +56,13 @@ import {
 	HexInstances,
 	MeshRenderer,
 	scriptsFromBundle,
+	type SceneAsset,
 	type ScriptProvider,
 	type SystemAsset,
 } from '@hexdelve/engine';
 
 import { bundleScripts } from '../tools/build-scripts.mjs';
-import { loadYardCast, openLibrary } from './harness/assets.js';
+import { loadTownScene, openLibrary, placedEntity } from './harness/assets.js';
 import { SDK_MODULES } from './harness/sdk.js';
 
 describe('the energy table', () => {
@@ -304,17 +303,17 @@ describe('reach against the grid', () => {
 	 * holds.
 	 */
 	it('closes the gap between a measured reach and a hexagon exactly', async () => {
-		const cast = await loadYardCast();
-		const sword = cast.props.find((prop) => prop.id === 'sword')!;
+		const town = await loadTownScene();
+		const man = placedEntity(town, 'player');
+		const flier = placedEntity(town, 'bat');
+		const sword = town.objects.find((one) => one.entity?.id === 'sword')!.entity!;
+
 		const reach = measureReach(
-			entityRig(cast.player)!.skeleton,
-			clipOf(cast.player, 'slash'),
+			entityRig(man)!.skeleton,
+			entityAnimations(man).get('slash')!.clip!,
 			entityMesh(sword)!.anchors.tip!.at,
 		);
-		const bite = measureBiteReach(
-			entityRig(cast.enemy)!,
-			entityAnimations(cast.enemy).get('lunge')!.clip!,
-		);
+		const bite = measureBiteReach(entityRig(flier)!, entityAnimations(flier).get('lunge')!.clip!);
 
 		expect(reach.distance).toBeLessThan(HEX_SPACING);
 		expect(reach.distance + leanIn(reach)).toBeCloseTo(HEX_SPACING, 9);
@@ -333,7 +332,7 @@ describe('the yard', () => {
 	 * reading them once is both quicker and the honest shape: every yard in
 	 * here is the same yard.
 	 */
-	let cast: Cast;
+	let scene: SceneAsset;
 	let scripts: ScriptProvider;
 	let systems: SystemAsset;
 
@@ -345,7 +344,7 @@ describe('the yard', () => {
 	 * clock to move them.
 	 */
 	beforeAll(async () => {
-		cast = await loadYardCast();
+		scene = await loadTownScene();
 		systems = await openLibrary().system('systems/game.system.yaml');
 		scripts = scriptsFromBundle((await bundleScripts()).code, SDK_MODULES);
 	}, 120_000);
@@ -365,7 +364,7 @@ describe('the yard', () => {
 	}
 
 	it('holds still until you ask for something', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		const where = { ...sim.bat.cell };
 		const state = sim.bat.state;
 
@@ -382,7 +381,7 @@ describe('the yard', () => {
 	});
 
 	it('walks him to the hexagon you clicked, one hexagon per turn', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		const from = { ...sim.player.cell };
 
 		// Three tiles away, and away from the bat so the walk is not a fight.
@@ -410,7 +409,7 @@ describe('the yard', () => {
 	});
 
 	it('spends one turn on a click where he already stands', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		run(sim, 0.2);
 		expect(sim.schedule.gameTurn).toBe(0);
 
@@ -434,14 +433,14 @@ describe('the yard', () => {
 	});
 
 	it('refuses a hexagon there is no way to', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		// Well outside the ground's radius, so there is no tile at all.
 		expect(sim.pickCell({ q: 40, r: 40 })).toBe(false);
 		expect(orders(sim).goal).toBeNull();
 	});
 
 	it('picks a thing up by standing on its hexagon', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		const sword = sim.items.find((i) => i.name === 'sword')!;
 		expect(sword.worn).toBe(false);
 
@@ -474,7 +473,7 @@ describe('the yard', () => {
 	 * is allowed to disagree.
 	 */
 	it('draws a carried prop exactly where the old two-path arrangement did', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		const sword = sim.items.find((i) => i.name === 'sword')!;
 
 		expect(sim.pickCell({ ...sword.cell })).toBe(true);
@@ -512,7 +511,7 @@ describe('the yard', () => {
 	 * stayed where it was dropped for ever, and only the drawing knew better.
 	 */
 	it('carries what it picked up, in the scene rather than only in the picture', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		const sword = sim.items.find((i) => i.name === 'sword')!;
 
 		expect(sim.pickCell({ ...sword.cell })).toBe(true);
@@ -534,7 +533,7 @@ describe('the yard', () => {
 	});
 
 	it('lets the bat take two hexagons for every one of his', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		// Walk him at the bat until it wakes and comes for him.
 		expect(sim.pickCell(sim.bat.cell)).toBe(true);
 
@@ -563,7 +562,7 @@ describe('the yard', () => {
 	 * left to notice.
 	 */
 	it('sends the bat home to the hexagon it woke from, and back to sleep', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		const perch = { ...sim.bat.cell };
 
 		/*
@@ -605,13 +604,13 @@ describe('the yard', () => {
 	 * nothing on screen would say so.
 	 */
 	it('takes the bat’s ranges from its entity file', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		expect(sim.stats.wakeRange).toBe(3);
 		expect(sim.stats.loseRange).toBe(6);
 	});
 
 	it('never lets either of them stand on the other', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		expect(sim.pickCell(sim.bat.cell)).toBe(true);
 		for (let i = 0; i < 60 * 30; i++) {
 			sim.update(FRAME, { hover: null });
@@ -620,7 +619,7 @@ describe('the yard', () => {
 	});
 
 	it('only ever has one of them mid-action', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		expect(sim.pickCell(sim.bat.cell)).toBe(true);
 		for (let i = 0; i < 60 * 20; i++) {
 			sim.update(FRAME, { hover: null });
@@ -629,7 +628,7 @@ describe('the yard', () => {
 	});
 
 	it('marks a hexagon as unreachable when it is', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts });
 		// The anvil's own cell is solid; its neighbours are not.
 		expect(orders(sim).reachable(sim.buildings.anvil.cell)).toBe(true);
 		const beside = axialNeighbours(sim.buildings.anvil.cell).some((c) => orders(sim).reachable(c));

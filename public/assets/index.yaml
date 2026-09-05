@@ -25,6 +25,9 @@ entities:
   - ./entities/sword.entity.yaml
   - ./entities/shield.entity.yaml
 
+scenes:
+  - ./scenes/town.scene.yaml
+
 particles:
   - ./particles/smoke.particles.yaml
   - ./particles/blood.particles.yaml

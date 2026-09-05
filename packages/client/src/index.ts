@@ -88,15 +88,6 @@ export {
 	type HuntState,
 } from './game/hunt.js';
 export { spawnEntity } from './game/spawn.js';
-export {
-	loadCast,
-	clipOf,
-	YARD_ENEMY,
-	YARD_PLAYER,
-	YARD_PROPS,
-	type Cast,
-	type CastOptions,
-} from './game/cast.js';
 export { Item } from './game/items.js';
 export {
 	loadEffects,

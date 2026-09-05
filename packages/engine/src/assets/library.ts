@@ -42,6 +42,7 @@ import { readParticleEffect } from './particles.js';
 import type { ComponentSpec, PrefabNode } from './prefab.js';
 import type { AssetIO } from './io.js';
 import { loadRig, type RigAsset, type RigView } from './rig.js';
+import { readScene, type SceneAsset, type SceneObject } from './scene.js';
 import { loadSystem, type SystemAsset } from './system.js';
 import type { ParticleEffect } from '../particles/effect.js';
 
@@ -49,7 +50,7 @@ import type { ParticleEffect } from '../particles/effect.js';
 const NO_VIEW: RigView = { focusY: 0, frameDistance: 4 };
 
 /** What the manifest may list. */
-const MANIFEST_KEYS = ['entities', 'particles', 'notes'] as const;
+const MANIFEST_KEYS = ['entities', 'particles', 'scenes', 'notes'] as const;
 
 /** What a save refused, and why — so an editor can say it rather than throw. */
 export class AssetWriteError extends Error {
@@ -68,6 +69,7 @@ export class AssetLibrary {
 	private readonly clips = new Map<string, Promise<ClipAsset>>();
 	private readonly effects = new Map<string, Promise<ParticleEffect>>();
 	private readonly entities = new Map<string, Promise<EntityAsset>>();
+	private readonly scenes = new Map<string, Promise<SceneAsset>>();
 
 	constructor(io: AssetIO) {
 		this.io = io;
@@ -147,6 +149,7 @@ export class AssetLibrary {
 		this.clips.clear();
 		this.effects.clear();
 		this.entities.clear();
+		this.scenes.clear();
 	}
 
 	/** Every entity a manifest lists, in the order it lists them. */
@@ -171,6 +174,49 @@ export class AssetLibrary {
 		const root = Node.parse(await this.text(at), at).only(...MANIFEST_KEYS);
 		const listed = root.get('particles').listOrEmpty();
 		return Promise.all(listed.map((entry) => this.effect(resolve(at, entry.text()))));
+	}
+
+	/**
+	 * Every scene a manifest lists, in the order it lists them.
+	 *
+	 * A list of its own beside the entities, for the reason the effects have
+	 * one: a scene is not an entity and a manifest that mixed them would have
+	 * to be read twice to find either.
+	 */
+	async sceneIndex(path = 'index.yaml'): Promise<SceneAsset[]> {
+		const at = normalise(path);
+		const root = Node.parse(await this.text(at), at).only(...MANIFEST_KEYS);
+		const listed = root.get('scenes').listOrEmpty();
+		return Promise.all(listed.map((entry) => this.scene(resolve(at, entry.text()))));
+	}
+
+	/**
+	 * A scene, and every entity it places.
+	 *
+	 * The entities go through `entity()` like any other read, so a scene that
+	 * places two wanderers loads one wanderer — what differs between the two is
+	 * where they stand, and where a copy stands is the copy's business.
+	 */
+	scene(path: string): Promise<SceneAsset> {
+		return this.once(this.scenes, normalise(path), async (at) => {
+			const document = readScene(await this.text(at), at);
+
+			const objects: SceneObject[] = [];
+			for (const node of document.objects) {
+				const entity = node.entity === null ? null : await this.entity(resolve(at, node.entity));
+				const prefab = entity?.prefab ?? node.prefab;
+				if (!prefab) {
+					throw new AssetError(at, 'objects', 'an object with neither an entity nor a body');
+				}
+				objects.push({ entity, prefab, name: node.name, at: node.at, euler: node.euler });
+			}
+
+			const spawnable = await Promise.all(
+				document.spawnable.map((one) => this.entity(resolve(at, one))),
+			);
+
+			return { id: document.id, name: document.name, objects, spawnable };
+		});
 	}
 
 	/** One particle effect. Read once per path, like everything else here. */
