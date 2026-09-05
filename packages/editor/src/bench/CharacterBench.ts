@@ -38,6 +38,7 @@ import {
 import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
 import { BenchControls } from './BenchControls.js';
+import { emitGizmos, type PlacedNode } from './gizmos.js';
 import type { BenchAnimation, BenchRig } from './rigs.js';
 import { emitStand, SHADOW_FIT } from './stand.js';
 
@@ -114,6 +115,17 @@ export class CharacterBench {
 	private readonly pose: SparsePose = {};
 	private world: WorldPose = {};
 	private highlighted: string | null = null;
+
+	/*
+	 * The prefab's objects, as markers over the scene.
+	 *
+	 * Empty on the character bench, which shows a rig rather than an object
+	 * tree. The entity bench fills it in, and it lives here rather than in a
+	 * bench of its own because the picture underneath is the same picture: the
+	 * same rig, sampled the same way, on the same stand.
+	 */
+	private placed: readonly PlacedNode[] = [];
+	private selectedObject: string | null = null;
 
 	private readonly opaque = new HexInstances(2048);
 	private readonly blended = new HexInstances(1024);
@@ -403,6 +415,7 @@ export class CharacterBench {
 		}
 
 		this.emitSelection(overlay);
+		emitGizmos(overlay, this.placed, this.turntable, this.selectedObject);
 
 		frame.clear();
 		frame.pushAll(opaque);
@@ -415,6 +428,18 @@ export class CharacterBench {
 			blended: blended.count,
 			overlay: overlay.count,
 		});
+	}
+
+	/**
+	 * Show a prefab's objects over the subject, with one of them picked out.
+	 *
+	 * Redraws when the clock is stopped, since a bench that is paused is the
+	 * usual state for one somebody is building a hierarchy in.
+	 */
+	setPrefab(placed: readonly PlacedNode[], selectedId: string | null): void {
+		this.placed = placed;
+		this.selectedObject = selectedId;
+		if (!this.running) this.draw();
 	}
 
 	/** A marker on the selected bone, drawn without a depth test so it is findable. */

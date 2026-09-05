@@ -13,10 +13,18 @@
  * of them quickly. All three have scenes of their own for that reason and no
  * other.
  *
- * The ASSETS view is the odd one out. Every other view here previews something
- * the code decided; that one edits the decision — the YAML under public/assets,
- * through a host that can write a file. It is also where the editor admits when
- * it cannot: the built page published to Pages reads the same files and says so.
+ * The ENTITY bench is the fourth, and the only one that changes what it shows.
+ * The other three preview a decision the code made; this one edits it — the
+ * `object:` block of an entity file, as a tree of game objects with components
+ * on them, saved back through the same host the asset view writes with. Its
+ * subject stands on the character bench's stand, because the picture underneath
+ * a prefab is the entity itself.
+ *
+ * The ASSETS view is the other editor. Every other view here previews something
+ * the code decided; that one edits the decision as text — the YAML under
+ * public/assets, through a host that can write a file. It is also where the
+ * editor admits when it cannot: the built page published to Pages reads the
+ * same files and says so.
  *
  * The SCRIPTS view is the newest, and it is that argument carried one step
  * further: what it edits is not data but the client's own behaviour, in the
@@ -57,6 +65,7 @@ import { Assets } from './components/Assets.js';
 import { Scripts } from './components/Scripts.js';
 import { Bench } from './components/Bench.js';
 import { PropBenchView } from './components/PropBenchView.js';
+import { EntityBenchView } from './components/EntityBenchView.js';
 import { Inspector } from './components/Inspector.js';
 import { Levels } from './components/Levels.js';
 import { Vaults } from './components/Vaults.js';
@@ -64,7 +73,7 @@ import { SceneOutline } from './components/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
 import type { ScriptWatchState } from './scripts/reload.js';
 
-type View = 'yard' | 'bench' | 'props' | 'levels' | 'vaults' | 'assets' | 'scripts';
+type View = 'yard' | 'bench' | 'props' | 'entity' | 'levels' | 'vaults' | 'assets' | 'scripts';
 
 /** The views with nothing moving in them, where a transport would be furniture. */
 const STILL: readonly View[] = ['levels', 'vaults', 'assets'];
@@ -108,6 +117,7 @@ export function App() {
 						<ToggleButton value="scripts">Scripts</ToggleButton>
 						<ToggleButton value="bench">Character</ToggleButton>
 						<ToggleButton value="props">Props</ToggleButton>
+						<ToggleButton value="entity">Entity</ToggleButton>
 						<ToggleButton value="levels">Level</ToggleButton>
 						<ToggleButton value="vaults">Vault</ToggleButton>
 					</ToggleButtonGroup>
@@ -164,6 +174,7 @@ export function App() {
 				)}
 				{view === 'bench' && <Bench backend={backend} running={running} />}
 				{view === 'props' && <PropBenchView backend={backend} running={running} />}
+				{view === 'entity' && <EntityBenchView backend={backend} running={running} />}
 				{view === 'levels' && <Levels backend={backend} />}
 				{view === 'vaults' && <Vaults />}
 				{view === 'assets' && <Assets />}

@@ -60,9 +60,9 @@ packages/
     scripts/    the game's behaviour, in no application's module graph: compiled
                 on its own and fetched, so a broken one cannot stop a build
   editor/       React and Material UI shell: the client in a viewport, benches
-                for one rig, one piece of gear, one generated level and one
-                hand-drawn vault, and Monaco over the asset files and the
-                scripts
+                for one rig, one piece of gear, one entity's object tree, one
+                generated level and one hand-drawn vault, and Monaco over the
+                asset files and the scripts
   desktop/      Electron wrapper around the client's build
   editor-desktop/
                 Electron wrapper around the editor's build, and the only host

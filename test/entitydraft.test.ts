@@ -227,3 +227,66 @@ describe('what a draft writes', () => {
 		expect(draftToEmittable(moved)).toEqual({ name: 'thing', at: [0, 2, 0], components: [] });
 	});
 });
+
+/*
+ * A save, end to end, without a host to write to.
+ *
+ * The bench edits one part of a file that says a great deal else — a rig, a
+ * mesh, the animations and the blend trees over them. The failure worth
+ * pinning is a save that keeps the tree and loses the rest of it, which would
+ * leave an entity that still parses and no longer has a body.
+ */
+describe('saving an edited tree back into its entity file', () => {
+	async function wanderer(): Promise<{ source: string; file: string }> {
+		const { readFile } = await import('node:fs/promises');
+		const { resolve } = await import('node:path');
+		const file = 'wanderer.entity.yaml';
+		const path = resolve(import.meta.dirname, '..', 'public', 'assets', 'entities', file);
+		return { source: await readFile(path, 'utf8'), file };
+	}
+
+	it('keeps everything the tree is not', async () => {
+		const { writeEntity } = await import('@hexdelve/engine');
+		const { source, file } = await wanderer();
+		const before = readEntity(source, file);
+
+		// Hang a grip off the wanderer with a script on it, the way somebody
+		// building a hierarchy would.
+		let draft = draftFromPrefab(before.prefab);
+		const grip = emptyNode('grip');
+		draft = addChild(draft, draft.id, grip);
+		draft = addComponent(draft, grip.id, newComponent('script', { script: 'Spin', speed: 2 }));
+		draft = setTransform(draft, grip.id, 'at', 1, 1.2);
+
+		const after = readEntity(writeEntity(before, draftToEmittable(draft)), file);
+
+		// The half of the file the bench never touched.
+		expect(after.rig).toBe(before.rig);
+		expect(after.mesh).toBe(before.mesh);
+		expect(after.blurb).toBe(before.blurb);
+		expect(after.animations.map((one) => one.name)).toEqual(
+			before.animations.map((one) => one.name),
+		);
+		expect(after.blendTrees).toEqual(before.blendTrees);
+
+		// And the half it did.
+		expect(after.prefab.components.map((one) => one.type)).toEqual(['actor', 'script']);
+		expect(after.prefab.children).toHaveLength(1);
+		const written = after.prefab.children[0]!;
+		expect(written.name).toBe('grip');
+		expect(written.at).toEqual([0, 1.2, 0]);
+		expect(written.components[0]!.fields.get('script').text()).toBe('Spin');
+		expect(written.components[0]!.fields.get('speed').number()).toBe(2);
+	});
+
+	it('survives a save that changes nothing', async () => {
+		const { writeEntity } = await import('@hexdelve/engine');
+		const { source, file } = await wanderer();
+		const before = readEntity(source, file);
+		const draft = draftFromPrefab(before.prefab);
+
+		const once = writeEntity(before, draftToEmittable(draft));
+		const twice = writeEntity(readEntity(once, file), draftToEmittable(draftFromPrefab(readEntity(once, file).prefab)));
+		expect(twice).toBe(once);
+	});
+});

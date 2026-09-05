@@ -251,8 +251,13 @@ function writeAnimation(request: AnimationRequest): Emittable {
  * The key order is the schema's rather than the order a document happens to
  * carry, so two files written from here are diffable against each other and a
  * save never reorders what it did not change.
+ *
+ * `prefab` replaces the document's own object tree, which is how an editor
+ * holding a tree in a shape of its own saves it without first turning it back
+ * into a `PrefabNode` — a `PrefabNode` carries the parsed `Node` each component
+ * was read from, and an edited tree has no such thing to carry.
  */
-export function writeEntity(document: EntityDocument): string {
+export function writeEntity(document: EntityDocument, prefab?: Emittable): string {
 	const animations = Object.fromEntries(
 		document.animations.map((one) => [one.name, writeAnimation(one)]),
 	);
@@ -271,6 +276,6 @@ export function writeEntity(document: EntityDocument): string {
 		...(document.attach === null ? {} : { attach: { ...document.attach } }),
 		...(document.ground === null ? {} : { ground: { ...document.ground } }),
 		...(Object.keys(document.view).length === 0 ? {} : { view: { ...document.view } }),
-		object: writePrefabNode(document.prefab),
+		object: prefab ?? writePrefabNode(document.prefab),
 	});
 }

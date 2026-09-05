@@ -298,6 +298,64 @@ hour either way. Whoever decides should also check the primer's numbers against
 the chapters, since two accounts written at different times may disagree.
 
 
+### F-021 — The entity bench has no picture for a prop
+
+**Kind:** gap
+**Milestone:** unscheduled
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-05, building the entity bench
+**Where:** `EntityBenchView` in `packages/editor/src/components/EntityBenchView.tsx`,
+`benchRigs` in `packages/editor/src/bench/rigs.ts`
+
+**What happens.** The bench stands its subject on the character bench, which
+takes a `BenchRig`. `benchRigs` builds one per entity that HAS a rig, so the
+props — the sword, the shield, the helmet — produce none. The tree and the
+inspector work on a prop and a save writes correctly; the middle panel says
+there is no rig to stand on the bench and shows nothing.
+
+**Why it matters.** A prop's prefab is among the most likely to need a
+hierarchy: a weapon with a socket on it, a shield with a boss that hangs off a
+bone. Editing that tree against a blank panel is the case the bench is least
+useful in, and from the outside the blankness looks like something broken rather
+than like a consequence of the entity's kind.
+
+**What would fix it.** The prop bench already draws a prop on the same stand,
+with the wearer and the attachment it declares. Either lift that subject out of
+`PropBench` so both benches can put one on a stand, or teach `benchRigs` to
+return a rigless subject that draws a mesh and nothing else. The second is
+smaller and covers the case; the first stops there being two answers to what
+putting a thing on a stand means.
+
+### F-022 — The editor compiles the same scripts three times over
+
+**Kind:** cleanup
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** medium
+**Found:** 2026-09-05, reading a script's parameters for the entity bench
+**Where:** `useScriptClasses` in `packages/editor/src/scripts/classes.ts`,
+`watchScripts` in `packages/editor/src/scripts/reload.ts`,
+`packages/editor/src/components/Scripts.tsx`
+
+**What happens.** Three places bundle `packages/client/scripts` through
+esbuild-wasm from the same sources: the yard's hot reload, the scripts view, and
+now the entity bench, which needs the compiled classes to ask what each one
+declares. Each holds its own provider and none knows the others exist.
+
+**Why it matters.** It is a second or two per view rather than anything anyone
+would call slow, and it is paid again on every remount. What will bite is not
+the time but the disagreement: two providers compiled a moment apart from a
+directory somebody is editing hold different classes, so the parameter list the
+bench draws controls from can be a compile behind the script the yard is
+running, with nothing on screen saying so.
+
+**What would fix it.** One compiled provider for the editor, the way there is
+one asset library and one script store — compiled on demand, invalidated when
+the store is written to, and handed to whoever asks. The views then share a
+result rather than a source directory. The work is mostly in deciding what
+invalidates it, which is why this is not small.
+
 ## Closed
 
 ### F-007 — A script with a syntax error stops the editor from booting
