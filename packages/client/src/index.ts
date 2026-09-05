@@ -59,7 +59,7 @@ export {
 	type TurnTaker,
 } from './game/turns.js';
 export { SECONDS_PER_GAME_TURN, actionSeconds, hexSpeed } from './game/pace.js';
-export { ActorBehaviour, turnTowards, wrapAngle, type Turnable } from './game/actor.js';
+export { ActorBehaviour, NOWHERE, turnTowards, wrapAngle, type Turnable } from './game/actor.js';
 
 /*
  * The component types a prefab file may name, and the one call that spawns an
@@ -67,6 +67,12 @@ export { ActorBehaviour, turnTowards, wrapAngle, type Turnable } from './game/ac
  * heard of an `item`, and this is where the game says what its components are.
  */
 export { components, type SpawnExtras } from './game/components.js';
+export {
+	playerOrders,
+	PLAYER_INPUT,
+	type PlayerDecision,
+	type PlayerOrders,
+} from './game/orders.js';
 export { spawnEntity } from './game/spawn.js';
 export {
 	loadCast,

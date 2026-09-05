@@ -46,6 +46,7 @@ import {
 } from '@hexdelve/engine';
 
 import { bundleScripts, scriptDir } from '../tools/build-scripts.mjs';
+import { SDK_MODULES } from './harness/sdk.js';
 import { openLibrary } from './harness/assets.js';
 
 /** A host that says nothing, so a test can read what it would have said. */
@@ -711,7 +712,7 @@ describe('the scripts this build ships', () => {
 
 	beforeAll(async () => {
 		const built = await bundleScripts();
-		provider = scriptsFromBundle(built.code, engine);
+		provider = scriptsFromBundle(built.code, SDK_MODULES);
 		files = [...built.files];
 	}, 120_000);
 
@@ -902,7 +903,7 @@ describe('the scripts this build ships', () => {
 		);
 		try {
 			const built = await bundleScripts();
-			const reachable = scriptsFromBundle(built.code, engine);
+			const reachable = scriptsFromBundle(built.code, SDK_MODULES);
 			const probe = reachable.resolve('ProbeEngineReach');
 			expect(probe, 'it compiled').not.toBeNull();
 		} finally {

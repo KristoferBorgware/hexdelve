@@ -501,6 +501,20 @@ gets `onLoad` / `tick(dt)` / `onDestroy`. Every field beyond `type` and
 `script` in the record is a parameter, checked against what the class declared
 and named if it is not one.
 
+**What a script may import.** Three packages: `@hexdelve/engine` for objects,
+components and events; `@hexdelve/client` for the game's own library — a
+hexagon, a tile, the turn order, the strides; `@hexdelve/shared` for the maths
+under both. Each is rewritten by whoever compiled the bundle into a read of a
+global — see `scriptSdkShim` — because bundling the real packages would give
+the scripts their own copy of `Script`, and the host's `instanceof` check would
+then be false for every class in the bundle. A bundle offered fewer modules
+than it imports refuses by name rather than failing on the first symbol it
+reads.
+
+The client is offered rather than emptied into the engine because behaviour
+acts through the game's library, and an engine that knew what an Angband energy
+table was would be the wrong shape.
+
 A parameter declares itself by its value:
 
 ```ts
@@ -636,7 +650,7 @@ Three things make it more than a text box, and only the first is Monaco's:
 
 **The language service knows the SDK.** `/script-types.json` hands over the
 `dist/*.d.ts` of `@hexdelve/shared`, `@hexdelve/engine` and
-`@hexdelve/engine`, named as though they were installed under
+`@hexdelve/client`, named as though they were installed under
 `node_modules`, so `import { Script } from '@hexdelve/engine'` resolves by
 ordinary node resolution and `this.transform.` completes. They are the same
 declarations `npm run typecheck` uses, and a tree that has never been built

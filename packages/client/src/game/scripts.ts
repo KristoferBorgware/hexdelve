@@ -22,6 +22,7 @@
  */
 
 import * as engine from '@hexdelve/engine';
+import * as shared from '@hexdelve/shared';
 import { noScripts, scriptsFromBundle, type ScriptProvider } from '@hexdelve/engine';
 
 /** Where the bundle is served from, relative to the page. */
@@ -46,7 +47,18 @@ export async function loadScripts(options: LoadScriptsOptions = {}): Promise<Scr
 	try {
 		const response = await fetch(url);
 		if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-		return scriptsFromBundle(await response.text(), engine);
+		/*
+		 * The client's own namespace is imported lazily, because this module is
+		 * inside it: a static import of the package entry point from one of its
+		 * own files is a cycle, and the entry point is fully evaluated by the
+		 * time anything calls this.
+		 */
+		const client = await import('../index.js');
+		return scriptsFromBundle(await response.text(), {
+			'@hexdelve/engine': engine,
+			'@hexdelve/client': client,
+			'@hexdelve/shared': shared,
+		});
 	} catch (error) {
 		log(
 			`cannot load ${url}, running with no scripts: ` +

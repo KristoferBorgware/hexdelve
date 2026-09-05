@@ -64,6 +64,7 @@ import { spawnEntity } from './spawn.js';
 import { BatHunt, LOSE_RANGE, WAKE_RANGE } from './bathunt.js';
 import { Item } from './items.js';
 import { SECONDS_PER_GAME_TURN } from './pace.js';
+import { playerOrders, type PlayerOrders } from './orders.js';
 import { Player, type PlayerStats } from './player.js';
 import { Schedule, speedFactor, type TurnTaker } from './turns.js';
 
@@ -474,6 +475,17 @@ export class Simulation {
 	/* --------------------------------------------------------------- orders -- */
 
 	/**
+	 * What the man has been asked to do — a script on his object.
+	 *
+	 * Null when nothing loaded one, which a bench and a test without the script
+	 * bundle both are. Every use here reads that as "he has been asked for
+	 * nothing", so the yard stands still rather than failing.
+	 */
+	private get orders(): PlayerOrders | null {
+		return playerOrders(this.player.object);
+	}
+
+	/**
 	 * A click on the ground.
 	 *
 	 * One call for every meaning a click has, because the hexagon under it is
@@ -486,22 +498,22 @@ export class Simulation {
 	}
 
 	pickCell(cell: Axial): boolean {
-		return this.player.orderTo(cell);
+		return this.orders?.orderTo(cell) ?? false;
 	}
 
 	/** Spend a turn standing still. */
 	hold(): void {
-		this.player.hold();
+		this.orders?.hold();
 	}
 
 	/** Go and cut the bat, wherever it is. */
 	attack(): boolean {
-		return this.player.orderTo(this.bat.cell);
+		return this.orders?.orderTo(this.bat.cell) ?? false;
 	}
 
 	/** Forget where he was going. */
 	cancel(): void {
-		this.player.cancel();
+		this.orders?.cancel();
 	}
 
 	/* ---------------------------------------------------------------- frames -- */
@@ -519,7 +531,7 @@ export class Simulation {
 	private resolveTurns(): void {
 		for (let guard = 0; guard < TURNS_PER_FRAME; guard++) {
 			if (this.player.busy || this.bat.busy) return;
-			if (!this.player.hasOrders) return;
+			if (!(this.orders?.hasOrders ?? false)) return;
 			const who = this.schedule.next();
 			if (!who) return;
 			const action = who.beginTurn();
@@ -631,7 +643,7 @@ export class Simulation {
 			hover.r !== this.hover.r;
 		this.hover = hover;
 		if (hover && (moved || elsewhere)) {
-			this.hoverReachable = this.player.reachable(hover);
+			this.hoverReachable = this.orders?.reachable(hover) ?? false;
 			this.hoverAsked = this.actions;
 		} else if (!hover) {
 			this.hoverReachable = false;
@@ -764,11 +776,11 @@ export class Simulation {
 			}
 
 			// His own route, which lab 06 had and labs 07-09 did not need.
-			const route = this.player.path;
+			const route = this.orders?.path ?? [];
 			for (let i = 0; i < route.length && i < 40; i++) {
 				ring(blended, route[i]!, 0.22, 0.02, ROUTE_COLOR, 0.7);
 			}
-			const goal = this.player.goal;
+			const goal = this.orders?.goal ?? null;
 			if (goal) ring(overlay, goal, 0.8, 0.035, GOAL_COLOR, 0.42);
 		}
 
@@ -794,7 +806,7 @@ export class Simulation {
 			gameTurn: this.schedule.gameTurn,
 			actions: this.actions,
 			lastAction: this.lastAction,
-			waitingForYou: !this.player.hasOrders && !this.player.busy && !this.bat.busy,
+			waitingForYou: !(this.orders?.hasOrders ?? false) && !this.player.busy && !this.bat.busy,
 			secondsPerGameTurn: SECONDS_PER_GAME_TURN,
 			batMessage: this.bat.message,
 			batState: this.bat.state,
