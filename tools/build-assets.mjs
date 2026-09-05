@@ -79,7 +79,7 @@ async function main() {
 	);
 	const { poseFunctions, components } = await import(pathToFileURL(clientDist).href);
 
-	const library = new AssetLibrary(memoryIO(pack), { poseFunctions });
+	const library = new AssetLibrary(memoryIO(pack));
 	const entities = await library.index();
 
 	/*

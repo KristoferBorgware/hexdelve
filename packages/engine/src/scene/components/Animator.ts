@@ -55,11 +55,17 @@ export class Animator extends Component {
 		return found;
 	}
 
-	/** The same, where the keys themselves are wanted rather than a pose. */
+	/**
+	 * The same, where the keys themselves are wanted rather than a pose.
+	 *
+	 * Every animation an entity file names is a clip, so the refusal below is
+	 * for an animation built in code and handed over — which a bench does, and
+	 * which has no keys to read.
+	 */
 	clip(name: string): Clip {
 		const animation = this.animation(name);
 		if (!animation.clip) {
-			throw new Error(`'${this.object.name}' animation '${name}' is procedural, not a clip`);
+			throw new Error(`'${this.object.name}' animation '${name}' has no keys to read`);
 		}
 		return animation.clip;
 	}

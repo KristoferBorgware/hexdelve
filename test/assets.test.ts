@@ -92,7 +92,6 @@ import {
 	houndRunPose,
 	LEG_LENGTH,
 	perchPose,
-	poseFunctions,
 	RUN_PERIOD,
 	stridePose,
 	WALK_PERIOD,
@@ -128,7 +127,7 @@ function diskIO(at: string): AssetIO {
  * test that can quietly rewrite the thing it is checking; the write path is
  * exercised below against a scratch backend instead.
  */
-const library = new AssetLibrary(readOnly(diskIO(root)), { poseFunctions });
+const library = new AssetLibrary(readOnly(diskIO(root)));
 
 const entity = (id: string): Promise<EntityAsset> => library.entity(`entities/${id}.entity.yaml`);
 
@@ -146,7 +145,6 @@ function withFile(path: string, text: string): AssetLibrary {
 	const disk = diskIO(root);
 	return new AssetLibrary(
 		readOnly({ ...disk, read: (at) => (at === path ? Promise.resolve(text) : disk.read(at)) }),
-		{ poseFunctions },
 	);
 }
 
@@ -1032,7 +1030,7 @@ describe('io', () => {
 		const io = diskIO(scratch);
 		for (const file of files) await io.writer!.write(file, await readFile(resolvePath(root, file), 'utf8'));
 
-		const library = new AssetLibrary(io, { poseFunctions });
+		const library = new AssetLibrary(io);
 		const before = await library.rig('rigs/humanoid.rig.yaml');
 		expect(before.metrics.hipHeight).toBeCloseTo(0.92, 12);
 

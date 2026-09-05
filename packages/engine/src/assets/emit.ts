@@ -48,10 +48,11 @@ const INLINE_WIDTH = 96;
 /**
  * How deep a value goes inline before it stops being one thought.
  *
- * Two, which lets `{ procedural: stride, args: { amp: 1 }, label: Walk }` sit
- * on its line — an animation entry is a single declaration and the args are
- * part of it — while keeping an object tree in block form, since a whole
- * prefab on one line is a prefab nobody can read or diff.
+ * Two, which lets `{ clip: ../clips/walk.clip.yaml, sync: true, contacts:
+ * [0.25, 0.75] }` sit on its line — an animation entry is a single
+ * declaration and its options are part of it — while keeping an object tree in
+ * block form, since a whole prefab on one line is a prefab nobody can read or
+ * diff.
  */
 const INLINE_DEPTH = 2;
 

@@ -19,23 +19,14 @@
  *                window was opened on. Either way the reading is the same
  *                `fetch` over `app://` — see `desktop.ts`.
  *
- * `new AssetLibrary(io)` is still perfectly usable and reads a rig, a mesh or
- * a clip without any help. What it cannot do is resolve `procedural: stride`,
- * because the engine has never heard of a stride — so an embedder who built
- * one by hand would get a clear error naming a function they had no way to
- * know about. This is the version that works.
+ * `new AssetLibrary(io)` reads every kind of file the game has; what this adds
+ * is knowing WHERE they are — which base URL, which backend, and that a build
+ * may have folded the whole tree into one pack.
  */
 
-import {
-	AssetLibrary,
-	fetchIO,
-	memoryIO,
-	type AssetIO,
-	type AssetLibraryOptions,
-} from '@hexdelve/engine';
+import { AssetLibrary, fetchIO, memoryIO, type AssetIO } from '@hexdelve/engine';
 
 import { desktopBridge, desktopIO } from './desktop.js';
-import { poseFunctions } from './poseFunctions.js';
 
 /** Where the manifest listing every entity lives, relative to the asset root. */
 export const ASSET_INDEX = 'index.yaml';
@@ -49,7 +40,7 @@ export const ASSET_INDEX = 'index.yaml';
  */
 export const ASSET_BASE = 'assets';
 
-export interface OpenAssetsOptions extends AssetLibraryOptions {
+export interface OpenAssetsOptions {
 	/** Where the asset files are. Defaults to `assets`, relative to the page. */
 	readonly baseUrl?: string;
 	/**
@@ -75,9 +66,8 @@ function onDevServer(): boolean {
 }
 
 export function openAssets(options: OpenAssetsOptions = {}): AssetLibrary {
-	const { baseUrl = ASSET_BASE, writable, io, ...rest } = options;
-	const backend = io ?? openAssetIO(baseUrl, writable);
-	return new AssetLibrary(backend, { poseFunctions, ...rest });
+	const { baseUrl = ASSET_BASE, writable, io } = options;
+	return new AssetLibrary(io ?? openAssetIO(baseUrl, writable));
 }
 
 /**
@@ -106,14 +96,11 @@ function openAssetIO(baseUrl: string, writable: boolean | undefined): AssetIO {
  * Nothing downstream can tell the difference: a pack is a backend like any
  * other, and the readers never learn where their text came from.
  */
-export async function openPackedAssets(
-	url: string,
-	options: Omit<OpenAssetsOptions, 'io' | 'baseUrl' | 'writable'> = {},
-): Promise<AssetLibrary> {
+export async function openPackedAssets(url: string): Promise<AssetLibrary> {
 	const response = await fetch(url);
 	if (!response.ok) {
 		throw new Error(`${url}: ${response.status} ${response.statusText}`);
 	}
 	const pack = (await response.json()) as Record<string, string>;
-	return new AssetLibrary(memoryIO(pack), { poseFunctions, ...options });
+	return new AssetLibrary(memoryIO(pack));
 }

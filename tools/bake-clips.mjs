@@ -99,7 +99,7 @@ async function main() {
 	);
 	const { poseFunctions, bakeJobs } = await import(pathToFileURL(clientDist).href);
 
-	const library = new AssetLibrary(memoryIO(pack), { poseFunctions });
+	const library = new AssetLibrary(memoryIO(pack));
 	const jobs = wanted.length === 0 ? bakeJobs : bakeJobs.filter((job) => wanted.some((one) => job.id.includes(one)));
 
 	for (const one of wanted) {

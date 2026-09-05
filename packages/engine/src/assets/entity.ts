@@ -132,7 +132,7 @@ export function readAttachment(fields: Node): Attachment {
 }
 
 /** One entry of an animator's `animations` mapping, as read. */
-export type AnimationRequest = ClipRequest | ProceduralRequest;
+export type AnimationRequest = ClipRequest;
 
 interface RequestBase {
 	readonly name: string;
@@ -146,24 +146,16 @@ export interface ClipRequest extends RequestBase {
 	readonly contacts: readonly number[] | null;
 }
 
-export interface ProceduralRequest extends RequestBase {
-	readonly kind: 'procedural';
-	readonly procedural: string;
-	readonly args: Readonly<Record<string, number>>;
-	readonly duration: number | null;
-	readonly contacts: readonly number[] | null;
-}
-
 const CLIP_ENTRY_KEYS = ['clip', 'label', 'sync', 'contacts'] as const;
-const PROCEDURAL_ENTRY_KEYS = ['procedural', 'args', 'duration', 'contacts', 'label', 'sync'] as const;
 
 /**
  * The animations, as requests.
  *
  * A bare string is a clip file, which is the common case and not worth making
- * anyone spell out. A mapping is either the same thing with options on it or a
- * pose function with its arguments — see poseFunctions.ts for why the second
- * kind cannot be a file and should not try.
+ * anyone spell out; a mapping is the same thing with options on it. Every
+ * animation is a clip — the cycles worked out as functions are baked into
+ * clips by `tools/bake-clips.mjs` before they get here, which is what lets an
+ * entity name one thing rather than two.
  */
 export function readAnimations(node: Node): AnimationRequest[] {
 	return node.entriesOrEmpty().map(([name, child]) => {
@@ -180,18 +172,6 @@ export function readAnimations(node: Node): AnimationRequest[] {
 			sync: sync.present ? sync.flag(false) : null,
 			contacts: contacts.present ? contacts.list().map((phase) => phase.number()) : null,
 		};
-
-		if (child.get('procedural').present) {
-			child.only(...PROCEDURAL_ENTRY_KEYS);
-			const duration = child.get('duration');
-			return {
-				...base,
-				kind: 'procedural',
-				procedural: child.need('procedural').text(),
-				args: child.get('args').present ? child.need('args').numbers() : {},
-				duration: duration.present ? duration.number() : null,
-			};
-		}
 
 		child.only(...CLIP_ENTRY_KEYS);
 		return { ...base, kind: 'clip', path: child.need('clip').text() };
