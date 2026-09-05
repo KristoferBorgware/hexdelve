@@ -363,7 +363,72 @@ back to being a gait's own dip rather than a correction. Either way a rig check
 worth having is that every foot the rig names can reach the ground with a
 stride's worth of room left over.
 
+### F-029 — The entity bench's console-error check fails about one full run in six
+
+**Kind:** risk
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** medium
+**Found:** 2026-09-05, running the suite repeatedly through the animation work
+**Where:** `came up without an error on the console` in `test/entitybench.test.ts`
+
+**What happens.** The last assertion in the entity bench's browser test collects
+everything the page logged from boot onwards and expects nothing. Across a day
+of full-suite runs it failed four times and passed every other time, always
+green on the very next run of the same commit.
+
+**[measured]** Run on its own it passed six times out of six, so whatever it is
+needs the rest of the suite running alongside it — three browser tests, a dev
+server and a software rasteriser competing for the same container.
+
+The message was never captured: it appears in a full run, and re-running to read
+it is the thing that makes it pass. It may be F-016 — a file the dev server has
+just written being served as HTML would put an error on the console — but that
+is a guess, and it should not be recorded as anything more.
+
+**Why it matters.** A test that fails one run in six and passes on retry is a
+test people learn to re-run, and the next real failure it catches gets re-run
+too. It is also the only assertion in the suite covering the editor's boot.
+
+**What would fix it.** Capture the message first: keep the collected errors in a
+file the run leaves behind rather than only in the assertion, so one failing
+full run says what it saw. Then decide — if it is a fetch racing the dev server
+it is F-016 and belongs there; if it is the bench itself, it is a real bug that
+has been hiding behind a retry.
+
 ## Closed
+
+**Closed in part:** 2026-09-05, the humanoid is fixed; the hellhound is not.
+
+The humanoid's thigh goes 0.41 to 0.46 and its shin 0.35 to 0.40, so the leg is
+0.86 against a 0.80 drop from hip to ankle. The slack is what a knee bends into,
+standing and striding alike — a leg exactly as long as the drop can reach the
+grass and do nothing else. The walk's crouch falls from 0.16 to 0.04 and the
+run's from 0.22 to 0.09, and both are the stride's now rather than the rig's.
+
+`hipHeight` deliberately did NOT move. Raising it to make a straight leg stand
+was tried first and cascades: everything above the hips goes up with it, and
+every hand-authored clip's root height is then wrong. A rest pose with a soft
+knee costs nothing and moves nothing.
+
+What lengthening a bone does invalidate is any clip that keys a leg by its
+angle, because where the ankle ends up is a consequence of the bone. Seven
+clips carried leg keys and all were re-fitted rather than re-authored: read the
+ankle off the old chain, solve the new chain to the same point, and give the
+foot back the orientation the change took from it. What the author meant was
+where the ankle IS, and that is preserved exactly.
+
+The two soles went with it. `GHOUL_SOLE` was 0.09 and `ZOMBIE_SOLE` 0.1 against
+a rig whose foot tip is 0.08 — three guesses at one number, and a foot's depth
+is the rig's. They share `HUMANOID_SOLE` now, which halved the ghoul's planted
+foot error and quartered the zombie's.
+
+**The hellhound is still open.** Its front leg falls 0.11 m short of the ground
+from the chest it hangs off and its hind pair reach it with nothing to spare, so
+`STAND` goes on crouching and pitching to make up for the rig. Its two pairs
+would need different lengths, which its chain does not currently express — both
+use one `upper` and one `lower`.
+
 
 ### F-026 — The game's humanoid locomotion does not run through its blend tree
 

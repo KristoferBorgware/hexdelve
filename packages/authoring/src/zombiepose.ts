@@ -28,13 +28,14 @@
 import { setSparse, type SparsePose } from '@hexdelve/engine';
 
 import { HUMANOID_CHAIN, solveLeg, type Step, type Trunk } from './humanoid.js';
+import { HUMANOID_SOLE } from './stride.js';
 
 const PI = Math.PI;
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 /** Where the zombie's ankle sits with the sole on the ground: a boot's depth. */
-export const ZOMBIE_SOLE = 0.1;
+export const ZOMBIE_SOLE = HUMANOID_SOLE;
 
 /** One shuffling stride pair, in seconds, at amp = 1. Slow. */
 export const SHUFFLE_PERIOD = 1.7;

@@ -19,14 +19,14 @@
  * discovered, and it is exactly proportional to the stride. A sliding foot
  * cannot be written.
  *
- * ## The crouch is not a stylistic choice
+ * ## The crouch is the stride's, not the rig's
  *
- * His hips sit 0.92 m up, his leg is 0.76 m and his ankle stands 0.08 m above
- * the ground with the sole flat. So a straight leg reaches 0.84 and the ground
- * is at 0.92: he cannot touch it standing at his rig's own height, let alone
- * take a step. Every gait here therefore drops the hips, further as the stride
- * lengthens, and how much is arithmetic rather than taste — see F-025, which
- * is the same fact about a quadruped.
+ * His hip sits 0.80 m above where his ankle stands and his leg is 0.86 m, so
+ * standing costs him nothing but a soft knee. What the hips drop for is the
+ * stride: a foot reaching 0.34 m in front of the hip is 0.34 m around a circle
+ * of radius 0.86, and the hip comes down by the difference. That is geometry
+ * rather than taste, and it is why the run drops further than the walk — a
+ * longer step is a lower hip, on any leg.
  *
  * ## One direction
  *
@@ -56,7 +56,14 @@ const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 export const WALK_PERIOD = 0.95;
 export const RUN_PERIOD = 0.66;
 
-/** Where his ankle sits with the sole flat on the ground: the rig's own foot. */
+/**
+ * Where an ankle sits with the sole flat on the ground.
+ *
+ * A fact about the humanoid rig rather than about any one creature on it, so
+ * the ghoul and the zombie solve their legs against this too — a foot's depth
+ * is the foot's, and three copies of it were three chances to be a centimetre
+ * out. Pinned to `humanoid.rig.yaml`'s foot tip by `test/assets.test.ts`.
+ */
 export const HUMANOID_SOLE = 0.08;
 
 /**
@@ -77,14 +84,13 @@ const RUN_LIFT = 0.2;
 /**
  * How far the hips drop below the rig's rest height.
  *
- * The first is what a straight-legged man needs simply to put his foot on the
- * ground. The others are what the stride and the run need on top, because a
- * foot reaching further forward is a foot reaching further from the hip and
- * the leg has only so much in it.
+ * Standing costs a soft knee and no more. The rest is what the stride needs: a
+ * foot reaching further forward is a foot reaching further round the leg's own
+ * circle, and the hip comes down by what is left over.
  */
-const STAND_CROUCH = 0.06;
-const WALK_CROUCH = 0.1;
-const RUN_CROUCH = 0.06;
+const STAND_CROUCH = 0;
+const WALK_CROUCH = 0.04;
+const RUN_CROUCH = 0.05;
 
 export const stridePeriod = (gait: number): number =>
 	WALK_PERIOD + (RUN_PERIOD - WALK_PERIOD) * gait;
