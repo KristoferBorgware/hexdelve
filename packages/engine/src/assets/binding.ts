@@ -17,6 +17,7 @@
  * did, which is what lets a factory ask without first asking whether it may.
  */
 
+import type { ParticleEffect } from '../particles/effect.js';
 import type { AnimationAsset } from './animation.js';
 import type { BlendTreeAsset } from './blendtree.js';
 import type { MeshAsset } from './mesh.js';
@@ -28,6 +29,8 @@ export interface ComponentAssets {
 	readonly rig: RigAsset | null;
 	/** This record's own mesh. Only a `mesh` component has one. */
 	readonly mesh: MeshAsset | null;
+	/** This record's own particle effect. Only a `particles` component has one. */
+	readonly effect: ParticleEffect | null;
 	/** By the name the file gave each. Only an `animator` has any. */
 	readonly animations: ReadonlyMap<string, AnimationAsset>;
 	readonly blendTrees: ReadonlyMap<string, BlendTreeAsset>;
@@ -40,6 +43,7 @@ const NO_TREES: ReadonlyMap<string, BlendTreeAsset> = new Map();
 export const NO_ASSETS: ComponentAssets = Object.freeze({
 	rig: null,
 	mesh: null,
+	effect: null,
 	animations: NO_ANIMATIONS,
 	blendTrees: NO_TREES,
 });
@@ -47,5 +51,5 @@ export const NO_ASSETS: ComponentAssets = Object.freeze({
 /** The same, carrying the rig that was in scope and nothing else. */
 export function assetsUnder(rig: RigAsset | null): ComponentAssets {
 	if (rig === null) return NO_ASSETS;
-	return { rig, mesh: null, animations: NO_ANIMATIONS, blendTrees: NO_TREES };
+	return { rig, mesh: null, effect: null, animations: NO_ANIMATIONS, blendTrees: NO_TREES };
 }

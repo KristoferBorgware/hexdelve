@@ -1,11 +1,11 @@
 /*
- * Building the four components that are facts about drawing and posing.
+ * Building the components that are facts about drawing and posing.
  *
- * `rig`, `mesh`, `animator`, `attach` and `footIK` are the engine's own
- * vocabulary, in the way `item` is a game's: each is about how a thing is drawn
- * or how it is posed, which is what an engine is for. So the engine registers
- * them itself rather than leaving every game to repeat the same lines and to
- * disagree about one of them.
+ * `rig`, `mesh`, `animator`, `attach`, `footIK` and `particles` are the
+ * engine's own vocabulary, in the way `item` is a game's: each is about how a
+ * thing is drawn or how it is posed, which is what an engine is for. So the
+ * engine registers them itself rather than leaving every game to repeat the
+ * same lines and to disagree about one of them.
  *
  * Each factory takes what its record named off `context.assets` rather than
  * reading the path again. The library resolved and fetched every one of them
@@ -13,12 +13,13 @@
  * asynchronous and spawning is not.
  */
 
-import { readAttachment } from '../../assets/entity.js';
+import { readAttachment, PARTICLES_COMPONENT_KEYS } from '../../assets/entity.js';
 import type { ComponentContext, ComponentRegistry } from '../../assets/instantiate.js';
 import { Animator } from './Animator.js';
 import { Attach } from './Attach.js';
 import { FootIK } from './FootIK.js';
 import { MeshRenderer } from './MeshRenderer.js';
+import { Particles } from './Particles.js';
 import { Rig } from './Rig.js';
 
 /** The bones, and the pose they are in. */
@@ -67,12 +68,30 @@ function attachFactory(context: ComponentContext): void {
 	context.object.attachComponent(new Attach(context.object), { bone, lift, tilt });
 }
 
-/** Add all five to a registry, and hand it back. */
+/**
+ * An emitter, on the effect the record names.
+ *
+ * Through `attachComponent`, because `playing` and `autoDestroy` are declared
+ * with `param` and a prefab may set either: a chimney runs from the moment it
+ * exists, and a burst spawned where a blow landed sets both.
+ */
+function particlesFactory(context: ComponentContext): void {
+	const { effect } = context.assets;
+	if (!effect) throw new Error('a particles component has no effect loaded for it');
+	context.fields.only(...PARTICLES_COMPONENT_KEYS);
+	context.object.attachComponent(new Particles(context.object, effect), {
+		playing: context.fields.get('playing').flag(true),
+		autoDestroy: context.fields.get('autoDestroy').flag(false),
+	});
+}
+
+/** Add all six to a registry, and hand it back. */
 export function registerSceneComponents(registry: ComponentRegistry): ComponentRegistry {
 	return registry
 		.register('rig', rigFactory)
 		.register('mesh', meshFactory)
 		.register('animator', animatorFactory)
 		.register('attach', attachFactory)
-		.register('footIK', footIKFactory);
+		.register('footIK', footIKFactory)
+		.register('particles', particlesFactory);
 }

@@ -21,13 +21,21 @@ a renderer is.
 
 ```
 public/assets/
-  index.yaml              every entity, in the order a catalogue lists them
+  index.yaml              every entity and every effect, in catalogue order
   entities/*.entity.yaml  the root file: what belongs to what
   rigs/*.rig.yaml         bones, tips, masks, groups, metrics
   meshes/*.mesh.yaml      prisms bound to bones
   clips/*.clip.yaml       keyframes, pose-major
   trees/*.tree.yaml       blend trees over named animations
+  particles/*.particles.yaml
+                          emitters: how many hexagons, thrown how, and what
+                          their size, colour and turn do over a life
 ```
+
+`index.yaml` carries two lists rather than one. An effect is not an entity —
+nothing wears one, nothing walks, and the same file drives the smoke over a
+chimney and the blood off a blow — so `entities:` and `particles:` are separate
+sections, read by `AssetLibrary.index()` and `AssetLibrary.effectIndex()`.
 
 `public/` because these are files a browser fetches, and Vite's `publicDir`
 is how a file gets served as itself rather than bundled. One tree at the
@@ -123,14 +131,26 @@ has never heard of, and a format that had to be taught each one would be a
 format the client could not add to. A `ComponentRegistry` maps the type to
 whoever claimed it, and an unknown type fails by name and lists what there was.
 
-Six are the engine's own. `rig`, `mesh`, `animator`, `attach` and `footIK` are
-facts about drawing and posing, which is what an engine is for; the first four
-are also the only records that name files, so the library resolves and fetches
-those paths while it reads the entity and hands each factory what its own record
-loaded to. `script` is the engine's too: `Script` and `ScriptHost` live there,
-so there is nothing for a game to decide about what building one means.
-`packages/client/src/game/components.ts` is where the game adds its own, `item`,
-on top of those.
+Seven are the engine's own. `rig`, `mesh`, `animator`, `attach`, `footIK` and
+`particles` are facts about drawing and posing, which is what an engine is for;
+`rig`, `mesh`, `animator` and `particles` are also the records that name files,
+so the library resolves and fetches those paths while it reads the entity and
+hands each factory what its own record loaded to. `script` is the engine's too:
+`Script` and `ScriptHost` live there, so there is nothing for a game to decide
+about what building one means. `packages/client/src/game/components.ts` is where
+the game adds its own, `item`, on top of those.
+
+`particles` puts an emitter on an object:
+
+```yaml
+- { type: particles, effect: ../particles/smoke.particles.yaml, autoDestroy: false }
+```
+
+`playing` and `autoDestroy` are the two fields it takes beyond the path, and
+both are `param` fields an editor may set as well. `autoDestroy` takes the
+object out of the scene once the effect has run out and the last particle has
+gone, which is what a one-shot spawned where a blow landed wants and what a
+chimney must never have.
 
 `footIK` plants a rig's feet on ground that is not flat, and nothing in it is
 about a particular creature: which bones are feet is the rig's own answer, and
@@ -216,6 +236,59 @@ of the TypeScript it replaces gives bit-for-bit the same double.
 It is not a scripting language: numbers, four operators, brackets, those
 functions, and names looked up in a scope the file declares. No state, no
 calls out.
+
+## A particle effect is thirty numbers with defaults
+
+```yaml
+id: sparks
+emit: { rate: 40 }
+particle: { speed: 3, speedVariance: 1.5 }
+color: { curve: [{ at: 0, value: 0xffd27a }, { at: 1, value: 0x8c3410 }] }
+```
+
+is a working effect. Every field the file does not mention comes from
+`defaultEffect`, which draws a plain white puff — a working one rather than a
+set of zeroes, so an author who sets one field sees the change rather than an
+empty viewport.
+
+**Every number a particle is born with is a mean and a variance**, written as
+two keys: `speed` and `speedVariance`, `life` and `lifeVariance`. The pairing is
+what makes a system read as an organic thing rather than a machine — a stream of
+particles agreeing exactly on their speed looks extruded — and a field that
+wants to be exact simply leaves the second key out. This is the arrangement
+Reeves described in 1983 and the Game Developer article of 1998 spelt out, and
+nothing since has improved on it.
+
+**Size, colour and alpha are curves over normalised life.** A stop is
+`{ at, value }`, `at` running 0 at birth to 1 at death, so a particle born with
+a long life fades over that longer span rather than on somebody else's
+schedule. Stops are sorted on read — which line one is written on is not part of
+what a curve means — but an `at` outside 0 to 1 is refused, because that is
+somebody who typed 5 for 0.5.
+
+A colour stop's `value` is a colour, written as the `0xrrggbb` every other file
+in this tree uses. The writer keeps it that way: `emitYaml` takes a `Literal`
+for exactly this, since `14210252` is the same colour written so nobody can
+read it.
+
+**`space` decides whether particles are left behind or carried.** `world` fixes
+a particle where it was born, so an emitter moving through the world draws a
+trail and a bat that flies on does not take its own blood with it. `local`
+keeps every particle in the emitter's frame, so the whole plume turns and
+travels with whatever holds it.
+
+**`prewarm` runs a continuous effect forward through one lifetime** before its
+first frame. Without it, a scene that has just been built shows a bare chimney
+for a second and a thin one for two more. It does nothing to an effect with a
+duration that does not loop, which would simply be fast-forwarded past its own
+end.
+
+The particle bench in the editor is where one of these is authored: the effect
+on a stand at a height you set, a post beside it to a person's height, a clock
+you can slow down, and every field above as a control. It writes the file back
+through the same host the asset view saves with, keeping the comment block the
+file opens with — see `views/particles/saveEffect.ts` for why that one thing is
+kept and the rest is not.
 
 ## Meshes keep the loop
 

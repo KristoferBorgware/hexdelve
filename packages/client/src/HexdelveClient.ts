@@ -18,6 +18,7 @@ import {
 	type BackendPreference,
 	type FrameCapture,
 	type Light,
+	type ParticleEffect,
 	type Renderer,
 	type RendererInfo,
 } from '@hexdelve/engine';
@@ -26,6 +27,7 @@ import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 import { noScripts, type ScriptProvider } from '@hexdelve/engine';
 
 import { openAssets, type OpenAssetsOptions } from './assets/library.js';
+import { loadEffects } from './game/effects.js';
 import { loadScripts } from './game/scripts.js';
 import { loadCast, type Cast, type CastOptions } from './game/cast.js';
 import { Controls } from './input/Controls.js';
@@ -193,6 +195,12 @@ export class HexdelveClient {
 		const assets = openAssets(options.assets ?? {});
 		const casting = loadCast(assets, options.cast ?? {});
 		/*
+		 * The particle effects, off the same manifest. Read beside the cast
+		 * rather than after it: the manifest is one file and both lists are in
+		 * it, so the second read is already cached.
+		 */
+		const effects = loadEffects(assets);
+		/*
 		 * The systems, read beside the cast. Both are files and neither needs
 		 * the other, so neither waits: `Promise.all` below is one round trip
 		 * rather than two.
@@ -216,8 +224,13 @@ export class HexdelveClient {
 			},
 		});
 
-		const [cast, system, scripts] = await Promise.all([casting, systems, behaviour]);
-		box.client = new HexdelveClient(options, renderer, assets, cast, [system], scripts);
+		const [cast, system, scripts, particles] = await Promise.all([
+			casting,
+			systems,
+			behaviour,
+			effects,
+		]);
+		box.client = new HexdelveClient(options, renderer, assets, cast, [system], scripts, particles);
 		return box.client;
 	}
 
@@ -228,6 +241,7 @@ export class HexdelveClient {
 		cast: Cast,
 		systems: readonly SystemAsset[],
 		scripts: ScriptProvider,
+		effects: ReadonlyMap<string, ParticleEffect>,
 	) {
 		this.canvas = options.canvas;
 		this.renderer = renderer;
@@ -253,6 +267,7 @@ export class HexdelveClient {
 			cast,
 			systems,
 			scripts,
+			effects,
 			...(options.seed !== undefined ? { seed: options.seed } : {}),
 			...(options.toggles ? { toggles: options.toggles } : {}),
 			...(options.playerSpeed !== undefined ? { playerSpeed: options.playerSpeed } : {}),

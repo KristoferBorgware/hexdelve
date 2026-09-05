@@ -236,3 +236,24 @@ export function slerp(out: Quat, a: QuatLike, b: QuatLike, t: number): Quat {
 export function fromYaw(out: Quat, angle: number): Quat {
 	return set(out, 0, Math.sin(angle / 2), 0, Math.cos(angle / 2));
 }
+
+/**
+ * A rotation of `angle` about an arbitrary axis.
+ *
+ * The axis is normalised here rather than trusted, because the callers that
+ * want this one are handing it a direction they worked out — a spin axis read
+ * off a particle effect file, an axis drawn at random — and a length that is
+ * not quite 1 becomes a quaternion that is not quite a rotation. An axis of
+ * zero length has no rotation to describe and gives the identity.
+ */
+export function fromAxisAngle(out: Quat, axis: ArrayLike<number>, angle: number): Quat {
+	const x = axis[0]!;
+	const y = axis[1]!;
+	const z = axis[2]!;
+	const len = Math.hypot(x, y, z);
+	if (len < 1e-8) return identity(out);
+
+	const half = angle / 2;
+	const sin = Math.sin(half) / len;
+	return set(out, x * sin, y * sin, z * sin, Math.cos(half));
+}

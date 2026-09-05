@@ -1,5 +1,5 @@
 /*
- * The yard: terrain, anvil, smithy, log house, smoke.
+ * The yard: terrain, anvil, smithy, log house.
  *
  * What comes back is everything the game needs to reason about the ground:
  *
@@ -7,13 +7,16 @@
  *   passable            walkable, with the climb limit as the caller's
  *                       business — a bat clears a step a man cannot
  *   anvil               the one prop whose position other code cares about
- *   smoke               the chimneys, which are the only thing here that moves
+ *   chimneys            where the two buildings vent, so something can be put
+ *                       on them
  *
  * Nothing in it knows what a character is.
  *
- * The static half is baked into one instance list at build time and copied
- * into the frame with a single array set. Only the smoke is rebuilt per frame,
- * because only the smoke moves.
+ * All of it is baked into one instance list at build time and copied into the
+ * frame with a single array set. Nothing here moves, which is the point of the
+ * chimneys being a list of POSITIONS rather than a plume: what comes out of one
+ * is a particle emitter placed on it by whoever built the scene, and where a
+ * building vents is the only half of that this file knows.
  */
 
 import {
@@ -32,9 +35,6 @@ import { HexInstances } from '@hexdelve/engine';
 
 import { buildCabin } from './cabin.js';
 import { AXIS_X, PrismField } from './field.js';
-
-const PI = Math.PI;
-const TAU = PI * 2;
 
 export interface Tile {
 	readonly q: number;
@@ -55,15 +55,12 @@ export interface WorldOptions {
 	stepH?: number;
 }
 
-interface SmokePuff {
-	readonly originX: number;
-	readonly originY: number;
-	readonly originZ: number;
-	readonly phase: number;
-	readonly wobble: number;
-	readonly rise: number;
-	/** Which building it belongs to, so it moves with that building's placement. */
-	readonly root: { x: number; y: number; z: number; yaw: number };
+/** Where a building vents, in the world, with the facing it was placed at. */
+export interface Chimney {
+	readonly x: number;
+	readonly y: number;
+	readonly z: number;
+	readonly yaw: number;
 }
 
 export interface World {
@@ -77,8 +74,8 @@ export interface World {
 	passable(cell: Axial, from: Axial | null, maxClimb: number): boolean;
 	isAnvil(cell: Axial): boolean;
 	readonly anvil: { cell: Axial; x: number; z: number; faceY: number };
-	/** Writes the chimney puffs for this moment into `out`. Blended, not opaque. */
-	emitSmoke(out: HexInstances, time: number): void;
+	/** The mouth of each chimney, for whoever wants to put smoke on it. */
+	readonly chimneys: readonly Chimney[];
 }
 
 export function buildWorld(options: WorldOptions): World {
@@ -93,7 +90,7 @@ export function buildWorld(options: WorldOptions): World {
 	const statics = new HexInstances(6000);
 	const tiles = new Map<string, Tile>();
 	const blocked = new Set<string>();
-	const smoke: SmokePuff[] = [];
+	const chimneys: Chimney[] = [];
 
 	const ANVIL_CELL: Axial = { q: 0, r: 0 };
 
@@ -296,7 +293,7 @@ export function buildWorld(options: WorldOptions): World {
 			flags: 1,
 		});
 
-		addSmoke(root, -0.75, 0.8 + 9 * 0.5 + 0.22, forgeZ, 8, 3.6);
+		addChimney(root, -0.75, 0.8 + 9 * 0.5 + 0.22, forgeZ);
 		blockFootprint(SMITHY.x, SMITHY.z, SMITHY.yaw, SMITHY_HALF_X, SMITHY_HALF_Z, 0.5);
 	}
 
@@ -322,66 +319,34 @@ export function buildWorld(options: WorldOptions): World {
 			woodpile: true,
 		});
 
-		addSmoke(root, built.chimney.x, built.chimney.y, built.chimney.z, 7, 3.2);
+		addChimney(root, built.chimney.x, built.chimney.y, built.chimney.z);
 		blockFootprint(CABIN.x, CABIN.z, CABIN.yaw, CABIN_HALF_X, CABIN_HALF_Z, 0.55);
 	}
 
-	/* ----------------------------------------------------------------- smoke -- */
+	/* -------------------------------------------------------------- chimneys -- */
 
-	function addSmoke(
+	/**
+	 * Where a chimney vents, carried out of its building's space into the world.
+	 *
+	 * The same trip the chimney prisms themselves made through `PrismField`,
+	 * written out once more here because what comes back is a point rather than
+	 * a prism — and a caller putting an emitter on it needs it in the space the
+	 * scene is in.
+	 */
+	function addChimney(
 		root: { x: number; y: number; z: number; yaw: number },
 		x: number,
 		y: number,
 		z: number,
-		count: number,
-		rise: number,
 	): void {
-		for (let i = 0; i < count; i++) {
-			smoke.push({
-				originX: x,
-				originY: y,
-				originZ: z,
-				phase: i / count,
-				wobble: random() * TAU,
-				rise,
-				root,
-			});
-		}
-	}
-
-	const smokeColor = rgbFromHex(0xd8d4cc);
-
-	function emitSmoke(out: HexInstances, time: number): void {
-		const period = 8;
-		for (const puff of smoke) {
-			const u = (((time / period + puff.phase) % 1) + 1) % 1;
-
-			// Authored in the building's own space, then carried out into the
-			// world by that building's placement — the same trip the chimney it
-			// comes out of made.
-			const lx = puff.originX + 0.5 * u * Math.sin(puff.wobble + u * 4);
-			const ly = puff.originY + 0.2 + u * puff.rise;
-			const lz = puff.originZ + 0.35 * u * Math.cos(puff.wobble + u * 3);
-
-			const sin = Math.sin(puff.root.yaw);
-			const cos = Math.cos(puff.root.yaw);
-			const s = 0.18 + u * 0.55;
-
-			out.pushRadial(
-				puff.root.x + lx * cos + lz * sin,
-				puff.root.y + ly,
-				puff.root.z - lx * sin + lz * cos,
-				s,
-				s * 0.7,
-				smokeColor,
-				{
-					yaw: puff.root.yaw + puff.wobble + u * 2,
-					// Fades in and back out across its rise, so a puff appears at
-					// the chimney rather than switching on in mid-air.
-					alpha: 0.4 * Math.sin(PI * Math.min(u * 1.7, 1)),
-				},
-			);
-		}
+		const sin = Math.sin(root.yaw);
+		const cos = Math.cos(root.yaw);
+		chimneys.push({
+			x: root.x + x * cos + z * sin,
+			y: root.y + y,
+			z: root.z - x * sin + z * cos,
+			yaw: root.yaw,
+		});
 	}
 
 	return {
@@ -395,6 +360,6 @@ export function buildWorld(options: WorldOptions): World {
 		passable,
 		isAnvil,
 		anvil: { cell: ANVIL_CELL, x: anvilPos.x, z: anvilPos.z, faceY: anvilFaceY },
-		emitSmoke,
+		chimneys,
 	};
 }

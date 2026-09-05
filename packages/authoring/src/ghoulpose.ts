@@ -34,6 +34,7 @@
 import { setSparse, type SparsePose } from '@hexdelve/engine';
 
 import { HUMANOID_CHAIN, solveArm, solveLeg, type Step, type Trunk } from './humanoid.js';
+import { HUMANOID_SOLE } from './stride.js';
 
 const PI = Math.PI;
 
@@ -44,7 +45,7 @@ const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
  * ground: the depth of its own foot and hand. The chain they are solved on
  * is the rig's, in humanoid.ts.
  */
-export const GHOUL_SOLE = 0.09;
+export const GHOUL_SOLE = HUMANOID_SOLE;
 export const GHOUL_PALM = 0.05;
 
 /** How far out the ghoul turns its knees on each gait. */

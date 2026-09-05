@@ -1,5 +1,5 @@
 /*
- * The editor shell: a toolbar, and one of eight views under it.
+ * The editor shell: a toolbar, and one of nine views under it.
  *
  * ## Where the code for one of them lives
  *
@@ -16,23 +16,30 @@
  * its controls, and the rig catalogue the three of them read.
  *
  * The YARD is the game, in a box — the client, unchanged, doing what a player
- * would see. The three BENCHES are the other thing an editor is for: one
- * subject, alone, held still. The character bench puts a rig on a stand with a
- * clock, because a running world will not hold a frame still; the prop bench
- * puts one piece of gear on the same stand, because a running world will not
- * show you a helmet at all — the three in the yard are lying in the grass at the
- * far end of it; and the level bench holds one generated dungeon while its
- * algorithm is compared against another one's, because a generator is a function
- * from a seed to a shape and the only way to judge the shape is to look at a lot
- * of them quickly. All three have scenes of their own for that reason and no
- * other.
+ * would see. The BENCHES are the other thing an editor is for: one subject,
+ * alone, held still. The character bench puts a rig on a stand with a clock,
+ * because a running world will not hold a frame still; the prop bench puts one
+ * piece of gear on the same stand, because a running world will not show you a
+ * helmet at all — the three in the yard are lying in the grass at the far end
+ * of it; and the level bench holds one generated dungeon while its algorithm is
+ * compared against another one's, because a generator is a function from a seed
+ * to a shape and the only way to judge the shape is to look at a lot of them
+ * quickly. All of them have scenes of their own for that reason and no other.
  *
- * The ENTITY bench is the fourth, and the only one that changes what it shows.
- * The other three preview a decision the code made; this one edits it — the
- * `object:` block of an entity file, as a tree of game objects with components
- * on them, saved back through the same host the asset view writes with. Its
- * subject stands on the character bench's stand, because the picture underneath
- * a prefab is the entity itself.
+ * The PARTICLE bench is the one that inverts the first of those arguments. The
+ * character bench exists because a world will not hold a frame still; an effect
+ * is nothing but motion and there is no frame of it to hold, so what that bench
+ * offers instead is scale and time — the emitter at a height you set, a post
+ * beside it to a person's height, and a clock you can slow down. It edits its
+ * subject as well as showing it, because thirty numbers is more than anybody
+ * can hold in their head between a text editor and a reload.
+ *
+ * The ENTITY bench is the other one that changes what it shows. The rest
+ * preview a decision the code made; this one edits it — the `object:` block of
+ * an entity file, as a tree of game objects with components on them, saved back
+ * through the same host the asset view writes with. Its subject stands on the
+ * character bench's stand, because the picture underneath a prefab is the
+ * entity itself.
  *
  * The ASSETS view is the other editor. Every other view here previews something
  * the code decided; that one edits the decision as text — the YAML under
@@ -78,6 +85,7 @@ import type { BackendPreference } from '@hexdelve/engine';
 import { Assets } from './views/assets/Assets.js';
 import { Scripts } from './views/scripts/Scripts.js';
 import { Bench } from './views/character/Bench.js';
+import { ParticleBenchView } from './views/particles/ParticleBenchView.js';
 import { PropBenchView } from './views/props/PropBenchView.js';
 import { EntityBenchView } from './views/entity/EntityBenchView.js';
 import { Inspector } from './views/yard/Inspector.js';
@@ -87,7 +95,16 @@ import { SceneOutline } from './views/yard/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
 import type { ScriptWatchState } from './scripts/reload.js';
 
-type View = 'yard' | 'bench' | 'props' | 'entity' | 'levels' | 'vaults' | 'assets' | 'scripts';
+type View =
+	| 'yard'
+	| 'bench'
+	| 'props'
+	| 'entity'
+	| 'particles'
+	| 'levels'
+	| 'vaults'
+	| 'assets'
+	| 'scripts';
 
 /** The views with nothing moving in them, where a transport would be furniture. */
 const STILL: readonly View[] = ['levels', 'vaults', 'assets'];
@@ -132,6 +149,7 @@ export function App() {
 						<ToggleButton value="bench">Character</ToggleButton>
 						<ToggleButton value="props">Props</ToggleButton>
 						<ToggleButton value="entity">Entity</ToggleButton>
+						<ToggleButton value="particles">Particles</ToggleButton>
 						<ToggleButton value="levels">Level</ToggleButton>
 						<ToggleButton value="vaults">Vault</ToggleButton>
 					</ToggleButtonGroup>
@@ -189,6 +207,7 @@ export function App() {
 				{view === 'bench' && <Bench backend={backend} running={running} />}
 				{view === 'props' && <PropBenchView backend={backend} running={running} />}
 				{view === 'entity' && <EntityBenchView backend={backend} running={running} />}
+				{view === 'particles' && <ParticleBenchView backend={backend} running={running} />}
 				{view === 'levels' && <Levels backend={backend} />}
 				{view === 'vaults' && <Vaults />}
 				{view === 'assets' && <Assets />}

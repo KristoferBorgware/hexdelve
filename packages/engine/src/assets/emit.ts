@@ -27,12 +27,31 @@ import type { ClipEvent, PoseEntry, PoseKey } from '../anim/clip.js';
 import type { EntityDocument } from './entity.js';
 import type { ComponentSpec, PrefabNode } from './prefab.js';
 
+/**
+ * A value written exactly as given, with no quoting and no reformatting.
+ *
+ * The escape hatch for a number whose SPELLING carries meaning. A colour is
+ * `0xd8d4cc` everywhere in this project, and `14210252` is the same colour
+ * written in a way nobody can read or edit — so a writer that has one emits
+ * the text rather than the value. The caller is answerable for the text
+ * parsing back to what it came from; nothing here checks it.
+ */
+export class Literal {
+	constructor(readonly text: string) {}
+}
+
+/** A colour, as the hexadecimal every other file in this tree writes. */
+export function hexLiteral(value: number): Literal {
+	return new Literal(`0x${(value >>> 0).toString(16).padStart(6, '0')}`);
+}
+
 /** A value this writer can put in a file. */
 export type Emittable =
 	| string
 	| number
 	| boolean
 	| null
+	| Literal
 	| readonly Emittable[]
 	| { readonly [key: string]: Emittable };
 
@@ -58,7 +77,7 @@ const INLINE_DEPTH = 2;
 
 /** Something with no structure under it, which is what may go inline at all. */
 function isScalar(value: Emittable): boolean {
-	return value === null || typeof value !== 'object';
+	return value === null || typeof value !== 'object' || value instanceof Literal;
 }
 
 /** How many containers deep a value nests. A scalar is zero. */
@@ -119,6 +138,7 @@ function emitString(value: string, flow: boolean): string {
 
 function emitScalar(value: Emittable, flow: boolean): string {
 	if (value === null) return 'null';
+	if (value instanceof Literal) return value.text;
 	if (typeof value === 'number') return emitNumber(value);
 	if (typeof value === 'boolean') return value ? 'true' : 'false';
 	if (typeof value === 'string') return emitString(value, flow);

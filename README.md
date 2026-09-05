@@ -61,8 +61,8 @@ packages/
                 on its own and fetched, so a broken one cannot stop a build
   editor/       React and Material UI shell: the client in a viewport, benches
                 for one rig, one piece of gear, one entity's object tree, one
-                generated level and one hand-drawn vault, and Monaco over the
-                asset files and the scripts
+                particle effect, one generated level and one hand-drawn vault,
+                and Monaco over the asset files and the scripts
   desktop/      Electron wrapper around the client's build
   editor-desktop/
                 Electron wrapper around the editor's build, and the only host
@@ -70,7 +70,7 @@ packages/
 labs/           one folder per lab, each a standalone page
   shared/       the code the labs are built from
 public/assets/   served as themselves by both apps, and copied into both builds
-  index.yaml    every entity the game has, in catalogue order
+  index.yaml    every entity and every particle effect, in catalogue order
   entities/     the root file per asset: what rig, body, clips and trees belong
                 together, and the object it is when it stands in the world —
                 props are entities too, with no rig
@@ -79,6 +79,8 @@ public/assets/   served as themselves by both apps, and copied into both builds
   meshes/       hex prisms bound to bones
   clips/        keyframes, pose-major
   trees/        blend trees over animations the entity names
+  particles/    emitters: how many hexagons, thrown how, and what their size,
+                colour and turn do over a life
   audio/        the ambience loops, the generators that synthesise them, and
                 the catalogue naming what has been encoded
 docs/
@@ -595,10 +597,11 @@ does.
 | `scene` | The object model's **orderings**: what a transform composes to, which components run before which, and what a teardown fires in what order. `destroy` unparenting a child before its hooks ran was found here on the first run. |
 | `prefab` | That a prefab file reads to the tree it describes, that a component type nobody registered is refused by name, and that the entities which actually ship carry what they claim to. |
 | `scripting` | The four promises the host makes: an id keeps meaning the same script, a parameter somebody set survives a reload, a file that will not compile does not take the running game down, and a script throwing sixty times a second is muted rather than shouted. Also compiles the real script directory the real way, which is the only place `@on` as syntax is exercised. |
-| `combat` | A blow all the way through, on the real simulation: the entity files, the system prefab, the swing, the rule and the hit points. Five pieces have to agree, and none of the tests above would catch a script name misspelt in a YAML file. |
+| `combat` | A blow all the way through, on the real simulation: the entity files, the system prefab, the swing, the rule and the hit points. Five pieces have to agree, and none of the tests above would catch a script name misspelt in a YAML file. Also the picture side of the same blow — the blood is spawned where it landed and takes its own object out afterwards — and that a manifest listing no effects at all still runs a whole fight. |
 | `controls` | Whose key a keypress is. The window-wide handler that answers the space bar sees every key on the page, including the ones going into a code editor beside the yard — and the shapes it has to recognise as "somebody is typing" include an element with an `EditContext` attached, which is neither a form control nor contenteditable. |
 | `devserver` | Boots a real dev server with the real plugins in the real order, because the one bug this has caught was not in a handler but in how two of them sat next to each other: the source route was answering for `/scripts.js`, so `npm run dev` ran with no behaviour in it at all. It also covers what the editor saves through — a PUT and a DELETE for an asset and for a script, each refusing a name that is not one and a path that leads out of its tree — and the declarations the code editor is handed. |
 | `shaders` | WebGPU marks a bad pipeline invalid rather than throwing, so a broken shader reaches a browser looking healthy and only fails on the first draw. |
+| `particles` | Four things that fail quietly. A capacity is a **ceiling**, and a death is a swap with the last live particle — an off-by-one there loses a live one or resurrects a dead one, and neither shows up as anything but a slightly wrong picture. A rate is particles a **second**, not a frame, which is invisible at sixty and obvious at fifteen. A curve **holds** past its last stop rather than extrapolating, because an extrapolated size goes negative and a negative prism is inside out. And an effect written back and read again is the same effect, which is the whole of what makes a bench that saves trustworthy. |
 | `render` | None of the above would notice a sign flip that put every shadow on the wrong side of every building, so a picture lives in `test/reference/` and is compared against. |
 | `backends` | The two shader sets are written twice on purpose; this is what stops them drifting apart. Needs a working WebGPU device and usually skips for want of one. |
 
@@ -872,6 +875,53 @@ front, with the follow-through behind his shoulder discarded, since a sword
 finishing its arc back there is not cutting anything he is fighting. That is
 also what lets him square up to what he is fighting rather than standing
 side-on to aim the arc at it.
+
+## Particles are the same prism, thrown
+
+A particle system here draws hexagonal prisms. Not billboards, not textured
+quads, not points — the same primitive the terrain and the characters are cut
+from, put through the same instance buffer and the same two shaders. That is
+not a limitation accepted for tidiness. A billboard needs a texture, a texture
+needs an atlas, an atlas needs a pipeline that reads one, and the whole of that
+would exist so that smoke could be something other than what everything else in
+the picture is made of. A puff of smoke here is four squat hexagons, and it
+reads as smoke.
+
+**An effect is a file, not a lump of code.** `public/assets/particles/*.yaml`
+says how many arrive and where from, what each is born with, what happens to it
+after it is thrown, and what its size, colour and alpha do across its own life.
+Two of them ship: the chimney smoke over both buildings, and the blood off a
+blow. Being files is what makes them tunable by looking — the particle bench
+opens either one, runs it a metre from your eye, and writes the changes back.
+
+**Every number is a mean and a variance.** `speed` and `speedVariance`, `life`
+and `lifeVariance`. That pairing is the whole of what makes a system read as an
+organic thing: a stream of particles that agree exactly on their speed looks
+extruded. It is Reeves's 1983 arrangement, restated in the 1998 Game Developer
+article this was written against, and nothing since has improved on it.
+
+**Size, colour, alpha and turn are driven over a normalised life.** A curve is
+a list of `{ at, value }` stops, `at` running 0 at birth to 1 at death, so a
+particle that happened to be born with a long life fades over that longer span
+rather than on somebody else's schedule.
+
+**An emitter is a component.** `{ type: particles, effect: ... }` on any object
+in a prefab, or an object spawned by hand where a blow landed. It moves with
+whatever it is under like anything else in the tree, and `autoDestroy` takes a
+one-shot's object out of the scene once the last fleck has gone.
+
+The pool is a flat `Float32Array` of nineteen floats a particle, allocated once
+and never grown; a death is a swap with the last live one. `capacity` is
+therefore a ceiling somebody chose rather than a number the runtime discovers,
+which is what keeps the count of prisms in a frame from depending on how long
+the effect has been running or how the fight has been going.
+
+**The particle bench is where one is authored.** The character bench exists
+because a running world will not hold a pose still; an effect is nothing but
+motion and there is no frame of it to hold, so what that bench offers instead
+is scale and time — the emitter at a height you set, a post beside it to a
+person's height, a clock you can slow down, and every field as a control with
+the document it would write shown beside them.
 
 ## Facing and travel come apart
 

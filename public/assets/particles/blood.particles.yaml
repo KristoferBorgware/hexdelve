@@ -1,0 +1,78 @@
+# Blood off a blow: a dozen dark flecks, thrown once.
+#
+# A one-shot, which is what the short `duration` and the cleared `loop` say
+# together: the burst goes out at the moment the emitter starts, the emitter
+# stops a frame or two later, and the object carrying it takes itself out of
+# the scene once the last fleck has gone — see `autoDestroy` on the component.
+#
+# It is spawned at the point a blow landed rather than parented to whatever was
+# hit, and `space: world` is the other half of that: the flecks belong to the
+# air they were thrown into, so a bat that is still moving does not drag its
+# own blood along with it.
+#
+# `tumble` is the difference between this and the smoke. Smoke is a disc that
+# turns about its axis; a fleck of something solid has no axis worth naming and
+# should be seen to be spinning end over end.
+
+id: blood
+name: Blood burst
+
+capacity: 48
+# Long enough for the burst to leave, and not a frame more. Nothing follows it,
+# because the rate is zero.
+duration: 0.08
+loop: false
+
+emit:
+  rate: 0
+  rateVariance: 0
+  burst: 13
+  burstVariance: 4
+  # A small volume rather than a point, thrown partly outward from it, so the
+  # spray leaves the wound as a cloud rather than as a star from one pixel.
+  shape: { kind: sphere, radius: 0.055, outward: 0.4 }
+
+particle:
+  life: 0.55
+  lifeVariance: 0.2
+  speed: 2.5
+  speedVariance: 1.1
+  # Up and outward, over most of a hemisphere.
+  pitch: 0.72
+  pitchVariance: 0.8
+  yaw: 0
+  yawVariance: pi
+
+motion:
+  gravity: [0, -9.2, 0]
+  drag: 0.55
+  space: world
+
+size:
+  curve:
+    - { at: 0, value: 0.052 }
+    - { at: 0.6, value: 0.04 }
+    - { at: 1, value: 0.016 }
+  variance: 0.4
+  aspect: 0.85
+
+color:
+  curve:
+    - { at: 0, value: 0x9c2420 }
+    - { at: 1, value: 0x4a1210 }
+  variance: 0.09
+
+alpha:
+  curve:
+    - { at: 0, value: 0.95 }
+    - { at: 0.7, value: 0.85 }
+    - { at: 1, value: 0 }
+  variance: 0.1
+
+spin:
+  rate: 7
+  rateVariance: 7
+  axis: [0, 1, 0]
+  tumble: true
+
+unlit: false

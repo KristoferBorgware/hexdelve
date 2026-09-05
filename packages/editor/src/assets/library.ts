@@ -16,7 +16,7 @@
  */
 
 import { openAssets, type EntityAsset } from '@hexdelve/client';
-import type { AssetLibrary } from '@hexdelve/engine';
+import type { AssetLibrary, ParticleEffect } from '@hexdelve/engine';
 import { useCallback, useEffect, useState } from 'react';
 
 /** The editor's one library. Opened once, at module load — it does no I/O yet. */
@@ -25,6 +25,8 @@ export const library: AssetLibrary = openAssets();
 export interface AssetState {
 	/** Every entity the manifest lists, in its order. Empty until loaded. */
 	readonly entities: readonly EntityAsset[];
+	/** Every particle effect it lists, in its order. Empty until loaded. */
+	readonly effects: readonly ParticleEffect[];
 	/** Every file reaching those entities touched, sorted. */
 	readonly paths: readonly string[];
 	readonly loading: boolean;
@@ -32,7 +34,7 @@ export interface AssetState {
 	readonly error: string | null;
 }
 
-const EMPTY: AssetState = { entities: [], paths: [], loading: true, error: null };
+const EMPTY: AssetState = { entities: [], effects: [], paths: [], loading: true, error: null };
 
 /**
  * Load the manifest, and reload it on demand.
@@ -52,16 +54,21 @@ export function useAssets(): AssetState & { reload: () => void } {
 		let live = true;
 		setState((previous) => ({ ...previous, loading: true, error: null }));
 
-		library
-			.index()
-			.then((entities) => {
+		/*
+		 * Both lists off the one manifest, together. Neither needs the other and
+		 * the manifest's text is read once and remembered, so the second call
+		 * costs a parse rather than a fetch.
+		 */
+		Promise.all([library.index(), library.effectIndex()])
+			.then(([entities, effects]) => {
 				if (!live) return;
-				setState({ entities, paths: library.paths, loading: false, error: null });
+				setState({ entities, effects, paths: library.paths, loading: false, error: null });
 			})
 			.catch((error: unknown) => {
 				if (!live) return;
 				setState({
 					entities: [],
+					effects: [],
 					paths: library.paths,
 					loading: false,
 					error: error instanceof Error ? error.message : String(error),

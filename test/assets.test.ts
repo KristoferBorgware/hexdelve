@@ -57,6 +57,8 @@ import {
 	direRunPose,
 	flyPose,
 	HUMANOID_CHAIN,
+	GHOUL_SOLE,
+	HUMANOID_SOLE,
 	SCRAMBLE_CONTACTS,
 	SCRAMBLE_PERIOD,
 	scramblePose,
@@ -72,6 +74,7 @@ import {
 	SPIDER_TIP,
 	SPIDER_TIPS,
 	SPIT_AT,
+	ZOMBIE_SOLE,
 	spiderRunPose,
 	spiderSpitPose,
 	STOMP_CONTACTS,
@@ -400,12 +403,12 @@ describe('entities', () => {
 		// through the blow.
 		for (const t of [0, 0.45, clip.duration]) {
 			for (const foot of ['footL', 'footR']) {
-				expect(world(t)[foot]!.p[1], `${foot} at ${t}s`).toBeGreaterThan(0.07);
-				expect(world(t)[foot]!.p[1], `${foot} at ${t}s`).toBeLessThan(0.13);
+				expect(world(t)[foot]!.p[1], `${foot} at ${t}s`).toBeGreaterThan(HUMANOID_SOLE - 0.02);
+				expect(world(t)[foot]!.p[1], `${foot} at ${t}s`).toBeLessThan(HUMANOID_SOLE + 0.05);
 			}
 		}
-		expect(struck.footL!.p[1]).toBeGreaterThan(0.07);
-		expect(struck.footL!.p[1]).toBeLessThan(0.13);
+		expect(struck.footL!.p[1]).toBeGreaterThan(HUMANOID_SOLE - 0.02);
+		expect(struck.footL!.p[1]).toBeLessThan(HUMANOID_SOLE + 0.05);
 	});
 
 	it('the ghoul’s leap lands in the next hexagon, strikes there, and comes back', async () => {
@@ -428,8 +431,8 @@ describe('entities', () => {
 		for (const t of [0, 0.3, strike.t, 0.72, clip.duration]) {
 			const world = solveWorld(entityRig(ghoul)!.skeleton, leap.sample(t, {}));
 			for (const foot of ['footL', 'footR']) {
-				expect(world[foot]!.p[1], `${foot} at ${t}s`).toBeGreaterThan(0.06);
-				expect(world[foot]!.p[1], `${foot} at ${t}s`).toBeLessThan(0.12);
+				expect(world[foot]!.p[1], `${foot} at ${t}s`).toBeGreaterThan(HUMANOID_SOLE - 0.03);
+				expect(world[foot]!.p[1], `${foot} at ${t}s`).toBeLessThan(HUMANOID_SOLE + 0.05);
 			}
 		}
 		// It lands on all fours: at the strike and through the rake the palms
@@ -770,8 +773,8 @@ describe('the pose functions still agree with the rigs', () => {
 			for (let i = 0; i <= 10; i++) {
 				const own = Math.PI / 2 + (Math.PI * i) / 10;
 				const world = solveWorld(rig.skeleton, shamblePose(own - offset, 1, 0, {}));
-				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeGreaterThan(0.07);
-				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeLessThan(0.11);
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeGreaterThan(GHOUL_SOLE - 0.02);
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeLessThan(GHOUL_SOLE + 0.02);
 			}
 		}
 		const ghoul = await entity('ghoul');
@@ -827,8 +830,8 @@ describe('the pose functions still agree with the rigs', () => {
 			for (let i = 0; i <= 10; i++) {
 				const own = Math.PI / 2 + (Math.PI * i) / 10;
 				const world = solveWorld(rig.skeleton, shufflePose(own - offset, 1, 0, {}));
-				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeGreaterThan(0.08);
-				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeLessThan(0.12);
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeGreaterThan(ZOMBIE_SOLE - 0.02);
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeLessThan(ZOMBIE_SOLE + 0.02);
 			}
 			// How high each foot is carried mid-swing: the right barely leaves the ground.
 			const lifted = solveWorld(rig.skeleton, shufflePose(-offset, 1, 0, {}))[foot]!.p[1];

@@ -363,7 +363,111 @@ back to being a gait's own dip rather than a correction. Either way a rig check
 worth having is that every foot the rig names can reach the ground with a
 stride's worth of room left over.
 
-### F-029 — A baked clip's key cap is the same for a ten-second stand as for a one-second stride
+### F-029 — Two benches find an asset's file by guessing its path from its id
+
+**Kind:** risk
+**Milestone:** unscheduled
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-05, adding a save button to the particle bench
+**Where:** `entityPath` in `packages/editor/src/views/entity/saveEntity.ts`,
+`effectPath` in `packages/editor/src/views/particles/saveEffect.ts`
+
+**What happens.** Both functions build a path out of a convention:
+`entities/<id>.entity.yaml` and `particles/<id>.particles.yaml`. Nothing checks
+that the file the manifest actually listed is at that path. The manifest is the
+thing that knows where a file is — `AssetLibrary.index()` and
+`effectIndex()` resolve every entry — and neither returns the path it resolved,
+so the editor guesses instead.
+
+Today the guess is right, because every file in the tree follows the convention.
+It stops being right the moment a file is moved into a subdirectory, named for
+something other than its id, or listed twice under different ids.
+
+**Why it matters.** A save that writes to a path nothing reads from produces a
+file that looks saved and changes nothing, and the editor cannot tell: the write
+succeeds, the library invalidates, and the reload comes back with the old
+document because the old document is still the one the manifest points at. That
+is worse than a refusal, because the change is gone and the panel says it was
+written.
+
+Nobody is hurt yet. Both conventions hold across every file in the tree, and the
+manifest is a dozen lines long.
+
+**What would fix it.** Have the library hand back the path it read each thing
+from — an `EntityAsset` and a `ParticleEffect` carrying the path they came out
+of, or an index that returns `{ path, asset }` pairs — and have both save
+functions use it. The alternative, checking the guess against
+`AssetLibrary.paths` and refusing when it is not there, turns a silent wrong
+write into a loud one but still cannot save a file that is where the manifest
+says.
+
+### F-030 — The entity bench cannot show a particle emitter
+
+**Kind:** gap
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** medium
+**Found:** 2026-09-05, adding the `particles` component
+**Where:** `build` in `packages/editor/src/bench/CharacterBench.ts`,
+`packages/editor/src/views/entity/EntityBenchView.tsx`
+
+**What happens.** An entity file may now carry
+`{ type: particles, effect: ... }` on any object in its tree — a torch, a
+censer, a creature that smoulders. The entity bench draws its subject from a
+`Model` and a skeleton view, and its gizmos from a list of placed nodes; it
+never instantiates the prefab into a live scene. So a `particles` record on an
+entity shows as a row in the tree and as nothing at all in the viewport.
+
+**Why it matters.** Nothing in the game carries one yet, so nobody is hurt
+today. It matters the first time an emitter is authored as part of a creature
+rather than placed by hand: the bench is where an entity's object tree is
+edited, and the one component whose whole content is what it looks like would be
+the one component that cannot be seen there. The particle bench shows the effect
+but not the entity carrying it, so there would be no view that shows both.
+
+**What would fix it.** Two shapes are possible. The bench could instantiate the
+prefab into a real `Scene` with the engine's registry and draw whatever
+components are on it, which is the honest fix and also the larger one — it
+would want the animator driving the scene rather than the bench's own clock.
+Or the bench could look for `particles` records specifically, build a
+`ParticleSystem` per record, and place each at the node's own transform, which
+is an afternoon and does not generalise to the next component with a picture.
+
+### F-031 — The entity bench's console-error check fails about one full run in six
+
+**Kind:** risk
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** medium
+**Found:** 2026-09-05, running the suite repeatedly through the animation work
+**Where:** `came up without an error on the console` in `test/entitybench.test.ts`
+
+**What happens.** The last assertion in the entity bench's browser test collects
+everything the page logged from boot onwards and expects nothing. Across a day
+of full-suite runs it failed four times and passed every other time, always
+green on the very next run of the same commit.
+
+**[measured]** Run on its own it passed six times out of six, so whatever it is
+needs the rest of the suite running alongside it — three browser tests, a dev
+server and a software rasteriser competing for the same container.
+
+The message was never captured: it appears in a full run, and re-running to read
+it is the thing that makes it pass. It may be F-016 — a file the dev server has
+just written being served as HTML would put an error on the console — but that
+is a guess, and it should not be recorded as anything more.
+
+**Why it matters.** A test that fails one run in six and passes on retry is a
+test people learn to re-run, and the next real failure it catches gets re-run
+too. It is also the only assertion in the suite covering the editor's boot.
+
+**What would fix it.** Capture the message first: keep the collected errors in a
+file the run leaves behind rather than only in the assertion, so one failing
+full run says what it saw. Then decide — if it is a fetch racing the dev server
+it is F-016 and belongs there; if it is the bench itself, it is a real bug that
+has been hiding behind a retry.
+
+### F-032 — A baked clip's key cap is the same for a ten-second stand as for a one-second stride
 
 **Kind:** idea
 **Milestone:** unscheduled
@@ -397,6 +501,38 @@ so a ten-second stand can carry what a ten-second stand has in it. A per-job
 `maxKeys` is a field on `BakeJob` and one line in the baker.
 
 ## Closed
+
+**Closed in part:** 2026-09-05, the humanoid is fixed; the hellhound is not.
+
+The humanoid's thigh goes 0.41 to 0.46 and its shin 0.35 to 0.40, so the leg is
+0.86 against a 0.80 drop from hip to ankle. The slack is what a knee bends into,
+standing and striding alike — a leg exactly as long as the drop can reach the
+grass and do nothing else. The walk's crouch falls from 0.16 to 0.04 and the
+run's from 0.22 to 0.09, and both are the stride's now rather than the rig's.
+
+`hipHeight` deliberately did NOT move. Raising it to make a straight leg stand
+was tried first and cascades: everything above the hips goes up with it, and
+every hand-authored clip's root height is then wrong. A rest pose with a soft
+knee costs nothing and moves nothing.
+
+What lengthening a bone does invalidate is any clip that keys a leg by its
+angle, because where the ankle ends up is a consequence of the bone. Seven
+clips carried leg keys and all were re-fitted rather than re-authored: read the
+ankle off the old chain, solve the new chain to the same point, and give the
+foot back the orientation the change took from it. What the author meant was
+where the ankle IS, and that is preserved exactly.
+
+The two soles went with it. `GHOUL_SOLE` was 0.09 and `ZOMBIE_SOLE` 0.1 against
+a rig whose foot tip is 0.08 — three guesses at one number, and a foot's depth
+is the rig's. They share `HUMANOID_SOLE` now, which halved the ghoul's planted
+foot error and quartered the zombie's.
+
+**The hellhound is still open.** Its front leg falls 0.11 m short of the ground
+from the chest it hangs off and its hind pair reach it with nothing to spare, so
+`STAND` goes on crouching and pitching to make up for the rig. Its two pairs
+would need different lengths, which its chain does not currently express — both
+use one `upper` and one `lower`.
+
 
 ### F-026 — The game's humanoid locomotion does not run through its blend tree
 

@@ -71,8 +71,10 @@ export {
 	SCRAMBLE_PERIOD,
 	SHAMBLE_CONTACTS,
 	SHAMBLE_PERIOD,
+	GHOUL_SOLE,
+	GHOUL_PALM,
 } from './ghoulpose.js';
-export { shufflePose, SHUFFLE_CONTACTS, SHUFFLE_PERIOD } from './zombiepose.js';
+export { shufflePose, SHUFFLE_CONTACTS, SHUFFLE_PERIOD, ZOMBIE_SOLE } from './zombiepose.js';
 export {
 	runPose as spiderRunPose,
 	spitPose as spiderSpitPose,
