@@ -54,16 +54,19 @@ beforeAll(async () => {
 	const address = server.httpServer?.address();
 	if (!address || typeof address === 'string') throw new Error('the editor did not listen');
 
+	/*
+	 * The machine's own Chrome first, then Playwright's download, which is
+	 * the order the render and shader tests use: a CI runner has a Chrome of
+	 * its own and no Playwright browser, a container the other way round.
+	 */
+	const args = ['--enable-unsafe-webgpu', '--use-angle=swiftshader', '--use-vulkan=swiftshader', '--ignore-gpu-blocklist'];
+	const executablePath = process.env['CHROME_PATH'];
 	try {
-		browser = await chromium.launch({
-			args: [
-				'--enable-unsafe-webgpu',
-				'--use-angle=swiftshader',
-				'--use-vulkan=swiftshader',
-				'--ignore-gpu-blocklist',
-			],
-			...(process.env['CHROME_PATH'] ? { executablePath: process.env['CHROME_PATH'] } : {}),
-		});
+		try {
+			browser = await chromium.launch(executablePath ? { args, executablePath } : { args, channel: 'chrome' });
+		} catch {
+			browser = await chromium.launch({ args });
+		}
 	} catch (cause) {
 		why = `no browser (${String(cause).split('\n')[0]})`;
 		return;
