@@ -59,6 +59,7 @@ import {
 	wrapAngle,
 	type Opponent,
 } from './actor.js';
+import { Acting } from './acting.js';
 import { Swing } from './events.js';
 import { huntOrders, type HuntOrders, type HuntState } from './hunt.js';
 import { BatAnimator } from './batanimator.js';
@@ -155,17 +156,6 @@ export interface BatOptions {
 	speed?: number;
 }
 
-interface InFlight {
-	readonly kind: BatActionKind;
-	readonly seconds: number;
-	clock: number;
-	readonly from: Tile;
-	readonly to: Tile;
-	readonly cell: Axial;
-	readonly target: Axial | null;
-	done: boolean;
-}
-
 export class BatHunt extends ActorBehaviour implements TurnTaker {
 	readonly name = 'bat';
 	readonly speed: number;
@@ -182,7 +172,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	 * else. Set after both are spawned, because each needs the other.
 	 */
 	opponent: Opponent | null = null;
-	private flight: InFlight | null = null;
+	readonly acting: Acting;
 
 	/** 0 folded, 1 flying. */
 	private wake = 0;
@@ -210,8 +200,11 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		super(object);
 		const tile = options.terrain.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the bat cannot perch on ${options.cell.q},${options.cell.r}`);
-		this.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
 		this.ground = options.terrain;
+
+		/* Where it is and what it is in the middle of — see `acting.ts`. */
+		this.acting = object.getComponent(Acting) ?? object.addComponent(Acting);
+		this.acting.place(options.cell, options.yaw ?? 0);
 		this.scripts = options.scripts ?? null;
 		this.cell = { q: options.cell.q, r: options.cell.r };
 		this.speed = options.speed ?? BAT_SPEED;
@@ -245,7 +238,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	}
 
 	get busy(): boolean {
-		return this.flight !== null;
+		return this.acting.busy;
 	}
 
 	/**
@@ -327,16 +320,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		target: Axial | null,
 	): Action {
 		const seconds = actionSeconds(ACTION_ENERGY, this.speed);
-		this.flight = {
-			kind,
-			seconds,
-			clock: 0,
-			from: this.tile(),
-			to,
-			cell: { q: cell.q, r: cell.r },
-			target: target ? { q: target.q, r: target.r } : null,
-			done: false,
-		};
+		this.acting.begin(kind, seconds, to, cell, target);
 		this.message = message;
 		if (kind === 'bite') this.lunge = 0;
 		return { kind, cost: ACTION_ENERGY, seconds };
@@ -365,19 +349,20 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	 */
 	advance(dt: number, _time: number): void {
 		this.advanceFall(dt);
+		this.acting.advance(dt);
+
 		const player = this.opponent;
-		const flight = this.flight;
+		const flight = this.acting.flight;
 		let flapAmp = 1;
 		let speed = 0;
 
 		if (flight) {
-			flight.clock += dt;
-			const u = flight.seconds > 0 ? Math.min(1, flight.clock / flight.seconds) : 1;
+			const u = this.acting.phase;
 
 			switch (flight.kind) {
 				case 'move': {
-					this.x = flight.from.x + (flight.to.x - flight.from.x) * u;
-					this.z = flight.from.z + (flight.to.z - flight.from.z) * u;
+					// The travel itself is `Acting`'s, below. What is the bat's
+					// is which way it points while it does it.
 					speed = HEX_SPACING / flight.seconds;
 					const ahead = Math.atan2(flight.to.x - flight.from.x, flight.to.z - flight.from.z);
 					this.yaw += clamp(wrapAngle(ahead - this.yaw), -6 * dt, 6 * dt);
@@ -390,10 +375,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 					this.lunge = u;
 					this.lungeBlend = Math.min(1, this.lungeBlend + dt * 7);
 					flapAmp = 0.5;
-					if (!flight.done && u >= this.biteAt) {
-						flight.done = true;
-						this.landBite(flight.target);
-					}
+					if (this.acting.reached(this.biteAt)) this.landBite(flight.target);
 					break;
 				}
 				case 'reel':
@@ -410,23 +392,23 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 				default:
 					break;
 			}
+		}
 
-			if (flight.clock >= flight.seconds) {
-				this.cell = flight.cell;
-				const settled = this.tile();
-				if (flight.kind === 'move') {
-					this.x = settled.x;
-					this.z = settled.z;
-				}
-				this.flight = null;
-				if (flight.kind === 'bite') {
-					this.lunge = 0;
-					this.message = 'backing off';
-				}
+		/*
+		 * And it ends here, after the bat has had its say. Its height is not
+		 * settled with it — the wings hold it off the ground, and that is
+		 * worked out below on the wall clock rather than on the turn's.
+		 */
+		const ended = this.acting.settle();
+		if (ended) {
+			this.cell = this.acting.cell;
+			if (ended.kind === 'bite') {
+				this.lunge = 0;
+				this.message = 'backing off';
 			}
 		}
 
-		if (this.flight?.kind !== 'bite') {
+		if (this.acting.flight?.kind !== 'bite') {
 			this.lungeBlend = Math.max(0, this.lungeBlend - dt * 5);
 		}
 
@@ -434,7 +416,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		 * The lean into the bite: what the lunge cannot reach across a
 		 * hexagon, out and back. The bat's copy of `LEAN_IN`.
 		 */
-		const biting = this.flight?.kind === 'bite';
+		const biting = this.acting.flight?.kind === 'bite';
 		const wantLean = biting ? this.leanIn * Math.sin(Math.PI * this.lunge) : 0;
 		this.lean += (wantLean - this.lean) * Math.min(1, dt * 12);
 

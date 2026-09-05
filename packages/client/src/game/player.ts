@@ -52,6 +52,7 @@ import type { ScriptHost } from '@hexdelve/engine';
 
 import { ActorBehaviour, clamp, NOWHERE, wrapAngle, type Opponent } from './actor.js';
 import { Swing } from './events.js';
+import { Acting } from './acting.js';
 import { HumanoidAnimator } from './humanoidanimator.js';
 import { playerOrders, type PlayerOrders } from './orders.js';
 
@@ -205,21 +206,6 @@ export interface PlayerOptions {
 	swordTip: readonly [number, number, number];
 }
 
-interface InFlight {
-	readonly kind: PlayerActionKind;
-	readonly seconds: number;
-	clock: number;
-	/** Where the step starts and ends. Equal for anything that is not a move. */
-	readonly from: Tile;
-	readonly to: Tile;
-	/** The hexagon he is on when this finishes. */
-	readonly cell: Axial;
-	/** The hexagon a cut is aimed at. */
-	readonly target: Axial | null;
-	readonly item: Item | null;
-	done: boolean;
-}
-
 export class Player extends ActorBehaviour implements TurnTaker {
 	readonly name = 'you';
 	readonly speed: number;
@@ -240,7 +226,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	 * built first. Null on a bench.
 	 */
 	opponent: Opponent | null = null;
-	private flight: InFlight | null = null;
+	readonly acting: Acting;
 
 	/**
 	 * How fast a hexagon in one action works out to — settled once, because his
@@ -265,8 +251,14 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		super(object);
 		const tile = options.terrain.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the player cannot start on ${options.cell.q},${options.cell.r}`);
-		this.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
 		this.ground = options.terrain;
+
+		/*
+		 * Where he is and what he is in the middle of, which every creature
+		 * that takes turns has the same way — see `acting.ts`.
+		 */
+		this.acting = object.getComponent(Acting) ?? object.addComponent(Acting);
+		this.acting.place(options.cell, options.yaw ?? 0);
 		this.items = options.items;
 		this.scripts = options.scripts ?? null;
 		this.cell = { q: options.cell.q, r: options.cell.r };
@@ -302,8 +294,11 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		return this.items.some((i) => i.name === 'shield' && i.worn);
 	}
 
+	/** What he is stooping for, while he is stooping for it. */
+	private carrying: Item | null = null;
+
 	get busy(): boolean {
-		return this.flight !== null;
+		return this.acting.busy;
 	}
 
 	/**
@@ -356,9 +351,9 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		target: Axial | null,
 		item: Item | null,
 	): Action {
-		const from = this.tile();
 		const seconds = actionSeconds(ACTION_ENERGY, this.speed);
-		this.flight = { kind, seconds, clock: 0, from, to, cell, target, item, done: false };
+		this.acting.begin(kind, seconds, to, cell, target);
+		this.carrying = item;
 		this.control.state = kind;
 		this.control.message = message;
 		return { kind, cost: ACTION_ENERGY, seconds };
@@ -389,7 +384,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		const action = this.begin('wait', message, this.tile(), this.cell, null, null);
 		// Nothing to watch, so it is over the moment it began — otherwise a man
 		// standing still would hold the whole world up for a second a turn.
-		this.flight = null;
+		this.acting.clear();
 		this.control.state = 'idle';
 		return { ...action, seconds: 0 };
 	}
@@ -412,51 +407,38 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	 */
 	advance(dt: number, _elapsed: number): void {
 		this.advanceFall(dt);
-		const flight = this.flight;
+		this.acting.advance(dt);
+
+		const flight = this.acting.flight;
 		let moving = false;
 
 		if (flight) {
-			flight.clock += dt;
-			const u = flight.seconds > 0 ? Math.min(1, flight.clock / flight.seconds) : 1;
 
 			if (flight.kind === 'move') {
 				moving = true;
-				/*
-				 * A straight line at a constant rate, deliberately: the stride
-				 * was solved for exactly this speed, and easing the ends would
-				 * put the feet back to sliding at both of them.
-				 */
-				this.x = flight.from.x + (flight.to.x - flight.from.x) * u;
-				this.z = flight.from.z + (flight.to.z - flight.from.z) * u;
-				this.y = flight.from.top + (flight.to.top - flight.from.top) * u;
 				this.faceTowards(flight.to.x, flight.to.z, dt);
 			} else if (flight.kind === 'strike' && flight.target) {
 				const spot = this.ground.tileAt(flight.target.q, flight.target.r);
 				if (spot) this.faceTowards(spot.x, spot.z, dt);
-				if (!flight.done && u >= this.swingLand) {
-					flight.done = true;
-					this.landBlow(flight.target);
-				}
-			} else if (flight.kind === 'pickup' && flight.item) {
-				if (!flight.done && u >= STOOP_GRAB) {
-					flight.done = true;
-					// The whole of picking it up: it becomes part of him.
-					flight.item.equip(this.object);
-				}
-			}
-
-			if (flight.clock >= flight.seconds) {
-				this.cell = flight.cell;
-				const settled = this.tile();
-				this.x = settled.x;
-				this.z = settled.z;
-				this.y = settled.top;
-				this.flight = null;
-				this.control.state = 'idle';
-				this.control.message = this.armed ? 'armed' : 'waiting';
+				if (this.acting.reached(this.swingLand)) this.landBlow(flight.target);
+			} else if (flight.kind === 'pickup' && this.carrying) {
+				// The whole of picking it up: it becomes part of him.
+				if (this.acting.reached(STOOP_GRAB)) this.carrying.equip(this.object);
 			}
 		} else {
 			this.yawRate = 0;
+		}
+
+		/*
+		 * And it ends here, after he has had his say about the frame: a blow
+		 * announced on the instant the cut finishes is still that cut's.
+		 */
+		const ended = this.acting.settle();
+		if (ended) {
+			this.cell = this.acting.cell;
+			this.carrying = null;
+			this.control.state = 'idle';
+			this.control.message = this.armed ? 'armed' : 'waiting';
 		}
 
 		/*
@@ -543,7 +525,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	 */
 	private buildPose(dt: number): void {
 		const animation = this.animation;
-		const flight = this.flight;
+		const flight = this.acting.flight;
 
 		animation.speed = this.travel;
 		animation.yawRate = this.yawRate;
@@ -562,7 +544,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	get stats(): PlayerStats {
 		const tile = this.ground.tileAt(this.cell.q, this.cell.r);
 		return {
-			speed: this.flight?.kind === 'move' ? this.animation.delivered : 0,
+			speed: this.acting.flight?.kind === 'move' ? this.animation.delivered : 0,
 			slip: this.animation.slip,
 			amp: this.animation.stride,
 			gait: this.animation.gait,

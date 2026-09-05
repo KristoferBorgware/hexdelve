@@ -72,6 +72,7 @@ export {
 } from './game/orders.js';
 export { EMPTY_SCHEDULE, turnOrder, TURNS, type TurnOrder } from './game/turnorder.js';
 export {
+	terrainNear,
 	terrainOf,
 	terrainOn,
 	tileKey,
@@ -87,6 +88,7 @@ export {
 	type HuntOrders,
 	type HuntState,
 } from './game/hunt.js';
+export { Acting, type Flight } from './game/acting.js';
 export { spawnEntity } from './game/spawn.js';
 export { Item } from './game/items.js';
 export {

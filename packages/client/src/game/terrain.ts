@@ -95,8 +95,22 @@ export function tileKey(q: number, r: number): string {
 
 /** The terrain in a scene, or null where nothing put any there. */
 export function terrainOf(scene: Scene): TerrainQuery | null {
-	for (const object of scene.root.walk()) {
-		const found = object.getComponentNamed(TERRAIN);
+	return terrainNear(scene.root);
+}
+
+/**
+ * The terrain in whatever world an object is in.
+ *
+ * Walks up to the topmost object and searches from there, because a COMPONENT
+ * has no scene to ask — only a script does. Everything that stands on the
+ * ground is somewhere under the same root as the ground itself, so the root is
+ * the one handle both share.
+ */
+export function terrainNear(object: GameObject): TerrainQuery | null {
+	let top = object;
+	while (top.parent) top = top.parent;
+	for (const one of top.walk()) {
+		const found = one.getComponentNamed(TERRAIN);
 		if (found) return found as unknown as TerrainQuery;
 	}
 	return null;
