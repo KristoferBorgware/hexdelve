@@ -1,11 +1,11 @@
 /*
  * Building the four components that are facts about drawing and posing.
  *
- * `rig`, `mesh`, `animator` and `attach` are the engine's own vocabulary, in
- * the way `actor` and `item` are a game's: each is about how a thing is drawn
+ * `rig`, `mesh`, `animator`, `attach` and `footIK` are the engine's own
+ * vocabulary, in the way `item` is a game's: each is about how a thing is drawn
  * or how it is posed, which is what an engine is for. So the engine registers
- * them itself rather than leaving every game to repeat the same four lines and
- * to disagree about one of them.
+ * them itself rather than leaving every game to repeat the same lines and to
+ * disagree about one of them.
  *
  * Each factory takes what its record named off `context.assets` rather than
  * reading the path again. The library resolved and fetched every one of them
@@ -17,6 +17,7 @@ import { readAttachment } from '../../assets/entity.js';
 import type { ComponentContext, ComponentRegistry } from '../../assets/instantiate.js';
 import { Animator } from './Animator.js';
 import { Attach } from './Attach.js';
+import { FootIK } from './FootIK.js';
 import { MeshRenderer } from './MeshRenderer.js';
 import { Rig } from './Rig.js';
 
@@ -41,6 +42,21 @@ function animatorFactory(context: ComponentContext): void {
 }
 
 /**
+ * Feet planted on whatever is underneath them.
+ *
+ * The record carries the two numbers and nothing else. What the ground IS is
+ * wired in by whoever spawned the thing — see `FootIK.groundAt` — because a
+ * terrace is not something an entity file knows.
+ */
+function footIKFactory(context: ComponentContext): void {
+	context.fields.only('type', 'sole', 'reach');
+	context.object.attachComponent(new FootIK(context.object), {
+		sole: context.fields.get('sole').numberOr(0.12),
+		reach: context.fields.get('reach').numberOr(0.18),
+	});
+}
+
+/**
  * The bone it hangs from, and how it lies when it is put down.
  *
  * Through `attachComponent` rather than `addComponent`, because the three
@@ -51,11 +67,12 @@ function attachFactory(context: ComponentContext): void {
 	context.object.attachComponent(new Attach(context.object), { bone, lift, tilt });
 }
 
-/** Add all four to a registry, and hand it back. */
+/** Add all five to a registry, and hand it back. */
 export function registerSceneComponents(registry: ComponentRegistry): ComponentRegistry {
 	return registry
 		.register('rig', rigFactory)
 		.register('mesh', meshFactory)
 		.register('animator', animatorFactory)
-		.register('attach', attachFactory);
+		.register('attach', attachFactory)
+		.register('footIK', footIKFactory);
 }

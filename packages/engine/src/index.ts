@@ -52,6 +52,7 @@ export { GameObject, type GameObjectOptions } from './scene/GameObject.js';
 export { Component, type ComponentClass } from './scene/components/Component.js';
 export { Animator } from './scene/components/Animator.js';
 export { Attach } from './scene/components/Attach.js';
+export { FootIK, type GroundHeight } from './scene/components/FootIK.js';
 export { MeshRenderer } from './scene/components/MeshRenderer.js';
 export { Rig } from './scene/components/Rig.js';
 export { registerSceneComponents } from './scene/components/factories.js';

@@ -252,11 +252,13 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	}
 
 	/**
-	 * Hit. The hunt loses its next move to being thrown about; here it is the
-	 * wings snapping out and the lunge being dropped half-thrown.
+	 * Thrown about by a blow: the wings snap out and the lunge is dropped
+	 * half-thrown.
+	 *
+	 * Only the picture. What it COSTS — the next move — is the hunt's, and the
+	 * hunt hears about the blow itself rather than being told by way of here.
 	 */
-	reel(): void {
-		this.hunt?.struck();
+	flinch(): void {
 		this.wake = 1;
 		this.lunge = 0;
 		this.lungeBlend = 0;
