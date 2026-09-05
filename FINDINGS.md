@@ -539,6 +539,47 @@ the file and the part. The alternative — reading parts eagerly in `loadMesh` �
 would make every entity load pay for prisms nothing may ever draw, which is why
 they are lazy in the first place.
 
+### F-034 — A script cannot take a turn, so a creature that acts has to be a class
+
+**Kind:** gap
+**Milestone:** scripting
+**Priority:** high
+**Effort:** medium
+**Found:** 2026-09-05, moving the melee announcement out of `Player` and `BatHunt` into a `Melee` script
+**Where:** `packages/client/src/game/turns.ts`, `packages/client/scripts/Turns.ts`, `packages/client/src/game/actor.ts`
+
+**What happens.** The clock collects its members by class:
+
+> **[measured]** `Turns.actors` returns
+> `this.scene.root.getComponentsInChildren(ActorBehaviour)`, and the schedule
+> is built from that — `ActorBehaviour` being an abstract class in
+> `@hexdelve/client`.
+
+A script is compiled apart from that package's module graph, so it can import
+`ActorBehaviour` through the SDK but cannot usefully extend it: a script's base
+class is `Script`, and the host builds, registers and reloads it as one. So
+anything that wants a turn has to be a component written inside the client, and
+`Player` and `BatHunt` remain classes for that reason alone — not because what
+is left in them is a rule.
+
+**Why it matters.** It is the one thing standing between the current shape and
+"the game is all scripts". Everything else about those two has moved out:
+deciding is `PlayerInput` and `Hunter`, being hurt is `Character`, what a blow
+costs is `Melee`, where a body is mid-action is `Acting`, what it looks like is
+the animators. What is left is turn-taking and the drive of a pose, and the
+first of those cannot leave while the seam is a class.
+
+It also blocks the ordinary case the file format is for: a second creature that
+fights differently is a set of scripts in an entity file today, right up to the
+moment it needs its own kind of turn.
+
+**What would fix it.** Make the clock collect by the seam rather than by the
+class — a `TurnTaker` looked up the way `orders.ts` and `melee.ts` look their
+scripts up, by name off each object, so a component and a script are equally
+able to answer. That is a redesign of `turnorder.ts` and of what `Turns`
+collects, and it wants deciding rather than typing, which is why it is here rather
+than done.
+
 ## Closed
 
 **Closed in part:** 2026-09-05, the humanoid is fixed; the hellhound is not.
