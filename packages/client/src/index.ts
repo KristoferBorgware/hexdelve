@@ -185,6 +185,20 @@ export {
 	TIP_NAMES as SPIDER_TIPS,
 } from './game/spiderpose.js';
 export {
+	stompPose as trollStompPose,
+	smashPose as trollSmashPose,
+	swipePose as trollSwipePose,
+	pokePose as trollPokePose,
+	sleepPose as trollSleepPose,
+	TROLL_CHAIN,
+	TROLL_SOLE,
+	STOMP_PERIOD,
+	STOMP_CONTACTS,
+	SMASH_HIT,
+	SWIPE_HIT,
+	POKE_HIT,
+} from './game/trollpose.js';
+export {
 	LEG_LENGTH,
 	HUMANOID_SKELETON,
 	HUMANOID_CHAIN,
