@@ -56,9 +56,11 @@ import {
 	entityRig,
 	HexInstances,
 	instantiate,
+	Particles,
 	Scene,
 	type GameObject,
 	type InstanceRanges,
+	type ParticleEffect,
 	type SystemAsset,
 } from '@hexdelve/engine';
 import {
@@ -67,10 +69,10 @@ import {
 	rgbFromHex,
 	worldToAxial,
 	type Axial,
-	type Random,
 } from '@hexdelve/shared';
 
 import { buildWorld, type World } from '../scene/world.js';
+import { BLOOD_EFFECT, SMOKE_EFFECT, spawnEmitter } from './effects.js';
 import { Damage, Missed } from './events.js';
 import type { Cast } from './cast.js';
 import { components, type SpawnExtras } from './components.js';
@@ -83,9 +85,6 @@ import { ActorBehaviour } from './actor.js';
 import { EMPTY_SCHEDULE, turnOrder, type TurnOrder } from './turnorder.js';
 import { Player, type PlayerStats } from './player.js';
 import { Schedule, speedFactor, type TurnTaker } from './turns.js';
-
-const PI = Math.PI;
-const TAU = PI * 2;
 
 /** What the client observed this frame, in terms the game understands. */
 export interface FrameInput {
@@ -120,6 +119,14 @@ export interface SimulationOptions {
 	 */
 	systems?: readonly SystemAsset[];
 	/**
+	 * The particle effects the manifest listed, by id.
+	 *
+	 * Optional, and an absent one is a yard with no smoke over the chimneys and
+	 * no blood off a blow rather than a yard that will not start — see
+	 * `effects.ts`.
+	 */
+	effects?: ReadonlyMap<string, ParticleEffect>;
+	/**
 	 * Where the scripts come from.
 	 *
 	 * Nothing, by default. The scripts are not in this package's module graph —
@@ -138,83 +145,6 @@ export interface SimulationOptions {
 	batSpeed?: number;
 }
 
-/**
- * A dozen dark flecks thrown off a blow, on the one frame it lands.
- *
- * A fixed pool rather than an allocation per hit: they are the only thing in
- * the scene that comes and goes, and a ring buffer means the count of prisms
- * in a frame never depends on how the fight has been going.
- */
-class Motes {
-	private readonly items: {
-		t: number;
-		max: number;
-		x: number;
-		y: number;
-		z: number;
-		vx: number;
-		vy: number;
-		vz: number;
-		spin: number;
-	}[] = [];
-	private next = 0;
-
-	constructor(
-		count: number,
-		private readonly random: Random,
-		private readonly gravity = -5.5,
-		private readonly life = 0.5,
-		private readonly size = 0.05,
-	) {
-		for (let i = 0; i < count; i++) {
-			this.items.push({ t: 0, max: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, spin: 0 });
-		}
-	}
-
-	spawn(x: number, y: number, z: number, n: number, spread: number, up: number): void {
-		for (let i = 0; i < n; i++) {
-			const bit = this.items[this.next]!;
-			this.next = (this.next + 1) % this.items.length;
-			bit.t = this.life * (0.7 + this.random() * 0.3);
-			bit.max = bit.t;
-			bit.x = x;
-			bit.y = y;
-			bit.z = z;
-			const a = this.random() * TAU;
-			const r = spread * (0.3 + this.random());
-			bit.vx = Math.cos(a) * r;
-			bit.vz = Math.sin(a) * r;
-			bit.vy = up * (0.5 + this.random());
-			bit.spin = (this.random() - 0.5) * 14;
-		}
-	}
-
-	update(dt: number): void {
-		for (const bit of this.items) {
-			if (bit.t <= 0) continue;
-			bit.t -= dt;
-			if (bit.t <= 0) continue;
-			bit.vy += this.gravity * dt;
-			bit.x += bit.vx * dt;
-			bit.y += bit.vy * dt;
-			bit.z += bit.vz * dt;
-		}
-	}
-
-	emit(out: HexInstances, time: number): void {
-		for (const bit of this.items) {
-			if (bit.t <= 0) continue;
-			const u = bit.t / bit.max;
-			const s = this.size * (0.4 + 0.6 * u);
-			out.pushRadial(bit.x, bit.y, bit.z, s, s * 0.8, MOTE_COLOR, {
-				yaw: bit.spin * time,
-				alpha: Math.min(1, u * 1.6) * 0.85,
-			});
-		}
-	}
-}
-
-const MOTE_COLOR = rgbFromHex(0x4a3a3c);
 const HOVER_COLOR = rgbFromHex(0xf4f7f2);
 const BLOCKED_COLOR = rgbFromHex(0xd05040);
 const ROUTE_COLOR = rgbFromHex(0x5f9b3e);
@@ -270,7 +200,23 @@ export class Simulation {
 	/** Where the camera should be looking, when it is following. */
 	readonly focus = { x: 0, y: 0, z: 0 };
 
-	private readonly motes: Motes;
+	/**
+	 * The effects the manifest listed, by id.
+	 *
+	 * Held rather than resolved once at construction, because the blood is
+	 * spawned when a blow lands and the file has to still be reachable then.
+	 */
+	private readonly effects: ReadonlyMap<string, ParticleEffect>;
+
+	/**
+	 * Every emitter in the scene, refreshed once a frame.
+	 *
+	 * Held rather than re-walked for the reason `actors` is: `build` runs after
+	 * `update` and both want the same list. Refreshed rather than kept, because
+	 * a one-shot takes itself out of the scene when it is done and a burst
+	 * arrives in the middle of a fight.
+	 */
+	private readonly emitters: Particles[] = [];
 
 	/**
 	 * Everything that acts, refreshed at the top of each frame.
@@ -324,7 +270,7 @@ export class Simulation {
 	constructor(options: SimulationOptions) {
 		const random = makeRandom(options.seed ?? 37);
 		this.world = buildWorld({ random, groundRadius: 8, baseY: 0.16, stepH: 0.19 });
-		this.motes = new Motes(14, random);
+		this.effects = options.effects ?? new Map();
 
 		this.toggles = {
 			ik: true,
@@ -413,6 +359,25 @@ export class Simulation {
 			const cell = worldToAxial(x, z);
 			const tile = this.world.tileAt(cell.q, cell.r)!;
 			item.ground(tile.x, tile.z, yaw, tile.top);
+		}
+
+		/*
+		 * Smoke over both chimneys.
+		 *
+		 * The building is prisms baked into the static list and is not in the
+		 * scene at all, so the emitter is not under it — it stands where the
+		 * chimney vents, and `world.chimneys` is the only thing either half
+		 * knows about the other. Two objects on one effect file, which is what
+		 * an effect being a file rather than a lump of code buys.
+		 */
+		const smoke = this.effects.get(SMOKE_EFFECT);
+		if (smoke) {
+			for (const [index, chimney] of this.world.chimneys.entries()) {
+				spawnEmitter(this.scene, smoke, {
+					...chimney,
+					name: `smoke ${index}`,
+				});
+			}
 		}
 
 		/* Where his eyeline is, off his own rig — a camera follows the hips. */
@@ -539,7 +504,7 @@ export class Simulation {
 	 * Hear what the rules decided, and put it on the screen.
 	 *
 	 * Two things only, and both are the picture rather than the game: a shower
-	 * of motes where a blow landed, and the swinger's tally of what came of it.
+	 * of blood where a blow landed, and the swinger's tally of what came of it.
 	 * What a blow COSTS is settled by the scripts, and what being hit does to
 	 * the thing hit is heard by that thing — `Hunter` takes the bat's next move
 	 * off it, and nothing here is told about that.
@@ -549,7 +514,7 @@ export class Simulation {
 	 */
 	private listen(): void {
 		this.scripts.on(Damage, (blow) => {
-			this.motes.spawn(blow.at.x, blow.at.y, blow.at.z, 9, 1.6, 1.9);
+			this.spatter(blow.at.x, blow.at.y, blow.at.z);
 			if (blow.from === 'player') this.player.reportBlow(true, 'hit it');
 			else this.bat.reportBite(true, 'bit you');
 		});
@@ -558,6 +523,21 @@ export class Simulation {
 			if (miss.by === 'player') this.player.reportBlow(false, miss.why);
 			else this.bat.reportBite(false, miss.why === 'cut air' ? 'bit at nothing' : miss.why);
 		});
+	}
+
+	/**
+	 * Blood where a blow landed.
+	 *
+	 * A one-shot emitter left standing in the air, rather than a burst on the
+	 * thing that was hit: what is thrown off belongs to the air it was thrown
+	 * into, and a bat that flies on should not carry its own blood with it. It
+	 * destroys itself once the last fleck has gone, so a long fight does not
+	 * leave a scene full of spent emitters.
+	 */
+	private spatter(x: number, y: number, z: number): void {
+		const blood = this.effects.get(BLOOD_EFFECT);
+		if (!blood) return;
+		spawnEmitter(this.scene, blood, { x, y, z, name: 'blood', autoDestroy: true });
 	}
 
 	/** What a spawn needs in order to be able to build a script component. */
@@ -620,8 +600,6 @@ export class Simulation {
 			this.hoverReachable = false;
 		}
 
-		this.motes.update(dt);
-
 		/*
 		 * Everything in the scene that acts, in the order the scene holds them.
 		 *
@@ -635,7 +613,6 @@ export class Simulation {
 		this.actors.length = 0;
 		this.actors.push(...this.scene.root.getComponentsInChildren(ActorBehaviour));
 
-
 		/*
 		 * Every component on the scene, which today means every script.
 		 *
@@ -647,6 +624,15 @@ export class Simulation {
 		 * elapsed clock and it belongs below, not here.
 		 */
 		this.scene.update(dt);
+
+		/*
+		 * And every emitter, read AFTER the scene has updated rather than
+		 * before it with the actors. A blow lands during that update and throws
+		 * a burst of blood; a list taken beforehand would not have it, and the
+		 * spray would appear a frame after the hit that caused it.
+		 */
+		this.emitters.length = 0;
+		this.emitters.push(...this.scene.root.getComponentsInChildren(Particles));
 
 		for (const actor of this.actors) {
 			actor.advance(dt, this.elapsed);
@@ -700,8 +686,7 @@ export class Simulation {
 		// transform says where it is, and that is the whole of the difference.
 		for (const item of this.items) item.emit(ghost ? blended : opaque, ghost ? 0.34 : 1);
 
-		this.world.emitSmoke(blended, this.elapsed);
-		this.motes.emit(blended, this.elapsed);
+		for (const emitter of this.emitters) emitter.emit(blended);
 		this.emitMarkers(blended, overlay);
 
 		const frame = this.frame;

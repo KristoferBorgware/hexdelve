@@ -21,8 +21,8 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { Damage, Simulation, type Cast } from '@hexdelve/client';
-import { HexInstances } from '@hexdelve/engine';
+import { Damage, loadEffects, Simulation, type Cast } from '@hexdelve/client';
+import { HexInstances, Particles, type ParticleEffect } from '@hexdelve/engine';
 import { loadSystem, scriptsFromBundle, type ScriptProvider } from '@hexdelve/engine';
 import { axialDistance, axialNeighbours, type Axial } from '@hexdelve/shared';
 
@@ -36,11 +36,13 @@ const FRAME = 1 / 60;
 describe('a blow, end to end', () => {
 	let cast: Cast;
 	let scripts: ScriptProvider;
+	let effects: ReadonlyMap<string, ParticleEffect>;
 	let systems: Awaited<ReturnType<ReturnType<typeof openLibrary>['system']>>;
 
 	beforeAll(async () => {
 		cast = await loadYardCast();
 		systems = await openLibrary().system('systems/game.system.yaml');
+		effects = await loadEffects(openLibrary());
 		scripts = scriptsFromBundle((await bundleScripts()).code, SDK_MODULES);
 	}, 120_000);
 
@@ -186,6 +188,48 @@ describe('a blow, end to end', () => {
 	 * finishes it, and a thing that has been finished stops taking turns —
 	 * otherwise a dead bat goes on biting, which is what this found.
 	 */
+	/*
+	 * The picture side of the same blow, and the reason it is here rather than
+	 * in `particles.test.ts`: what that file checks is a pool and a curve, and
+	 * none of it would catch the effect being listed under a different id than
+	 * the one the simulation asks the manifest for. Four pieces have to agree —
+	 * the manifest lists it, the reader reads it, the simulation hears the
+	 * `Damage` and spawns it, and the component takes its own object out again.
+	 */
+	it('throws blood where a blow landed, and clears it up afterwards', () => {
+		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts, effects });
+		const emitters = (): Particles[] => sim.scene.getComponents(Particles);
+
+		// The chimneys, and nothing else: those are placed when the yard is
+		// built and they never finish.
+		const chimneys = emitters().length;
+		expect(chimneys).toBeGreaterThan(0);
+
+		expect(sim.attack()).toBe(true);
+
+		let peak = chimneys;
+		for (let i = 0; i < Math.round(40 / FRAME); i++) {
+			sim.update(FRAME, { hover: null });
+			peak = Math.max(peak, emitters().length);
+		}
+
+		expect(peak, 'a burst stood in the scene while it was alive').toBeGreaterThan(chimneys);
+		expect(emitters().length, 'and took itself out when it was done').toBe(chimneys);
+	});
+
+	/*
+	 * The opposite case, and the one an embedder reaches: a manifest with no
+	 * `particles` section at all. A yard with no smoke over the chimney is a
+	 * yard; a yard that refuses to start over one is not.
+	 */
+	it('runs a whole fight with no effects loaded at all', () => {
+		const sim = yard();
+		expect(sim.scene.getComponents(Particles)).toHaveLength(0);
+		expect(sim.attack()).toBe(true);
+		run(sim, 40);
+		expect(sim.player.swing.hits).toBeGreaterThan(0);
+	});
+
 	it('stops a creature taking turns once it has fallen', () => {
 		const sim = yard();
 		const before = sim.schedule.members.length;

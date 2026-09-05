@@ -54,6 +54,7 @@ export { Animator } from './scene/components/Animator.js';
 export { Attach } from './scene/components/Attach.js';
 export { FootIK, type GroundHeight } from './scene/components/FootIK.js';
 export { MeshRenderer } from './scene/components/MeshRenderer.js';
+export { Particles } from './scene/components/Particles.js';
 export { Rig } from './scene/components/Rig.js';
 export { registerSceneComponents } from './scene/components/factories.js';
 export { Script, type ScriptBinding } from './scene/components/Script.js';
@@ -89,6 +90,39 @@ export {
 } from './scene/components/inspect.js';
 
 export { Scene, type SceneOptions } from './scene/Scene.js';
+
+/*
+ * Particles: hexagons thrown out of an emitter and driven over their lives.
+ *
+ * Engine-side for the reason everything else here is — an effect is a pile of
+ * prisms with a clock on it, and nothing in it knows what a bat is. The shape
+ * of one is `ParticleEffect`, the running of one is `ParticleSystem`, and
+ * putting one on an object is the `Particles` component above.
+ */
+export {
+	defaultEffect,
+	exactly,
+	sampleCurve,
+	sampleGradient,
+	type AlphaSpec,
+	type ColorSpec,
+	type ColorStop,
+	type EmitShape,
+	type EmitShapeKind,
+	type EmitSpec,
+	type MotionSpec,
+	type ParticleEffect,
+	type ParticleSpec,
+	type Range,
+	type SizeSpec,
+	type SpinSpec,
+	type Stop,
+} from './particles/effect.js';
+export {
+	ParticleSystem,
+	PARTICLE_FLOATS,
+	type ParticleSystemOptions,
+} from './particles/ParticleSystem.js';
 
 export {
 	Transform,
@@ -272,11 +306,18 @@ export {
 	ATTACH_KEYS,
 	MESH_COMPONENT_KEYS,
 	NO_ASSETS,
+	PARTICLES_COMPONENT_KEYS,
+	parseParticleEffect,
+	particleEffectDocument,
+	readParticleEffect,
+	writeParticleEffect,
 	RIG_COMPONENT_KEYS,
 	ComponentRegistry,
 	instantiate,
 	loadSystem,
 	emitYaml,
+	hexLiteral,
+	Literal,
 	writeComponent,
 	writeEntity,
 	writePrefabNode,

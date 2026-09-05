@@ -41,6 +41,12 @@ export { loadSystem, type SystemAsset } from './system.js';
 
 export { loadRig, type RigAnchor, type RigAsset, type RigView } from './rig.js';
 export { loadMesh, type Anchor, type MeshAsset } from './mesh.js';
+export {
+	parseParticleEffect,
+	particleEffectDocument,
+	readParticleEffect,
+	writeParticleEffect,
+} from './particles.js';
 export { readClip, buildClipAsset, type ClipAsset, type ClipDocument } from './clip.js';
 export {
 	clipAnimation,
@@ -64,6 +70,7 @@ export {
 	ATTACH_KEYS,
 	ENTITY_KEYS,
 	MESH_COMPONENT_KEYS,
+	PARTICLES_COMPONENT_KEYS,
 	RIG_COMPONENT_KEYS,
 	type AnimationRequest,
 	type Attachment,
@@ -88,6 +95,8 @@ export {
 } from './library.js';
 export {
 	emitYaml,
+	hexLiteral,
+	Literal,
 	writeComponent,
 	writeEntity,
 	writePrefabNode,

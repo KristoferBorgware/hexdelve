@@ -32,19 +32,25 @@ import {
 	readEntity,
 	ANIMATOR_KEYS,
 	MESH_COMPONENT_KEYS,
+	PARTICLES_COMPONENT_KEYS,
 	RIG_COMPONENT_KEYS,
 	type AnimationRequest,
 	type EntityAsset,
 } from './entity.js';
 import { loadMesh, type MeshAsset } from './mesh.js';
+import { readParticleEffect } from './particles.js';
 import type { ComponentSpec, PrefabNode } from './prefab.js';
 import { PoseFunctionRegistry } from './poseFunctions.js';
 import type { AssetIO } from './io.js';
 import { loadRig, type RigAsset, type RigView } from './rig.js';
 import { loadSystem, type SystemAsset } from './system.js';
+import type { ParticleEffect } from '../particles/effect.js';
 
 /** Where a bench looks when nothing in a file names a rig to ask. */
 const NO_VIEW: RigView = { focusY: 0, frameDistance: 4 };
+
+/** What the manifest may list. */
+const MANIFEST_KEYS = ['entities', 'particles', 'notes'] as const;
 
 export interface AssetLibraryOptions {
 	/** The pose functions entity files may name. Defaults to an empty one. */
@@ -68,6 +74,7 @@ export class AssetLibrary {
 	private readonly systems = new Map<string, Promise<SystemAsset>>();
 	private readonly meshes = new Map<string, Promise<MeshAsset>>();
 	private readonly clips = new Map<string, Promise<ClipAsset>>();
+	private readonly effects = new Map<string, Promise<ParticleEffect>>();
 	private readonly entities = new Map<string, Promise<EntityAsset>>();
 
 	constructor(io: AssetIO, options: AssetLibraryOptions = {}) {
@@ -147,15 +154,39 @@ export class AssetLibrary {
 		this.systems.clear();
 		this.meshes.clear();
 		this.clips.clear();
+		this.effects.clear();
 		this.entities.clear();
 	}
 
 	/** Every entity a manifest lists, in the order it lists them. */
 	async index(path = 'index.yaml'): Promise<EntityAsset[]> {
 		const at = normalise(path);
-		const root = Node.parse(await this.text(at), at).only('entities', 'notes');
+		const root = Node.parse(await this.text(at), at).only(...MANIFEST_KEYS);
 		const listed = root.need('entities').list();
 		return Promise.all(listed.map((entry) => this.entity(resolve(at, entry.text()))));
+	}
+
+	/**
+	 * Every particle effect a manifest lists, in the order it lists them.
+	 *
+	 * A list of its own beside the entities rather than a section inside one,
+	 * because an effect is not an entity: nothing wears it, nothing walks, and
+	 * the same file drives a chimney and a burst where a blow landed. A
+	 * manifest with no `particles` section has none, which is what a tree that
+	 * has not authored any looks like.
+	 */
+	async effectIndex(path = 'index.yaml'): Promise<ParticleEffect[]> {
+		const at = normalise(path);
+		const root = Node.parse(await this.text(at), at).only(...MANIFEST_KEYS);
+		const listed = root.get('particles').listOrEmpty();
+		return Promise.all(listed.map((entry) => this.effect(resolve(at, entry.text()))));
+	}
+
+	/** One particle effect. Read once per path, like everything else here. */
+	effect(path: string): Promise<ParticleEffect> {
+		return this.once(this.effects, normalise(path), async (at) =>
+			readParticleEffect(await this.text(at), at),
+		);
 	}
 
 	/** An entity, and everything it links to. Read once per path. */
@@ -282,7 +313,13 @@ export class AssetLibrary {
 			case 'mesh': {
 				fields.only(...MESH_COMPONENT_KEYS);
 				const mesh = await this.mesh(resolve(at, fields.need('mesh').text()), needsRig());
-				return { rig, mesh, animations: new Map(), blendTrees: new Map() };
+				return { rig, mesh, effect: null, animations: new Map(), blendTrees: new Map() };
+			}
+
+			case 'particles': {
+				fields.only(...PARTICLES_COMPONENT_KEYS);
+				const effect = await this.effect(resolve(at, fields.need('effect').text()));
+				return { rig, mesh: null, effect, animations: new Map(), blendTrees: new Map() };
 			}
 
 			case 'animator': {
@@ -300,7 +337,7 @@ export class AssetLibrary {
 					blendTrees.set(name, loadBlendTree(await this.text(path), path, own, animations));
 				}
 
-				return { rig, mesh: null, animations, blendTrees };
+				return { rig, mesh: null, effect: null, animations, blendTrees };
 			}
 
 			case 'attach': {
