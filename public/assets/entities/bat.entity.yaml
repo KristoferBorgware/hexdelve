@@ -7,7 +7,6 @@
 id: bat
 name: Bat
 kind: character
-blurb: Two and a half metres of wing, folded
 
 rig: ../rigs/bat.rig.yaml
 mesh: ../meshes/bat.mesh.yaml

@@ -94,7 +94,7 @@ function emitNumber(value: number): string {
  *
  * `,` and the brackets are refused only inside a flow, which is the whole of
  * the difference between the two contexts: a comma ends a value between braces
- * and is an ordinary character on a line of its own. A blurb reading
+ * and is an ordinary character on a line of its own. A sentence such as
  * `Straight blade, cross guard` is the common case and quoting it would be
  * quoting for nothing.
  */
@@ -268,7 +268,6 @@ export function writeEntity(document: EntityDocument, prefab?: Emittable): strin
 		name: document.name,
 		kind: document.kind,
 		...(document.tags.length === 0 ? {} : { tags: [...document.tags] }),
-		...(document.blurb === null ? {} : { blurb: document.blurb }),
 		...(document.rig === null ? {} : { rig: document.rig }),
 		mesh: document.mesh,
 		...(document.animations.length === 0 ? {} : { animations }),

@@ -239,7 +239,6 @@ export class AssetLibrary {
 			ground: document.ground,
 			view: { ...(ownRig ?? attachRig!).view, ...document.view },
 			tags: document.tags,
-			blurb: document.blurb,
 			prefab: document.prefab,
 		};
 	}

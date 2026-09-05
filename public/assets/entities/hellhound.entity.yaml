@@ -12,7 +12,6 @@
 id: hellhound
 name: Hellhound
 kind: character
-blurb: Black quadruped, spiked mane, red eyes
 
 rig: ../rigs/hellhound.rig.yaml
 mesh: ../meshes/hellhound.mesh.yaml

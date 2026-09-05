@@ -95,12 +95,12 @@ describe('the YAML it writes', () => {
 
 	it('leaves an apostrophe inside a word alone', () => {
 		// Only a LEADING quote is an indicator, so this needs nothing.
-		expect(emit({ blurb: "a wanderer's sword" })).toBe("blurb: a wanderer's sword\n");
+		expect(emit({ note: "a wanderer's sword" })).toBe("note: a wanderer's sword\n");
 	});
 
 	it('leaves a path and a sentence alone', () => {
-		expect(emit({ mesh: '../meshes/sword.mesh.yaml', blurb: 'Straight blade, cross guard' })).toBe(
-			'mesh: ../meshes/sword.mesh.yaml\nblurb: Straight blade, cross guard\n',
+		expect(emit({ mesh: '../meshes/sword.mesh.yaml', note: 'Straight blade, cross guard' })).toBe(
+			'mesh: ../meshes/sword.mesh.yaml\nnote: Straight blade, cross guard\n',
 		);
 	});
 

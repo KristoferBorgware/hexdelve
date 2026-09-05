@@ -9,7 +9,6 @@
 id: wanderer
 name: Wanderer
 kind: character
-blurb: Grey-bearded traveller, empty-handed
 
 rig: ../rigs/humanoid.rig.yaml
 mesh: ../meshes/wanderer.mesh.yaml

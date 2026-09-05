@@ -105,11 +105,7 @@ export function PropCatalogue({
 								>
 									<ListItemText
 										primary={candidate.label}
-										secondary={candidate.blurb}
-										slotProps={{
-											primary: { variant: 'body2' },
-											secondary: { variant: 'caption' },
-										}}
+										slotProps={{ primary: { variant: 'body2' } }}
 									/>
 								</ListItemButton>
 							))}

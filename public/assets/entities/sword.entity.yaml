@@ -8,7 +8,6 @@ id: sword
 name: Sword
 kind: prop
 tags: [weapon]
-blurb: Straight blade, cross guard
 
 mesh: ../meshes/sword.mesh.yaml
 

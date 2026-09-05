@@ -73,8 +73,6 @@ export interface EntityAsset {
 	readonly view: RigView;
 	/** Free-form labels: `armour`, `weapon`, whatever the game turns out to want. */
 	readonly tags: readonly string[];
-	/** One line for a catalogue row — what the thing actually is. */
-	readonly blurb: string | null;
 	/**
 	 * What this is when it is standing in the world: an object, what is
 	 * attached to it, and what hangs under it.
@@ -91,7 +89,6 @@ export const ENTITY_KEYS = [
 	'name',
 	'kind',
 	'notes',
-	'blurb',
 	'tags',
 	'rig',
 	'mesh',
@@ -108,7 +105,6 @@ export interface EntityDocument {
 	readonly id: string;
 	readonly name: string;
 	readonly kind: EntityKind;
-	readonly blurb: string | null;
 	readonly tags: readonly string[];
 	/** Paths, relative to the entity file. */
 	readonly rig: string | null;
@@ -180,13 +176,11 @@ export function readEntity(source: string, file: string): EntityDocument {
 
 	const groundNode = root.get('ground').only(...GROUND_KEYS);
 	const view = root.get('view').only('focusY', 'frameDistance');
-	const blurb = root.get('blurb');
 
 	return {
 		id,
 		name: root.get('name').textOr(id),
 		kind,
-		blurb: blurb.present ? blurb.text().trim() : null,
 		tags: root
 			.get('tags')
 			.listOrEmpty()

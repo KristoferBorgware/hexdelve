@@ -30,8 +30,6 @@ export interface BenchProp {
 	readonly groundLift: number;
 	/** Rotation about X on the ground: 0 stands it up, pi/2 lays it flat. */
 	readonly groundTilt: number;
-	/** One line for the catalogue row — what the thing actually is. */
-	readonly blurb: string;
 	/** Its mesh's named colours, so a part can be listed by the name it was given. */
 	readonly palette: Readonly<Record<string, number>>;
 	/** The mesh. Built once, on first use — the prisms never change. */
@@ -108,7 +106,6 @@ export function benchProp(entity: EntityAsset): BenchProp | null {
 		bone: entity.attach?.bone ?? 'root',
 		groundLift: entity.ground?.lift ?? 0,
 		groundTilt: entity.ground?.tilt ?? 0,
-		blurb: entity.blurb ?? '',
 		palette: entity.mesh.palette,
 		model: () => (built ??= entity.mesh.model()),
 	};

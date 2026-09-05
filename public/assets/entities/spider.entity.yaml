@@ -9,7 +9,6 @@
 id: spider
 name: Spider
 kind: character
-blurb: Two metres of green poison spider, high-kneed, eight-eyed, fast
 
 rig: ../rigs/spider.rig.yaml
 mesh: ../meshes/spider.mesh.yaml

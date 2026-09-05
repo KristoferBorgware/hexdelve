@@ -9,7 +9,6 @@
 id: wanderer2
 name: Wanderer 2
 kind: character
-blurb: Grey-bearded fighter, bare-armed and broad, in a shoulder wrap and boots
 
 rig: ../rigs/humanoid.rig.yaml
 mesh: ../meshes/wanderer2.mesh.yaml

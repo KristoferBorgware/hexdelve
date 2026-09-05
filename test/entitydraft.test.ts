@@ -263,7 +263,6 @@ describe('saving an edited tree back into its entity file', () => {
 		// The half of the file the bench never touched.
 		expect(after.rig).toBe(before.rig);
 		expect(after.mesh).toBe(before.mesh);
-		expect(after.blurb).toBe(before.blurb);
 		expect(after.animations.map((one) => one.name)).toEqual(
 			before.animations.map((one) => one.name),
 		);

@@ -8,7 +8,6 @@ id: shield
 name: Shield
 kind: prop
 tags: [shield]
-blurb: Round boards, iron boss
 
 mesh: ../meshes/shield.mesh.yaml
 

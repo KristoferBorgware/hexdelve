@@ -17,7 +17,6 @@ id: helmet
 name: Helmet
 kind: prop
 tags: [armour]
-blurb: Nasal helm, cheek plates
 
 mesh: ../meshes/helmet.mesh.yaml
 

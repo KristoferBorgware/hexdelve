@@ -12,7 +12,6 @@
 id: ghoul
 name: Ghoul
 kind: character
-blurb: Gaunt, clawed, hunched — a skull with teeth on a frame of bone
 
 rig: ../rigs/humanoid.rig.yaml
 mesh: ../meshes/ghoul.mesh.yaml

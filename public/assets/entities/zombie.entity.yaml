@@ -9,7 +9,6 @@
 id: zombie
 name: Zombie
 kind: character
-blurb: A walking corpse, rotted through in places, red-eyed and slow
 
 rig: ../rigs/humanoid.rig.yaml
 mesh: ../meshes/zombie.mesh.yaml

@@ -14,7 +14,6 @@
 id: troll
 name: Troll
 kind: character
-blurb: Four and a half metres of shoulder, arm and jaw, tusked, blue-grey, slow to wake
 
 rig: ../rigs/troll.rig.yaml
 mesh: ../meshes/troll.mesh.yaml

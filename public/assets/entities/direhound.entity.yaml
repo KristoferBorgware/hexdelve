@@ -13,7 +13,6 @@
 id: direhound
 name: Dire hellhound
 kind: character
-blurb: Broad-shouldered black quadruped, spiked, red-eyed, waist-high at the withers
 
 rig: ../rigs/direhound.rig.yaml
 mesh: ../meshes/direhound.mesh.yaml
