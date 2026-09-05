@@ -37,8 +37,8 @@ import { parametersOf } from '@hexdelve/engine';
 
 import { components } from '@hexdelve/client';
 
-import { useAssets } from '../assets/library.js';
-import type { CharacterBench } from '../bench/CharacterBench.js';
+import { useAssets } from '../../assets/library.js';
+import type { CharacterBench } from '../../bench/CharacterBench.js';
 import {
 	addChild,
 	addComponent,
@@ -55,14 +55,14 @@ import {
 	setField,
 	setTransform,
 	type DraftNode,
-} from '../bench/entitydraft.js';
-import { placeNodes } from '../bench/gizmos.js';
-import { benchRigs } from '../bench/rigs.js';
-import { BenchViewport } from './BenchViewport.js';
+} from './entitydraft.js';
+import { placeNodes } from './gizmos.js';
+import { benchRigs } from '../../bench/rigs.js';
+import { BenchViewport } from '../../components/BenchViewport.js';
 import { EntityInspector } from './EntityInspector.js';
 import { EntityTree } from './EntityTree.js';
-import { useScriptClasses } from '../scripts/classes.js';
-import { saveEntityPrefab } from '../assets/saveEntity.js';
+import { useScriptClasses } from '../../scripts/classes.js';
+import { saveEntityPrefab } from './saveEntity.js';
 
 export interface EntityBenchViewProps {
 	backend: BackendPreference;

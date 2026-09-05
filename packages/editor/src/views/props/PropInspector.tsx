@@ -33,10 +33,10 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { useEffect, useState, type ReactElement } from 'react';
 
-import type { PropBench, PropDisplay, PropShow } from '../bench/PropBench.js';
-import type { BenchProp, PropBox } from '../bench/props.js';
-import type { BenchAnimation } from '../bench/rigs.js';
-import { statGroups, type PropStats, type PropStatValue } from '../bench/stats.js';
+import type { PropBench, PropDisplay, PropShow } from './PropBench.js';
+import type { BenchProp, PropBox } from './props.js';
+import type { BenchAnimation } from '../../bench/rigs.js';
+import { statGroups, type PropStats, type PropStatValue } from './stats.js';
 
 export interface PropInspectorProps {
 	bench: PropBench | null;

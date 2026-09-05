@@ -24,7 +24,7 @@ import Typography from '@mui/material/Typography';
 import { useEffect, useState, type ReactElement } from 'react';
 import type { HexdelveClient, SimulationToggles, YardStats } from '@hexdelve/client';
 
-import type { ScriptWatchState } from '../scripts/reload.js';
+import type { ScriptWatchState } from '../../scripts/reload.js';
 
 export interface InspectorProps {
 	client: HexdelveClient | null;

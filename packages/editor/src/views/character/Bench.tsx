@@ -24,17 +24,17 @@ import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BackendPreference } from '@hexdelve/engine';
 
-import { useAssets } from '../assets/library.js';
-import type { BenchShow, CharacterBench } from '../bench/CharacterBench.js';
+import { useAssets } from '../../assets/library.js';
+import type { BenchShow, CharacterBench } from '../../bench/CharacterBench.js';
 import {
 	benchRigs,
 	initialParameters,
 	isTree,
 	type BenchAnimation,
 	type BenchRig,
-} from '../bench/rigs.js';
+} from '../../bench/rigs.js';
 import { BenchInspector } from './BenchInspector.js';
-import { BenchViewport } from './BenchViewport.js';
+import { BenchViewport } from '../../components/BenchViewport.js';
 import { BoneOutline } from './BoneOutline.js';
 
 const DEFAULT_SHOW: BenchShow = { mesh: true, skeleton: false, ground: true, spin: false };

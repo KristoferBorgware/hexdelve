@@ -32,7 +32,7 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import { useEffect, useState, type ReactElement } from 'react';
 import type { ExitPlacement, Level, LevelStack } from '@hexdelve/client';
 
-import type { LevelBench, LevelShow } from '../bench/LevelBench.js';
+import type { LevelBench, LevelShow } from './LevelBench.js';
 
 export interface LevelInspectorProps {
 	bench: LevelBench | null;

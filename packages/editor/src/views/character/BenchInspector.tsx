@@ -39,8 +39,8 @@ import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import { useEffect, useState, type ReactElement } from 'react';
 import type { ActiveLeaf } from '@hexdelve/engine';
 
-import type { BenchShow, CharacterBench } from '../bench/CharacterBench.js';
-import { isTree, type BenchAnimation, type BenchRig } from '../bench/rigs.js';
+import type { BenchShow, CharacterBench } from '../../bench/CharacterBench.js';
+import { isTree, type BenchAnimation, type BenchRig } from '../../bench/rigs.js';
 import { TreeView } from './TreeView.js';
 
 export interface BenchInspectorProps {

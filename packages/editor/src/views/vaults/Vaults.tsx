@@ -25,7 +25,7 @@ import {
 	saveLocal,
 	toVault,
 	type VaultDraft,
-} from '../vault/store.js';
+} from './store.js';
 import { VaultCanvas } from './VaultCanvas.js';
 import { VaultInspector } from './VaultInspector.js';
 import { VaultList } from './VaultList.js';

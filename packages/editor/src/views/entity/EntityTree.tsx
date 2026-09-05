@@ -31,8 +31,8 @@ import FormatIndentIncreaseIcon from '@mui/icons-material/FormatIndentIncrease';
 import {
 	parentOf,
 	type DraftNode,
-} from '../bench/entitydraft.js';
-import type { PlacedNode } from '../bench/gizmos.js';
+} from './entitydraft.js';
+import type { PlacedNode } from './gizmos.js';
 
 export interface EntityTreeProps {
 	root: DraftNode;

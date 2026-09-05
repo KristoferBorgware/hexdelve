@@ -23,7 +23,7 @@ import { hexCorner } from '@hexdelve/engine';
 import { axialToWorld, worldToAxial } from '@hexdelve/shared';
 import type { VaultEntityKind, VaultTerrain } from '@hexdelve/client';
 
-import type { VaultDraft } from '../vault/store.js';
+import type { VaultDraft } from './store.js';
 
 export const TERRAIN_COLOR: Record<VaultTerrain, string> = {
 	wall: '#4a4034',

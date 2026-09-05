@@ -44,9 +44,9 @@ import SaveIcon from '@mui/icons-material/Save';
 import RestoreIcon from '@mui/icons-material/Restore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { backendLabel, library, useAssets } from '../assets/library.js';
-import { ASSET_ROOT } from '../monaco/uris.js';
-import { CodeEditor } from './CodeEditor.js';
+import { backendLabel, library, useAssets } from '../../assets/library.js';
+import { ASSET_ROOT } from '../../monaco/uris.js';
+import { CodeEditor } from '../../components/CodeEditor.js';
 
 /** `rigs/humanoid.rig.yaml` sorts and reads better grouped by its directory. */
 function group(path: string): string {

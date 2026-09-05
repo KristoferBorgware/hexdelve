@@ -18,7 +18,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
 
-import type { BenchRig } from '../bench/rigs.js';
+import type { BenchRig } from '../../bench/rigs.js';
 
 export interface BoneOutlineProps {
 	/** Everything on the manifest that has bones, for the subject picker. */

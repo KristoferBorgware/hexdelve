@@ -13,8 +13,8 @@
 
 import { readEntity, writeEntity } from '@hexdelve/engine';
 
-import { library } from './library.js';
-import { draftToEmittable, type DraftNode } from '../bench/entitydraft.js';
+import { library } from '../../assets/library.js';
+import { draftToEmittable, type DraftNode } from './entitydraft.js';
 
 /** Where an entity's file sits, by the id the manifest lists it under. */
 export function entityPath(id: string): string {

@@ -38,7 +38,7 @@ import {
 import { mat4, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
 import { BenchControls } from './BenchControls.js';
-import { emitGizmos, type PlacedNode } from './gizmos.js';
+import { emitGizmos, type PlacedNode } from '../views/entity/gizmos.js';
 import type { BenchAnimation, BenchRig } from './rigs.js';
 import { emitStand, SHADOW_FIT } from './stand.js';
 

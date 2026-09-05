@@ -20,7 +20,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 
-import type { VaultDraft } from '../vault/store.js';
+import type { VaultDraft } from './store.js';
 
 export interface VaultListProps {
 	drafts: readonly VaultDraft[];

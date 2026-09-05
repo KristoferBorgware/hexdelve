@@ -22,7 +22,7 @@ import ListSubheader from '@mui/material/ListSubheader';
 import Typography from '@mui/material/Typography';
 import { useMemo } from 'react';
 
-import { partRows, type BenchProp, type PropKind } from '../bench/props.js';
+import { partRows, type BenchProp, type PropKind } from './props.js';
 
 export interface PropCatalogueProps {
 	/** Every prop on the manifest, in its order. */

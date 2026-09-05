@@ -41,7 +41,7 @@ import {
 import { STITCH_TILE, type Level, type LevelCell } from '@hexdelve/client';
 import { axialToWorld, mat4, SQRT3, vec3, type Mat4, type Vec3 } from '@hexdelve/shared';
 
-import { BenchControls } from './BenchControls.js';
+import { BenchControls } from '../../bench/BenchControls.js';
 
 /** Tile footprint. Just under 1, so a seam of shadow separates neighbours. */
 const TILE_RADIUS = 0.985;

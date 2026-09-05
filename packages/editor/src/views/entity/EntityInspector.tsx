@@ -35,7 +35,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useState } from 'react';
 import type { ParameterMeta } from '@hexdelve/engine';
 
-import type { DraftComponent, DraftNode } from '../bench/entitydraft.js';
+import type { DraftComponent, DraftNode } from './entitydraft.js';
 
 export interface EntityInspectorProps {
 	node: DraftNode | null;

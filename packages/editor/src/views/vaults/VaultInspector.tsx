@@ -20,7 +20,7 @@ import Typography from '@mui/material/Typography';
 import { useState } from 'react';
 import type { VaultEntityKind, VaultTerrain } from '@hexdelve/client';
 
-import { resize, toSource, type VaultDraft } from '../vault/store.js';
+import { resize, toSource, type VaultDraft } from './store.js';
 import type { Brush } from './Vaults.js';
 import { ENTITY_COLOR, ENTITY_GLYPH, TERRAIN_COLOR } from './VaultCanvas.js';
 

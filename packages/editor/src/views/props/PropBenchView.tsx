@@ -24,16 +24,16 @@ import Typography from '@mui/material/Typography';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BackendPreference } from '@hexdelve/engine';
 
-import { useAssets } from '../assets/library.js';
+import { useAssets } from '../../assets/library.js';
 import {
 	wearerDefault,
 	type PropBench,
 	type PropDisplay,
 	type PropShow,
-} from '../bench/PropBench.js';
-import { benchProps, type BenchProp } from '../bench/props.js';
-import { benchRigs, type BenchAnimation, type BenchRig } from '../bench/rigs.js';
-import { defaultStats, isEdited, type PropStats, type PropStatValue } from '../bench/stats.js';
+} from './PropBench.js';
+import { benchProps, type BenchProp } from './props.js';
+import { benchRigs, type BenchAnimation, type BenchRig } from '../../bench/rigs.js';
+import { defaultStats, isEdited, type PropStats, type PropStatValue } from './stats.js';
 import { PropCatalogue } from './PropCatalogue.js';
 import { PropInspector } from './PropInspector.js';
 import { PropViewport } from './PropViewport.js';

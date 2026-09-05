@@ -29,7 +29,7 @@ import {
 } from '@hexdelve/client';
 import type { BackendPreference } from '@hexdelve/engine';
 
-import type { LevelBench, LevelShow } from '../bench/LevelBench.js';
+import type { LevelBench, LevelShow } from './LevelBench.js';
 import { LevelInspector } from './LevelInspector.js';
 import { LevelViewport } from './LevelViewport.js';
 import { StackOutline } from './StackOutline.js';

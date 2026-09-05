@@ -67,12 +67,12 @@ import type { HexdelveClient } from '@hexdelve/client';
 import type { BackendPreference } from '@hexdelve/engine';
 import type { ScriptProvider } from '@hexdelve/engine';
 
-import { compileScripts, type ScriptDiagnostic } from '../scripts/compiler.js';
-import { scriptNameProblem, scriptStem, scriptStore } from '../scripts/store.js';
-import { loadScriptTypes, type ScriptTypesState } from '../monaco/types.js';
-import { SCRIPT_ROOT } from '../monaco/uris.js';
-import { CodeEditor, type CodeMarker } from './CodeEditor.js';
-import { Viewport } from './Viewport.js';
+import { compileScripts, type ScriptDiagnostic } from '../../scripts/compiler.js';
+import { scriptNameProblem, scriptStem, scriptStore } from '../../scripts/store.js';
+import { loadScriptTypes, type ScriptTypesState } from '../../monaco/types.js';
+import { SCRIPT_ROOT } from '../../monaco/uris.js';
+import { CodeEditor, type CodeMarker } from '../../components/CodeEditor.js';
+import { Viewport } from '../../components/Viewport.js';
 
 /** What a new script starts as. Enough to be a script, and nothing more. */
 function template(name: string): string {

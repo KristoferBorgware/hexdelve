@@ -15,9 +15,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { useEffect, useRef, useState } from 'react';
 import type { BackendPreference } from '@hexdelve/engine';
 
-import { PropBench } from '../bench/PropBench.js';
-import type { BenchProp } from '../bench/props.js';
-import type { BenchRig } from '../bench/rigs.js';
+import { PropBench } from './PropBench.js';
+import type { BenchProp } from './props.js';
+import type { BenchRig } from '../../bench/rigs.js';
 
 export interface PropViewportProps {
 	backend: BackendPreference;

@@ -18,7 +18,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { useEffect, useRef, useState } from 'react';
 import type { BackendPreference } from '@hexdelve/engine';
 
-import { LevelBench } from '../bench/LevelBench.js';
+import { LevelBench } from './LevelBench.js';
 
 export interface LevelViewportProps {
 	backend: BackendPreference;

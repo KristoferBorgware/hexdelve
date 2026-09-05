@@ -1,5 +1,19 @@
 /*
- * The editor shell: a toolbar, and one of seven views under it.
+ * The editor shell: a toolbar, and one of eight views under it.
+ *
+ * ## Where the code for one of them lives
+ *
+ * `views/<name>/` holds everything only that view uses, React and otherwise —
+ * the panels, and the bench class or store behind them. A view is the unit
+ * somebody opens, changes and closes, so it is the unit worth being able to
+ * read in one directory.
+ *
+ * Two directories hold what more than one view needs, and nothing is put in
+ * either until a second view wants it. `components/` is the shared React:
+ * `Viewport` (the yard and the scripts view), `BenchViewport` (the character
+ * and entity benches), `CodeEditor` and `MonacoPane` (the asset and script
+ * editors). `bench/` is the floor the benches stand on: the bench class itself,
+ * its controls, and the rig catalogue the three of them read.
  *
  * The YARD is the game, in a box — the client, unchanged, doing what a player
  * would see. The three BENCHES are the other thing an editor is for: one
@@ -61,15 +75,15 @@ import { useCallback, useState } from 'react';
 import type { HexdelveClient } from '@hexdelve/client';
 import type { BackendPreference } from '@hexdelve/engine';
 
-import { Assets } from './components/Assets.js';
-import { Scripts } from './components/Scripts.js';
-import { Bench } from './components/Bench.js';
-import { PropBenchView } from './components/PropBenchView.js';
-import { EntityBenchView } from './components/EntityBenchView.js';
-import { Inspector } from './components/Inspector.js';
-import { Levels } from './components/Levels.js';
-import { Vaults } from './components/Vaults.js';
-import { SceneOutline } from './components/SceneOutline.js';
+import { Assets } from './views/assets/Assets.js';
+import { Scripts } from './views/scripts/Scripts.js';
+import { Bench } from './views/character/Bench.js';
+import { PropBenchView } from './views/props/PropBenchView.js';
+import { EntityBenchView } from './views/entity/EntityBenchView.js';
+import { Inspector } from './views/yard/Inspector.js';
+import { Levels } from './views/levels/Levels.js';
+import { Vaults } from './views/vaults/Vaults.js';
+import { SceneOutline } from './views/yard/SceneOutline.js';
 import { Viewport } from './components/Viewport.js';
 import type { ScriptWatchState } from './scripts/reload.js';
 

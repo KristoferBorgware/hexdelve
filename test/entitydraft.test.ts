@@ -32,7 +32,7 @@ import {
 	setTransform,
 	subtreeIds,
 	type DraftNode,
-} from '../packages/editor/src/bench/entitydraft.js';
+} from '../packages/editor/src/views/entity/entitydraft.js';
 
 /** A root with two children and a grandchild, named so a failure reads. */
 function tree(): DraftNode {

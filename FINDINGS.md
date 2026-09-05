@@ -356,6 +356,33 @@ the store is written to, and handed to whoever asks. The views then share a
 result rather than a source directory. The work is mostly in deciding what
 invalidates it, which is why this is not small.
 
+### F-023 — `HexMap` is drawn by nothing
+
+**Kind:** cleanup
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-05, giving the editor's views a folder each
+**Where:** `packages/editor/src/views/levels/HexMap.tsx`
+
+**What happens.** It is 108 lines of working SVG that takes a list of hexagon
+cells and fits them into a viewBox, and its own header names the two callers it
+was written for — the sample dungeon the wave function learns from, and every
+pattern it learned. Neither exists any more. Nothing in the editor imports it,
+and it has not been touched since the commit that replaced the WFC tileset with
+the overlapping model.
+
+**Why it matters.** Nobody, today. It costs the next person to open the level
+view a few minutes working out whether the panel is supposed to be drawing
+patterns and has stopped, or whether the feature went and the file stayed. Dead
+code that reads as live code is the kind that gets maintained.
+
+**What would fix it.** Delete it, or put it back to work. The level view has no
+pattern panel now, so the question is whether one is wanted — if it is, this is
+most of it already written; if it is not, the file should go. It was left in
+place rather than deleted during the reorganisation because deciding that is not
+a filing decision.
+
 ## Closed
 
 ### F-007 — A script with a syntax error stops the editor from booting

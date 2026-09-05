@@ -43,10 +43,10 @@ import {
 } from '@hexdelve/engine';
 import { mat4, quat, vec3, type Mat4, type Quat, type Vec3 } from '@hexdelve/shared';
 
-import { BenchControls } from './BenchControls.js';
+import { BenchControls } from '../../bench/BenchControls.js';
 import { measure, type BenchProp, type PropBox } from './props.js';
-import type { BenchAnimation, BenchRig } from './rigs.js';
-import { emitStand, SHADOW_FIT } from './stand.js';
+import type { BenchAnimation, BenchRig } from '../../bench/rigs.js';
+import { emitStand, SHADOW_FIT } from '../../bench/stand.js';
 
 /**
  * The pose the wearer stands in by default: the first of his animations that
