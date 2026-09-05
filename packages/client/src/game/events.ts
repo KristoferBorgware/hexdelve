@@ -59,5 +59,6 @@ export const Swing = defineEvent<{
 }>('swing');
 
 export const Missed = defineEvent<{ readonly by: string; readonly why: string }>('missed');
+export const Landed = defineEvent<{ readonly by: string; readonly on: string }>('landed');
 
 export type { Reach };

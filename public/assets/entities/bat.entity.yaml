@@ -16,3 +16,4 @@ object:
         flight: ../trees/flight.tree.yaml
     - { type: script, script: Hunter, wakeRange: 3, loseRange: 6, climb: 2 }
     - { type: script, script: Character, hp: 6, faction: foe, power: 2, lift: 0.72 }
+    - { type: script, script: Melee, hit: bit you, whiff: bit at nothing }

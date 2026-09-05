@@ -18,7 +18,7 @@
 
 import { jitter, quat, rgbFromHex, type Random, type Rgb } from '@hexdelve/shared';
 
-import { AXIS_Z, PrismField, SQRT3 } from './field.js';
+import { AXIS_Z, PrismField, SQRT3 } from './prismfield.js';
 
 const PI = Math.PI;
 

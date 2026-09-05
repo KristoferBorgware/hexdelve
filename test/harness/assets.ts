@@ -14,8 +14,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { AssetLibrary, readOnly, type AssetIO } from '@hexdelve/engine';
-import { loadCast, type Cast, type CastOptions } from '@hexdelve/client';
+import { AssetLibrary, readOnly, type AssetIO, type EntityAsset, type SceneAsset } from '@hexdelve/engine';
 
 /** Where the files actually are. */
 export const ASSET_ROOT = resolve(import.meta.dirname, '..', '..', 'public', 'assets');
@@ -48,7 +47,35 @@ export function openLibrary(at: string = ASSET_ROOT): AssetLibrary {
 	return new AssetLibrary(readOnly(diskIO(at)));
 }
 
-/** The yard's cast, loaded from the real files. */
-export function loadYardCast(options: CastOptions = {}): Promise<Cast> {
-	return loadCast(openLibrary(), options);
+/** Where the town is, and the only scene there is. */
+export const TOWN_SCENE = 'scenes/town.scene.yaml';
+
+/**
+ * The town, loaded from the real files.
+ *
+ * `spawnable` lays the same scene over the tree with a `spawnable:` list added,
+ * for a test about a script asking for something that was not placed. Written
+ * as text rather than assembled as an object, so what the test exercises is the
+ * reader every other scene goes through.
+ */
+export function loadTownScene(spawnable: readonly string[] = []): Promise<SceneAsset> {
+	if (spawnable.length === 0) return openLibrary().scene(TOWN_SCENE);
+
+	const listed = spawnable.map((id) => `  - ../entities/${id}.entity.yaml`).join('\n');
+	const disk = diskIO(ASSET_ROOT);
+	const io: AssetIO = {
+		...disk,
+		read: async (path) =>
+			path === TOWN_SCENE
+				? `${await disk.read(path)}\nspawnable:\n${listed}\n`
+				: disk.read(path),
+	};
+	return new AssetLibrary(readOnly(io)).scene(TOWN_SCENE);
+}
+
+/** The entity a scene places under a given name, for a test that needs one. */
+export function placedEntity(scene: SceneAsset, name: string): EntityAsset {
+	const found = scene.objects.find((one) => one.name === name)?.entity;
+	if (!found) throw new Error(`the scene '${scene.id}' places no entity called '${name}'`);
+	return found;
 }

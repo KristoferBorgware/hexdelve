@@ -9,13 +9,35 @@
  *
  * The root transform is the other half of it. A building is authored in its
  * own space — origin at the centre of its floor, front towards +Z, ground at
- * y = 0 — and then placed. With a scene graph that placement is a parent node;
- * with one flat instance buffer it has to be baked in as the prisms are
- * written, which is what `origin` and `yaw` do.
+ * y = 0 — and then placed. Baking a building to a mesh file leaves that
+ * transform at the identity, because a mesh file IS a thing in its own space
+ * and where a copy of it stands is the scene's business.
  */
 
 import { quat, type QuatLike, SQRT3 } from '@hexdelve/shared';
-import { type ColorInput, type HexInstances, type PrismOptions } from '@hexdelve/engine';
+import { type ColorInput, type PrismOptions } from '@hexdelve/engine';
+
+/**
+ * Somewhere for a prism to go.
+ *
+ * `HexInstances` is one of these and was the only one for a long time. The
+ * other is a recorder, which keeps what it was handed instead of packing it
+ * into a buffer — which is how a building gets written to a mesh file rather
+ * than straight into a frame. Structural rather than a base class, because the
+ * two have nothing else in common.
+ */
+export interface PrismSink {
+	push(
+		x: number,
+		y: number,
+		z: number,
+		scaleX: number,
+		scaleY: number,
+		scaleZ: number,
+		color: ColorInput,
+		options?: PrismOptions,
+	): void;
+}
 
 /** Lying with the prism's axis along world X, flat side down so they stack. */
 export const AXIS_X = quat.fromEulerXYZ(quat.quat(), 0, 0, Math.PI / 2);
@@ -39,7 +61,7 @@ export class PrismField {
 	private readonly rootQuat = quat.quat();
 
 	constructor(
-		private readonly out: HexInstances,
+		private readonly out: PrismSink,
 		private readonly originX = 0,
 		private readonly originY = 0,
 		private readonly originZ = 0,

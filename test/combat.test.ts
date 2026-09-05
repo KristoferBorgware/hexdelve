@@ -21,33 +21,33 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { Damage, loadEffects, Simulation, type Cast } from '@hexdelve/client';
+import { Damage, loadEffects, Simulation } from '@hexdelve/client';
 import { HexInstances, Particles, type ParticleEffect } from '@hexdelve/engine';
-import { loadSystem, scriptsFromBundle, type ScriptProvider } from '@hexdelve/engine';
+import { loadSystem, scriptsFromBundle, type SceneAsset, type ScriptProvider } from '@hexdelve/engine';
 import { axialDistance, axialNeighbours, type Axial } from '@hexdelve/shared';
 
 import { bundleScripts } from '../tools/build-scripts.mjs';
 import { SDK_MODULES } from './harness/sdk.js';
-import { loadYardCast, openLibrary } from './harness/assets.js';
+import { loadTownScene, openLibrary } from './harness/assets.js';
 
 /** The frame the client runs at, near enough. */
 const FRAME = 1 / 60;
 
 describe('a blow, end to end', () => {
-	let cast: Cast;
+	let scene: SceneAsset;
 	let scripts: ScriptProvider;
 	let effects: ReadonlyMap<string, ParticleEffect>;
 	let systems: Awaited<ReturnType<ReturnType<typeof openLibrary>['system']>>;
 
 	beforeAll(async () => {
-		cast = await loadYardCast();
+		scene = await loadTownScene();
 		systems = await openLibrary().system('systems/game.system.yaml');
 		effects = await loadEffects(openLibrary());
 		scripts = scriptsFromBundle((await bundleScripts()).code, SDK_MODULES);
 	}, 120_000);
 
 	function yard(): Simulation {
-		return new Simulation({ cast, seed: 37, systems: [systems], scripts });
+		return new Simulation({ scene, seed: 37, systems: [systems], scripts });
 	}
 
 	/**
@@ -59,8 +59,8 @@ describe('a blow, end to end', () => {
 	 * code.
 	 */
 	it('spawns an entity by name, where a script asked for one', async () => {
-		const withSpawnable = await loadYardCast({ spawnable: ['sword'] });
-		const sim = new Simulation({ cast: withSpawnable, seed: 37, systems: [systems], scripts });
+		const withSpawnable = await loadTownScene(['sword']);
+		const sim = new Simulation({ scene: withSpawnable, seed: 37, systems: [systems], scripts });
 
 		const before = sim.scene.all().length;
 		const made = sim.scripts.spawn('sword', { at: { x: 2, y: 0, z: -1 }, yaw: 1, name: 'thrown' });
@@ -120,8 +120,8 @@ describe('a blow, end to end', () => {
 		expect(sim.attack()).toBe(true);
 		run(sim, 40);
 
-		expect(sim.player.swing.cuts, 'he got there and swung').toBeGreaterThan(0);
-		expect(sim.player.swing.hits, 'and at least one landed').toBeGreaterThan(0);
+		expect(sim.player.melee!.thrown, 'he got there and swung').toBeGreaterThan(0);
+		expect(sim.player.melee!.hits, 'and at least one landed').toBeGreaterThan(0);
 
 		// Five a blow, off six, so the first one leaves it on one.
 		expect(healthOf(sim, bat)).toBeLessThanOrEqual(1);
@@ -133,7 +133,7 @@ describe('a blow, end to end', () => {
 		run(sim, 40);
 		// The rule that decided this lives in a script; the sentence does not.
 		expect(['hit it', 'cut air', 'the blow fell short']).toContain(sim.stats.message);
-		expect(sim.stats.hits + sim.stats.missed).toBe(sim.player.swing.cuts);
+		expect(sim.stats.hits + sim.stats.missed).toBe(sim.player.melee!.thrown);
 	});
 
 	/*
@@ -154,12 +154,12 @@ describe('a blow, end to end', () => {
 			),
 			'clock.system.yaml',
 		);
-		const sim = new Simulation({ cast, seed: 37, systems: [clockOnly], scripts });
+		const sim = new Simulation({ scene, seed: 37, systems: [clockOnly], scripts });
 		expect(sim.attack()).toBe(true);
 		run(sim, 40);
 
-		expect(sim.player.swing.cuts, 'he still swings').toBeGreaterThan(0);
-		expect(sim.player.swing.hits, 'and connects with nothing').toBe(0);
+		expect(sim.player.melee!.thrown, 'he still swings').toBeGreaterThan(0);
+		expect(sim.player.melee!.hits, 'and connects with nothing').toBe(0);
 	});
 
 	/*
@@ -197,7 +197,7 @@ describe('a blow, end to end', () => {
 	 * `Damage` and spawns it, and the component takes its own object out again.
 	 */
 	it('throws blood where a blow landed, and clears it up afterwards', () => {
-		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts, effects });
+		const sim = new Simulation({ scene, seed: 37, systems: [systems], scripts, effects });
 		const emitters = (): Particles[] => sim.scene.getComponents(Particles);
 
 		// The chimneys, and nothing else: those are placed when the yard is
@@ -218,16 +218,26 @@ describe('a blow, end to end', () => {
 	});
 
 	/*
-	 * The opposite case, and the one an embedder reaches: a manifest with no
-	 * `particles` section at all. A yard with no smoke over the chimney is a
-	 * yard; a yard that refuses to start over one is not.
+	 * The opposite case, and the one an embedder reaches: a client given no
+	 * effects at all.
+	 *
+	 * The chimneys still smoke, because that emitter is a component in the
+	 * building's own entity file and comes with the building — an effect a
+	 * thing always has belongs to the thing. What the runtime map gates is
+	 * blood, which is thrown where a blow lands and belongs to no object until
+	 * one is struck. So the count does not move across the fight, and the fight
+	 * still runs: a yard with nothing spattering is a yard.
 	 */
-	it('runs a whole fight with no effects loaded at all', () => {
+	it('runs a whole fight with no effects handed to it', () => {
 		const sim = yard();
-		expect(sim.scene.getComponents(Particles)).toHaveLength(0);
+		const chimneys = sim.scene.getComponents(Particles).length;
+		expect(chimneys, 'the buildings brought their own smoke').toBe(2);
+
 		expect(sim.attack()).toBe(true);
 		run(sim, 40);
-		expect(sim.player.swing.hits).toBeGreaterThan(0);
+
+		expect(sim.player.melee!.hits).toBeGreaterThan(0);
+		expect(sim.scene.getComponents(Particles)).toHaveLength(chimneys);
 	});
 
 	it('stops a creature taking turns once it has fallen', () => {
@@ -240,7 +250,7 @@ describe('a blow, end to end', () => {
 
 		expect(healthOf(sim, sim.bat.object)).toBe(0);
 		expect(sim.schedule.members).not.toContain(sim.bat);
-		expect(sim.bat.bites, 'and bit nothing after it fell').toBeLessThan(4);
+		expect(sim.bat.melee!.hits, 'and bit nothing after it fell').toBeLessThan(4);
 	});
 
 	/*
@@ -293,7 +303,7 @@ describe('a blow, end to end', () => {
 		// Its wings stop holding it up, so it ends at ground level rather than
 		// at the height it hovers at. `wake` carries that, and dying drives it
 		// to nothing the same way falling asleep does.
-		const ground = sim.world.groundAt(sim.bat.x, sim.bat.z);
+		const ground = sim.terrain.groundAt(sim.bat.x, sim.bat.z);
 		expect(sim.bat.y - ground).toBeLessThan(0.05);
 	});
 

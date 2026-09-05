@@ -31,7 +31,7 @@
 import { GameObject } from '../scene/GameObject.js';
 import type { Scene } from '../scene/Scene.js';
 import { NO_ASSETS, type ComponentAssets } from './binding.js';
-import { AssetError, type Node } from './document.js';
+import { AssetError, type Node, type Vec3 } from './document.js';
 import { unknownComponent, type ComponentSpec, type PrefabNode } from './prefab.js';
 
 /**
@@ -107,6 +107,17 @@ export interface InstantiateOptions {
 	readonly parent?: GameObject;
 	/** What to call the root, if not what the prefab calls it. */
 	readonly name?: string;
+	/**
+	 * Where to put the root, if not where the prefab puts it.
+	 *
+	 * Applied BEFORE the components are built, which is the whole reason it is
+	 * an option rather than a write the caller makes afterwards: a component
+	 * that reads its object's place when it loads — a thing that sits down on
+	 * the ground, a thing that marks the tiles it covers — would otherwise read
+	 * the origin and act on it.
+	 */
+	readonly at?: Vec3;
+	readonly euler?: Vec3;
 	/** Handed to every factory, untouched. */
 	readonly extras?: unknown;
 	/** For the error messages. */
@@ -129,7 +140,7 @@ export function instantiate(
 ): GameObject {
 	const file = options.file ?? '<prefab>';
 	const parent = options.parent ?? scene.root;
-	return spawn(prefab, parent, registry, file, options.extras, options.name);
+	return spawn(prefab, parent, registry, file, options.extras, options.name, options.at, options.euler);
 }
 
 function spawn(
@@ -139,12 +150,16 @@ function spawn(
 	file: string,
 	extras: unknown,
 	nameOverride?: string,
+	atOverride?: Vec3,
+	eulerOverride?: Vec3,
 ): GameObject {
 	const object = parent.add(new GameObject(nameOverride ?? node.name));
 
-	object.transform.setPosition(node.at[0], node.at[1], node.at[2]);
-	if (node.euler[0] || node.euler[1] || node.euler[2]) {
-		object.transform.setEuler(node.euler[0], node.euler[1], node.euler[2]);
+	const at = atOverride ?? node.at;
+	const euler = eulerOverride ?? node.euler;
+	object.transform.setPosition(at[0], at[1], at[2]);
+	if (euler[0] || euler[1] || euler[2]) {
+		object.transform.setEuler(euler[0], euler[1], euler[2]);
 	}
 
 	for (const spec of node.components) {

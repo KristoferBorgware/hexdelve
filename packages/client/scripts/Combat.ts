@@ -9,6 +9,7 @@
  *
  *     the man     emit(Swing, { at, facing, reach, amount })
  *     Combat      @on(Swing) -> registry -> target.send(Damage) or emit(Missed)
+ *                 and emit(Landed) or emit(Missed), for whoever threw it
  *     Character   @on(Damage) -> hp -= amount
  *
  * Adding a second way to deal damage — a trap, a spell, a falling rock — is a
@@ -32,7 +33,7 @@
 import { on, param, Script } from '@hexdelve/engine';
 
 import { CharacterRegistry } from './CharacterRegistry.js';
-import { Damage, Missed, Swing, type Point, type Reach } from './events.js';
+import { Damage, Landed, Missed, Swing, type Point, type Reach } from './events.js';
 
 /** How far above or below the blade a body still counts as being in the way. */
 const HEIGHT_SLACK = 1.2;
@@ -86,6 +87,13 @@ export class Combat extends Script {
 		}
 
 		this.send(target.object, Damage, { amount: swing.amount, from: swing.by, at });
+
+		/*
+		 * And the same news the other way round. Damage is SENT, so it reaches
+		 * the thing that was hit and nothing else; whoever threw the blow has no
+		 * way to hear it, and a tally of hits is kept on the thrower.
+		 */
+		this.emit(Landed, { by: swing.by, on: target.object.name });
 	}
 }
 

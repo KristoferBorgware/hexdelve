@@ -28,17 +28,44 @@ import { Component } from './Component.js';
 import { Rig } from './Rig.js';
 
 export class MeshRenderer extends Component {
-	readonly asset: MeshAsset;
+	/**
+	 * The file this was built from, or null where nothing named one.
+	 *
+	 * A record may say `{ type: mesh }` with no path: an empty mesh, for an
+	 * object whose prisms are worked out at run time rather than authored. The
+	 * terrain is the case that wanted it — how many hexagons of ground there
+	 * are is a number somebody moves in an editor, and no file can hold the
+	 * answer to that.
+	 */
+	readonly asset: MeshAsset | null;
+
 	private built: Model | null = null;
 
-	constructor(object: GameObject, asset: MeshAsset) {
+	constructor(object: GameObject, asset: MeshAsset | null = null) {
 		super(object);
 		this.asset = asset;
 	}
 
-	/** The prisms. Built on first use — they never change afterwards. */
-	get model(): Model {
-		return (this.built ??= this.asset.model());
+	/**
+	 * The prisms. Built on first use from the file, or whatever was put here.
+	 *
+	 * Null until something supplies one, which is an ordinary state rather than
+	 * a failure: a mesh a script has not built yet draws nothing, and a frame
+	 * during which it draws nothing is better than one that throws.
+	 */
+	get model(): Model | null {
+		return (this.built ??= this.asset?.model() ?? null);
+	}
+
+	/**
+	 * Put a model here, replacing whatever was drawn before.
+	 *
+	 * What a script building its own geometry calls. Rebuilding is a write of
+	 * the whole model rather than an edit of the old one, so a half-rebuilt
+	 * mesh is never a thing that can be drawn.
+	 */
+	set model(model: Model | null) {
+		this.built = model;
 	}
 
 	/** The rig this is posed by, or null when it is drawn in its own space. */
@@ -49,10 +76,13 @@ export class MeshRenderer extends Component {
 
 	/** Draw it, wherever its object and its pose have put it. */
 	emit(out: HexInstances, options: EmitOptions = {}): void {
+		const model = this.model;
+		if (!model) return;
+
 		const rig = this.rig;
 		if (rig) {
 			const { transform } = this.object;
-			this.model.emit(
+			model.emit(
 				out,
 				rig.world,
 				transform.position[0]!,
@@ -65,7 +95,7 @@ export class MeshRenderer extends Component {
 		}
 
 		const where = this.object.world;
-		this.model.emitDetached(
+		model.emitDetached(
 			out,
 			where.position[0]!,
 			where.position[1]!,

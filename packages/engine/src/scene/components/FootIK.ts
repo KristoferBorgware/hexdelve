@@ -66,6 +66,16 @@ export class FootIK extends Component {
 	reach = param(0.18, { min: 0.01, max: 1, step: 0.01, label: 'Reach', hint: 'Blend height' });
 
 	/**
+	 * Whether to plant anything at all.
+	 *
+	 * A parameter rather than a branch in the caller, because the caller is not
+	 * one place: every creature solves its own feet inside its own frame, and a
+	 * switch each of them had to be asked about is a switch one of them forgets
+	 * to ask about.
+	 */
+	enabled = param(true, { label: 'Plant feet' });
+
+	/**
 	 * What is underneath. Flat until somebody sets it.
 	 *
 	 * Wired by code rather than declared as a parameter, because it is a
@@ -89,6 +99,7 @@ export class FootIK extends Component {
 	 * this is a correction to it rather than a separate thing to draw.
 	 */
 	solve(): void {
+		if (!this.enabled) return;
 		const rig = this.rig;
 		const feet = rig?.asset.feet;
 		if (!rig || !feet) return;

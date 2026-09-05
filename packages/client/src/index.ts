@@ -72,22 +72,25 @@ export {
 } from './game/orders.js';
 export { EMPTY_SCHEDULE, turnOrder, TURNS, type TurnOrder } from './game/turnorder.js';
 export {
+	terrainNear,
+	terrainOf,
+	terrainOn,
+	tileKey,
+	TERRAIN,
+	type Footprint,
+	type TerrainQuery,
+	type Tile,
+} from './game/terrain.js';
+export {
 	huntOrders,
 	HUNTER,
 	type HuntDecision,
 	type HuntOrders,
 	type HuntState,
 } from './game/hunt.js';
+export { melee, MELEE, type MeleeStrikes, type Strike } from './game/melee.js';
+export { Acting, type Flight } from './game/acting.js';
 export { spawnEntity } from './game/spawn.js';
-export {
-	loadCast,
-	clipOf,
-	YARD_ENEMY,
-	YARD_PLAYER,
-	YARD_PROPS,
-	type Cast,
-	type CastOptions,
-} from './game/cast.js';
 export { Item } from './game/items.js';
 export {
 	loadEffects,
@@ -97,13 +100,7 @@ export {
 	type EmitterPlacement,
 } from './game/effects.js';
 
-export {
-	buildWorld,
-	type Chimney,
-	type Tile,
-	type World,
-	type WorldOptions,
-} from './scene/world.js';
+
 
 /*
  * Level generation, exported for the same reason the rigs are: the editor's

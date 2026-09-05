@@ -21,9 +21,16 @@ entities:
   - ./entities/lemure.entity.yaml
   - ./entities/kobold.entity.yaml
   - ./entities/giant.entity.yaml
+  - ./entities/terrain.entity.yaml
+  - ./entities/anvil.entity.yaml
+  - ./entities/smithy.entity.yaml
+  - ./entities/cabin.entity.yaml
   - ./entities/helmet.entity.yaml
   - ./entities/sword.entity.yaml
   - ./entities/shield.entity.yaml
+
+scenes:
+  - ./scenes/town.scene.yaml
 
 particles:
   - ./particles/smoke.particles.yaml

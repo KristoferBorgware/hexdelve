@@ -22,7 +22,9 @@ import {
 	AssetNode,
 	readPrefabNode,
 	Scene,
+	prefabScripts,
 	prefabTypes,
+	readScene,
 	type ComponentContext,
 } from '@hexdelve/engine';
 
@@ -193,12 +195,16 @@ describe('a system prefab', () => {
 });
 
 describe('the entities that ship', () => {
-	it('gives every one of them a rig and a body to draw', async () => {
+	it('gives every one of them a body to draw, and bones where it is posed', async () => {
 		const library = openLibrary();
 		for (const entity of await library.index()) {
 			const types = prefabTypes(entity.prefab);
-			expect(types, entity.id).toContain('rig');
 			expect(types, entity.id).toContain('mesh');
+			// Bones only where something poses or hangs off them. The ground has
+			// a mesh and no rig, which is what an entity that is not a creature
+			// looks like — and the reason this is two rules rather than one.
+			const posed = types.includes('animator') || types.includes('attach');
+			if (posed) expect(types, entity.id).toContain('rig');
 		}
 	});
 
@@ -213,14 +219,17 @@ describe('the entities that ship', () => {
 		}
 	});
 
-	it('makes every animated thing something that can be hit, and no prop one', async () => {
+	it('makes every animated thing something that can be hit, and nothing else', async () => {
 		const library = openLibrary();
 		for (const entity of await library.index()) {
-			const types = prefabTypes(entity.prefab);
-			// A prop is a thing lying in the grass. Giving one hit points would
-			// put a sword in the register of characters, where everything that
-			// goes looking for something to hit would find it.
-			expect(types.includes('script'), entity.id).toBe(types.includes('animator'));
+			const named = prefabScripts(entity.prefab).map((use) => use.script);
+			// A prop is a thing lying in the grass and the ground is the grass.
+			// Giving either hit points would put it in the register of
+			// characters, where everything looking for something to hit would
+			// find it — so it is `Character` that is asked about rather than any
+			// script at all, since the ground carries one and is not a creature.
+			const animated = prefabTypes(entity.prefab).includes('animator');
+			expect(named.includes('Character'), entity.id).toBe(animated);
 		}
 	});
 
@@ -234,5 +243,54 @@ describe('the entities that ship', () => {
 		for (const entity of await library.index()) {
 			expect(entity.prefab, entity.id).not.toBeNull();
 		}
+	});
+});
+
+describe('scenes', () => {
+	it('reads a scene as roots that are entities or objects written out', async () => {
+		const town = await openLibrary().scene('scenes/town.scene.yaml');
+		expect(town.id).toBe('town');
+		// The ground first, because everything else stands on it.
+		expect(town.objects[0]!.entity?.id).toBe('terrain');
+		// And two of them are named for the part they play rather than for what
+		// they are: a `wanderer2` is the `player` in this world.
+		expect(town.objects.map((one) => one.name)).toContain('player');
+		expect(town.objects.map((one) => one.name)).toContain('bat');
+	});
+
+	it('places an entity where the scene says, not where the entity does', async () => {
+		const town = await openLibrary().scene('scenes/town.scene.yaml');
+		const player = town.objects.find((one) => one.name === 'player')!;
+		expect(player.entity!.id).toBe('wanderer2');
+		expect(player.at).toEqual([0, 0, -5.4]);
+		// The entity's own tree is untouched: where a copy stands belongs to
+		// whoever asked for the copy.
+		expect(player.prefab).toBe(player.entity!.prefab);
+	});
+
+	it('reads an object written out in place, exactly as an entity file writes one', () => {
+		const source = [
+			'id: bare',
+			'objects:',
+			'  - name: campfire',
+			'    at: [2, 0, 1]',
+			'    components:',
+			'      - { type: script, script: Spin, speed: 2 }',
+		].join('\n');
+		const scene = readScene(source, 'bare.scene.yaml');
+		const only = scene.objects[0]!;
+		expect(only.entity).toBeNull();
+		expect(only.at).toEqual([2, 0, 1]);
+		expect(only.prefab!.components.map((one) => one.type)).toEqual(['script']);
+	});
+
+	it('refuses an object that is both an entity and a body of its own', () => {
+		const source = [
+			'id: bad',
+			'objects:',
+			'  - entity: ../entities/bat.entity.yaml',
+			'    components: []',
+		].join('\n');
+		expect(() => readScene(source, 'bad.scene.yaml')).toThrow(/either names an entity or/);
 	});
 });

@@ -45,6 +45,7 @@ import {
 	noScripts,
 	ScriptHost,
 	type EntityAsset,
+	type SceneAsset,
 	type ScriptProvider,
 	type SpawnPlacement,
 } from '@hexdelve/engine';
@@ -52,8 +53,10 @@ import {
 import {
 	HEX_FLAG_UNLIT,
 	Attach,
+	FootIK,
+	MeshRenderer,
+	Rig,
 	entityAnimations,
-	entityMesh,
 	entityRig,
 	HexInstances,
 	instantiate,
@@ -72,10 +75,9 @@ import {
 	type Axial,
 } from '@hexdelve/shared';
 
-import { buildWorld, type World } from '../scene/world.js';
-import { BLOOD_EFFECT, SMOKE_EFFECT, spawnEmitter } from './effects.js';
-import { Damage, Missed } from './events.js';
-import type { Cast } from './cast.js';
+import { terrainOn, type TerrainQuery } from './terrain.js';
+import { BLOOD_EFFECT, spawnEmitter } from './effects.js';
+import { Damage } from './events.js';
 import { components, type SpawnExtras } from './components.js';
 import { spawnEntity } from './spawn.js';
 import { BatHunt } from './bathunt.js';
@@ -106,17 +108,19 @@ export interface SimulationToggles {
 
 export interface SimulationOptions {
 	/**
-	 * Who is in the yard. Required, because everything in it — the rigs, the
-	 * bodies, the clips, the reach measured off them — comes out of files now,
-	 * and a simulation cannot make any of it up.
+	 * What is in this world, and where. Required: everything in it — the
+	 * ground, the rigs, the bodies, the clips, the reach measured off them —
+	 * comes out of files, and a simulation cannot make any of it up.
 	 */
-	cast: Cast;
+	scene: SceneAsset;
 	/**
 	 * The prefabs there is exactly one of, spawned before anything else.
 	 *
 	 * Order matters and is the whole reason they are separate: a register has
 	 * to exist before the first thing that registers with it, so systems go
-	 * into the scene ahead of the cast rather than beside it.
+	 * into the world ahead of the scene rather than beside it. They are not in
+	 * the scene file because they are in EVERY scene — a line each one had to
+	 * remember to carry would be a line each one could forget.
 	 */
 	systems?: readonly SystemAsset[];
 	/**
@@ -192,7 +196,8 @@ export interface YardStats extends PlayerStats {
 }
 
 export class Simulation {
-	readonly world: World;
+	/** The ground, as its script answers for it. */
+	readonly terrain: TerrainQuery;
 	readonly player: Player;
 	readonly bat: BatHunt;
 	readonly items: Item[];
@@ -227,7 +232,7 @@ export class Simulation {
 	 * something that had not moved.
 	 */
 	private readonly actors: ActorBehaviour[] = [];
-	private readonly perch: Axial;
+	private perch: Axial;
 	private elapsed = 0;
 	private hover: Axial | null = null;
 	private hoverReachable = false;
@@ -270,7 +275,6 @@ export class Simulation {
 
 	constructor(options: SimulationOptions) {
 		const random = makeRandom(options.seed ?? 37);
-		this.world = buildWorld({ random, groundRadius: 8, baseY: 0.16, stepH: 0.19 });
 		this.effects = options.effects ?? new Map();
 
 		this.toggles = {
@@ -288,14 +292,8 @@ export class Simulation {
 		 */
 		this.perch = worldToAxial(3.9, 1.2);
 
-		/*
-		 * The gear, straight off its entity files. A prop carries the bone it
-		 * hangs from and the two numbers that put it down in the grass, so
-		 * there is nothing to look up here and nothing to keep in step: what
-		 * the prop bench shows is what the yard drops.
-		 */
-		const { cast } = options;
-		this.scene = new Scene({ name: 'yard' });
+		const scene = options.scene;
+		this.scene = new Scene({ name: scene.id });
 
 		/*
 		 * The script host, before anything that could carry a script is
@@ -303,21 +301,25 @@ export class Simulation {
 		 * classes exist is a question about the build, not about the game.
 		 */
 		this.scripts = new ScriptHost(options.scripts ?? noScripts, {
-			spawn: (id, placement) => this.spawnFromCast(id, placement),
+			spawn: (id, placement) => this.spawnFromScene(id, placement),
 		});
 
 		/*
-		 * What a script may ask for by name. Everything the cast loaded: the two
-		 * characters, the gear in the grass, and whatever was listed as
-		 * spawnable and left unplaced.
+		 * What a script may ask for by name: everything this scene places, and
+		 * whatever it listed as spawnable and left unplaced.
 		 */
 		this.catalogue = new Map(
-			[cast.player, cast.enemy, ...cast.props, ...cast.spawnable].map((entity) => [
-				entity.id,
-				entity,
-			]),
+			[
+				...scene.objects.flatMap((one) => (one.entity ? [one.entity] : [])),
+				...scene.spawnable,
+			].map((entity) => [entity.id, entity]),
 		);
 
+		/*
+		 * The systems, ahead of everything the scene lists. A register has to
+		 * exist before the first thing that registers with it, and they are not
+		 * in the scene file because they are in every scene.
+		 */
 		this.systems = this.scene.spawn('systems');
 		for (const system of options.systems ?? []) {
 			instantiate(system.prefab, this.scene, components, {
@@ -328,61 +330,83 @@ export class Simulation {
 		}
 
 		/*
-		 * The gear, spawned from its own prefabs. Nothing here says what a
-		 * helmet is made of or how it lies: the entity file does, its `object:`
-		 * section says an item hangs on it, and the factory reads both. What
-		 * the prop bench shows is what the yard drops, for the stronger reason
-		 * that they now come out of the same file the same way.
+		 * Everything the scene lists, in the order it lists them.
+		 *
+		 * Order is the file's, and it matters in one place: the ground has to
+		 * be down before anything that stands on it, because a building sits at
+		 * the height of the tile under it and until there is a tile there is no
+		 * height to sit at. The scene says so by putting the terrain first,
+		 * which is a thing a person can see rather than a rule in here.
 		 */
-		this.items = cast.props.map((prop) => {
-			const object = spawnEntity(prop, this.scene, { extras: this.scriptExtras() });
+		const placed = new Map<string, GameObject>();
+		for (const object of scene.objects) {
+			const spawned = instantiate(object.prefab, this.scene, components, {
+				extras: this.scriptExtras(),
+				file: `${scene.id}.scene.yaml`,
+				at: object.at,
+				euler: object.euler,
+				...(object.name !== null ? { name: object.name } : {}),
+			});
+			placed.set(spawned.name, spawned);
+		}
+
+		const ground = placed.get('terrain') ?? null;
+		const terrain = ground && terrainOn(ground);
+		if (!terrain) {
+			throw new Error(
+				`the scene '${scene.id}' has no object with a Terrain script on it, so it has no ` +
+					'ground; a world built without the scripts compiled cannot stand anything up',
+			);
+		}
+		this.terrain = terrain;
+
+		/*
+		 * The gear, found in what was placed rather than listed here. An item is
+		 * an entity carrying an `item` component, so what is pickupable in this
+		 * world is a question about the world rather than an argument.
+		 */
+		this.items = [];
+		for (const object of this.scene.root.walk()) {
 			const item = object.getComponent(Item);
-			if (!item) throw new Error(`'${prop.id}' has no item component to lie in the grass`);
-			return item;
-		});
-
-		/*
-		 * Spread across his way in, and not in a line: collecting all three
-		 * should be a walk that turns.
-		 *
-		 * They sit on tile centres rather than scattered in the grass, and that
-		 * is a rule change rather than a tidy-up. Picking a thing up is now a
-		 * question about a hexagon — is it on mine — so a sword lying a
-		 * hand's breadth over a tile boundary would be on a hexagon other than
-		 * the one it looks like it is on.
-		 */
-		const spots: [Item, number, number, number][] = [
-			[this.items[0]!, -2.4, -3.1, -0.7],
-			[this.items[1]!, 1.9, -3.4, 1.1],
-			[this.items[2]!, -3.4, 0.4, 2.3],
-		];
-		for (const [item, x, z, yaw] of spots) {
-			const cell = worldToAxial(x, z);
-			const tile = this.world.tileAt(cell.q, cell.r)!;
-			item.ground(tile.x, tile.z, yaw, tile.top);
+			if (item) this.items.push(item);
 		}
 
 		/*
-		 * Smoke over both chimneys.
+		 * And set down where the scene put them, on the tile they are over.
 		 *
-		 * The building is prisms baked into the static list and is not in the
-		 * scene at all, so the emitter is not under it — it stands where the
-		 * chimney vents, and `world.chimneys` is the only thing either half
-		 * knows about the other. Two objects on one effect file, which is what
-		 * an effect being a file rather than a lump of code buys.
+		 * Snapped to the tile centre, which is a rule rather than a tidy-up:
+		 * picking a thing up is a question about a hexagon — is it on mine — so
+		 * a sword lying a hand's breadth over a boundary would be on a hexagon
+		 * other than the one it looks like it is on.
 		 */
-		const smoke = this.effects.get(SMOKE_EFFECT);
-		if (smoke) {
-			for (const [index, chimney] of this.world.chimneys.entries()) {
-				spawnEmitter(this.scene, smoke, {
-					...chimney,
-					name: `smoke ${index}`,
-				});
-			}
+		for (const item of this.items) {
+			const { transform } = item.object;
+			const cell = worldToAxial(transform.position[0]!, transform.position[2]!);
+			const tile = this.terrain.tileAt(cell.q, cell.r);
+			if (tile) item.ground(tile.x, tile.z, transform.yaw, tile.top);
 		}
+
+		/*
+		 * The two the yard's readout and its input still name.
+		 *
+		 * By the name the scene calls them, because what a thing IS and what
+		 * PART it plays here are different questions — a `wanderer2` is the
+		 * `player` in this world and would be somebody else in another.
+		 */
+		const playerObject = placed.get('player');
+		const batObject = placed.get('bat');
+		if (!playerObject || !batObject) {
+			throw new Error(
+				`the scene '${scene.id}' must name an object 'player' and one 'bat'; it has ` +
+					`${[...placed.keys()].join(', ')}`,
+			);
+		}
+
+		const playerEntity = scene.objects.find((one) => one.name === 'player')?.entity ?? null;
+		if (!playerEntity) throw new Error(`the scene '${scene.id}' places no entity as its player`);
 
 		/* Where his eyeline is, off his own rig — a camera follows the hips. */
-		this.hipHeight = entityRig(cast.player)?.metrics.hipHeight ?? 0;
+		this.hipHeight = entityRig(playerEntity)?.metrics.hipHeight ?? 0;
 
 		/*
 		 * And how long a game turn is, off his walk. One turn is a tenth of the
@@ -391,38 +415,39 @@ export class Simulation {
 		 * which is what keeps his step and his place in the energy table the
 		 * same fact.
 		 */
-		const walk = entityAnimations(cast.player).get('walk')?.speed();
-		if (!walk) throw new Error(`'${cast.player.id}' has no measurable walk to set the turn clock from`);
+		const walk = entityAnimations(playerEntity).get('walk')?.speed();
+		if (!walk) {
+			throw new Error(`'${playerEntity.id}' has no measurable walk to set the turn clock from`);
+		}
 		setWalkSpeed(walk.z);
 
-		const sword = cast.props.find((prop) => prop.id === 'sword');
-		const swordTip = entityMesh(sword!)?.anchors.tip?.at;
-		if (!swordTip) throw new Error(`the yard's sword has no 'tip' anchor to measure a reach from`);
+		const swordTip = this.items
+			.map((item) => item.object.getComponent(MeshRenderer)?.asset?.anchors.tip?.at)
+			.find((tip) => tip !== undefined);
+		if (!swordTip) throw new Error(`this scene has nothing with a 'tip' anchor to measure a reach from`);
 
-		this.player = spawnEntity(cast.player, this.scene, { name: 'player', extras: this.scriptExtras() }).addComponent(
-			Player,
-			{
-				swordTip,
-				cell: worldToAxial(0, -5.4),
-				yaw: 0,
-				world: this.world,
-				items: this.items,
-				scripts: this.scripts,
-				...(options.playerSpeed !== undefined ? { speed: options.playerSpeed } : {}),
-			},
-		);
+		const at = (object: GameObject) =>
+			worldToAxial(object.transform.position[0]!, object.transform.position[2]!);
 
-		this.bat = spawnEntity(cast.enemy, this.scene, { name: 'bat', extras: this.scriptExtras() }).addComponent(
-			BatHunt,
-			{
-				cell: this.perch,
-				yaw: 2.4,
-				world: this.world,
-				random,
-				scripts: this.scripts,
-				...(options.batSpeed !== undefined ? { speed: options.batSpeed } : {}),
-			},
-		);
+		this.player = playerObject.addComponent(Player, {
+			swordTip,
+			cell: at(playerObject),
+			yaw: playerObject.transform.yaw,
+			terrain: this.terrain,
+			items: this.items,
+			scripts: this.scripts,
+			...(options.playerSpeed !== undefined ? { speed: options.playerSpeed } : {}),
+		});
+
+		this.perch = at(batObject);
+		this.bat = batObject.addComponent(BatHunt, {
+			cell: this.perch,
+			yaw: batObject.transform.yaw,
+			terrain: this.terrain,
+			random,
+			scripts: this.scripts,
+			...(options.batSpeed !== undefined ? { speed: options.batSpeed } : {}),
+		});
 
 		/*
 		 * Each of them learns about the other, now that both exist. This is
@@ -515,26 +540,14 @@ export class Simulation {
 	/**
 	 * Hear what the rules decided, and put it on the screen.
 	 *
-	 * Two things only, and both are the picture rather than the game: a shower
-	 * of blood where a blow landed, and the swinger's tally of what came of it.
-	 * What a blow COSTS is settled by the scripts, and what being hit does to
-	 * the thing hit is heard by that thing — `Hunter` takes the bat's next move
-	 * off it, and nothing here is told about that.
-	 *
-	 * The tallies go back to whoever threw the blow rather than being kept
-	 * here, because a hit is his hit.
+	 * One thing, and it is the picture rather than the game: a shower of blood
+	 * where a blow landed. What a blow COSTS is settled by the scripts, what a
+	 * blow DID goes back to the `Melee` that threw it, and what being hit does
+	 * to the thing hit is heard by that thing — `Hunter` takes the bat's next
+	 * move off it, and nothing here is told about that.
 	 */
 	private listen(): void {
-		this.scripts.on(Damage, (blow) => {
-			this.spatter(blow.at.x, blow.at.y, blow.at.z);
-			if (blow.from === 'player') this.player.reportBlow(true, 'hit it');
-			else this.bat.reportBite(true, 'bit you');
-		});
-
-		this.scripts.on(Missed, (miss) => {
-			if (miss.by === 'player') this.player.reportBlow(false, miss.why);
-			else this.bat.reportBite(false, miss.why === 'cut air' ? 'bit at nothing' : miss.why);
-		});
+		this.scripts.on(Damage, (blow) => this.spatter(blow.at.x, blow.at.y, blow.at.z));
 	}
 
 	/**
@@ -567,11 +580,11 @@ export class Simulation {
 	 * The extras travel with it, so an object carrying scripts of its own loads
 	 * them the way one spawned at startup does.
 	 */
-	private spawnFromCast(id: string, placement: SpawnPlacement): GameObject {
+	private spawnFromScene(id: string, placement: SpawnPlacement): GameObject {
 		const entity = this.catalogue.get(id);
 		if (!entity) {
 			throw new Error(
-				`the cast has no '${id}'; it loaded ${[...this.catalogue.keys()].sort().join(', ')}`,
+				`this scene has no '${id}'; it loaded ${[...this.catalogue.keys()].sort().join(', ')}`,
 			);
 		}
 
@@ -625,6 +638,12 @@ export class Simulation {
 		this.actors.length = 0;
 		this.actors.push(...this.scene.root.getComponentsInChildren(ActorBehaviour));
 
+		// Whether feet are planted is a switch on each pair of them, because
+		// every creature solves its own inside its own frame.
+		for (const footIK of this.scene.root.getComponentsInChildren(FootIK)) {
+			footIK.enabled = this.toggles.ik;
+		}
+
 		/*
 		 * Every component on the scene, which today means every script.
 		 *
@@ -646,19 +665,14 @@ export class Simulation {
 		this.emitters.length = 0;
 		this.emitters.push(...this.scene.root.getComponentsInChildren(Particles));
 
-		for (const actor of this.actors) {
-			actor.advance(dt, this.elapsed);
-			if (this.toggles.ik) actor.applyFootIK();
-			actor.solve();
-		}
-
 		/*
 		 * And then whatever is being carried, which has to be here and nowhere
-		 * else. A bone follow reads a pose the actors have just solved and
-		 * writes a local transform the scene is about to compose, so it sits
-		 * between the two — put in `update` with the other components it would
-		 * read last frame's pose and every prop would lag the body holding it
-		 * by a frame.
+		 * else. The actors drew themselves during `scene.update` above, each in
+		 * its own order — see `ActorBehaviour.update`. A bone follow reads a
+		 * pose the actors have just solved and writes a local transform the
+		 * scene is about to compose, so it sits between the two — put in
+		 * `update` with the other components it would read last frame's pose
+		 * and every prop would lag the body holding it by a frame.
 		 *
 		 * The second solve is the cost of that, and it is a handful of objects
 		 * rather than a scene graph.
@@ -678,10 +692,9 @@ export class Simulation {
 	 * Build this frame's instances.
 	 *
 	 * Three lists, concatenated in pass order, so the renderer gets one buffer
-	 * and three spans. The static half of the world is a single array copy —
-	 * the terrain and the buildings never change, and rebuilding four thousand
-	 * prisms a frame to draw the same picture would be the most expensive thing
-	 * here by a wide margin.
+	 * and three spans. The buildings are a single array copy — nothing about
+	 * them moves, and rebuilding two hundred prisms a frame to draw the same
+	 * picture would be waste with nothing to show for it.
 	 */
 	build(): { data: Float32Array; ranges: InstanceRanges } {
 		const { opaque, blended, overlay } = this;
@@ -689,7 +702,20 @@ export class Simulation {
 		blended.clear();
 		overlay.clear();
 
-		opaque.pushAll(this.world.statics);
+		/*
+		 * The scenery: every mesh in the scene that is neither a body nor a
+		 * thing hanging off one.
+		 *
+		 * A body has a rig and is drawn by its actor, which knows whether it is
+		 * being ghosted; a carried thing has an attach and is drawn by its item,
+		 * which knows what it is worth. Everything else stands where it is and
+		 * draws itself — the ground today, and whatever a scene file puts down
+		 * tomorrow.
+		 */
+		for (const object of this.scene.root.walk()) {
+			if (object.getComponent(Rig) || object.getComponent(Attach)) continue;
+			object.getComponent(MeshRenderer)?.emit(opaque);
+		}
 
 		const ghost = this.toggles.skeleton;
 		for (const actor of this.actors) actor.emit(opaque, blended, ghost);
@@ -732,7 +758,7 @@ export class Simulation {
 			color: ReturnType<typeof rgbFromHex>,
 			alpha: number,
 		): void => {
-			const tile = this.world.tileAt(cell.q, cell.r);
+			const tile = this.terrain.tileAt(cell.q, cell.r);
 			if (!tile) return;
 			out.pushRadial(tile.x, tile.top + lift, tile.z, radius, 0.02, color, {
 				alpha,
@@ -796,8 +822,8 @@ export class Simulation {
 			batEnergy: this.bat.energy,
 			batSpeedRating: this.bat.speed,
 			batSpeedFactor: speedFactor(this.bat.speed),
-			bites: this.bat.bites,
-			batMissed: this.bat.missed,
+			bites: this.bat.melee?.hits ?? 0,
+			batMissed: this.bat.melee?.missed ?? 0,
 			wakeRange: this.bat.hunt?.wakeRange ?? 0,
 			loseRange: this.bat.hunt?.loseRange ?? 0,
 			reach: this.player.reach.distance,

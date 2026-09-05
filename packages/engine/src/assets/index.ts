@@ -37,9 +37,17 @@ export {
 	type PrefabNode,
 } from './prefab.js';
 
+export {
+	readScene,
+	SCENE_KEYS,
+	type SceneAsset,
+	type SceneDocument,
+	type SceneNodeDocument,
+	type SceneObject,
+} from './scene.js';
 export { loadSystem, type SystemAsset } from './system.js';
 
-export { loadRig, type RigAnchor, type RigAsset, type RigView } from './rig.js';
+export { loadRig, STATIC_RIG, type RigAnchor, type RigAsset, type RigView } from './rig.js';
 export { loadMesh, type Anchor, type MeshAsset } from './mesh.js';
 export {
 	parseParticleEffect,

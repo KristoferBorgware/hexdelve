@@ -363,6 +363,10 @@ describe('entities', () => {
 			'lemure',
 			'kobold',
 			'giant',
+			'terrain',
+			'anvil',
+			'smithy',
+			'cabin',
 			'helmet',
 			'sword',
 			'shield',
@@ -503,15 +507,23 @@ describe('entities', () => {
 		await expect(withFile(at, source).entity(at)).rejects.toThrow(/no bone called 'elbow'/);
 	});
 
-	it('refuses a mesh with no rig in scope to hang it on', async () => {
+	it('reads a mesh with no rig in scope against a single-boned one', async () => {
+		// A building has no bones: every prism of it sits at the object's own
+		// origin. So a mesh with no rig in scope is read against `root` and
+		// nothing else, which is what makes a part naming any other bone still
+		// fail by name — the check the rig was there for.
 		const at = 'entities/bad.entity.yaml';
-		const source = [
-			'id: bad',
-			'object:',
-			'  components:',
-			'    - { type: mesh, mesh: ../meshes/helmet.mesh.yaml }',
-		].join('\n');
-		await expect(withFile(at, source).entity(at)).rejects.toThrow(/needs a rig/);
+		const bare = ['id: bad', 'object:', '  components:', '    - { type: mesh, mesh: ../meshes/anvil.mesh.yaml }'];
+		await expect(withFile(at, bare.join('\n')).entity(at)).resolves.toBeDefined();
+
+		// On `model()` rather than on load: a mesh's parts are read the first
+		// time its prisms are wanted, so that is where a bone it has not got
+		// is refused.
+		const worn = await withFile(
+			at,
+			[...bare.slice(0, 3), '    - { type: mesh, mesh: ../meshes/helmet.mesh.yaml }'].join('\n'),
+		).entity(at);
+		expect(() => entityMesh(worn)!.model()).toThrow(/no bone called 'head'/);
 	});
 });
 
