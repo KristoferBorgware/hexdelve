@@ -24,14 +24,14 @@
 import type { PoseFunction } from '@hexdelve/engine';
 import { PoseFunctionRegistry } from '@hexdelve/engine';
 
-import { flyPose, lungePose, perchPose } from '../game/batpose.js';
+import { flyPose, lungePose, perchPose } from './batpose.js';
 import {
 	bitePose as direBitePose,
 	DIRE_RUN_CONTACTS,
 	DIRE_STRIDE_PERIOD,
 	restPose as direRestPose,
 	runPose as direRunPose,
-} from '../game/direhoundpose.js';
+} from './direhoundpose.js';
 import {
 	SCRAMBLE_CONTACTS,
 	SCRAMBLE_PERIOD,
@@ -39,10 +39,16 @@ import {
 	SHAMBLE_CONTACTS,
 	SHAMBLE_PERIOD,
 	shamblePose,
-} from '../game/ghoulpose.js';
-import { bitePose, restPose, runPose } from '../game/hellhoundpose.js';
-import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from '../game/spiderpose.js';
-import { stridePose, stridePeriod, STRIDE_CONTACTS, type Direction } from '../game/stride.js';
+} from './ghoulpose.js';
+import {
+	bitePose,
+	HOUND_RUN_CONTACTS,
+	HOUND_STRIDE_PERIOD,
+	restPose,
+	runPose,
+} from './hellhoundpose.js';
+import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from './spiderpose.js';
+import { stridePose, stridePeriod, STRIDE_CONTACTS } from './stride.js';
 import {
 	pokePose as trollPokePose,
 	sleepPose as trollSleepPose,
@@ -51,8 +57,8 @@ import {
 	STOMP_PERIOD,
 	stompPose,
 	swipePose as trollSwipePose,
-} from '../game/trollpose.js';
-import { SHUFFLE_CONTACTS, SHUFFLE_PERIOD, shufflePose } from '../game/zombiepose.js';
+} from './trollpose.js';
+import { SHUFFLE_CONTACTS, SHUFFLE_PERIOD, shufflePose } from './zombiepose.js';
 
 const TAU = Math.PI * 2;
 
@@ -79,10 +85,8 @@ const stride: PoseFunction = {
 	build: ({ args, duration }) => {
 		const amp = arg(args, 'amp', 1);
 		const gait = arg(args, 'gait', 0);
-		const direction: Direction = { x: arg(args, 'x', 0), z: arg(args, 'z', 1) };
 		const moving = amp >= 0.02;
-		return (t, out) =>
-			stridePose(moving ? (t / duration) * TAU : 0, amp, direction, gait, t, out);
+		return (t, out) => stridePose(moving ? (t / duration) * TAU : 0, amp, gait, t, out);
 	},
 };
 
@@ -123,15 +127,15 @@ const lunge: PoseFunction = {
 /**
  * The hellhound's trot, and its standstill.
  *
- * Deliberately without a contact schedule. The humanoid's stride declares one
- * and its ground speed is measured off it; this gait's legs are written to a
- * different sign convention from the humanoid's, so a schedule asserted here
- * would produce a measured speed pointing the wrong way rather than an error.
- * Nothing measures it until the gait and the convention agree.
+ * Its paws are solved onto the ground the way the dire hellhound's and the
+ * ghoul's are, so a planted paw travels straight back at a constant rate and
+ * the ground speed measured at the schedule below is the ground the animal
+ * actually covers — `test/assets.test.ts` checks the sign and the magnitude.
  */
 const houndRun: PoseFunction = {
 	id: 'houndRun',
-	duration: 0.5,
+	duration: HOUND_STRIDE_PERIOD,
+	contacts: HOUND_RUN_CONTACTS,
 	build: ({ args, duration }) => {
 		const amp = arg(args, 'amp', 1);
 		const moving = amp >= 0.02;
@@ -147,20 +151,28 @@ const houndBite: PoseFunction = {
 	build: ({ duration }) => (t, out) => bitePose(t / duration, out),
 };
 
-/** Down on the ground, head up and watching. */
+/**
+ * Down on the ground, head up and watching.
+ *
+ * The cycle is the slowest rhythm in the pose rather than the breath, because
+ * a cycle is played by wrapping a playhead at the duration it declares and a
+ * rhythm that does not divide into that duration arrives back somewhere other
+ * than where it started. The head and the tail move at half the breathing
+ * rate, so a cycle is two breaths.
+ */
 const houndRest: PoseFunction = {
 	id: 'houndRest',
-	duration: TAU / 1.4,
+	duration: TAU / 0.7,
 	build: () => (t, out) => restPose(t, out),
 };
 
 /**
  * The dire hellhound's gallop, and its stare.
  *
- * This gait declares its contact schedule where the hellhound's trot does
- * not: its legs are written to the humanoid's sign convention, its rig names
- * a hind paw and a front paw as the pair that alternate, and the measured
- * ground speed comes out forwards — `test/assets.test.ts` checks the sign.
+ * Its rig names a hind paw and a front paw as the pair that alternate, because
+ * in a gallop that is the pair that does — a left and a right hind land a tenth
+ * of a cycle apart and would read as standing still. `test/assets.test.ts`
+ * checks the measured speed comes out forwards.
  */
 const direRun: PoseFunction = {
 	id: 'direRun',

@@ -229,6 +229,12 @@ export function runPose(theta: number, amp: number, time = 0, out: SparsePose = 
 	const flex = Math.sin(theta);
 	const pitch = Math.sin(theta - PI);
 	const bob = -0.04 * amp * (1 - Math.cos(2 * theta));
+	/*
+	 * Every rhythm in the stare is a multiple of 0.8, the rate its own cycle is
+	 * declared at, and every one fades out with the gallop — so the gallop is a
+	 * function of its phase and closes at any duration, and the stare closes at
+	 * the one it states.
+	 */
 	const breath = Math.sin(time * 1.6);
 
 	const trunk: Trunk = {
@@ -241,7 +247,7 @@ export function runPose(theta: number, amp: number, time = 0, out: SparsePose = 
 		out,
 		'root',
 		[trunk.rootRot, 0, 0],
-		[0.012 * still * Math.sin(time * 0.4), trunk.root[0] - DIRE_CHAIN.hipHeight, 0],
+		[0.012 * still * Math.sin(time * 0.8), trunk.root[0] - DIRE_CHAIN.hipHeight, 0],
 	);
 	setSparse(out, 'spineMid', [trunk.spineRot, 0, 0]);
 	setSparse(out, 'chest', [trunk.chestRot, 0, 0]);
@@ -257,31 +263,31 @@ export function runPose(theta: number, amp: number, time = 0, out: SparsePose = 
 	 * is running at. Standing, the head is carried lower still — below the
 	 * withers, nose level, staring — and weaves slowly from side to side.
 	 */
-	const weave = Math.sin(time * 0.7);
+	const weave = Math.sin(time * 0.8 + 1.7);
 	setSparse(out, 'neckA', [0.3 * amp - 0.12 * amp * flex + 0.38 * still, 0, 0]);
 	setSparse(out, 'neckB', [0.1 * amp - 0.05 * amp * flex + 0.16 * still, 0.08 * still * weave, 0]);
 	setSparse(out, 'head', [
 		-0.28 * amp + 0.06 * amp * flex - 0.5 * still,
 		-0.04 * still * weave,
-		0.03 * still * Math.sin(time * 0.45),
+		0.03 * still * Math.sin(time * 0.8 - 0.9),
 	]);
-	setSparse(out, 'jaw', [0.05 * amp + still * (0.1 + 0.05 * Math.sin(time * 0.9)), 0, 0]);
+	setSparse(out, 'jaw', [0.05 * amp + still * (0.1 + 0.05 * Math.sin(time * 0.8 + 0.6)), 0, 0]);
 
 	// Ears pinned flat at speed, half back and twitching at the stand.
 	setSparse(out, 'earL', [
 		0.55 * amp + 0.15 * still,
 		0,
-		0.1 + 0.05 * amp * Math.sin(2 * theta) + 0.04 * still * Math.sin(time * 2.3),
+		0.1 + 0.05 * amp * Math.sin(2 * theta) + 0.04 * still * Math.sin(time * 2.4),
 	]);
 	setSparse(out, 'earR', [
 		0.55 * amp + 0.15 * still,
 		0,
-		-0.1 - 0.05 * amp * Math.sin(2 * theta + 0.7) - 0.04 * still * Math.sin(time * 2.1 + 1),
+		-0.1 - 0.05 * amp * Math.sin(2 * theta + 0.7) - 0.04 * still * Math.sin(time * 3.2 + 1),
 	]);
 
 	// The tail streams out behind at speed, each segment lagging the one
 	// before it, and hangs low and lashes slowly at the stand.
-	const lash = Math.sin(time * 0.6);
+	const lash = Math.sin(time * 0.8 - 0.4);
 	setSparse(out, 'tailA', [
 		0.35 * amp + 0.1 * amp * Math.sin(theta - 0.5) - 0.3 * still,
 		0.05 * still * lash,
@@ -289,12 +295,12 @@ export function runPose(theta: number, amp: number, time = 0, out: SparsePose = 
 	]);
 	setSparse(out, 'tailB', [
 		0.12 * amp * Math.sin(theta - 1.2) - 0.15 * still,
-		0.1 * still * Math.sin(time * 0.6 - 0.7),
+		0.1 * still * Math.sin(time * 0.8 - 0.7),
 		0,
 	]);
 	setSparse(out, 'tailC', [
 		0.14 * amp * Math.sin(theta - 1.9) - 0.05 * still,
-		0.14 * still * Math.sin(time * 0.6 - 1.4),
+		0.14 * still * Math.sin(time * 0.8 - 1.4),
 		0,
 	]);
 
@@ -496,7 +502,7 @@ export const DIRE_BITE_CONTACT = 0.42;
  */
 export function restPose(time: number, out: SparsePose = {}): SparsePose {
 	const breath = Math.sin(time * 1.3);
-	const scan = Math.sin(time * 0.35);
+	const scan = Math.sin(time * 0.65);
 
 	// The body sinks onto the ground: the root drops most of the standing hip
 	// height and the spine settles flat along with it.
@@ -508,9 +514,9 @@ export function restPose(time: number, out: SparsePose = {}): SparsePose {
 	setSparse(out, 'neckA', [-0.25, 0.1 * scan, 0]);
 	setSparse(out, 'neckB', [-0.1, 0.2 * scan, 0]);
 	setSparse(out, 'head', [0.05, 0.1 * scan, 0]);
-	setSparse(out, 'jaw', [0.08 + 0.03 * Math.sin(time * 0.9), 0, 0]);
-	setSparse(out, 'earL', [-0.05, 0, 0.12 + 0.05 * Math.sin(time * 1.9)]);
-	setSparse(out, 'earR', [-0.05, 0, -0.12 - 0.05 * Math.sin(time * 1.7 + 0.5)]);
+	setSparse(out, 'jaw', [0.08 + 0.03 * Math.sin(time * 1.95), 0, 0]);
+	setSparse(out, 'earL', [-0.05, 0, 0.12 + 0.05 * Math.sin(time * 1.95)]);
+	setSparse(out, 'earR', [-0.05, 0, -0.12 - 0.05 * Math.sin(time * 2.6 + 0.5)]);
 
 	/*
 	 * Forelegs out along the ground: the humerus drops to put the elbow down,
@@ -548,9 +554,9 @@ export function restPose(time: number, out: SparsePose = {}): SparsePose {
 	}
 
 	// The tail lies on the ground and lifts its tip once in a while.
-	const lift = Math.max(0, Math.sin(time * 0.5));
-	setSparse(out, 'tailA', [-0.35, 0.08 * Math.sin(time * 0.5), 0]);
-	setSparse(out, 'tailB', [-0.05 + 0.1 * lift, 0.1 * Math.sin(time * 0.5 - 0.6), 0]);
-	setSparse(out, 'tailC', [0.1 + 0.3 * lift, 0.12 * Math.sin(time * 0.5 - 1.2), 0]);
+	const lift = Math.max(0, Math.sin(time * 0.65));
+	setSparse(out, 'tailA', [-0.35, 0.08 * Math.sin(time * 0.65), 0]);
+	setSparse(out, 'tailB', [-0.05 + 0.1 * lift, 0.1 * Math.sin(time * 0.65 - 0.6), 0]);
+	setSparse(out, 'tailC', [0.1 + 0.3 * lift, 0.12 * Math.sin(time * 0.65 - 1.2), 0]);
 	return out;
 }

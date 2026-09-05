@@ -1,0 +1,29 @@
+{
+	"name": "@hexdelve/authoring",
+	"version": "0.1.0",
+	"description": "The pose functions cycles are derived from, and what to bake them into — authoring only, shipped by nothing",
+	"license": "MIT",
+	"private": true,
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src"
+	],
+	"sideEffects": false,
+	"dependencies": {
+		"@hexdelve/engine": "*",
+		"@hexdelve/shared": "*"
+	},
+	"scripts": {
+		"build": "tsc -b",
+		"typecheck": "tsc -b"
+	}
+}

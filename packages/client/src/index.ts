@@ -54,7 +54,7 @@ export {
 	type TurnMember,
 	type TurnTaker,
 } from './game/turns.js';
-export { SECONDS_PER_GAME_TURN, actionSeconds, hexSpeed } from './game/pace.js';
+export { secondsPerGameTurn, setWalkSpeed, actionSeconds, hexSpeed } from './game/pace.js';
 export { ActorBehaviour, NOWHERE, turnTowards, wrapAngle, type Turnable } from './game/actor.js';
 export { HumanoidAnimator, type HumanoidOverlay } from './game/humanoidanimator.js';
 
@@ -149,112 +149,6 @@ export {
 	type LevelStats,
 	type Rect,
 } from './levelgen/index.js';
-/*
- * The pose functions.
- *
- * These are the half of the animation that is not a file and cannot be one:
- * the stride is a handful of harmonics of one phase angle and a direction of
- * travel, the wing beat is four bones lagging each other round a cycle. A
- * function of a heading covers the whole circle of directions where a blend
- * space over clips covers four of them, so these stay functions — and the
- * entity files name them and hand them their tuning. See
- * `src/assets/poseFunctions.ts`.
- *
- * Everything they used to sit beside — the rigs, the bodies, the gear and the
- * keyframed clips — is now `public/assets`, read through the library below.
- */
-export {
-	perchPose,
-	flyPose,
-	lungePose,
-	FLAP_PERIOD,
-	LUNGE_CONTACT,
-} from './game/batpose.js';
-export {
-	runPose as houndRunPose,
-	bitePose as houndBitePose,
-	restPose as houndRestPose,
-	HOUND_STRIDE_PERIOD,
-	BITE_CONTACT as HOUND_BITE_CONTACT,
-} from './game/hellhoundpose.js';
-export {
-	runPose as direRunPose,
-	bitePose as direBitePose,
-	restPose as direRestPose,
-	DIRE_STRIDE_PERIOD,
-	DIRE_RUN_CONTACTS,
-	DIRE_BITE_CONTACT,
-	DIRE_CHAIN,
-} from './game/direhoundpose.js';
-export {
-	shamblePose,
-	scramblePose,
-	GHOUL_SOLE,
-	GHOUL_PALM,
-	SHAMBLE_PERIOD,
-	SHAMBLE_CONTACTS,
-	SCRAMBLE_PERIOD,
-	SCRAMBLE_CONTACTS,
-} from './game/ghoulpose.js';
-export { shufflePose, ZOMBIE_SOLE, SHUFFLE_PERIOD, SHUFFLE_CONTACTS } from './game/zombiepose.js';
-export {
-	runPose as spiderRunPose,
-	spitPose as spiderSpitPose,
-	SPIDER_CHAIN,
-	SPIDER_TIP,
-	SPIDER_RUN_PERIOD,
-	SPIDER_RUN_CONTACTS,
-	SPIT_AT,
-	TIP_NAMES as SPIDER_TIPS,
-} from './game/spiderpose.js';
-export {
-	stompPose as trollStompPose,
-	smashPose as trollSmashPose,
-	swipePose as trollSwipePose,
-	pokePose as trollPokePose,
-	sleepPose as trollSleepPose,
-	TROLL_CHAIN,
-	TROLL_SOLE,
-	STOMP_PERIOD,
-	STOMP_CONTACTS,
-	SMASH_HIT,
-	SWIPE_HIT,
-	POKE_HIT,
-} from './game/trollpose.js';
-export {
-	LEG_LENGTH,
-	HUMANOID_SKELETON,
-	HUMANOID_CHAIN,
-	solveLeg,
-	solveArm,
-	shoulderOf,
-	type Step,
-	type Trunk,
-	type SolvedLimb,
-} from './game/humanoid.js';
-export {
-	stridePose,
-	stridePeriod,
-	strideVelocity,
-	strideFor,
-	STRIDE_CONTACTS,
-	WALK_PERIOD,
-	RUN_PERIOD,
-	WALK_SPEED,
-	RUN_SPEED,
-	type Direction,
-	type StrideSetting,
-} from './game/stride.js';
-
-/*
- * The pose functions the asset files name, and the library that reads them.
- *
- * `assets/` holds every rig, body, clip and tree as YAML; the engine holds the
- * readers. What the client adds is the half that cannot be a file — the stride,
- * the wing beat, the trot — and a library with those already registered, so an
- * embedder gets a working one rather than an empty one.
- */
-export { poseFunctions } from './assets/poseFunctions.js';
 
 /*
  * Reading the compiled scripts. They are not in this package's module graph —

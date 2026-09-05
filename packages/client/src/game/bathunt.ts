@@ -36,11 +36,15 @@
 
 import {
 	attachmentPosition,
-	mixSparse,
+	bindClip,
+	createPose,
+	denseToSparse,
+	sampleBound,
 	type GameObject,
 	type RigAnchor,
 	type RigAsset,
-	type SparsePose,
+	type Clip,
+	type ClipEvent,
 } from '@hexdelve/engine';
 import { axialDistance, HEX_SPACING, type Axial, type Random } from '@hexdelve/shared';
 
@@ -57,12 +61,11 @@ import {
 } from './actor.js';
 import { Swing } from './events.js';
 import { huntOrders, type HuntOrders, type HuntState } from './hunt.js';
-import { flyPose, FLAP_PERIOD, LUNGE_CONTACT, lungePose, perchPose } from './batpose.js';
+import { BatAnimator } from './batanimator.js';
 import { actionSeconds } from './pace.js';
 import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
 import type { Tile, World } from '../scene/world.js';
 
-const TAU = Math.PI * 2;
 
 /**
  * Its place in the energy table: +10, which is exactly twice normal. Every
@@ -96,10 +99,25 @@ export interface BiteReach {
  * a file — the jaw tip is an anchor in `bat.rig.yaml`, so a longer snout moves
  * the reach without anybody editing this line.
  */
-export function measureBiteReach(rig: RigAsset): BiteReach {
+/**
+ * When in the strike the jaws arrive, as a fraction of it.
+ *
+ * Read off the clip's own `bite` event rather than typed beside it, so
+ * re-baking the lunge moves the moment the blow lands — the same argument
+ * `swingLand` makes about the man's cut.
+ */
+export function biteLand(lunge: Clip): number {
+	const bite = lunge.events.find((event: ClipEvent) => event.name === 'bite');
+	if (!bite) throw new Error(`the lunge clip has no 'bite' event to land on`);
+	return bite.t / lunge.duration;
+}
+
+export function measureBiteReach(rig: RigAsset, lunge: Clip): BiteReach {
 	const jawTip = rig.anchors.jawTip;
 	if (!jawTip) throw new Error(`the rig '${rig.id}' has no 'jawTip' anchor to bite with`);
-	const pose = lungePose(LUNGE_CONTACT, {});
+	const dense = createPose(rig.bones.length);
+	sampleBound(bindClip(lunge, rig.index), biteLand(lunge) * lunge.duration, dense);
+	const pose = denseToSparse(rig.bones, dense, {});
 	const tip = attachmentPosition(rig.skeleton, pose, jawTip.bone, jawTip.at);
 	return { distance: Math.hypot(tip[0], tip[2]), height: tip[1] };
 }
@@ -168,7 +186,6 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 
 	/** 0 folded, 1 flying. */
 	private wake = 0;
-	private flap = 0;
 	/** 0 to 1 across a bite. */
 	private lunge = 0;
 	private lungeBlend = 0;
@@ -176,13 +193,13 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	bites = 0;
 	missed = 0;
 
-	// Pose buffers, allocated once.
-	private readonly flyBuf: SparsePose = {};
-	private readonly perchBuf: SparsePose = {};
-	private readonly lungeBuf: SparsePose = {};
+	/** What it looks like doing all this. */
+	private readonly animation: BatAnimator;
 
 	/** How far this bat's jaws get, measured off its own rig and its lunge. */
 	readonly reach: BiteReach;
+	/** How far through the strike the jaws arrive, off the clip's own event. */
+	private readonly biteAt: number;
 	/** And the shortfall against the grid, which the body leans out. */
 	readonly leanIn: number;
 	private readonly jaw: RigAnchor;
@@ -209,7 +226,16 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		if (!jaw) throw new Error(`the rig '${rig.id}' has no 'jawTip' anchor to bite with`);
 		this.jaw = jaw;
 		this.hoverY = rig.metrics.hoverHeight ?? 0;
-		this.reach = measureBiteReach(rig);
+
+		/*
+		 * What it looks like, and how far its jaws get — both off the clips its
+		 * own entity file gave it. The reach is measured from the lunge it will
+		 * actually play, so re-baking that strike moves the reach with it rather
+		 * than leaving the rules claiming one it no longer has.
+		 */
+		this.animation = this.object.addComponent(BatAnimator);
+		this.biteAt = biteLand(this.animation.strike);
+		this.reach = measureBiteReach(rig, this.animation.strike);
 		this.leanIn = batLean(this.reach);
 	}
 
@@ -337,7 +363,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	 * Draw whatever it is doing at this instant. See `Player.advance` for why
 	 * this is not the component's `update`.
 	 */
-	advance(dt: number, time: number): void {
+	advance(dt: number, _time: number): void {
 		this.advanceFall(dt);
 		const player = this.opponent;
 		const flight = this.flight;
@@ -364,7 +390,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 					this.lunge = u;
 					this.lungeBlend = Math.min(1, this.lungeBlend + dt * 7);
 					flapAmp = 0.5;
-					if (!flight.done && u >= LUNGE_CONTACT) {
+					if (!flight.done && u >= this.biteAt) {
 						flight.done = true;
 						this.landBite(flight.target);
 					}
@@ -434,24 +460,22 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 		const under = this.ground.groundAt(this.x, this.z) + HOVER_LIFT * this.wake;
 		this.y += (under - this.y) * Math.min(1, dt * 6);
 
+		/*
+		 * And the drive, as numbers rather than as a pose. How hard the wings
+		 * work and how fast they beat both scale with how fast it is actually
+		 * going, so a bat crossing a hexagon in half the time looks like it —
+		 * by the same table that gives it the extra turn.
+		 */
 		const cruise = HEX_SPACING / actionSeconds(ACTION_ENERGY, this.speed);
-		this.flap += (TAU / FLAP_PERIOD) * (0.55 + 0.55 * Math.min(1, speed / cruise)) * dt;
-		if (this.flap > TAU) this.flap -= TAU;
-		const amp = flapAmp * Math.max(0.35, Math.min(1, 0.45 + speed / cruise));
-
-		if (this.wake >= 0.999) {
-			flyPose(this.flap, amp, time, this.pose);
-		} else if (this.wake <= 0.001) {
-			perchPose(time, this.pose);
-		} else {
-			const u = this.wake * this.wake * (3 - 2 * this.wake);
-			mixSparse(this.pose, perchPose(time, this.perchBuf), flyPose(this.flap, amp, time, this.flyBuf), u);
-		}
-
-		// The strike is laid over whatever it was doing, and taken off again.
-		if (this.lungeBlend > 0.001) {
-			mixSparse(this.pose, this.pose, lungePose(this.lunge, this.lungeBuf), this.lungeBlend);
-		}
+		const effortOf = Math.min(1, speed / cruise);
+		this.animation.wake = this.wake * this.wake * (3 - 2 * this.wake);
+		this.animation.beat = flapAmp * Math.max(0.35, Math.min(1, 0.45 + speed / cruise));
+		this.animation.rate = 0.55 + 0.55 * effortOf;
+		this.animation.lunge = this.lunge;
+		this.animation.lungeWeight = this.lungeBlend;
+		this.animation.reachIn = this.lean;
+		this.animation.fall = this.fall;
+		this.animation.build(dt);
 
 		if (this.lean > 1e-4) {
 			const root = (this.pose.root ??= { rot: [0, 0, 0], pos: [0, 0, 0] });

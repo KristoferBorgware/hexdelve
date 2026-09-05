@@ -17,8 +17,8 @@
  *
  * The consequence worth saying out loud: this is why speed can be read off the
  * screen at all. Haste the man by +10 and his step halves, which is a speed
- * his walk cannot deliver — so `strideFor` puts him into a run, and a row of
- * the energy table has visibly turned into a gait.
+ * his walk cannot deliver — so his blend tree puts him into a run, and a row
+ * of the energy table has visibly turned into a gait.
  *
  * It lives apart from `turns.ts` so that file stays what it is: a table and a
  * queue, with no rig, no grid and no seconds in it.
@@ -26,16 +26,44 @@
 
 import { HEX_SPACING } from '@hexdelve/shared';
 
-import { WALK_SPEED } from './stride.js';
 import { energyPerTurn, gameTurnsPerAction, NORMAL_SPEED } from './turns.js';
 
-/** Seconds one game turn is drawn over: a normal-speed step, divided by its ten turns. */
-export const SECONDS_PER_GAME_TURN =
-	HEX_SPACING / WALK_SPEED / gameTurnsPerAction(NORMAL_SPEED);
+/*
+ * The walk this clock is set from, in metres a second.
+ *
+ * Set rather than computed, because what a walk carries him at is measured off
+ * the clip he is drawn with and a clip comes off disk. It cannot be known at
+ * import, only once the cast is loaded — which is where `Simulation` sets it,
+ * beside the other numbers it reads off the player's own files.
+ *
+ * Unset is an error rather than a default. A clock quietly running at somebody's
+ * guessed speed would put every creature's step slightly out of step with the
+ * energy table, and nothing would say so.
+ */
+let walk = 0;
+
+/** Measured off the walk the player is actually drawn with. */
+export function setWalkSpeed(metresPerSecond: number): void {
+	if (!(metresPerSecond > 0)) {
+		throw new Error(`the turn clock needs a walk that goes somewhere, not ${metresPerSecond}`);
+	}
+	walk = metresPerSecond;
+}
+
+/**
+ * Seconds one game turn is drawn over: a normal-speed step, divided by its ten
+ * turns.
+ */
+export function secondsPerGameTurn(): number {
+	if (walk === 0) {
+		throw new Error('the turn clock has no walk yet — setWalkSpeed before anything asks the time');
+	}
+	return HEX_SPACING / walk / gameTurnsPerAction(NORMAL_SPEED);
+}
 
 /** How long an action of this cost takes on screen, for a creature of this speed. */
 export function actionSeconds(cost: number, speed: number): number {
-	return (cost / energyPerTurn(speed)) * SECONDS_PER_GAME_TURN;
+	return (cost / energyPerTurn(speed)) * secondsPerGameTurn();
 }
 
 /** How fast a creature of this speed must travel to cross one hexagon in one action. */

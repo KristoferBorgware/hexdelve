@@ -1,30 +1,22 @@
 /*
- * The animations that are functions, and how a file names one.
+ * The animations that are functions, and the registry the bake looks them up in.
  *
- * Half the animation in this project has no keys at all. The stride is a
- * handful of harmonics of one phase angle and a direction of travel; the wing
- * beat is four bones lagging each other round a cycle; the hellhound's run is
- * a gait written as a function of the same. None of those is a clip, none of
- * them can be, and the reason is the point rather than a limitation — a
- * function of a heading covers the whole circle of directions where a blend
- * space over clips covers four of them.
+ * A cycle can be worked out as a function of its phase — a stride is a handful
+ * of harmonics of one angle, a wing beat is four bones lagging each other round
+ * a cycle, a gait is a foot path with the leg solved back from it. That is a
+ * good way to DERIVE a cycle and a poor way to ship one: it cannot be opened
+ * and nudged, and the parameters that make it general are the same ones a blend
+ * tree expresses better.
  *
- * So a function cannot move into a YAML file, and it should not: it is code,
- * and it stays code. What moves into the file is everything AROUND it — that
- * the wanderer has a walk, that its cycle is 0.95 seconds, that it is the
- * stride at gait 0 and the run is the same function at gait 1, that its feet
- * land a quarter and three quarters of the way through. The tuning is data;
- * the curve is a function; the file names the function and hands it the
- * numbers.
- *
- *     walk: { procedural: stride, args: { gait: 0 }, duration: 0.95 }
- *     run:  { procedural: stride, args: { gait: 1 }, duration: 0.66 }
+ * So the function stays a function and the clip is what is kept. `bakeClip`
+ * samples one into keys, `tools/bake-clips.mjs` writes them, and an entity
+ * file names the file. Nothing the game loads resolves a function any more:
+ * the format has one kind of animation in it, and this is the machinery on the
+ * authoring side of that line.
  *
  * Registration is a registry rather than an import because of which way round
  * the packages point: the engine owns the mechanism and knows nothing about a
- * character, and the client owns the stride. A file loaded with no registry
- * gets a clear error naming the function it wanted, which is the right failure
- * for an entity whose animations were never wired up.
+ * character, and the functions belong to whoever has characters.
  */
 
 import type { SparsePose } from '../anim/pose.js';

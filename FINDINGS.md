@@ -11,67 +11,6 @@ and how to write one. The open list stays in the order things were found.
 
 ## Open
 
-### F-001 — The hellhound's trot carries it backwards
-
-**Kind:** bug
-**Milestone:** game
-**Priority:** medium
-**Effort:** medium
-**Found:** 2026-09-03, working out which contact schedule the hound's asset files should declare
-**Where:** `leg()` and `runPose()` in `packages/client/src/game/hellhoundpose.ts`, `measureGroundSpeed` in `packages/engine/src/anim/measure.ts`
-
-**What happens.** `leg()` writes the thigh swing as
-`setSparse(out, bones[0], [swing, 0, stance])` where
-`swing = swingAmp * amp * Math.sin(phase)`. The humanoid's `stridePose` writes
-the same joint as `hipLx = -swing * sinT`, with a minus sign. Under the shared
-convention — a limb hanging down `-Y` swings forward for `rot.x < 0` — the
-hound's planted leg is at its rearmost at the phase where the knee is straight,
-so the planted paw travels forward through the body's frame and the body
-travels backwards.
-
-Measured with the engine's own `measureGroundSpeed`, reading the back pair
-(`backPawR` lands at phase 0.25, `backPawL` at 0.75, because `runPose` gives
-`backL` the phase `theta + PI`):
-
-> **[measured]** humanoid walk **+1.5580 m/s**; hellhound run **−2.1019 m/s**.
-
-**Why it matters.** Nobody yet: the hound has no blend tree and nothing measures
-its speed, because this was found before its asset files were written and they
-were left without a contact schedule for exactly this reason. It matters the
-moment the hound is given a gait axis, because a threshold measured through the
-wrong sign is worse than an absent one. It is also visible now if anyone looks:
-the animal moonwalks.
-
-**What would fix it.** Not what this entry first said, and the correction is
-the useful part.
-
-**[measured, 2026-09-04]** Negating `swing` in `leg()` changes the pose and does
-NOT change the measured ground speed. Both versions were built and measured:
-`0.6088159098633436` either way, identical to every digit. The reason is a
-symmetry — `runPose` gives `backL` the phase `theta + PI` and `backR` the phase
-`theta`, so negating the swing for all four legs maps the measured pair onto
-itself with the two legs swapped, and a measurement averaged over a whole cycle
-cannot see it.
-
-Two more things that measurement turned up, both of which have to be understood
-before this is worth attempting again:
-
-`measureGroundSpeed` returns exactly `0` for a single foot — `backPawR` alone,
-`backPawL` alone and `frontPawR` alone all measure zero, and only the pair reads
-anything. So it is measuring the alternation rather than the travel of one
-planted paw, and what it means for a quadruped is not obvious.
-
-The numbers above do not reconcile with the ones recorded when this was found
-(humanoid **+1.5580**, hound **−2.1019**). Measured the same afternoon through
-`stridePose` at `amp: 1, gait: 0` over `stridePeriod(1, 0)`, the humanoid comes
-out **−0.7738** and the hound **+0.6088** — the same disagreement in sign, at
-half the magnitude and with both signs flipped. Whoever picks this up should
-work out which sampling is right before trusting either pair of numbers.
-
-What still stands is the claim itself: the two gaits disagree in sign, so one of
-them travels the wrong way. What is now known is that the one-character fix is
-not the fix, and that the measurement has to be understood first.
-
 ### F-002 — WebGPU loses its device in the editor under software rasterisation
 
 **Kind:** risk
@@ -362,7 +301,69 @@ pitches has no single yaw to give it. So it is either a second `Model.emit`
 taking a rotation, or `emitDetached`'s composition applied per bone. Small
 either way, and worth doing before something is parented rather than after.
 
-### F-025 — Two benches find an asset's file by guessing its path from its id
+### F-025 — Two rigs have legs too short for the hip height they hang from
+
+**Kind:** risk
+**Milestone:** game
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-05, converting the hellhound's trot onto the ground solve
+**Where:** `public/assets/rigs/hellhound.rig.yaml` and
+`public/assets/rigs/humanoid.rig.yaml`; `STAND` in
+`packages/client/src/game/hellhoundpose.ts` and the crouch in
+`packages/client/src/game/stride.ts`
+
+**What happens.** The hellhound's legs are 0.41 m, both pairs. Its hip joint
+sits 0.46 m up and its shoulder joint 0.57 m up, and a paw stands 0.05 m above
+the ground. So a hind leg hanging straight down reaches the ground exactly, with
+nothing left to stride with, and a front leg cannot reach it at all — it falls
+0.11 m short. Solved and measured on the standing pose, the front paws hung in
+the air a tenth of a metre above the grass while the hind paws touched.
+
+The gait works round it: `STAND` crouches the trunk 0.1 m and pitches it 0.16
+rad nose-down, which is a hound's stance anyway, and both pairs then have about
+0.21 m of ground either side of the joint they hang from. That is a pose making
+up for a skeleton.
+
+**Why it matters.** Nobody yet, because nothing in the yard drives a hellhound
+and the crouch reads correctly. It matters for two reasons. The animal now
+stands 0.1 m lower than its rig's `hipHeight` says, so anything reading that
+metric — a camera framing, a mesh authored against the rest pose, an attachment
+— is working from a height the animal is never at. And the next quadruped will
+hit the same wall: a rig whose limbs are drawn to just touch the ground at rest
+has no stride in it, and the failure is a silent one, either a floating paw or a
+crouch nobody asked for.
+
+**The humanoid is worse, and was found later.** Its hips sit 0.92 m up, its leg
+is 0.41 + 0.35 = 0.76 m, and its ankle stands 0.08 m above the ground with the
+sole flat. A straight leg therefore reaches 0.84 m and the ground is 0.92 m
+away: a standing man cannot put his foot down, let alone take a step. That is
+why the stride was written in joint angles in the first place — a gait solved
+onto the ground could not have been expressed on this rig — and it is why
+`stridePose` now crouches by 0.06 m to stand and 0.22 m at a full run. He is
+drawn 0.06 m shorter than his rig's rest height as a result.
+
+A real leg is about half a standing height; this one is 0.76 m under hips at
+0.92 m, so it is short by roughly the amount that is missing.
+
+**Why it matters.** Nobody yet: the crouches read correctly and the foot IK was
+already dropping the pelvis by about as much. It matters because two rigs now
+carry a correction in their gait for a number that is wrong in their rig, and
+the correction is invisible from the rig file. It also puts a ceiling on the
+stride: the run's crouch is as deep as it is because that is what the leg needs
+to reach the ground 0.44 m in front of the hip, and a longer stride is simply
+not available.
+
+**What would fix it.** Either lengthen the legs — the hellhound's front pair by
+about 0.12 m and its hind by 0.06 m, the humanoid's by about 0.1 m — which
+changes the mesh hung on them; or lower `hipHeight` and the offsets above it so
+the rest pose is the stance. The second is smaller and makes each rig honest
+about the creature's height, and it is the one to prefer; the crouches then go
+back to being a gait's own dip rather than a correction. Either way a rig check
+worth having is that every foot the rig names can reach the ground with a
+stride's worth of room left over.
+
+### F-029 — Two benches find an asset's file by guessing its path from its id
 
 **Kind:** risk
 **Milestone:** unscheduled
@@ -401,7 +402,7 @@ functions use it. The alternative, checking the guess against
 write into a loud one but still cannot save a file that is where the manifest
 says.
 
-### F-026 — The entity bench cannot show a particle emitter
+### F-030 — The entity bench cannot show a particle emitter
 
 **Kind:** gap
 **Milestone:** unscheduled
@@ -433,8 +434,247 @@ Or the bench could look for `particles` records specifically, build a
 `ParticleSystem` per record, and place each at the node's own transform, which
 is an afternoon and does not generalise to the next component with a picture.
 
-
 ## Closed
+
+### F-026 — The game's humanoid locomotion does not run through its blend tree
+
+**Kind:** gap
+**Milestone:** game
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-05, reading the animation system before starting on procedural animation
+**Where:** `buildPose` in `packages/client/src/game/player.ts`,
+`public/assets/trees/locomotion.tree.yaml`, `benchTree` in
+`packages/editor/src/bench/rigs.ts`
+
+**What happens.** `BlendTree` is constructed in exactly one place outside its
+own tests: `benchTree`, in the editor's character bench. The game never builds
+one. `Player.buildPose` writes the same arrangement by hand instead — it calls
+`stridePose` for the gait, adds the bank onto `root.rot[2]`, lays the guard
+clip over the result through `lerpPoseMasked` with the sword and shield masks,
+and then the slash or the duck through `lerpPoseMasked` with the upper-body
+mask. `locomotion.tree.yaml` describes that arrangement in a file: a `blend1d`
+over idle, walk and run, an `additive` lean, and a `layer` for the guard
+through the `upperBody` mask. Both exist and neither reads the other. The
+entity file's `walk` and `run` animations are likewise unread by the game,
+which reaches `stridePose` through a direct import; only `clipOf` pulls
+anything out of `EntityAsset.animations`, and only clips.
+
+**Why it matters.** Two things describe the wanderer's locomotion and only one
+of them draws him. Re-tuning the tree file changes what the bench shows and
+nothing else, so the bench stops being a picture of what the game will do —
+which is the one job a bench has. The game also gives up what the tree carries:
+the shared locomotion phase, the cycle length blended between a walk's 0.95 s
+and a run's 0.66 s, and the calibrated speed axis. `buildPose` keeps its own
+`theta` and advances it at `stridePeriod(this.gait)`, so the cadence is right
+by construction there, but nothing outside the player gets that for free, and
+the second creature that needs a gait axis will write a third copy.
+
+**What would fix it.** Two shapes. The smaller is to leave `buildPose` as it is
+and delete the claim — drop `locomotion.tree.yaml` from `wanderer.entity.yaml`
+and keep trees as a bench facility, which is honest but throws away the file
+format's best argument. The larger, and the one to prefer, is to have the
+player build its entity's `locomotion` tree, drive it through `advance` with
+`speed`, `turn`, `lean` and `guard` as parameters, and calibrate the speed axis
+once at spawn as `calibrateSpeed` already does for the bench. The overlays that
+are not locomotion — the slash, the duck, the topple — stay where they are;
+they have a beginning and an end and are not what a tree is for. The work is
+mostly in deciding what `buildPose` keeps.
+
+**Closed:** 2026-09-05, fixed — `HumanoidAnimator` asks the entity's
+`locomotion` tree for the pose underneath instead of calling `stridePose`, and
+`Player` hands it a speed in metres a second rather than a stride, a cadence and
+a playhead. `strideFor`'s bisection is the tree's calibration now, swept once
+when he is built. The tree's own lean and guard are driven at zero and stay
+that way: three masks in the animator say more about a man with a sword than
+one mask in the file, and two answers to one question is how they come to
+disagree.
+
+### F-028 — The bat is drawn by its pose functions, not by the clips its entity names
+
+**Kind:** gap
+**Milestone:** game
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-05, moving the pose functions out of the client once nothing in the asset format resolved one
+**Where:** `advance` in `packages/client/src/game/bathunt.ts`,
+`public/assets/entities/bat.entity.yaml`, `public/assets/trees/flight.tree.yaml`
+
+**What happens.** `bat.entity.yaml` names four clip files and a flight tree.
+`BatHunt` imports `flyPose`, `perchPose` and `lungePose` and blends them by
+hand with `mixSparse`, exactly as `Player` did with the stride before its gait
+moved onto its tree. So the bat has two descriptions of what it looks like and
+only one of them draws it, and the clips it declares are read by the bench and
+by nothing else.
+
+It is the last of these. Every other creature's animations are either read
+through its animator or not driven at all, and `BatHunt` is now the only thing
+left in the client that calls a pose function while the game is running.
+
+**Why it matters.** Two things describe the bat and re-baking one of them
+changes the bench and not the yard, which is the same trap the man was in — a
+bench that shows something other than what the game will do is a bench doing
+the opposite of its job. It also blocks a decision already taken: the pose
+functions are meant to leave the client for an authoring package, and they
+cannot while something the client ships at runtime imports three of them.
+
+**What would fix it.** What was done for the man: a small component holding the
+blend graph, driven by numbers rather than poses, taking its clips off the
+`Animator` beside it and its cycle from the `flight` tree. The bat's graph is
+simpler than the humanoid's — a wake between the perch and the beat, and a
+lunge laid over whatever that is — so this is smaller than `HumanoidAnimator`
+was. The measurement to keep afterwards is the one the man's move needed too:
+that what the energy table asks the bat to cross a hexagon in is what its beat
+delivers.
+
+**Closed:** 2026-09-05, fixed — `BatAnimator` holds the blend graph and
+`BatHunt` hands it numbers, the way `Player` and `HumanoidAnimator` already
+split. Its `flight` tree gained a fourth leaf: the bat settles at well under a
+hover and thrashes at half again a cruise, so an axis stopping at the cruise
+would have clamped both ends of the beat it actually uses. The reach its rules
+lean on is measured off the lunge CLIP now rather than the function, so
+re-baking that strike moves the reach with it.
+
+### F-027 — Ten looping animations do not close on themselves
+
+**Kind:** bug
+**Milestone:** game
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-05, baking the ghoul's gaits into clips and checking what the bake reported
+**Where:** the `time`-driven terms in `packages/client/src/game/batpose.ts`,
+`direhoundpose.ts`, `zombiepose.ts`, `spiderpose.ts` and `trollpose.ts`; the
+durations their entity files declare; `wrapGap` in
+`packages/engine/src/anim/bake.ts`
+
+**What happens.** A cycle is played by wrapping a playhead at the duration it
+declares — `leafTime` in `blendtree.ts` does exactly that for every leaf, synced
+or not. So a pose built on a rhythm whose rate does not divide into that
+duration arrives back at the wrap somewhere other than where it started, and
+plays the gap as a jump once a cycle.
+
+Measured as the largest difference between a pose at the start of its declared
+cycle and the same pose at the end:
+
+> **[measured]** zombie walk **0.327 rad**; direhound idle **0.252**; troll idle
+> **0.247**; zombie idle **0.232**; direhound rest **0.224**; troll rest
+> **0.096**; troll walk **0.049**; spider idle **0.050**; bat perch **0.029**;
+> bat hover **0.017**. As a bone travelling, the worst is the troll's walk at
+> **0.085 m** and the zombie's idle at **0.047 m**.
+
+The cause is the same in every case: a stand breathes at one rate, sways at
+another and twitches at a third, and the duration the entity file declares is
+one breath. The ghoul's `sway` ran at 0.5 rad/s against a cycle of 1.7, so it
+came round three quarters of the way through. A gait has the same problem in a
+second form — the zombie's and the troll's walks carry a breath on a clock of
+their own, so no duration closes them at all, because the stride and the breath
+would have to come round together.
+
+**Why it matters.** It is visible now, in the bench, on any of these as a leaf
+of a blend tree: the creature jerks once a cycle. Nobody has reported it, which
+probably says more about how long anyone watches a stand than about how
+noticeable it is. It matters more the moment these are baked into clips, because
+a clip cannot do anything but loop — the jump stops being a property of how the
+tree drives the pose and becomes a property of the asset.
+
+**What would fix it.** Two rules, both already applied to the ghoul in
+`ghoulpose.ts` and to the hellhound in `hellhoundpose.ts`, which is why neither
+appears above.
+
+Every `time`-driven term is faded out by the stride, so a moving gait is a
+function of its phase and nothing else and closes at any duration. And every
+rhythm left in the stand runs at a multiple of one fundamental, with the
+declared duration being that fundamental's own cycle — phase offsets rather
+than incommensurate rates are what keep it from looking mechanical. Where a
+stand wants a rhythm slower than its breath, the cycle lengthens to suit: the
+ghoul's went from one breath to two, and its baked idle is longer and has more
+keys because of it.
+
+`bakeClip` reports the gap as `wrapGap` and `tools/bake-clips.mjs --check`
+fails on it, so whoever takes this can see each one shrink to zero.
+
+**Closed:** 2026-09-05, fixed — every rhythm in every stand now runs at a
+multiple of the rate its own cycle is declared at, and every `time`-driven term
+fades out with the stride, so a gait is a function of its phase alone. The
+troll's uses harmonics rather than phase offsets, because its strikes end by
+returning to the stand at rest and an offset would have moved where that is.
+`tools/bake-clips.mjs --check` reports every one of the twenty-nine clips
+closing, against a limit of 0.01.
+
+### F-001 — The hellhound's trot carries it backwards
+
+**Kind:** bug
+**Milestone:** game
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-03, working out which contact schedule the hound's asset files should declare
+**Where:** `leg()` and `runPose()` in `packages/client/src/game/hellhoundpose.ts`, `measureGroundSpeed` in `packages/engine/src/anim/measure.ts`
+
+**What happens.** `leg()` writes the thigh swing as
+`setSparse(out, bones[0], [swing, 0, stance])` where
+`swing = swingAmp * amp * Math.sin(phase)`. The humanoid's `stridePose` writes
+the same joint as `hipLx = -swing * sinT`, with a minus sign. Under the shared
+convention — a limb hanging down `-Y` swings forward for `rot.x < 0` — the
+hound's planted leg is at its rearmost at the phase where the knee is straight,
+so the planted paw travels forward through the body's frame and the body
+travels backwards.
+
+Measured with the engine's own `measureGroundSpeed`, reading the back pair
+(`backPawR` lands at phase 0.25, `backPawL` at 0.75, because `runPose` gives
+`backL` the phase `theta + PI`):
+
+> **[measured]** humanoid walk **+1.5580 m/s**; hellhound run **−2.1019 m/s**.
+
+**Why it matters.** Nobody yet: the hound has no blend tree and nothing measures
+its speed, because this was found before its asset files were written and they
+were left without a contact schedule for exactly this reason. It matters the
+moment the hound is given a gait axis, because a threshold measured through the
+wrong sign is worse than an absent one. It is also visible now if anyone looks:
+the animal moonwalks.
+
+**What would fix it.** Not what this entry first said, and the correction is
+the useful part.
+
+**[measured, 2026-09-04]** Negating `swing` in `leg()` changes the pose and does
+NOT change the measured ground speed. Both versions were built and measured:
+`0.6088159098633436` either way, identical to every digit. The reason is a
+symmetry — `runPose` gives `backL` the phase `theta + PI` and `backR` the phase
+`theta`, so negating the swing for all four legs maps the measured pair onto
+itself with the two legs swapped, and a measurement averaged over a whole cycle
+cannot see it.
+
+Two more things that measurement turned up, both of which have to be understood
+before this is worth attempting again:
+
+`measureGroundSpeed` returns exactly `0` for a single foot — `backPawR` alone,
+`backPawL` alone and `frontPawR` alone all measure zero, and only the pair reads
+anything. So it is measuring the alternation rather than the travel of one
+planted paw, and what it means for a quadruped is not obvious.
+
+The numbers above do not reconcile with the ones recorded when this was found
+(humanoid **+1.5580**, hound **−2.1019**). Measured the same afternoon through
+`stridePose` at `amp: 1, gait: 0` over `stridePeriod(1, 0)`, the humanoid comes
+out **−0.7738** and the hound **+0.6088** — the same disagreement in sign, at
+half the magnitude and with both signs flipped. Whoever picks this up should
+work out which sampling is right before trusting either pair of numbers.
+
+What still stands is the claim itself: the two gaits disagree in sign, so one of
+them travels the wrong way. What is now known is that the one-character fix is
+not the fix, and that the measurement has to be understood first.
+
+**Closed:** 2026-09-05, fixed — `runPose` in
+`packages/client/src/game/hellhoundpose.ts` is solved onto the ground with
+`groundPath` and `twoLink` rather than written as joint angles, so a planted
+paw travels straight back at a constant rate and the gait cannot express a
+moonwalk. The measurement question the entry leaves open is answered: the
+paw's HEIGHT was the missing half. Traced through a cycle, the old gait put
+`backPawL` at its lowest (y 0.046) at the phase where it swung FORWARD and at
+its highest (y 0.190) mid-stance, so the animal was on the ground only while
+travelling the wrong way — which is why two horizontal samples could report a
+plausible positive number for a gait that plainly moonwalked, and why negating
+`swing` changed nothing. The front pair never touched the ground at all; see
+F-025. The trot now measures **+1.2788 m/s** at amp 1 and is proportional to
+`amp` to within a part in ten thousand.
 
 ### F-007 — A script with a syntax error stops the editor from booting
 

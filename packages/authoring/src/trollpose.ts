@@ -213,10 +213,20 @@ export function stompPose(theta: number, amp: number, time = 0, out: SparsePose 
 	const still = 1 - clamp01(amp);
 	const sinT = Math.sin(theta);
 	const cosT = Math.cos(theta);
-	const breath = Math.sin(time * 1.1);
-	const shift = Math.sin(time * 0.45) * still;
-	const look = Math.sin(time * 0.3) * still;
-	const growl = Math.pow(Math.max(0, Math.sin(time * 0.8)), 3) * still;
+	/*
+	 * One rhythm in the stand and two harmonics of it, and every one of them
+	 * fades out with the stride. A playhead wrapped at a duration a rhythm does
+	 * not divide into comes back somewhere other than where it started, and a
+	 * stomp carrying a breath on a clock of its own could not close at all.
+	 *
+	 * Harmonics rather than offsets, because every one of these is zero at the
+	 * start of the cycle and a strike ends by coming back to exactly that: the
+	 * stand at rest is where a swing puts him down.
+	 */
+	const breath = still * Math.sin(time * 1.1);
+	const shift = Math.sin(time * 2.2) * still;
+	const look = Math.sin(time * 3.3) * still;
+	const growl = Math.pow(Math.max(0, Math.sin(time * 1.1)), 3) * still;
 
 	// The drop is heaviest just after each footfall, and the mass rides over
 	// whichever foot is planted: the left through the middle of its stance,
@@ -821,7 +831,7 @@ function underClavicle(clavicle: Euler, wanted: Euler): Euler {
 export function sleepPose(time: number, out: SparsePose = {}): SparsePose {
 	const breath = Math.sin(time * 1.2);
 	const snore = Math.pow(Math.max(0, Math.sin(time * 1.2 - 0.9)), 3);
-	const twitch = Math.pow(Math.max(0, Math.sin(time * 0.37)), 14);
+	const twitch = Math.pow(Math.max(0, Math.sin(time * 2.4)), 14);
 
 	setSparse(out, 'root', [-0.2, 0.25, PI / 2], [0, SLEEP_HEIGHT - TROLL_CHAIN.hipHeight, 0]);
 	setSparse(out, 'spine', [0.28 + 0.01 * breath, 0, -0.1]);

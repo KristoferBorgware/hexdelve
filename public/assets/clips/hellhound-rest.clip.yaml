@@ -1,0 +1,91 @@
+id: hellhound-rest
+name: Rest
+rig: ../rigs/hellhound.rig.yaml
+duration: 8.975979010256552
+loop: loop
+poses:
+  - t: 0
+    bones:
+      root: { rot: [0.1, 0, 0], pos: [0, -0.28, 0] }
+      spineMid: [-0.05, 0, 0]
+      chest: [0.03, 0, 0]
+      neck: [-0.2, 0, 0]
+      head: [-0.1, 0, 0]
+      jaw: [0.05, 0, 0]
+      earL: [0.05, 0, 0.12]
+      earR: [0.05, 0, -0.12]
+      frontLegL: [-1.19, 0, 0.08]
+      frontShinL: [1.99, 0, 0]
+      frontPawL: [-0.56, 0, 0]
+      frontLegR: [-1.19, 0, -0.08]
+      frontShinR: [1.99, 0, 0]
+      frontPawR: [-0.56, 0, 0]
+      backLegL: [0.87, 0, 0.15]
+      backShinL: [-2.37, 0, 0]
+      backPawL: [1.05, 0, 0]
+      backLegR: [0.87, 0, -0.15]
+      backShinR: [-2.37, 0, 0]
+      backPawR: [1.05, 0, 0]
+      tailA: [0.3, 0, 0]
+      tailB: [0.25, -0.0195, 0]
+  - t: 0.598399
+    bones: { chest: [0.0411, 0, 0] }
+  - t: 1.308997
+    bones:
+      root: { rot: [0.1, 0, 0], pos: [0, -0.2868, 0] }
+      chest: [0.0445, 0, 0]
+      head: [-0.0762, 0, 0]
+      tailA: [0.3, 0.0317, 0]
+      tailB: [0.25, 0.0247, 0]
+  - t: 2.131795
+    bones: { tailA: [0.3, 0.0399, 0], tailB: [0.25, 0.0444, 0] }
+  - t: 2.804993
+    bones:
+      root: { rot: [0.1, 0, 0], pos: [0, -0.2751, 0] }
+      chest: [0.0194, 0, 0]
+      head: [-0.0723, 0, 0]
+      tailA: [0.3, 0.037, 0]
+      tailB: [0.25, 0.05, 0]
+  - t: 3.515592
+    bones: { chest: [0.0153, 0, 0], tailB: [0.25, 0.0441, 0] }
+  - t: 4.15139
+    bones:
+      root: { rot: [0.1, 0, 0], pos: [0, -0.2768, 0] }
+      tailA: [0.3, 0.0093, 0]
+      tailB: [0.25, 0.0297, 0]
+  - t: 5.273388
+    bones:
+      root: { rot: [0.1, 0, 0], pos: [0, -0.2862, 0] }
+      chest: [0.0434, 0, 0]
+      tailA: [0.3, -0.0209, 0]
+  - t: 6.283185
+    bones:
+      root: { rot: [0.1, 0, 0], pos: [0, -0.2841, 0] }
+      chest: [0.0388, 0, 0]
+      head: [-0.1285, 0, 0]
+      tailA: [0.3, -0.038, 0]
+      tailB: [0.25, -0.0378, 0]
+  - t: 7.666982
+    bones:
+      root: { rot: [0.1, 0, 0], pos: [0, -0.2732, 0] }
+      spineMid: [-0.05, 0, 0]
+      chest: [0.0155, 0, 0]
+      neck: [-0.2, 0, 0]
+      head: [-0.1238, 0, 0]
+      jaw: [0.05, 0, 0]
+      earL: [0.05, 0, 0.12]
+      earR: [0.05, 0, -0.12]
+      frontLegL: [-1.19, 0, 0.08]
+      frontShinL: [1.99, 0, 0]
+      frontPawL: [-0.56, 0, 0]
+      frontLegR: [-1.19, 0, -0.08]
+      frontShinR: [1.99, 0, 0]
+      frontPawR: [-0.56, 0, 0]
+      backLegL: [0.87, 0, 0.15]
+      backShinL: [-2.37, 0, 0]
+      backPawL: [1.05, 0, 0]
+      backLegR: [0.87, 0, -0.15]
+      backShinR: [-2.37, 0, 0]
+      backPawR: [1.05, 0, 0]
+      tailA: [0.3, -0.0317, 0]
+      tailB: [0.25, -0.0484, 0]

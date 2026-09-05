@@ -77,7 +77,6 @@ export {
 	type ClipRequest,
 	type EntityAsset,
 	type EntityDocument,
-	type ProceduralRequest,
 } from './entity.js';
 export { assetsUnder, NO_ASSETS, type ComponentAssets } from './binding.js';
 export {
@@ -91,14 +90,15 @@ export {
 	AssetWriteError,
 	normalise,
 	resolve,
-	type AssetLibraryOptions,
 } from './library.js';
 export {
 	emitYaml,
 	hexLiteral,
 	Literal,
 	writeComponent,
+	writeClip,
 	writeEntity,
+	type ClipFile,
 	writePrefabNode,
 	type Emittable,
 } from './emit.js';

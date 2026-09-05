@@ -20,7 +20,7 @@
  * wrong the first time somebody added a link between two kinds.
  */
 
-import { poseFunctionAnimation, clipAnimation, type AnimationAsset } from './animation.js';
+import { clipAnimation, type AnimationAsset } from './animation.js';
 import { assetsUnder, type ComponentAssets } from './binding.js';
 import { loadBlendTree, type BlendTreeAsset } from './blendtree.js';
 import { buildClipAsset, readClip, type ClipAsset } from './clip.js';
@@ -40,7 +40,6 @@ import {
 import { loadMesh, type MeshAsset } from './mesh.js';
 import { readParticleEffect } from './particles.js';
 import type { ComponentSpec, PrefabNode } from './prefab.js';
-import { PoseFunctionRegistry } from './poseFunctions.js';
 import type { AssetIO } from './io.js';
 import { loadRig, type RigAsset, type RigView } from './rig.js';
 import { loadSystem, type SystemAsset } from './system.js';
@@ -52,11 +51,6 @@ const NO_VIEW: RigView = { focusY: 0, frameDistance: 4 };
 /** What the manifest may list. */
 const MANIFEST_KEYS = ['entities', 'particles', 'notes'] as const;
 
-export interface AssetLibraryOptions {
-	/** The pose functions entity files may name. Defaults to an empty one. */
-	readonly poseFunctions?: PoseFunctionRegistry;
-}
-
 /** What a save refused, and why — so an editor can say it rather than throw. */
 export class AssetWriteError extends Error {
 	constructor(message: string) {
@@ -66,8 +60,6 @@ export class AssetWriteError extends Error {
 }
 
 export class AssetLibrary {
-	readonly poseFunctions: PoseFunctionRegistry;
-
 	private readonly io: AssetIO;
 	private readonly texts = new Map<string, Promise<string>>();
 	private readonly rigs = new Map<string, Promise<RigAsset>>();
@@ -77,9 +69,8 @@ export class AssetLibrary {
 	private readonly effects = new Map<string, Promise<ParticleEffect>>();
 	private readonly entities = new Map<string, Promise<EntityAsset>>();
 
-	constructor(io: AssetIO, options: AssetLibraryOptions = {}) {
+	constructor(io: AssetIO) {
 		this.io = io;
-		this.poseFunctions = options.poseFunctions ?? new PoseFunctionRegistry();
 	}
 
 	/** Which backend this is reading through, for a status line. */
@@ -359,34 +350,12 @@ export class AssetLibrary {
 		request: AnimationRequest,
 		rig: RigAsset,
 	): Promise<AnimationAsset> {
-		if (request.kind === 'clip') {
-			const asset = await this.clip(resolve(at, request.path), rig);
-			return clipAnimation(asset.clip, rig, {
-				name: request.name,
-				label: request.label ?? asset.name,
-				sync: request.sync ?? false,
-				contacts: request.contacts ?? [],
-			});
-		}
-
-		const fn = this.poseFunctions.get(request.procedural);
-		if (fn === undefined) {
-			throw new AssetError(
-				at,
-				`animations.${request.name}.procedural`,
-				`no pose function called '${request.procedural}'; this library knows ` +
-					`${this.poseFunctions.ids.join(', ') || 'none — was one registered?'}`,
-			);
-		}
-
-		const duration =
-			request.duration ?? (typeof fn.duration === 'function' ? fn.duration(request.args) : fn.duration);
-
-		return poseFunctionAnimation(fn, rig, request.args, duration, {
+		const asset = await this.clip(resolve(at, request.path), rig);
+		return clipAnimation(asset.clip, rig, {
 			name: request.name,
-			label: request.label ?? request.name,
+			label: request.label ?? asset.name,
 			sync: request.sync ?? false,
-			contacts: request.contacts ?? fn.contacts ?? [],
+			contacts: request.contacts ?? [],
 		});
 	}
 

@@ -52,6 +52,7 @@ import {
 import {
 	HEX_FLAG_UNLIT,
 	Attach,
+	entityAnimations,
 	entityMesh,
 	entityRig,
 	HexInstances,
@@ -79,7 +80,7 @@ import { components, type SpawnExtras } from './components.js';
 import { spawnEntity } from './spawn.js';
 import { BatHunt } from './bathunt.js';
 import { Item } from './items.js';
-import { SECONDS_PER_GAME_TURN } from './pace.js';
+import { secondsPerGameTurn, setWalkSpeed } from './pace.js';
 import { playerOrders, type PlayerOrders } from './orders.js';
 import { ActorBehaviour } from './actor.js';
 import { EMPTY_SCHEDULE, turnOrder, type TurnOrder } from './turnorder.js';
@@ -382,6 +383,17 @@ export class Simulation {
 
 		/* Where his eyeline is, off his own rig — a camera follows the hips. */
 		this.hipHeight = entityRig(cast.player)?.metrics.hipHeight ?? 0;
+
+		/*
+		 * And how long a game turn is, off his walk. One turn is a tenth of the
+		 * time that walk takes to cross a hexagon, so the clock is measured
+		 * from the clip he is drawn with rather than from a number beside it —
+		 * which is what keeps his step and his place in the energy table the
+		 * same fact.
+		 */
+		const walk = entityAnimations(cast.player).get('walk')?.speed();
+		if (!walk) throw new Error(`'${cast.player.id}' has no measurable walk to set the turn clock from`);
+		setWalkSpeed(walk.z);
 
 		const sword = cast.props.find((prop) => prop.id === 'sword');
 		const swordTip = entityMesh(sword!)?.anchors.tip?.at;
@@ -777,7 +789,7 @@ export class Simulation {
 			actions: this.turns?.actions ?? 0,
 			lastAction: this.turns?.last ?? 'nobody has moved',
 			waitingForYou: !(this.orders?.hasOrders ?? false) && !this.player.busy && !this.bat.busy,
-			secondsPerGameTurn: SECONDS_PER_GAME_TURN,
+			secondsPerGameTurn: secondsPerGameTurn(),
 			batMessage: this.bat.message,
 			batState: this.bat.state,
 			batRange: axialDistance(this.player.cell, this.bat.cell),

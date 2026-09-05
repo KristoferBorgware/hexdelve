@@ -15,7 +15,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { AssetLibrary, readOnly, type AssetIO } from '@hexdelve/engine';
-import { loadCast, poseFunctions, type Cast, type CastOptions } from '@hexdelve/client';
+import { loadCast, type Cast, type CastOptions } from '@hexdelve/client';
 
 /** Where the files actually are. */
 export const ASSET_ROOT = resolve(import.meta.dirname, '..', '..', 'public', 'assets');
@@ -45,7 +45,7 @@ export function diskIO(at: string): AssetIO {
  * the next one through it.
  */
 export function openLibrary(at: string = ASSET_ROOT): AssetLibrary {
-	return new AssetLibrary(readOnly(diskIO(at)), { poseFunctions });
+	return new AssetLibrary(readOnly(diskIO(at)));
 }
 
 /** The yard's cast, loaded from the real files. */

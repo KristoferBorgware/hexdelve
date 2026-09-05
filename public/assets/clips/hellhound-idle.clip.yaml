@@ -1,0 +1,309 @@
+id: hellhound-idle
+name: Idle
+rig: ../rigs/hellhound.rig.yaml
+duration: 7.391982714328925
+loop: loop
+poses:
+  - t: 0
+    bones:
+      root: { rot: [0.16, 0, 0], pos: [0, -0.1, 0] }
+      backLegL: [-0.7838, 0, 0.05]
+      backShinL: [1.3289, 0, 0]
+      backPawL: [-0.2821, 0, 0]
+      backLegR: [-0.7838, 0, -0.05]
+      backShinR: [1.3289, 0, 0]
+      backPawR: [-0.7052, 0, 0]
+      frontLegR: [0.4014, 0, -0.05]
+      frontShinR: [-1.1942, 0, 0]
+      frontPawR: [0.2531, 0, 0]
+      frontLegL: [0.4014, 0, 0.05]
+      frontShinL: [-1.1942, 0, 0]
+      frontPawL: [0.6328, 0, 0]
+      neck: [-0.1, 0, 0]
+      head: [-0.05, 0, -0.0178]
+      jaw: [0.02, 0, 0]
+      earL: [0, 0, 0.1]
+      earR: [0, 0, -0.1193]
+      tailA: [0.15, 0, 0]
+      tailB: [0.1, -0.0508, 0]
+      chest: [0, 0, 0]
+  - t: 0.307999
+    bones: { earL: [0, 0, 0.1212], earR: [0, 0, -0.1295] }
+  - t: 0.585199
+    bones:
+      backLegL: [-0.7717, 0, 0.05]
+      backShinL: [1.302, 0, 0]
+      backLegR: [-0.7717, 0, -0.05]
+      backShinR: [1.302, 0, 0]
+      backPawR: [-0.6903, 0, 0]
+      frontLegR: [0.3763, 0, -0.05]
+      frontShinR: [-1.1705, 0, 0]
+      frontLegL: [0.3763, 0, 0.05]
+      frontShinL: [-1.1705, 0, 0]
+      head: [-0.05, 0.0859, -0.0113]
+      jaw: [0.0368, 0, 0]
+      earL: [0, 0, 0.1299]
+      earR: [0, 0, -0.1131]
+      chest: [0.0126, 0, 0]
+  - t: 0.893198
+    bones:
+      backPawL: [-0.275, 0, 0]
+      frontPawL: [0.6194, 0, 0]
+      neck: [-0.1, 0.0413, 0]
+      earL: [0, 0, 0.1228]
+      earR: [0, 0, -0.0832]
+      tailA: [0.15, 0.0413, 0]
+  - t: 1.170397
+    bones:
+      root: { rot: [0.16, 0, 0], pos: [0, -0.0963, 0] }
+      backLegL: [-0.7706, 0, 0.05]
+      backShinL: [1.2996, 0, 0]
+      backLegR: [-0.7706, 0, -0.05]
+      backShinR: [1.2996, 0, 0]
+      backPawR: [-0.6889, 0, 0]
+      frontLegR: [0.3741, 0, -0.05]
+      frontShinR: [-1.1684, 0, 0]
+      frontPawR: [0.2482, 0, 0]
+      frontLegL: [0.3741, 0, 0.05]
+      frontShinL: [-1.1684, 0, 0]
+      head: [-0.05, 0.151, -0.0021]
+      jaw: [0.0383, 0, 0]
+      earR: [0, 0, -0.07]
+      chest: [0.0137, 0, 0]
+  - t: 1.478397
+    bones:
+      neck: [-0.1, 0.0571, 0]
+      head: [-0.05, 0.1712, 0.0031]
+      earL: [0, 0, 0.0824]
+      earR: [0, 0, -0.0841]
+      tailA: [0.15, 0.0571, 0]
+      tailB: [0.1, 0.0549, 0]
+  - t: 1.847996
+    bones:
+      root: { rot: [0.16, 0, 0], pos: [0, -0.1, 0] }
+      backLegL: [-0.7838, 0, 0.05]
+      backShinL: [1.3289, 0, 0]
+      backPawL: [-0.2821, 0, 0]
+      backLegR: [-0.7838, 0, -0.05]
+      backShinR: [1.3289, 0, 0]
+      backPawR: [-0.7052, 0, 0]
+      frontLegR: [0.4014, 0, -0.05]
+      frontShinR: [-1.1942, 0, 0]
+      frontPawR: [0.2531, 0, 0]
+      frontLegL: [0.4014, 0, 0.05]
+      frontShinL: [-1.1942, 0, 0]
+      frontPawL: [0.6328, 0, 0]
+      neck: [-0.1, 0.06, 0]
+      head: [-0.05, 0.18, 0.0091]
+      jaw: [0.02, 0, 0]
+      earL: [0, 0, 0.07]
+      earR: [0, 0, -0.1193]
+      tailA: [0.15, 0.06, 0]
+      tailB: [0.1, 0.0743, 0]
+      chest: [0, 0, 0]
+  - t: 2.063595
+    bones: { earR: [0, 0, -0.1297] }
+  - t: 2.279195
+    bones:
+      backShinL: [1.3501, 0, 0]
+      backShinR: [1.3501, 0, 0]
+      frontLegR: [0.4213, 0, -0.05]
+      frontShinR: [-1.2127, 0, 0]
+      frontLegL: [0.4213, 0, 0.05]
+      frontShinL: [-1.2127, 0, 0]
+      neck: [-0.1, 0.056, 0]
+      head: [-0.05, 0.168, 0.0149]
+      jaw: [0.0066, 0, 0]
+      earL: [0, 0, 0.0864]
+      earR: [0, 0, -0.1248]
+      tailA: [0.15, 0.056, 0]
+      tailB: [0.1, 0.0876, 0]
+  - t: 2.679594
+    bones:
+      backLegL: [-0.7977, 0, 0.05]
+      backShinL: [1.3601, 0, 0]
+      backPawL: [-0.289, 0, 0]
+      backLegR: [-0.7977, 0, -0.05]
+      backShinR: [1.3601, 0, 0]
+      backPawR: [-0.7224, 0, 0]
+      frontLegR: [0.4307, 0, -0.05]
+      frontShinR: [-1.2214, 0, 0]
+      frontLegL: [0.4307, 0, 0.05]
+      frontShinL: [-1.2214, 0, 0]
+      frontPawL: [0.6456, 0, 0]
+      head: [-0.05, 0.1369, 0.0185]
+      jaw: [0.0002, 0, 0]
+      earL: [0, 0, 0.1157]
+      earR: [0, 0, -0.0887]
+      tailB: [0.1, 0.0895, 0]
+      chest: [-0.0148, 0, 0]
+  - t: 3.018393
+    bones:
+      root: { rot: [0.16, 0, 0], pos: [0, -0.1037, 0] }
+      frontPawR: [0.2578, 0, 0]
+      neck: [-0.1, 0.0327, 0]
+      earL: [0, 0, 0.1296]
+      earR: [0, 0, -0.07]
+      tailA: [0.15, 0.0327, 0]
+  - t: 3.264792
+    bones:
+      backShinL: [1.3501, 0, 0]
+      backShinR: [1.3501, 0, 0]
+      frontLegR: [0.4213, 0, -0.05]
+      frontShinR: [-1.2127, 0, 0]
+      frontLegL: [0.4213, 0, 0.05]
+      frontShinL: [-1.2127, 0, 0]
+      head: [-0.05, 0.0645, 0.0199]
+      jaw: [0.0066, 0, 0]
+      earR: [0, 0, -0.0792]
+      tailB: [0.1, 0.0741, 0]
+  - t: 3.480392
+    bones:
+      backLegL: [-0.7889, 0, 0.05]
+      backLegR: [-0.7889, 0, -0.05]
+      backPawR: [-0.7115, 0, 0]
+      earL: [0, 0, 0.1157]
+      chest: [-0.0054, 0, 0]
+  - t: 3.819191
+    bones: { frontPawL: [0.63, 0, 0], earL: [0, 0, 0.0907], earR: [0, 0, -0.127] }
+  - t: 4.09639
+    bones:
+      backShinL: [1.3088, 0, 0]
+      backShinR: [1.3088, 0, 0]
+      frontLegR: [0.3826, 0, -0.05]
+      frontShinR: [-1.1765, 0, 0]
+      frontLegL: [0.3826, 0, 0.05]
+      frontShinL: [-1.1765, 0, 0]
+      frontPawL: [0.6244, 0, 0]
+      earL: [0, 0, 0.0744]
+      earR: [0, 0, -0.1265]
+      tailB: [0.1, 0.0231, 0]
+  - t: 4.31199
+    bones:
+      backLegL: [-0.7713, 0, 0.05]
+      backLegR: [-0.7713, 0, -0.05]
+      backPawR: [-0.6898, 0, 0]
+      head: [-0.05, -0.09, 0.0109]
+      jaw: [0.0373, 0, 0]
+      earL: [0, 0, 0.07]
+      chest: [0.013, 0, 0]
+  - t: 4.589189
+    bones:
+      root: { rot: [0.16, 0, 0], pos: [0, -0.096, 0] }
+      backShinL: [1.2968, 0, 0]
+      backPawL: [-0.275, 0, 0]
+      backShinR: [1.2968, 0, 0]
+      frontLegR: [0.3715, 0, -0.05]
+      frontShinR: [-1.1659, 0, 0]
+      frontPawR: [0.2478, 0, 0]
+      frontLegL: [0.3715, 0, 0.05]
+      frontShinL: [-1.1659, 0, 0]
+      neck: [-0.1, -0.0413, 0]
+      earL: [0, 0, 0.0772]
+      earR: [0, 0, -0.0832]
+      tailA: [0.15, -0.0413, 0]
+  - t: 4.897189
+    bones:
+      backPawR: [-0.6894, 0, 0]
+      frontPawL: [0.6209, 0, 0]
+      head: [-0.05, -0.1535, 0.0016]
+      jaw: [0.0378, 0, 0]
+      earR: [0, 0, -0.0701]
+      tailB: [0.1, -0.0368, 0]
+  - t: 5.205188
+    bones:
+      backLegL: [-0.776, 0, 0.05]
+      backShinL: [1.3115, 0, 0]
+      backLegR: [-0.776, 0, -0.05]
+      backShinR: [1.3115, 0, 0]
+      frontLegR: [0.3852, 0, -0.05]
+      frontShinR: [-1.1789, 0, 0]
+      frontLegL: [0.3852, 0, 0.05]
+      frontShinL: [-1.1789, 0, 0]
+      neck: [-0.1, -0.0575, 0]
+      head: [-0.05, -0.1726, -0.0036]
+      earL: [0, 0, 0.1195]
+      earR: [0, 0, -0.0869]
+      tailA: [0.15, -0.0575, 0]
+      chest: [0.0082, 0, 0]
+  - t: 5.543987
+    bones:
+      root: { rot: [0.16, 0, 0], pos: [0, -0.1, 0] }
+      backLegL: [-0.7838, 0, 0.05]
+      backShinL: [1.3289, 0, 0]
+      backPawL: [-0.2821, 0, 0]
+      backLegR: [-0.7838, 0, -0.05]
+      backShinR: [1.3289, 0, 0]
+      backPawR: [-0.7052, 0, 0]
+      frontLegR: [0.4014, 0, -0.05]
+      frontShinR: [-1.1942, 0, 0]
+      frontPawR: [0.2531, 0, 0]
+      frontLegL: [0.4014, 0, 0.05]
+      frontShinL: [-1.1942, 0, 0]
+      frontPawL: [0.6328, 0, 0]
+      neck: [-0.1, -0.06, 0]
+      head: [-0.05, -0.18, -0.0091]
+      jaw: [0.02, 0, 0]
+      earL: [0, 0, 0.13]
+      earR: [0, 0, -0.1193]
+      tailA: [0.15, -0.06, 0]
+      tailB: [0.1, -0.0743, 0]
+      chest: [0, 0, 0]
+  - t: 5.759587
+    bones: { earR: [0, 0, -0.1297] }
+  - t: 5.975186
+    bones:
+      backShinL: [1.3501, 0, 0]
+      backShinR: [1.3501, 0, 0]
+      frontLegR: [0.4213, 0, -0.05]
+      frontShinR: [-1.2127, 0, 0]
+      frontLegL: [0.4213, 0, 0.05]
+      frontShinL: [-1.2127, 0, 0]
+      neck: [-0.1, -0.056, 0]
+      head: [-0.05, -0.168, -0.0149]
+      jaw: [0.0066, 0, 0]
+      earL: [0, 0, 0.1136]
+      earR: [0, 0, -0.1248]
+      tailA: [0.15, -0.056, 0]
+      tailB: [0.1, -0.0876, 0]
+  - t: 6.375585
+    bones:
+      backLegL: [-0.7977, 0, 0.05]
+      backShinL: [1.3601, 0, 0]
+      backPawL: [-0.289, 0, 0]
+      backLegR: [-0.7977, 0, -0.05]
+      backShinR: [1.3601, 0, 0]
+      backPawR: [-0.7224, 0, 0]
+      frontLegR: [0.4307, 0, -0.05]
+      frontShinR: [-1.2214, 0, 0]
+      frontLegL: [0.4307, 0, 0.05]
+      frontShinL: [-1.2214, 0, 0]
+      frontPawL: [0.6456, 0, 0]
+      head: [-0.05, -0.1369, -0.0185]
+      jaw: [0.0002, 0, 0]
+      earL: [0, 0, 0.0843]
+      earR: [0, 0, -0.0887]
+      tailB: [0.1, -0.0895, 0]
+      chest: [-0.0148, 0, 0]
+  - t: 6.714384
+    bones:
+      root: { rot: [0.16, 0, 0], pos: [0, -0.1037, 0] }
+      frontPawR: [0.2578, 0, 0]
+      neck: [-0.1, -0.0327, 0]
+      earL: [0, 0, 0.0704]
+      earR: [0, 0, -0.07]
+      tailA: [0.15, -0.0327, 0]
+  - t: 6.960784
+    bones:
+      backShinL: [1.3501, 0, 0]
+      backShinR: [1.3501, 0, 0]
+      frontLegR: [0.4213, 0, -0.05]
+      frontShinR: [-1.2127, 0, 0]
+      frontLegL: [0.4213, 0, 0.05]
+      frontShinL: [-1.2127, 0, 0]
+      head: [-0.05, -0.0645, -0.0199]
+      jaw: [0.0066, 0, 0]
+      earR: [0, 0, -0.0792]
+      tailB: [0.1, -0.0741, 0]
+  - t: 7.145583
+    bones: { backPawR: [-0.7123, 0, 0], earL: [0, 0, 0.0824] }

@@ -62,9 +62,17 @@ const BAD_STEP: Step = { restZ: -0.03, halfStride: 0.2, lift: 0.02 };
 export function shufflePose(theta: number, amp: number, time = 0, out: SparsePose = {}): SparsePose {
 	const still = 1 - clamp01(amp);
 	const sinT = Math.sin(theta);
+	/*
+	 * Every rhythm in the stand runs at a multiple of 0.7, which is the rate
+	 * its own cycle is declared at, and every one of them fades out with the
+	 * stride. Both are what let this be a clip: a playhead wrapped at a
+	 * duration a rhythm does not divide into comes back somewhere other than
+	 * where it started, and a shuffle carrying a clock of its own could not
+	 * close at any duration at all.
+	 */
 	const sway = Math.sin(time * 0.7) * still;
 	// The head hangs to its right and rolls there, slowly.
-	const loll = -0.2 - 0.08 * Math.sin(time * 0.7 + 1);
+	const loll = -0.2 - 0.08 * still * Math.sin(time * 0.7 + 1);
 
 	/*
 	 * The hips: a lurch from side to side that throws the weight over each
@@ -110,8 +118,8 @@ export function shufflePose(theta: number, amp: number, time = 0, out: SparsePos
 	setSparse(out, 'chest', [trunk.chestRot, -0.05 * amp * sinT, 0.03 * sway]);
 	setSparse(out, 'neck', [SLUMP.neck + snap, 0.05 * sway, -0.08]);
 	setSparse(out, 'head', [
-		SLUMP.head + snap + 0.05 * Math.sin(time * 0.4),
-		0.15 * Math.sin(time * 0.3) * still + 0.08 * amp * sinT,
+		SLUMP.head + snap + 0.05 * still * Math.sin(time * 0.7 - 1.2),
+		0.15 * Math.sin(time * 0.7 + 2.4) * still + 0.08 * amp * sinT,
 		loll,
 	]);
 
@@ -129,14 +137,14 @@ export function shufflePose(theta: number, amp: number, time = 0, out: SparsePos
 	 * inwards about the forearm by a quarter turn to put the palm down.
 	 */
 	const bend = rootRot + trunk.spineRot + trunk.chestRot;
-	const reach = 0.08 * Math.sin(time * 0.5);
+	const reach = 0.08 * still * Math.sin(time * 1.4);
 	const armR = -bend - 1.4 - reach + 0.06 * amp * sinT;
 	const armL = -bend - 1.1 + reach - 0.06 * amp * sinT;
 	const forearmR = -0.55;
 	const forearmL = -0.65;
 	const level = (arm: number, forearm: number): number => -PI / 2 - (bend + arm + forearm);
-	const pawR = 0.2 * Math.sin(time * 0.9);
-	const pawL = 0.2 * Math.sin(time * 0.9 + 2.1);
+	const pawR = 0.2 * still * Math.sin(time * 2.1);
+	const pawL = 0.2 * still * Math.sin(time * 2.1 + 2.1);
 	setSparse(out, 'armR', [armR, -0.15, -0.15]);
 	setSparse(out, 'forearmR', [forearmR, 0, 0]);
 	setSparse(out, 'handR', [level(armR, forearmR) + pawR, PI / 2, -0.1]);

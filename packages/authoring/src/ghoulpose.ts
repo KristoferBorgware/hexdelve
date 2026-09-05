@@ -129,10 +129,19 @@ export function shamblePose(theta: number, amp: number, time = 0, out: SparsePos
 	 * The breathing is ragged — a slow heave with a faster catch on top of
 	 * it — and the head jerks rather than turns: a slow sine raised to a high
 	 * odd power is nothing most of the time and a twitch for the rest.
+	 *
+	 * Every rate here is a multiple of 0.85, and every one of them is faded out
+	 * by the stride. Both of those are what let this be a clip. A cycle is
+	 * played by wrapping a playhead at the duration it declares, so a rhythm
+	 * that does not divide into that duration arrives back somewhere other than
+	 * where it started and jumps; and a gait carrying a rhythm on a clock of
+	 * its own could not close at any duration at all, since the stride and the
+	 * breath would have to come round together. So the stand keeps the slow
+	 * ones and the stride is a function of its phase and nothing else.
 	 */
-	const breath = Math.sin(time * 1.7) + 0.3 * Math.sin(time * 5.1);
-	const twitch = Math.pow(Math.sin(time * 1.3), 9) * still + 0.06 * amp * Math.sin(2 * theta + 0.8);
-	const sway = Math.sin(time * 0.5) * still;
+	const breath = still * (Math.sin(time * 1.7) + 0.3 * Math.sin(time * 5.1));
+	const twitch = Math.pow(Math.sin(time * 2.55), 9) * still + 0.06 * amp * Math.sin(2 * theta + 0.8);
+	const sway = Math.sin(time * 0.85) * still;
 
 	/*
 	 * The hips: crouched, lurching from side to side over each planted foot,
@@ -171,7 +180,7 @@ export function shamblePose(theta: number, amp: number, time = 0, out: SparsePos
 	 */
 	const hang = -(rootRot + trunk.spineRot + trunk.chestRot) - 0.3;
 	const swing = 0.25 * amp;
-	const tremor = 0.05 * still * Math.sin(time * 9.3);
+	const tremor = 0.05 * still * Math.sin(time * 4.25);
 	setSparse(out, 'armL', [hang + swing * sinT + 0.02 * breath, 0.05, 0.28 + 0.03 * sway]);
 	setSparse(out, 'armR', [hang - 0.06 - swing * sinT + 0.02 * breath, -0.05, -0.24 + 0.03 * sway]);
 	setSparse(out, 'forearmL', [-0.5 - 0.15 * amp * Math.max(0, sinT), 0.1, 0.05]);

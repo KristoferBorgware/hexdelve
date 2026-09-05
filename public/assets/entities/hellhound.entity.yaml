@@ -7,8 +7,8 @@ object:
     - { type: mesh, mesh: ../meshes/hellhound.mesh.yaml }
     - type: animator
       animations:
-        idle: { procedural: houndRun, label: Idle, args: { amp: 0 }, duration: tau / 1.7 }
-        run: { procedural: houndRun, label: Run, args: { amp: 1 }, sync: true }
-        bite: { procedural: houndBite, label: Bite }
-        rest: { procedural: houndRest, label: Rest, duration: tau / 1.4 }
+        idle: { clip: ../clips/hellhound-idle.clip.yaml, contacts: [0.25, 0.75] }
+        run: { clip: ../clips/hellhound-run.clip.yaml, sync: true, contacts: [0.25, 0.75] }
+        bite: ../clips/hellhound-bite.clip.yaml
+        rest: ../clips/hellhound-rest.clip.yaml
     - { type: script, script: Character, hp: 12, faction: foe, power: 3 }
