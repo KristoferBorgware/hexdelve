@@ -1,0 +1,363 @@
+# The hill giant: hexagonal prisms hung on its own rig.
+#
+# Built the way every other body in this project is — the unit hex prism
+# under a different scale and rotation, bound to a bone — and built like a
+# man, a very big one: a gut, a barrel chest, a heavy brow and a beard. The
+# limbs are struts spanning their own bones by naming them, so re-proportioning
+# a bone in the rig moves the strut with it, with the muscle laid over each
+# strut as prisms: a biceps and a triceps on the upper arm, a quad and a
+# hamstring on the thigh, a calf on the shin. The joints are knobs. The hands
+# are one hand mirrored, a loose fist either side with the palm in and the
+# back of the hand out, as a hanging hand's is.
+#
+# The skin is the umber Angband draws it in, ruddy and weathered, paler down
+# the belly and darker over the back, and hairy: a mat on the chest, tufts
+# down the arms and shins, a shaggy mop with a leather band round it, and a
+# matted beard on the jaw, so it moves with the mouth. It wears what it has
+# taken off what it has eaten — a kilt of stitched hides on a broad belt with
+# a bronze buckle, a bear's pelt over the left shoulder with the paw still on
+# it, hide wraps on the shins, a studded bracer on the right forearm, an iron
+# band on the right arm and a ring in the right ear, a pouch, a coil of rope
+# and a ram's skull on the belt.
+
+id: giant
+name: Hill giant body
+rig: ../rigs/giant.rig.yaml
+
+palette:
+  skin: 0xa8795a
+  skinDark: 0x7d5640
+  skinLight: 0xc4957a
+  belly: 0xbf9a80
+  hair: 0x3b2a1f
+  hairLight: 0x5a4330
+  fur: 0x6e5a45
+  furDark: 0x4d3d2d
+  hide: 0x5b4030
+  hideDark: 0x3f2b20
+  belt: 0x4a3226
+  buckle: 0x8a7a4a
+  iron: 0x4b4d52
+  rope: 0x9a8455
+  tooth: 0xd9cfae
+  gum: 0x7a4a4a
+  mouth: 0x2a1616
+  eye: 0xe8e0c0
+  nail: 0x5a4a3c
+  scar: 0xc08a7a
+  wart: 0x8a6a52
+  bone: 0xd9d0b8
+
+parts:
+  # The pelvis: the block of the hips with a glute either side behind, the
+  # belt round it with its buckle and pin and a loose end, the kilt of hides
+  # hanging off it in overlapping plates front, back and sides with the fur
+  # ragged along their edges, a pouch on the right hip, a coil of rope on
+  # the left, and a ram's skull hung behind it by its horns.
+  - { bone: root, at: [0, -0.08, 0], size: [0.62, 0.56, 0.46], color: skin }
+  - { bone: root, at: [0, 0.18, 0], size: [0.66, 0.16, 0.5], color: belt }
+  - { bone: root, at: [0, 0.18, 0.5], size: [0.14, 0.17, 0.04], color: buckle }
+  - { bone: root, from: [0, 0.27, 0.535], to: [0, 0.09, 0.535], radius: 0.02, color: iron }
+  - { bone: root, at: [0.2, 0.0, 0.48], size: [0.07, 0.3, 0.03], euler: [0, 0, 0.1], color: belt }
+  - { bone: root, at: [0, -0.5, 0.42], size: [0.28, 0.9, 0.06], euler: [-0.06, 0, 0], color: fur }
+  - { bone: root, at: [0.3, -0.45, 0.36], size: [0.22, 0.8, 0.06], euler: [-0.06, 0, 0.12], color: furDark }
+  - { bone: root, at: [-0.28, -0.48, 0.37], size: [0.2, 0.85, 0.06], euler: [-0.06, 0, -0.1], color: fur }
+  - { bone: root, at: [0, -0.46, -0.4], size: [0.3, 0.84, 0.06], euler: [0.08, 0, 0], color: fur }
+  - { bone: root, at: [0.3, -0.42, -0.34], size: [0.2, 0.76, 0.06], euler: [0.08, 0, 0.1], color: furDark }
+  - { bone: root, at: [-0.3, -0.42, -0.34], size: [0.2, 0.76, 0.06], euler: [0.08, 0, -0.1], color: fur }
+  - { bone: root, at: [0.08, -0.92, 0.4], size: [0.06, 0.1, 0.05], color: furDark }
+  - { bone: root, at: [-0.12, -0.9, 0.41], size: [0.05, 0.08, 0.05], color: furDark }
+  - { bone: root, at: [0.16, -0.86, -0.38], size: [0.05, 0.09, 0.05], color: furDark }
+  - { bone: root, at: [-0.52, -0.02, 0.24], size: [0.12, 0.2, 0.1], color: hide }
+  - { bone: root, at: [-0.52, 0.06, 0.25], size: [0.13, 0.05, 0.11], color: hideDark }
+  - { bone: root, at: [0.54, -0.05, 0.16], size: [0.14, 0.12, 0.05], color: rope }
+  - { bone: root, at: [0.55, -0.05, 0.21], size: [0.1, 0.1, 0.03], color: rope }
+  - { bone: root, from: [0.44, 0.12, -0.2], along: [0.2, -1, -0.15], length: 0.22, radius: 0.018, color: rope }
+  - { bone: root, at: [0.5, -0.22, -0.26], size: [0.1, 0.15, 0.11], color: bone }
+  - { bone: root, at: [0.5, -0.24, -0.16], size: [0.03, 0.03, 0.02], color: mouth }
+  - { bone: root, at: [0.46, -0.24, -0.16], size: [0.03, 0.03, 0.02], color: mouth }
+  - { bone: root, from: [0.58, -0.14, -0.26], along: [1, 0.3, -0.3], length: 0.12, radius: 0.03, color: bone }
+  - { bone: root, from: [0.69, -0.106, -0.293], along: [0.3, -1, -0.4], length: 0.11, radius: 0.022, color: bone }
+  - { bone: root, from: [0.42, -0.14, -0.26], along: [-1, 0.3, -0.3], length: 0.11, radius: 0.03, color: bone }
+  - { bone: root, from: [0.319, -0.11, -0.29], along: [-0.3, -1, -0.4], length: 0.1, radius: 0.022, color: bone }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: root, at: [0.3, -0.2, -0.28], size: [0.27, 0.38, 0.2], color: skin }
+      - { bone: root, at: [0.5, -0.4, 0.0], size: [0.06, 0.7, 0.24], euler: [0, 0, -0.12], color: fur }
+
+  # The gut: a barrel out past the chest and hanging over the belt, the
+  # belly paler down the front with the navel in it and a fold across it, a trail of hair up the
+  # middle, an oblique and a roll of fat either side, and the spine standing
+  # out of the back in two knuckles.
+  - { bone: spine, at: [0, 0.18, 0.1], size: [0.76, 0.76, 0.62], color: skin }
+  - { bone: spine, at: [0, 0.12, 0.58], size: [0.44, 0.56, 0.16], color: belly }
+  - { bone: spine, at: [0, -0.1, 0.5], size: [0.46, 0.24, 0.22], color: skin }
+  - { bone: spine, at: [0, 0.08, 0.75], size: [0.035, 0.05, 0.02], color: skinDark }
+  - { bone: spine, at: [0, 0.3, 0.72], size: [0.34, 0.03, 0.04], color: skinDark }
+  - { bone: spine, at: [0, 0.42, 0.74], size: [0.03, 0.3, 0.02], color: hair }
+  - { bone: spine, at: [0, 0.08, -0.54], size: [0.06, 0.07, 0.05], color: skinDark }
+  - { bone: spine, at: [0, 0.32, -0.55], size: [0.06, 0.07, 0.05], color: skinDark }
+  - { bone: spine, at: [-0.36, 0.16, 0.62], size: [0.02, 0.24, 0.015], euler: [0, 0, 0.5], color: scar }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: spine, at: [0.6, 0.22, 0.04], size: [0.2, 0.56, 0.4], color: skin }
+      - { bone: spine, at: [0.56, -0.04, -0.08], size: [0.18, 0.22, 0.3], color: skin }
+      - { bone: spine, at: [0.36, 0.05, -0.42], size: [0.14, 0.2, 0.1], color: skinDark }
+
+  # The chest: the barrel of the ribcage, a pec either side of a cleft down
+  # the middle with a fold under each and a mat of hair across the top of
+  # them, the hump of the traps rising to the neck behind, a shoulder blade
+  # either side, the spine's knuckles up the back, the collar bones, and
+  # over all of it the pelt's strap running from the left shoulder down
+  # across to the right hip, front and back, with the bear's paw hanging
+  # off the top of it and the fur ragged along it. The back is hairy.
+  - { bone: chest, at: [0, 0.24, -0.02], size: [0.86, 0.8, 0.6], color: skin }
+  - { bone: chest, at: [0, 0.62, -0.16], size: [0.6, 0.38, 0.38], color: skinDark }
+  - { bone: chest, at: [0, 0.32, 0.58], size: [0.03, 0.34, 0.03], color: skinDark }
+  - { bone: chest, at: [0, 0.06, -0.58], size: [0.06, 0.07, 0.05], color: skinDark }
+  - { bone: chest, at: [0, 0.24, -0.59], size: [0.06, 0.07, 0.05], color: skinDark }
+  - { bone: chest, at: [0, 0.42, -0.57], size: [0.06, 0.07, 0.05], color: skinDark }
+  - { bone: chest, at: [0, 0.46, 0.58], size: [0.34, 0.14, 0.03], color: hair }
+  - { bone: chest, at: [0.32, 0.5, 0.5], size: [0.15, 0.55, 0.08], euler: [0, 0, -0.785], color: fur }
+  - { bone: chest, at: [0, 0.2, 0.56], size: [0.15, 0.55, 0.08], euler: [0, 0, -0.785], color: fur }
+  - { bone: chest, at: [-0.3, -0.08, 0.56], size: [0.15, 0.55, 0.08], euler: [0, 0, -0.785], color: fur }
+  - { bone: chest, at: [0.3, 0.48, -0.52], size: [0.15, 0.55, 0.08], euler: [0, 0, -0.785], color: fur }
+  - { bone: chest, at: [0, 0.2, -0.56], size: [0.15, 0.55, 0.08], euler: [0, 0, -0.785], color: fur }
+  - { bone: chest, at: [-0.3, -0.08, -0.54], size: [0.15, 0.55, 0.08], euler: [0, 0, -0.785], color: fur }
+  - { bone: chest, from: [0.2, 0.36, 0.58], along: [-0.4, -1, 0.3], length: 0.1, radius: 0.025, color: furDark }
+  - { bone: chest, from: [-0.1, 0.08, 0.62], along: [-0.4, -1, 0.3], length: 0.1, radius: 0.025, color: furDark }
+  - { bone: chest, from: [-0.36, -0.18, 0.6], along: [-0.3, -1, 0.3], length: 0.1, radius: 0.025, color: furDark }
+  - { bone: chest, at: [0.5, 0.56, 0.5], size: [0.1, 0.13, 0.07], color: furDark }
+  - { bone: chest, from: [0.46, 0.5, 0.54], along: [0, -1, 0.25], length: 0.09, radius: 0.016, color: nail }
+  - { bone: chest, from: [0.5, 0.49, 0.55], along: [0, -1, 0.25], length: 0.1, radius: 0.016, color: nail }
+  - { bone: chest, from: [0.54, 0.5, 0.54], along: [0, -1, 0.25], length: 0.09, radius: 0.016, color: nail }
+  - { bone: chest, at: [-0.34, 0.34, 0.5], size: [0.02, 0.26, 0.015], euler: [0, 0, -0.45], color: scar }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: chest, at: [0.34, 0.3, 0.46], size: [0.36, 0.34, 0.16], euler: [0.15, 0, 0.08], color: skinLight }
+      - { bone: chest, at: [0.34, 0.1, 0.52], size: [0.32, 0.06, 0.06], euler: [0.15, 0, 0.08], color: skinDark }
+      - { bone: chest, at: [0.36, 0.38, -0.46], size: [0.26, 0.4, 0.1], euler: [0, 0, 0.15], color: skinDark }
+      - { bone: chest, from: [0.06, 0.66, 0.4], along: [1, 0.1, -0.15], length: 0.62, radius: 0.055, color: skinLight }
+      - { bone: chest, from: [0.24, 0.42, 0.6], along: [0.3, -1, 0.3], length: 0.09, radius: 0.02, color: hair }
+      - { bone: chest, from: [0.4, 0.36, 0.56], along: [0.5, -1, 0.3], length: 0.08, radius: 0.018, color: hair }
+      - { bone: chest, at: [0.5, 0.2, -0.4], size: [0.12, 0.18, 0.1], color: hair }
+      - { bone: chest, at: [0.2, 0.5, -0.5], size: [0.1, 0.14, 0.08], color: hair }
+      - { bone: chest, at: [0.62, 0.42, 0.1], size: [0.05, 0.06, 0.05], color: wart }
+
+  # The clavicles: a bar of trapezius out to the shoulder, and the deltoid
+  # capping the joint, with a knot of gristle on top of it. The left one
+  # carries the pelt: the bear's hide over the shoulder with its fur ragged
+  # along the edge, and a darker tuft on top.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'shoulder*', from: [0, 0, 0], to: { bone: 'arm*' }, radius: 0.16, color: skin }
+      - { bone: 'shoulder*', at: [0.55, 0.06, 0], size: [0.36, 0.4, 0.36], color: skinLight }
+      - { bone: 'shoulder*', at: [0.52, 0.28, -0.04], size: [0.16, 0.08, 0.16], color: skinDark }
+  - { bone: shoulderL, at: [0.5, 0.18, 0], size: [0.42, 0.26, 0.42], color: fur }
+  - { bone: shoulderL, at: [0.5, 0.32, -0.05], size: [0.22, 0.1, 0.22], color: furDark }
+  - { bone: shoulderL, from: [0.8, 0.08, 0.2], along: [0.3, -1, 0.2], length: 0.18, radius: 0.03, color: furDark }
+  - { bone: shoulderL, from: [0.88, 0.06, -0.08], along: [0.5, -1, -0.2], length: 0.16, radius: 0.03, color: furDark }
+  - { bone: shoulderL, from: [0.66, 0.08, -0.34], along: [0.2, -1, -0.4], length: 0.16, radius: 0.03, color: furDark }
+  - { bone: shoulderR, at: [-0.66, 0.2, 0.12], size: [0.05, 0.06, 0.05], color: wart }
+
+  # The upper arms: the bone as a strut, the biceps over the front and the
+  # triceps behind, hair on the outside, the crease of the elbow. The right
+  # wears an iron band and carries a scar.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'arm*', from: [0, 0, 0], to: { bone: 'forearm*' }, radius: 0.23, color: skin }
+      - { bone: 'arm*', at: [0, -0.42, 0.16], size: [0.22, 0.5, 0.19], color: skinLight }
+      - { bone: 'arm*', at: [0.02, -0.46, -0.16], size: [0.2, 0.54, 0.16], color: skinDark }
+      - { bone: 'arm*', at: [0, -0.7, 0.24], size: [0.05, 0.16, 0.03], euler: [0.1, 0, 0], color: skinDark }
+      - { bone: 'arm*', from: [0.2, -0.3, 0.02], along: [1, -0.6, 0.2], length: 0.1, radius: 0.02, color: hair }
+      - { bone: 'arm*', from: [0.21, -0.48, -0.06], along: [1, -0.5, -0.2], length: 0.09, radius: 0.02, color: hair }
+      - { bone: 'arm*', from: [0.19, -0.64, 0.05], along: [1, -0.7, 0.1], length: 0.08, radius: 0.018, color: hair }
+  - { bone: armR, at: [0, -0.26, 0], size: [0.26, 0.1, 0.26], color: iron }
+  - { bone: armR, at: [-0.16, -0.58, 0.1], size: [0.02, 0.22, 0.015], euler: [0, 0, -0.3], color: scar }
+
+  # The forearms: thick at the elbow and tapering, hair down the back of
+  # them, a wrap of hide at the wrist tied with a cord. The right wears a
+  # bracer of hide studded with iron.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'forearm*', at: [0, 0, -0.02], size: [0.23, 0.26, 0.23], color: skinDark }
+      - { bone: 'forearm*', from: [0, 0, 0], to: { bone: 'hand*' }, radius: 0.19, color: skin }
+      - { bone: 'forearm*', at: [0.02, -0.3, 0.02], size: [0.23, 0.46, 0.21], color: skin }
+      - { bone: 'forearm*', from: [0.18, -0.18, -0.1], along: [1, -0.7, -0.3], length: 0.09, radius: 0.018, color: hair }
+      - { bone: 'forearm*', from: [0.2, -0.34, -0.06], along: [1, -0.8, -0.2], length: 0.08, radius: 0.018, color: hair }
+      - { bone: 'forearm*', at: [0, -0.8, 0], size: [0.2, 0.2, 0.2], color: hide }
+      - { bone: 'forearm*', at: [0, -0.76, 0], size: [0.21, 0.03, 0.21], color: rope }
+      - { bone: 'forearm*', at: [0, -0.85, 0], size: [0.21, 0.03, 0.21], color: rope }
+  - { bone: forearmR, at: [0, -0.56, 0], size: [0.225, 0.36, 0.225], color: hideDark }
+  - { bone: forearmR, at: [-0.22, -0.5, 0], size: [0.03, 0.04, 0.03], color: iron }
+  - { bone: forearmR, at: [0.22, -0.5, 0], size: [0.03, 0.04, 0.03], color: iron }
+  - { bone: forearmR, at: [0, -0.5, 0.22], size: [0.03, 0.04, 0.03], color: iron }
+  - { bone: forearmR, at: [0, -0.5, -0.22], size: [0.03, 0.04, 0.03], color: iron }
+  - { bone: forearmR, at: [-0.22, -0.63, 0], size: [0.03, 0.04, 0.03], color: iron }
+  - { bone: forearmR, at: [0.22, -0.63, 0], size: [0.03, 0.04, 0.03], color: iron }
+  - { bone: forearmR, at: [0, -0.63, 0.22], size: [0.03, 0.04, 0.03], color: iron }
+  - { bone: forearmR, at: [0, -0.63, -0.22], size: [0.03, 0.04, 0.03], color: iron }
+
+  # The hands: one fist, mirrored. The palm hangs with its back out and the
+  # palm in towards the body, the knuckles along the bottom of it; the four
+  # fingers go in from the knuckles under the palm and fold back up towards
+  # the wrist, the outer two shorter, the nails on the ends against the
+  # palm; the thumb lies across the front from the top of the palm and hooks
+  # down over the folded fingers. Hair on the back of the hand.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'hand*', at: [0, -0.16, 0], size: [0.09, 0.32, 0.17], color: skin }
+      - { bone: 'hand*', at: [0.075, -0.14, 0], size: [0.03, 0.2, 0.15], color: skinLight }
+      - { bone: 'hand*', at: [-0.03, -0.32, 0], size: [0.08, 0.07, 0.175], color: skinDark }
+      - { bone: 'hand*', from: [0, -0.31, -0.12], along: [-1, -0.35, 0], length: 0.14, radius: 0.038, color: skin }
+      - { bone: 'hand*', from: [-0.132, -0.356, -0.12], along: [0.05, 1, 0], length: 0.1, radius: 0.034, color: skin }
+      - { bone: 'hand*', at: [-0.127, -0.25, -0.12], size: [0.02, 0.03, 0.028], color: nail }
+      - { bone: 'hand*', from: [0, -0.31, -0.04], along: [-1, -0.35, 0], length: 0.16, radius: 0.04, color: skin }
+      - { bone: 'hand*', from: [-0.151, -0.363, -0.04], along: [0.05, 1, 0], length: 0.12, radius: 0.036, color: skin }
+      - { bone: 'hand*', at: [-0.145, -0.238, -0.04], size: [0.02, 0.03, 0.028], color: nail }
+      - { bone: 'hand*', from: [0, -0.31, 0.04], along: [-1, -0.35, 0], length: 0.16, radius: 0.04, color: skin }
+      - { bone: 'hand*', from: [-0.151, -0.363, 0.04], along: [0.05, 1, 0], length: 0.12, radius: 0.036, color: skin }
+      - { bone: 'hand*', at: [-0.145, -0.238, 0.04], size: [0.02, 0.03, 0.028], color: nail }
+      - { bone: 'hand*', from: [0, -0.31, 0.12], along: [-1, -0.35, 0], length: 0.14, radius: 0.038, color: skin }
+      - { bone: 'hand*', from: [-0.132, -0.356, 0.12], along: [0.05, 1, 0], length: 0.1, radius: 0.034, color: skin }
+      - { bone: 'hand*', at: [-0.127, -0.25, 0.12], size: [0.02, 0.03, 0.028], color: nail }
+      - { bone: 'hand*', from: [-0.02, -0.1, 0.16], along: [-1, -0.4, 0.1], length: 0.15, radius: 0.045, color: skin }
+      - { bone: 'hand*', from: [-0.159, -0.156, 0.174], along: [-0.1, -1, -0.2], length: 0.1, radius: 0.04, color: skin }
+      - { bone: 'hand*', at: [-0.17, -0.265, 0.15], size: [0.025, 0.03, 0.025], color: nail }
+      - { bone: 'hand*', from: [0.06, -0.06, -0.08], along: [0.3, -1, 0.3], length: 0.08, radius: 0.016, color: hair }
+      - { bone: 'hand*', from: [0.06, -0.06, 0.06], along: [0.3, -1, -0.2], length: 0.08, radius: 0.016, color: hair }
+
+  # The thighs: the bone as a strut, the quad over the front and the
+  # hamstring behind, the hip capped, hair on the outside, the crease
+  # behind the knee. The left carries a scar.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'hip*', from: [0, 0, 0], to: { bone: 'shin*' }, radius: 0.29, color: skin }
+      - { bone: 'hip*', at: [0, -0.1, 0], size: [0.34, 0.4, 0.32], color: skin }
+      - { bone: 'hip*', at: [0.02, -0.62, 0.16], size: [0.27, 0.8, 0.22], color: skinLight }
+      - { bone: 'hip*', at: [0, -0.7, -0.18], size: [0.25, 0.74, 0.19], color: skinDark }
+      - { bone: 'hip*', from: [0.26, -0.5, 0.02], along: [1, -0.6, 0.1], length: 0.1, radius: 0.02, color: hair }
+      - { bone: 'hip*', from: [0.27, -0.72, -0.06], along: [1, -0.5, -0.2], length: 0.09, radius: 0.02, color: hair }
+      - { bone: 'hip*', from: [0.25, -0.94, 0.04], along: [1, -0.7, 0.1], length: 0.08, radius: 0.018, color: hair }
+  - { bone: hipL, at: [0.24, -0.85, 0.08], size: [0.03, 0.2, 0.02], euler: [0, 0, -0.2], color: scar }
+
+  # The shins: knee, bone, calf behind and the shin's ridge in front, and
+  # the hide wraps round the lower half tied with cords.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'shin*', at: [0, 0.02, 0.06], size: [0.24, 0.26, 0.23], color: skinDark }
+      - { bone: 'shin*', from: [0, 0, 0], to: { bone: 'foot*' }, radius: 0.21, color: skin }
+      - { bone: 'shin*', at: [0, -0.35, -0.14], size: [0.23, 0.55, 0.2], color: skin }
+      - { bone: 'shin*', at: [0, -0.4, 0.2], size: [0.06, 0.5, 0.05], color: skinLight }
+      - { bone: 'shin*', from: [0.2, -0.2, -0.08], along: [1, -0.6, -0.3], length: 0.09, radius: 0.018, color: hair }
+      - { bone: 'shin*', from: [0.21, -0.42, -0.02], along: [1, -0.7, -0.2], length: 0.08, radius: 0.018, color: hair }
+      - { bone: 'shin*', at: [0, -0.78, 0], size: [0.24, 0.24, 0.24], color: hideDark }
+      - { bone: 'shin*', at: [0, -1.05, 0], size: [0.25, 0.3, 0.25], color: hide }
+      - { bone: 'shin*', at: [0, -0.68, 0], size: [0.25, 0.035, 0.25], color: rope }
+      - { bone: 'shin*', at: [0, -0.9, 0], size: [0.26, 0.035, 0.26], color: rope }
+      - { bone: 'shin*', at: [0, -1.18, 0], size: [0.26, 0.035, 0.26], color: rope }
+
+  # The feet: bare, a heel behind the ankle, the foot proper reaching
+  # forward to four broad toes with nails, the big toe on the inside, hair
+  # on the instep, the sole flat on the ground.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'foot*', at: [0, -0.14, -0.1], size: [0.2, 0.3, 0.2], color: skinDark }
+      - { bone: 'foot*', at: [0, -0.15, 0.24], size: [0.25, 0.28, 0.34], color: skin }
+      - { bone: 'foot*', at: [0, -0.02, 0.14], size: [0.19, 0.12, 0.19], color: skinDark }
+      - { bone: 'foot*', at: [-0.14, -0.2, 0.58], size: [0.075, 0.18, 0.12], color: skin }
+      - { bone: 'foot*', at: [-0.03, -0.2, 0.6], size: [0.06, 0.16, 0.11], color: skin }
+      - { bone: 'foot*', at: [0.07, -0.2, 0.58], size: [0.055, 0.16, 0.1], color: skin }
+      - { bone: 'foot*', at: [0.16, -0.21, 0.54], size: [0.05, 0.15, 0.09], color: skin }
+      - { bone: 'foot*', at: [-0.14, -0.22, 0.7], size: [0.055, 0.09, 0.03], color: nail }
+      - { bone: 'foot*', at: [-0.03, -0.22, 0.71], size: [0.045, 0.08, 0.03], color: nail }
+      - { bone: 'foot*', at: [0.07, -0.22, 0.68], size: [0.04, 0.08, 0.03], color: nail }
+      - { bone: 'foot*', at: [0.16, -0.23, 0.63], size: [0.035, 0.07, 0.03], color: nail }
+      - { bone: 'foot*', from: [0.02, -0.02, 0.28], along: [0.2, 1, 0.4], length: 0.08, radius: 0.016, color: hair }
+      - { bone: 'foot*', from: [-0.06, -0.04, 0.36], along: [-0.2, 1, 0.4], length: 0.07, radius: 0.016, color: hair }
+
+  # The neck: a column of it, thick, with the throat paler in front and a
+  # cord of tendon either side.
+  - { bone: neck, from: [0, 0, 0], to: { bone: head }, radius: 0.27, color: skin }
+  - { bone: neck, at: [0, 0.14, 0.16], size: [0.22, 0.24, 0.13], color: belly }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: neck, from: [0.2, -0.02, 0.08], along: [0.1, 1, 0.1], length: 0.3, radius: 0.045, color: skinDark }
+
+  # The head. A heavy skull, the back of it darker, a low brow like a shelf
+  # with a bushy eyebrow either side over two small eyes sunk in dark pits,
+  # a broad nose swollen at the end with the nostrils flared, cheekbones
+  # out either side, the upper lip with the teeth under it and a moustache
+  # drooping over it, big ears with a ring through the right, and the hair:
+  # a shaggy mop over the crown held with a leather band, a fringe over the
+  # brow, a lock down either side and a mane down the back that hangs in
+  # three ropes, a scar over the right eye, and warts.
+  - { bone: head, at: [0, 0.26, 0], size: [0.42, 0.54, 0.44], color: skin }
+  - { bone: head, at: [0, 0.24, -0.16], size: [0.38, 0.5, 0.3], color: skinDark }
+  - { bone: head, at: [0, 0.38, 0.3], size: [0.4, 0.13, 0.14], euler: [0.2, 0, 0], color: skinDark }
+  - { bone: head, at: [0, 0.3, 0.38], size: [0.06, 0.14, 0.08], color: skin }
+  - { bone: head, at: [0, 0.17, 0.42], size: [0.12, 0.15, 0.12], color: skinLight }
+  - { bone: head, at: [0.04, 0.21, 0.5], size: [0.03, 0.03, 0.03], color: wart }
+  - { bone: head, at: [0, 0.04, 0.32], size: [0.3, 0.1, 0.18], color: skin }
+  - { bone: head, at: [0, -0.01, 0.4], size: [0.26, 0.04, 0.05], color: skinDark }
+  - { bone: head, at: [0, 0.56, -0.04], size: [0.4, 0.2, 0.42], color: hair }
+  - { bone: head, at: [0, 0.68, -0.08], size: [0.16, 0.08, 0.18], color: hairLight }
+  - { bone: head, at: [0, 0.5, 0.3], size: [0.34, 0.12, 0.12], euler: [0.4, 0, 0], color: hair }
+  - { bone: head, at: [0, 0.42, 0], size: [0.435, 0.06, 0.455], color: hideDark }
+  - { bone: head, at: [0, 0.24, -0.38], size: [0.26, 0.5, 0.1], euler: [-0.15, 0, 0], color: hair }
+  - { bone: head, from: [0.1, 0.0, -0.4], along: [0.1, -1, -0.2], length: 0.3, radius: 0.04, color: hair }
+  - { bone: head, from: [-0.12, 0.0, -0.4], along: [-0.1, -1, -0.15], length: 0.28, radius: 0.04, color: hair }
+  - { bone: head, from: [0, 0.02, -0.44], along: [0, -1, -0.3], length: 0.32, radius: 0.04, color: hairLight }
+  - { bone: head, at: [-0.16, 0.36, 0.4], size: [0.015, 0.2, 0.012], euler: [0, 0, -0.25], color: scar }
+  - { bone: head, at: [-0.46, 0.12, 0.0], size: [0.02, 0.06, 0.05], color: iron }
+  - { bone: head, at: [0.24, 0.1, 0.32], size: [0.03, 0.035, 0.03], color: wart }
+  - { bone: head, at: [-0.3, 0.44, 0.22], size: [0.025, 0.03, 0.025], color: wart }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: head, at: [0.14, 0.28, 0.34], size: [0.07, 0.07, 0.05], color: mouth }
+      - { bone: head, at: [0.14, 0.28, 0.375], size: [0.03, 0.028, 0.02], color: eye, unlit: true }
+      - { bone: head, at: [0.15, 0.42, 0.4], size: [0.13, 0.05, 0.05], euler: [0, 0, 0.2], color: hair }
+      - { bone: head, at: [0.07, 0.12, 0.5], size: [0.03, 0.03, 0.02], color: mouth }
+      - { bone: head, at: [0.26, 0.16, 0.2], size: [0.12, 0.17, 0.15], color: skinLight }
+      - { bone: head, at: [0.06, -0.05, 0.38], size: [0.03, 0.06, 0.025], color: tooth }
+      - { bone: head, at: [0.13, -0.045, 0.35], size: [0.028, 0.05, 0.025], color: tooth }
+      - { bone: head, at: [0.11, 0.0, 0.42], size: [0.1, 0.04, 0.05], euler: [0, 0, 0.25], color: hair }
+      - { bone: head, at: [0.42, 0.24, -0.02], size: [0.045, 0.18, 0.13], euler: [0, 0.25, 0.3], color: skin }
+      - { bone: head, at: [0.43, 0.24, -0.02], size: [0.025, 0.11, 0.07], euler: [0, 0.25, 0.3], color: skinDark }
+      - { bone: head, at: [0.4, 0.28, -0.14], size: [0.08, 0.38, 0.14], euler: [0, 0, 0.1], color: hair }
+
+  # The jaw: the lower jaw and the chin, the lip and gum along its edge with
+  # the lower teeth and one big canine on the left, the dark of the mouth
+  # behind, and the beard: a matted mass under the chin coming to a point,
+  # two braids hanging out of it, one tied with cord, and the sideburns
+  # running up to meet the hair.
+  - { bone: jaw, at: [0, -0.1, 0.12], size: [0.32, 0.22, 0.24], color: skin }
+  - { bone: jaw, at: [0, -0.14, 0.3], size: [0.16, 0.14, 0.1], color: skinLight }
+  - { bone: jaw, at: [0, 0.0, 0.32], size: [0.26, 0.05, 0.05], color: gum }
+  - { bone: jaw, at: [0, 0.02, 0.16], size: [0.24, 0.06, 0.14], color: mouth }
+  - { bone: jaw, at: [0, 0.05, 0.33], size: [0.028, 0.06, 0.025], color: tooth }
+  - { bone: jaw, at: [0.13, 0.08, 0.29], size: [0.03, 0.1, 0.028], color: tooth }
+  - { bone: jaw, at: [0, -0.3, 0.14], size: [0.28, 0.42, 0.2], color: hair }
+  - { bone: jaw, at: [0, -0.55, 0.12], size: [0.18, 0.24, 0.14], color: hair }
+  - { bone: jaw, at: [0, -0.34, 0.3], size: [0.1, 0.2, 0.05], color: hairLight }
+  - { bone: jaw, from: [0.08, -0.62, 0.14], along: [0.1, -1, 0.1], length: 0.25, radius: 0.04, color: hairLight }
+  - { bone: jaw, at: [0.106, -0.78, 0.166], size: [0.05, 0.04, 0.05], color: rope }
+  - { bone: jaw, from: [-0.1, -0.6, 0.12], along: [-0.1, -1, 0.05], length: 0.22, radius: 0.04, color: hairLight }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: jaw, at: [0.08, 0.05, 0.32], size: [0.026, 0.05, 0.025], color: tooth }
+      - { bone: jaw, at: [0.28, -0.02, 0.02], size: [0.07, 0.24, 0.16], color: hair }
+      - { bone: jaw, at: [0.22, -0.18, 0.18], size: [0.08, 0.2, 0.1], euler: [0, 0, 0.2], color: hair }

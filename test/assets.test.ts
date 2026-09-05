@@ -9,8 +9,8 @@
  *
  * What is left here is the three things that outlive the migration.
  *
- * The files LOAD, and to the shapes the game expects: fourteen entities,
- * eight rigs, the trees measuring their own thresholds. A file that stopped parsing
+ * The files LOAD, and to the shapes the game expects: fifteen entities,
+ * nine rigs, the trees measuring their own thresholds. A file that stopped parsing
  * would be found by the render test too, but only as a blank picture.
  *
  * The loaders REFUSE what they should. Every one of these has a silent
@@ -95,6 +95,17 @@ import {
 	KOBOLD_SOLE,
 	koboldScurryPose,
 	koboldStabPose,
+	GIANT_CHAIN,
+	GIANT_SOLE,
+	giantLumberPose,
+	giantPoundPose,
+	giantBackhandPose,
+	giantStampPose,
+	LUMBER_CONTACTS,
+	LUMBER_PERIOD,
+	POUND_HIT,
+	BACKHAND_HIT,
+	STAMP_HIT,
 	SCURRY_CONTACTS,
 	SCURRY_RUN_PERIOD,
 	SCURRY_WALK_PERIOD,
@@ -295,6 +306,28 @@ describe('rigs', () => {
 		expect(rig.masks.upperBody!.earL).toBe(1);
 	});
 
+	it('the hill giant is a humanoid with clavicles and a jaw, bigger than the troll', async () => {
+		const rig = await readRig('giant');
+		const troll = await readRig('troll');
+		expect(rig.bones).toHaveLength(20);
+		const bone = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!;
+		expect(bone('jaw').parent).toBe('head');
+		expect(bone('shoulderL').parent).toBe('chest');
+		expect(bone('armL').parent).toBe('shoulderL');
+		expect(bone('armR').parent).toBe('shoulderR');
+		expect(bone('armR').offset[0]).toBeCloseTo(-bone('armL').offset[0], 12);
+		expect(bone('shoulderR').offset[0]).toBeCloseTo(-bone('shoulderL').offset[0], 12);
+		expect(rig.metrics.hipHeight).toBeGreaterThan(troll.metrics.hipHeight!);
+		// Legs longer than the hip is above the ankle, so the knee stands bent.
+		const sole = -rig.tips.find((tip) => tip.bone === 'footL')!.to[1];
+		expect(-bone('shinL').offset[1] - bone('footL').offset[1]).toBeGreaterThan(rig.metrics.hipHeight! + bone('hipL').offset[1] - sole);
+		expect(rig.feet).toEqual(['footL', 'footR']);
+		expect(rig.anchors.fist!.bone).toBe('handR');
+		expect(rig.anchors.sole!.bone).toBe('footR');
+		expect(rig.groups.legR).toEqual(['hipR', 'shinR', 'footR']);
+		expect(rig.masks.upperBody!.jaw).toBe(1);
+	});
+
 	it('refuses a child that comes before its parent', () => {
 		const source = ['id: bad', 'bones:', '  - { name: hand, parent: arm, offset: [0, 0, 0] }'].join('\n');
 		expect(() => loadRig(source, 'bad.rig.yaml')).toThrow(/must precede/);
@@ -329,6 +362,7 @@ describe('entities', () => {
 			'troll',
 			'lemure',
 			'kobold',
+			'giant',
 			'helmet',
 			'sword',
 			'shield',
@@ -1190,6 +1224,113 @@ describe('the pose functions still agree with the rigs', () => {
 		const posed = stridePose(0.7, 1, 0, 0, {});
 		for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
 	});
+	it('the lumber is solved on the hill giant rig’s own legs', async () => {
+		const rig = await readRig('giant');
+		const offset = (name: string) => rig.skeleton.find((candidate) => candidate.name === name)!.offset;
+		expect(GIANT_CHAIN.hipHeight).toBeCloseTo(rig.metrics.hipHeight!, 12);
+		expect([...offset('hipL')]).toEqual([GIANT_CHAIN.hip[0], GIANT_CHAIN.hip[1], 0]);
+		expect([...offset('shinL')]).toEqual([0, -GIANT_CHAIN.thigh, 0]);
+		expect([...offset('footL')]).toEqual([0, -GIANT_CHAIN.shin, 0]);
+		expect(offset('spine')[1]).toBe(GIANT_CHAIN.spine);
+		expect(offset('chest')[1]).toBe(GIANT_CHAIN.chest);
+		expect([...offset('shoulderL')]).toEqual([GIANT_CHAIN.shoulder[0], GIANT_CHAIN.shoulder[1], 0]);
+		expect(offset('armL')[0]).toBe(GIANT_CHAIN.arm);
+		expect(offset('forearmL')[1]).toBe(-GIANT_CHAIN.upperArm);
+		expect(offset('handL')[1]).toBe(-GIANT_CHAIN.forearm);
+	});
+
+	it('the lumber keeps each planted foot on the ground and carries the hill giant forwards', async () => {
+		const rig = await readRig('giant');
+		for (const [foot, offset] of [
+			['footL', 0],
+			['footR', Math.PI],
+		] as const) {
+			const restX = offset === 0 ? 0.5 : -0.5;
+			for (let i = 0; i <= 10; i++) {
+				const own = Math.PI / 2 + (Math.PI * i) / 10;
+				const world = solveWorld(rig.skeleton, giantLumberPose(own - offset, 1, 0, {}));
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeGreaterThan(GIANT_SOLE - 0.02);
+				expect(world[foot]!.p[1], `${foot} at ${i}/10 of its stance`).toBeLessThan(GIANT_SOLE + 0.05);
+				// Solved in three dimensions, so the pelvis rolling and turning
+				// does not drag the foot sideways.
+				expect(world[foot]!.p[0], `${foot} at ${i}/10 of its stance`).toBeCloseTo(restX, 2);
+			}
+		}
+		const giant = await entity('giant');
+		const walk = entityAnimations(giant).get('walk')!;
+		expect(walk.duration).toBeCloseTo(LUMBER_PERIOD, 12);
+		expect(walk.contacts).toEqual(LUMBER_CONTACTS);
+		expect(walk.speed()!.z).toBeGreaterThan(1.6);
+		expect(walk.speed()!.z).toBeLessThan(2.4);
+		expect(Math.abs(walk.speed()!.x)).toBeLessThan(0.05);
+		expect(Math.abs(entityAnimations(giant).get('idle')!.speed()?.z ?? 0)).toBeLessThan(0.05);
+		// Each blow carries its moment.
+		for (const [name, hit] of [
+			['pound', POUND_HIT],
+			['backhand', BACKHAND_HIT],
+			['stamp', STAMP_HIT],
+		] as const) {
+			const blow = entityAnimations(giant).get(name)!;
+			expect(blow.clip!.events.map((event) => event.name)).toEqual([name]);
+			expect(blow.clip!.events[0]!.t / blow.duration).toBeCloseTo(hit, 6);
+		}
+	});
+
+	it('the hill giant’s blows keep the standing feet planted and land where each says', async () => {
+		const rig = await readRig('giant');
+		const at = (pose: typeof giantPoundPose, u: number) => solveWorld(rig.skeleton, pose(u, {}));
+		const stand = solveWorld(rig.skeleton, giantLumberPose(0, 0, 0, {}));
+		for (const pose of [giantPoundPose, giantBackhandPose, giantStampPose]) {
+			// The feet: at every key, on the ground where they stand, a heel
+			// lifted or a foot mid-step at most — except the one a stamp lifts.
+			for (const u of [0, 0.3, 0.5, 0.62, 1]) {
+				const world = at(pose, u);
+				expect(world.footL!.p[1], `footL at ${u}`).toBeGreaterThan(GIANT_SOLE - 0.02);
+				expect(world.footL!.p[1], `footL at ${u}`).toBeLessThan(GIANT_SOLE + 0.5);
+				expect(world.footR!.p[1], `footR at ${u}`).toBeGreaterThan(GIANT_SOLE - 0.02);
+			}
+			// Back where it started.
+			const back = at(pose, 1);
+			for (const bone of ['handR', 'handL', 'head', 'footL', 'footR']) {
+				for (let axis = 0; axis < 3; axis++) expect(back[bone]!.p[axis], `${bone} axis ${axis}`).toBeCloseTo(stand[bone]!.p[axis], 3);
+			}
+		}
+		// The pound: both fists up over the head at the windup, then low and
+		// well ahead at the blow, the head following them down.
+		const windup = at(giantPoundPose, 0.32);
+		const pound = at(giantPoundPose, POUND_HIT);
+		for (const hand of ['handL', 'handR']) {
+			expect(windup[hand]!.p[1], hand).toBeGreaterThan(windup.head!.p[1]);
+			expect(pound[hand]!.p[2], hand).toBeGreaterThan(2);
+			expect(pound[hand]!.p[1], hand).toBeLessThan(2);
+		}
+		expect(pound.head!.p[1]).toBeLessThan(windup.head!.p[1] - 0.8);
+		// The backhand: the right fist across at the left shoulder when
+		// wound, then ahead and down at a man's height, then out on the
+		// right, at about the same height throughout.
+		const wound = at(giantBackhandPose, 0.3);
+		const through = at(giantBackhandPose, BACKHAND_HIT);
+		const past = at(giantBackhandPose, 0.62);
+		expect(wound.handR!.p[0]).toBeGreaterThan(0);
+		expect(through.handR!.p[2]).toBeGreaterThan(1.5);
+		expect(through.handR!.p[1]).toBeLessThan(3);
+		expect(past.handR!.p[0]).toBeLessThan(-1.5);
+		expect(Math.abs(past.handR!.p[1] - through.handR!.p[1])).toBeLessThan(1);
+		// The stamp: the right foot up at the belly when raised, then flat on
+		// the ground a stride ahead with the pelvis dropped onto it; the left
+		// foot never leaves the ground.
+		const raised = at(giantStampPose, 0.35);
+		const stamped = at(giantStampPose, STAMP_HIT);
+		expect(raised.footR!.p[1]).toBeGreaterThan(1.4);
+		expect(stamped.footR!.p[1]).toBeLessThan(GIANT_SOLE + 0.03);
+		expect(stamped.footR!.p[2]).toBeGreaterThan(stand.footR!.p[2] + 0.9);
+		expect(stamped.root!.p[1]).toBeLessThan(raised.root!.p[1] - 0.15);
+		for (let i = 0; i <= 20; i++) expect(at(giantStampPose, i / 20).footL!.p[1], `footL at ${i / 20}`).toBeLessThan(GIANT_SOLE + 0.05);
+		for (const posed of [giantLumberPose(0.7, 1, 0.3, {}), giantLumberPose(0, 0, 2, {}), giantPoundPose(0.4, {}), giantBackhandPose(0.4, {}), giantStampPose(0.4, {})]) {
+			for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
+		}
+	});
+
 });
 
 describe('io', () => {

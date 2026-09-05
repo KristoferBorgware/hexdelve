@@ -47,6 +47,14 @@ import {
 	restPose,
 	runPose,
 } from './hellhoundpose.js';
+import {
+	backhandPose as giantBackhandPose,
+	LUMBER_CONTACTS,
+	LUMBER_PERIOD,
+	lumberPose,
+	poundPose as giantPoundPose,
+	stampPose as giantStampPose,
+} from './giantpose.js';
 import { SCURRY_CONTACTS, scurryPeriod, scurryPose, stabPose as koboldStabPose } from './koboldpose.js';
 import { clawPose as lemureClawPose, WADDLE_CONTACTS, WADDLE_PERIOD, waddlePose } from './lemurepose.js';
 import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from './spiderpose.js';
@@ -351,6 +359,42 @@ const koboldStab: PoseFunction = {
 	build: ({ duration }) => (t, out) => koboldStabPose(t / duration, out),
 };
 
+/** The hill giant's lumber, and its stand: each leg solved onto the ground from wherever the pelvis is. */
+const giantLumber: PoseFunction = {
+	id: 'giantLumber',
+	duration: LUMBER_PERIOD,
+	contacts: LUMBER_CONTACTS,
+	build: ({ args, duration }) => {
+		const amp = arg(args, 'amp', 1);
+		const moving = amp >= 0.02;
+		return (t, out) => lumberPose(moving ? (t / duration) * TAU : 0, amp, t, out);
+	},
+};
+
+/**
+ * The hill giant's three blows, keyed by hand and not looping: both fists
+ * over the head and down, the back of the right fist swept out level, and
+ * the right foot hauled up and driven down.
+ */
+const giantPound: PoseFunction = {
+	id: 'giantPound',
+	duration: 1.8,
+	loop: false,
+	build: ({ duration }) => (t, out) => giantPoundPose(t / duration, out),
+};
+const giantBackhand: PoseFunction = {
+	id: 'giantBackhand',
+	duration: 1.8,
+	loop: false,
+	build: ({ duration }) => (t, out) => giantBackhandPose(t / duration, out),
+};
+const giantStamp: PoseFunction = {
+	id: 'giantStamp',
+	duration: 1.8,
+	loop: false,
+	build: ({ duration }) => (t, out) => giantStampPose(t / duration, out),
+};
+
 /**
  * Every pose function this package owns.
  *
@@ -383,4 +427,8 @@ export const poseFunctions = new PoseFunctionRegistry().register(
 	lemureClaw,
 	koboldScurry,
 	koboldStab,
+	giantLumber,
+	giantPound,
+	giantBackhand,
+	giantStamp,
 );

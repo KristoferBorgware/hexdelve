@@ -49,6 +49,7 @@ const SPIDER = '../rigs/spider.rig.yaml';
 const TROLL = '../rigs/troll.rig.yaml';
 const LEMURE = '../rigs/lemure.rig.yaml';
 const KOBOLD = '../rigs/kobold.rig.yaml';
+const GIANT = '../rigs/giant.rig.yaml';
 
 /** A cycle stated by its rate, which is how every stand below picks one. */
 const cycle = (rate: number): number => (Math.PI * 2) / rate;
@@ -124,4 +125,12 @@ export const bakeJobs: readonly BakeJob[] = [
 	{ id: 'kobold-walk', label: 'Walk', rig: KOBOLD, procedural: 'koboldScurry', args: { amp: 1, gait: 0 } },
 	{ id: 'kobold-run', label: 'Run', rig: KOBOLD, procedural: 'koboldScurry', args: { amp: 1, gait: 1 } },
 	{ id: 'kobold-stab', label: 'Attack stab', rig: KOBOLD, procedural: 'koboldStab', events: [{ at: 0.42, name: 'stab' }] },
+
+	// The hill giant: a lumber, the stand it goes from, two blows with the
+	// fists and one with a foot, each carrying its moment.
+	{ id: 'giant-idle', label: 'Idle', rig: GIANT, procedural: 'giantLumber', args: { amp: 0 }, duration: cycle(0.6) },
+	{ id: 'giant-walk', label: 'Walk', rig: GIANT, procedural: 'giantLumber', args: { amp: 1 } },
+	{ id: 'giant-pound', label: 'Attack pound', rig: GIANT, procedural: 'giantPound', events: [{ at: 0.5, name: 'pound' }] },
+	{ id: 'giant-backhand', label: 'Attack backhand', rig: GIANT, procedural: 'giantBackhand', events: [{ at: 0.5, name: 'backhand' }] },
+	{ id: 'giant-stamp', label: 'Attack stamp', rig: GIANT, procedural: 'giantStamp', events: [{ at: 0.5, name: 'stamp' }] },
 ];

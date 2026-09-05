@@ -119,3 +119,16 @@ export {
 	SCURRY_RUN_PERIOD,
 	STAB_HIT,
 } from './koboldpose.js';
+export {
+	lumberPose as giantLumberPose,
+	poundPose as giantPoundPose,
+	backhandPose as giantBackhandPose,
+	stampPose as giantStampPose,
+	GIANT_CHAIN,
+	GIANT_SOLE,
+	LUMBER_CONTACTS,
+	LUMBER_PERIOD,
+	POUND_HIT,
+	BACKHAND_HIT,
+	STAMP_HIT,
+} from './giantpose.js';

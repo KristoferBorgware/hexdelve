@@ -1,0 +1,112 @@
+# The hill giant's rig.
+#
+# A humanoid three and a quarter times the wanderer's height, and, unlike the
+# troll, built like a man: the same stack of pelvis, spine, chest, neck and
+# head, two-bone legs long enough to carry a stride of nearly two metres,
+# arms that hang to the middle of the thigh, and, as the troll has, a
+# clavicle either side, so the shoulders shrug, hunch and heave into a blow,
+# and a jaw, so the mouth opens on the roar of one.
+#
+# Bones hang or stand the way the humanoid's do, so every sign rule is the
+# same and a pose written for one reads on the other:
+#
+#   (the character faces +Z, +X is its left)
+#   limb bones hang down -Y   ->  rot.x < 0 swings FORWARD, rot.x > 0 swings BACK
+#   spine/chest/head point up ->  rot.x > 0 tips FORWARD (the head looks down)
+#   the jaw points forward    ->  rot.x > 0 opens it
+#   clavicles point out ±X    ->  rot.z lifts the shoulder, rot.y hunches it
+#   feet                      ->  rot.x > 0 points the toe DOWN
+#   rot.y > 0                 ->  turns towards the character's left
+#
+# It fights with its fists and its feet. `anchors.fist` is the knuckles of
+# the right hand and `anchors.sole` the underside of the right foot: what a
+# pound, a backhand and a stamp land with.
+
+id: giant
+name: Hill giant
+
+metrics:
+  # Hip height at rest: three and a quarter times the wanderer's.
+  hipHeight: 3.0
+  # Roughly the middle of the animal, for a camera to look at.
+  standHeight: 2.6
+
+bones:
+  - { name: root, offset: [0, hipHeight, 0] }
+  - { name: spine, parent: root, offset: [0, 0.5, 0] }
+  - { name: chest, parent: spine, offset: [0, 0.72, 0] }
+  - { name: neck, parent: chest, offset: [0, 0.5, 0.05] }
+  - { name: head, parent: neck, offset: [0, 0.32, 0.02] }
+  - { name: jaw, parent: head, offset: [0, -0.05, 0.14] }
+  # The clavicles run out from the top of the chest to the shoulder joints,
+  # which sit 0.95 m either side of the middle: the width of the shoulders.
+  - { name: shoulderL, parent: chest, offset: [0.4, 0.42, 0] }
+  - { name: armL, parent: shoulderL, offset: [0.55, 0, 0] }
+  - { name: forearmL, parent: armL, offset: [0, -1.1, 0] }
+  - { name: handL, parent: forearmL, offset: [0, -0.95, 0] }
+  - { name: shoulderR, parent: chest, offset: [-0.4, 0.42, 0] }
+  - { name: armR, parent: shoulderR, offset: [-0.55, 0, 0] }
+  - { name: forearmR, parent: armR, offset: [0, -1.1, 0] }
+  - { name: handR, parent: forearmR, offset: [0, -0.95, 0] }
+  # The legs: hip to knee 1.4, knee to ankle 1.3, the ankle 0.3 up. Longer
+  # than the hip is above the ankle, so the knee stands bent and has a
+  # stride to straighten into.
+  - { name: hipL, parent: root, offset: [0.42, -0.12, 0] }
+  - { name: shinL, parent: hipL, offset: [0, -1.4, 0] }
+  - { name: footL, parent: shinL, offset: [0, -1.3, 0] }
+  - { name: hipR, parent: root, offset: [-0.42, -0.12, 0] }
+  - { name: shinR, parent: hipR, offset: [0, -1.4, 0] }
+  - { name: footR, parent: shinR, offset: [0, -1.3, 0] }
+
+# Where a chain ends and there is no child bone to draw towards.
+tips:
+  - { bone: head, to: [0, 0.55, 0] }
+  - { bone: jaw, to: [0, -0.12, 0.4] }
+  - { bone: handL, to: [0, -0.45, 0] }
+  - { bone: handR, to: [0, -0.45, 0] }
+  - { bone: footL, to: [0, -0.3, 0.65] }
+  - { bone: footR, to: [0, -0.3, 0.65] }
+
+# The two that alternate, so a cycle's ground speed can be measured off them.
+feet: [footL, footR]
+
+groups:
+  armL: [shoulderL, armL, forearmL, handL]
+  armR: [shoulderR, armR, forearmR, handR]
+  legL: [hipL, shinL, footL]
+  legR: [hipR, shinR, footR]
+
+masks:
+  # Blend mask for playing an upper-body clip over the lumber. The spine is
+  # partial for the reason the humanoid's is: the two halves meet through
+  # it rather than hinging at it.
+  upperBody:
+    spine: 0.45
+    chest: 1
+    neck: 1
+    head: 1
+    jaw: 1
+    shoulderL: 1
+    armL: 1
+    forearmL: 1
+    handL: 1
+    shoulderR: 1
+    armR: 1
+    forearmR: 1
+    handR: 1
+
+anchors:
+  # The knuckles of the right fist, in the hand's own space: what a blow
+  # lands with.
+  fist: { bone: handR, at: [0, -0.34, 0.04] }
+  # The underside of the right foot, in the foot's own space: what a stamp
+  # lands with.
+  sole: { bone: footR, at: [0, -0.3, 0.25] }
+
+# Read off the bones above rather than typed beside them: hip to ankle.
+measures:
+  legLength: { chain: [hipL, footL] }
+
+view:
+  focusY: standHeight
+  frameDistance: 12.5

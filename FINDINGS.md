@@ -500,6 +500,36 @@ default with the duration — so many keys per second of clip, with a floor —
 so a ten-second stand can carry what a ten-second stand has in it. A per-job
 `maxKeys` is a field on `BakeJob` and one line in the baker.
 
+### F-033 — The small kobold's stand does not start at rest, so a stab ends a hair off where the idle begins
+
+**Kind:** bug
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** small
+**Found:** 2026-09-05, writing the hill giant's stand to start at rest
+**Where:** `scurryPose` in `packages/authoring/src/koboldpose.ts`, the `sniff`, `flickL` and `sway` rhythms
+
+**What happens.** A strike ends in the stand at rest, and the stand's clip
+begins at its own time zero, so the two meet cleanly only when every rhythm
+in the stand is zero there. The troll's and the giant's are, by
+construction: harmonics of one rate with no phase offset, and envelopes
+whose first rise comes after time zero. Three of the kobold's are not: the
+sniff is `sin(1.2t + 0.5)` raised to a power, the left ear's flick is
+`sin(1.2t + 1.0)` raised to one, and the tail's sway is `sin(0.6t + 1.0)`,
+so at time zero the stand already has the nose up a little, the left ear
+laid a third of the way back, and the tail swung. A stab that ends and
+hands over to the idle pops by that much — small on the nose, visible on
+the ear.
+
+**Why it matters.** It is the one seam in the kobold's motion, and it is on
+the ear, which is the part that moves most and that a player watching a
+kobold is looking at.
+
+**What would fix it.** Shift the three phases so each rhythm starts at
+zero and rises later: `sin(1.2t - 0.5)` for the sniff, `sin(1.2t - 2.2)`
+for the left flick, and a sway on a harmonic with no offset, then rebake
+`kobold-idle` and confirm it still fits under the key cap. A line each.
+
 ## Closed
 
 **Closed in part:** 2026-09-05, the humanoid is fixed; the hellhound is not.

@@ -1,0 +1,34 @@
+# The hill giant's locomotion tree: one axis, from the stand to the lumber.
+#
+# The plain case beside the humanoid's locomotion tree: a single blend1d over
+# two leaves, because a giant has one gait and nothing to lay over it. The
+# threshold on the axis is measured off the lumber's own feet, and the axis
+# is calibrated the same way the wanderer's is, so the slider is in true
+# metres per second.
+#
+# It refers to its leaves by NAME, not by path. The entity file says what
+# `walk` is.
+
+id: lumber
+label: Lumber tree
+rig: ../rigs/giant.rig.yaml
+fallbackCycle: walk
+
+parameters:
+  - name: speed
+    label: Speed
+    unit: m/s
+    min: 0
+    max: { speedOf: walk }
+    step: 0.01
+    initial: { speedOf: walk }
+    calibrated: true
+    hint: Calibrated, so the number on the slider is the speed it delivers
+
+root:
+  blend1d:
+    param: speed
+    label: speed, m/s
+    entries:
+      - { at: 0, node: { leaf: idle } }
+      - { at: { speedOf: walk }, node: { leaf: walk } }

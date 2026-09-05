@@ -1,0 +1,29 @@
+# The hill giant.
+#
+# Angband's, from the middle of the dungeon: a humanoid ten feet tall and all
+# muscle, which here is five and a half metres and bigger than the troll. Its
+# own rig, built like a man's with a clavicle either side and a jaw, so the
+# shoulders heave into a blow and the mouth opens on it. It fights with its
+# fists and its feet: a two-fisted pound, a backhand and a stamp, each a clip
+# baked from a pose function, since each foot is solved onto the ground.
+
+id: giant
+name: Hill giant
+
+object:
+  components:
+    - { type: rig, rig: ../rigs/giant.rig.yaml }
+    - { type: mesh, mesh: ../meshes/giant.mesh.yaml }
+    - type: animator
+      animations:
+        idle: { clip: ../clips/giant-idle.clip.yaml, contacts: [0.25, 0.75] }
+        walk: { clip: ../clips/giant-walk.clip.yaml, sync: true, contacts: [0.25, 0.75] }
+        pound: ../clips/giant-pound.clip.yaml
+        backhand: ../clips/giant-backhand.clip.yaml
+        stamp: ../clips/giant-stamp.clip.yaml
+      blendTrees:
+        locomotion: ../trees/lumber.tree.yaml
+    # What it is in a fight. The numbers are the character's, not the rig's, so
+    # tuning a creature is editing this file rather than a script. The lift is
+    # the middle of the animal: what a blade has to reach.
+    - { type: script, script: Character, hp: 200, faction: foe, power: 25, lift: 2.6 }
