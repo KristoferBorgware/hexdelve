@@ -130,6 +130,23 @@ export abstract class ActorBehaviour extends Component implements TurnTaker {
 	abstract beginTurn(): Action;
 
 	/**
+	 * The other creature, for what it may not walk through and what it aims at.
+	 *
+	 * Set after both are spawned, because each needs the other and one has to
+	 * be built first. Null on a bench, where there is nothing to fight.
+	 */
+	opponent: Opponent | null = null;
+
+	/**
+	 * What it is doing, or what just happened to it, in words for the readout.
+	 *
+	 * Written by whatever last had something to say — the turn it started, the
+	 * blow that came back — so the line on screen is the most recent thing
+	 * rather than the most recent thing of one kind.
+	 */
+	message = '';
+
+	/**
 	 * What this creature looks like doing what it is doing, this frame.
 	 *
 	 * Called from `update` below, between the act being wound on and the pose

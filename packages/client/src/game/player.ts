@@ -19,13 +19,13 @@
  * What it costs is the whiff: adjacency is the whole of reach, so a blow at the
  * next hexagon lands. That is not a shortcut — it is what melee on a grid means.
  *
- * ## Three components, and this is the middle one
+ * ## Four components, and this is the one in the middle
  *
- * What to do with a turn is `PlayerInput`, a script — see `orders.ts`. What any
- * of it LOOKS like is `HumanoidAnimator` and `FootIK`. This is what is left in
- * between: how long an action takes, where he is part-way through it, which way
- * he is coming round, and the announcement that a blade went through a piece of
- * the world.
+ * What to do with a turn is `PlayerInput`, a script — see `orders.ts`. What a
+ * blow COSTS is `Melee`, another one — see `melee.ts`. What any of it LOOKS
+ * like is `HumanoidAnimator` and `FootIK`. This is what is left in between: how
+ * long an action takes, where he is part-way through it, which way he is coming
+ * round, and where the point of the blade got to at the instant it arrived.
  *
  * So the drive it hands the animator is eight numbers — how big the stride is,
  * how far through the cut he is, whether he is holding anything — and not a
@@ -48,11 +48,9 @@ import {
 } from '@hexdelve/engine';
 import { HEX_SPACING, type Axial } from '@hexdelve/shared';
 
-import type { ScriptHost } from '@hexdelve/engine';
-
-import { ActorBehaviour, clamp, NOWHERE, wrapAngle, type Opponent } from './actor.js';
-import { Swing } from './events.js';
+import { ActorBehaviour, clamp, wrapAngle } from './actor.js';
 import { Acting } from './acting.js';
+import { melee, type MeleeStrikes } from './melee.js';
 import { HumanoidAnimator } from './humanoidanimator.js';
 import { playerOrders, type PlayerOrders } from './orders.js';
 
@@ -65,9 +63,6 @@ import type { TerrainQuery, Tile } from './terrain.js';
 
 /** Terraces he can step up or down in one move. */
 export const MAX_CLIMB = 1;
-
-/** What one of his cuts takes off. The rules read it; he only announces it. */
-const BLOW_DAMAGE = 5;
 
 /**
  * How fast he comes round to the hexagon he is stepping into. Fast, because a
@@ -185,17 +180,6 @@ export interface PlayerOptions {
 	terrain: TerrainQuery;
 	/** The gear lying about, which he may stoop for and wear. */
 	items: Item[];
-	/**
-	 * Where he announces a blow, if anything is listening.
-	 *
-	 * A swing does not resolve itself here any more. He says a blade went
-	 * through a piece of the world, with the reach and the arc he measured off
-	 * the clip, and the `Combat` script works out what was in it — so what a
-	 * blow does is a script somebody can edit and reload, and what a blow LOOKS
-	 * like stays where the animation is. Absent on a bench, where there is
-	 * nothing to hit.
-	 */
-	scripts?: ScriptHost;
 	/** Which way he faces to start. */
 	yaw?: number;
 	/** The hexagon he starts on. */
@@ -218,14 +202,6 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	readonly ground: TerrainQuery;
 	/** The gear lying about, which he may stoop for and wear. Read by his orders. */
 	readonly items: Item[];
-	private readonly scripts: ScriptHost | null;
-	/**
-	 * The other creature, for what he may not walk through and what he aims at.
-	 *
-	 * Set after both are spawned, because each needs the other and one has to be
-	 * built first. Null on a bench.
-	 */
-	opponent: Opponent | null = null;
 	readonly acting: Acting;
 
 	/**
@@ -244,8 +220,8 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	readonly leanIn: number;
 	private readonly swingLand: number;
 
-	readonly swing = { cuts: 0, hits: 0, missed: 0 };
-	readonly control = { state: 'idle' as PlayerActionKind | 'idle', message: 'waiting' };
+	override message = 'waiting';
+	readonly control = { state: 'idle' as PlayerActionKind | 'idle' };
 
 	constructor(object: GameObject, options: PlayerOptions) {
 		super(object);
@@ -260,7 +236,6 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		this.acting = object.getComponent(Acting) ?? object.addComponent(Acting);
 		this.acting.place(options.cell, options.yaw ?? 0);
 		this.items = options.items;
-		this.scripts = options.scripts ?? null;
 		this.cell = { q: options.cell.q, r: options.cell.r };
 		this.speed = options.speed ?? NORMAL_SPEED;
 		this.pace = hexSpeed(this.speed);
@@ -313,6 +288,11 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		return playerOrders(this.object);
 	}
 
+	/** What his blows cost and what came of them — a script, see `melee.ts`. */
+	get melee(): MeleeStrikes | null {
+		return melee(this.object);
+	}
+
 	/** What turns the numbers below into a pose. Required: he has to be drawn. */
 	readonly animation: HumanoidAnimator;
 
@@ -355,7 +335,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		this.acting.begin(kind, seconds, to, cell, target);
 		this.carrying = item;
 		this.control.state = kind;
-		this.control.message = message;
+		this.message = message;
 		return { kind, cost: ACTION_ENERGY, seconds };
 	}
 
@@ -365,7 +345,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	}
 
 	private startStrike(target: Axial): Action {
-		this.swing.cuts++;
+		this.melee?.begin();
 		return this.begin(
 			'strike',
 			this.armed ? 'cutting' : 'swinging bare-handed',
@@ -435,7 +415,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 			this.cell = this.acting.cell;
 			this.carrying = null;
 			this.control.state = 'idle';
-			this.control.message = this.armed ? 'armed' : 'waiting';
+			this.message = this.armed ? 'armed' : 'waiting';
 		}
 
 		/*
@@ -460,56 +440,33 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	/**
 	 * The moment the blade arrives.
 	 *
-	 * He no longer works out what he hit. He says a blade went through a piece
-	 * of the world — from where, facing which way, reaching how far and sweeping
-	 * which arc — and the `Combat` script answers the question, because what a
-	 * blow DOES is a rule somebody should be able to edit and reload and what a
-	 * blow LOOKS like is this file's.
+	 * He says a blade went through a piece of the world — from where, facing
+	 * which way, reaching how far and sweeping which arc — and hands it to his
+	 * `Melee`, which is where what a blow costs and what came of it live. What
+	 * a blow LOOKS like is this file's, and that is the whole of the split.
 	 *
-	 * The geometry travels with the announcement rather than being looked up at
-	 * the other end, and that is the important part: the reach and the arc are
-	 * measured off the clip as it plays, so a rule carrying its own numbers
-	 * would disagree with the picture and the disagreement would be invisible.
-	 *
-	 * The one test kept here is whether the thing he aimed at is still on the
-	 * hexagon he committed to. That is not combat — it is whether the order he
-	 * gave still means anything — and on the grid nothing can have moved since,
-	 * so it is a question with a certain answer.
+	 * The geometry goes with the blow rather than being looked up at the other
+	 * end, and that is the important part: the reach and the arc are measured
+	 * off the clip as it plays, so a rule carrying its own numbers would
+	 * disagree with the picture and the disagreement would be invisible.
 	 */
 	private landBlow(target: Axial): void {
-		const enemy = this.opponent?.cell ?? NOWHERE;
-		if (enemy.q !== target.q || enemy.r !== target.r) {
-			this.reportBlow(false, 'cut air');
-			return;
-		}
-
-		this.scripts?.emit(Swing, {
-			by: this.object.name,
-			at: { x: this.x, y: this.y, z: this.z },
-			facing: this.yaw,
-			reach: {
-				from: this.reach.from,
-				to: this.reach.to,
-				// What `leanIn` bought him is reach, so it belongs in the number
-				// the rule is given rather than in a correction the rule makes.
-				distance: this.reach.distance + this.leanIn,
-				height: this.reach.height,
+		this.melee?.land(
+			{
+				at: { x: this.x, y: this.y, z: this.z },
+				facing: this.yaw,
+				reach: {
+					from: this.reach.from,
+					to: this.reach.to,
+					// What `leanIn` gets him is reach, so it belongs in the
+					// number the rule is given rather than in a correction the
+					// rule makes.
+					distance: this.reach.distance + this.leanIn,
+					height: this.reach.height,
+				},
 			},
-			amount: BLOW_DAMAGE,
-		});
-	}
-
-	/**
-	 * What came of a blow, for the readout.
-	 *
-	 * Called by whoever is listening to the events the swing set off, because
-	 * the answer arrives after the announcement rather than with it. The tally
-	 * and the message are his; the rule that produced them is not.
-	 */
-	reportBlow(hit: boolean, message: string): void {
-		if (hit) this.swing.hits++;
-		else this.swing.missed++;
-		this.control.message = message;
+			target,
+		);
 	}
 
 	/**
@@ -547,10 +504,10 @@ export class Player extends ActorBehaviour implements TurnTaker {
 			gait: this.animation.gait,
 			pelvisDrop: this.pelvisDrop,
 			state: this.control.state,
-			message: this.control.message,
-			cuts: this.swing.cuts,
-			hits: this.swing.hits,
-			missed: this.swing.missed,
+			message: this.message,
+			cuts: this.melee?.thrown ?? 0,
+			hits: this.melee?.hits ?? 0,
+			missed: this.melee?.missed ?? 0,
 			carrying: this.items.filter((i) => i.worn).map((i) => i.name),
 			cell: this.cell,
 			terrace: tile?.level ?? null,

@@ -82,3 +82,12 @@ export const Swing = defineEvent<{
  * from outside and only one of them is a bug.
  */
 export const Missed = defineEvent<{ readonly by: string; readonly why: string }>('missed');
+
+/**
+ * A blow was thrown and connected.
+ *
+ * The mirror of `Missed`, and it exists for the same reason: a blow is `sent`
+ * to the thing it hit, so the thing that threw it hears nothing. This is the
+ * announcement it does hear, and a tally of cuts and hits is kept off it.
+ */
+export const Landed = defineEvent<{ readonly by: string; readonly on: string }>('landed');

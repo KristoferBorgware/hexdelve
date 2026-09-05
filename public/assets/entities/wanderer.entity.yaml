@@ -21,3 +21,4 @@ object:
     - { type: footIK, sole: 0.08, reach: 0.18 }
     - { type: script, script: PlayerInput }
     - { type: script, script: Character, hp: 20, faction: player, power: 5 }
+    - { type: script, script: Melee, hit: hit it, whiff: cut air }

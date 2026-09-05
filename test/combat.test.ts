@@ -120,8 +120,8 @@ describe('a blow, end to end', () => {
 		expect(sim.attack()).toBe(true);
 		run(sim, 40);
 
-		expect(sim.player.swing.cuts, 'he got there and swung').toBeGreaterThan(0);
-		expect(sim.player.swing.hits, 'and at least one landed').toBeGreaterThan(0);
+		expect(sim.player.melee!.thrown, 'he got there and swung').toBeGreaterThan(0);
+		expect(sim.player.melee!.hits, 'and at least one landed').toBeGreaterThan(0);
 
 		// Five a blow, off six, so the first one leaves it on one.
 		expect(healthOf(sim, bat)).toBeLessThanOrEqual(1);
@@ -133,7 +133,7 @@ describe('a blow, end to end', () => {
 		run(sim, 40);
 		// The rule that decided this lives in a script; the sentence does not.
 		expect(['hit it', 'cut air', 'the blow fell short']).toContain(sim.stats.message);
-		expect(sim.stats.hits + sim.stats.missed).toBe(sim.player.swing.cuts);
+		expect(sim.stats.hits + sim.stats.missed).toBe(sim.player.melee!.thrown);
 	});
 
 	/*
@@ -158,8 +158,8 @@ describe('a blow, end to end', () => {
 		expect(sim.attack()).toBe(true);
 		run(sim, 40);
 
-		expect(sim.player.swing.cuts, 'he still swings').toBeGreaterThan(0);
-		expect(sim.player.swing.hits, 'and connects with nothing').toBe(0);
+		expect(sim.player.melee!.thrown, 'he still swings').toBeGreaterThan(0);
+		expect(sim.player.melee!.hits, 'and connects with nothing').toBe(0);
 	});
 
 	/*
@@ -236,7 +236,7 @@ describe('a blow, end to end', () => {
 		expect(sim.attack()).toBe(true);
 		run(sim, 40);
 
-		expect(sim.player.swing.hits).toBeGreaterThan(0);
+		expect(sim.player.melee!.hits).toBeGreaterThan(0);
 		expect(sim.scene.getComponents(Particles)).toHaveLength(chimneys);
 	});
 
@@ -250,7 +250,7 @@ describe('a blow, end to end', () => {
 
 		expect(healthOf(sim, sim.bat.object)).toBe(0);
 		expect(sim.schedule.members).not.toContain(sim.bat);
-		expect(sim.bat.bites, 'and bit nothing after it fell').toBeLessThan(4);
+		expect(sim.bat.melee!.hits, 'and bit nothing after it fell').toBeLessThan(4);
 	});
 
 	/*

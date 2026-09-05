@@ -77,7 +77,7 @@ import {
 
 import { terrainOn, type TerrainQuery } from './terrain.js';
 import { BLOOD_EFFECT, spawnEmitter } from './effects.js';
-import { Damage, Missed } from './events.js';
+import { Damage } from './events.js';
 import { components, type SpawnExtras } from './components.js';
 import { spawnEntity } from './spawn.js';
 import { BatHunt } from './bathunt.js';
@@ -540,26 +540,14 @@ export class Simulation {
 	/**
 	 * Hear what the rules decided, and put it on the screen.
 	 *
-	 * Two things only, and both are the picture rather than the game: a shower
-	 * of blood where a blow landed, and the swinger's tally of what came of it.
-	 * What a blow COSTS is settled by the scripts, and what being hit does to
-	 * the thing hit is heard by that thing — `Hunter` takes the bat's next move
-	 * off it, and nothing here is told about that.
-	 *
-	 * The tallies go back to whoever threw the blow rather than being kept
-	 * here, because a hit is his hit.
+	 * One thing, and it is the picture rather than the game: a shower of blood
+	 * where a blow landed. What a blow COSTS is settled by the scripts, what a
+	 * blow DID goes back to the `Melee` that threw it, and what being hit does
+	 * to the thing hit is heard by that thing — `Hunter` takes the bat's next
+	 * move off it, and nothing here is told about that.
 	 */
 	private listen(): void {
-		this.scripts.on(Damage, (blow) => {
-			this.spatter(blow.at.x, blow.at.y, blow.at.z);
-			if (blow.from === 'player') this.player.reportBlow(true, 'hit it');
-			else this.bat.reportBite(true, 'bit you');
-		});
-
-		this.scripts.on(Missed, (miss) => {
-			if (miss.by === 'player') this.player.reportBlow(false, miss.why);
-			else this.bat.reportBite(false, miss.why === 'cut air' ? 'bit at nothing' : miss.why);
-		});
+		this.scripts.on(Damage, (blow) => this.spatter(blow.at.x, blow.at.y, blow.at.z));
 	}
 
 	/**
@@ -834,8 +822,8 @@ export class Simulation {
 			batEnergy: this.bat.energy,
 			batSpeedRating: this.bat.speed,
 			batSpeedFactor: speedFactor(this.bat.speed),
-			bites: this.bat.bites,
-			batMissed: this.bat.missed,
+			bites: this.bat.melee?.hits ?? 0,
+			batMissed: this.bat.melee?.missed ?? 0,
 			wakeRange: this.bat.hunt?.wakeRange ?? 0,
 			loseRange: this.bat.hunt?.loseRange ?? 0,
 			reach: this.player.reach.distance,

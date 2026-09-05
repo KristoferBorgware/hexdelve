@@ -88,6 +88,7 @@ export {
 	type HuntOrders,
 	type HuntState,
 } from './game/hunt.js';
+export { melee, MELEE, type MeleeStrikes, type Strike } from './game/melee.js';
 export { Acting, type Flight } from './game/acting.js';
 export { spawnEntity } from './game/spawn.js';
 export { Item } from './game/items.js';
