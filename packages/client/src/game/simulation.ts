@@ -52,6 +52,8 @@ import {
 import {
 	HEX_FLAG_UNLIT,
 	Attach,
+	MeshRenderer,
+	Rig,
 	entityAnimations,
 	entityMesh,
 	entityRig,
@@ -72,7 +74,8 @@ import {
 	type Axial,
 } from '@hexdelve/shared';
 
-import { buildWorld, type World } from '../scene/world.js';
+import { buildBuildings, type Buildings } from '../scene/buildings.js';
+import { terrainOn, type TerrainQuery } from './terrain.js';
 import { BLOOD_EFFECT, SMOKE_EFFECT, spawnEmitter } from './effects.js';
 import { Damage, Missed } from './events.js';
 import type { Cast } from './cast.js';
@@ -192,7 +195,10 @@ export interface YardStats extends PlayerStats {
 }
 
 export class Simulation {
-	readonly world: World;
+	/** The ground, as its script answers for it. */
+	readonly terrain: TerrainQuery;
+	/** What stands on it. */
+	readonly buildings: Buildings;
 	readonly player: Player;
 	readonly bat: BatHunt;
 	readonly items: Item[];
@@ -270,7 +276,6 @@ export class Simulation {
 
 	constructor(options: SimulationOptions) {
 		const random = makeRandom(options.seed ?? 37);
-		this.world = buildWorld({ random, groundRadius: 8, baseY: 0.16, stepH: 0.19 });
 		this.effects = options.effects ?? new Map();
 
 		this.toggles = {
@@ -328,6 +333,30 @@ export class Simulation {
 		}
 
 		/*
+		 * The ground, and then what stands on it — in that order, because a
+		 * building sits at the height of the tile under it and until there is a
+		 * tile there is no height to sit at.
+		 *
+		 * The ground is an entity with a script on it, so how far the yard
+		 * reaches is a number in a file. The script builds its own prisms from
+		 * that number, which is why there is no mesh path on it: a mesh file
+		 * cannot hold the answer to a question somebody moves a slider to ask.
+		 */
+		const ground = spawnEntity(cast.terrain, this.scene, {
+			name: 'terrain',
+			extras: this.scriptExtras(),
+		});
+		const terrain = terrainOn(ground);
+		if (!terrain) {
+			throw new Error(
+				`'${cast.terrain.id}' has no Terrain script on it, so this yard has no ground; ` +
+					'a simulation built without the scripts compiled cannot stand anything up',
+			);
+		}
+		this.terrain = terrain;
+		this.buildings = buildBuildings(terrain, { random });
+
+		/*
 		 * The gear, spawned from its own prefabs. Nothing here says what a
 		 * helmet is made of or how it lies: the entity file does, its `object:`
 		 * section says an item hangs on it, and the factory reads both. What
@@ -358,7 +387,7 @@ export class Simulation {
 		];
 		for (const [item, x, z, yaw] of spots) {
 			const cell = worldToAxial(x, z);
-			const tile = this.world.tileAt(cell.q, cell.r)!;
+			const tile = this.terrain.tileAt(cell.q, cell.r)!;
 			item.ground(tile.x, tile.z, yaw, tile.top);
 		}
 
@@ -373,7 +402,7 @@ export class Simulation {
 		 */
 		const smoke = this.effects.get(SMOKE_EFFECT);
 		if (smoke) {
-			for (const [index, chimney] of this.world.chimneys.entries()) {
+			for (const [index, chimney] of this.buildings.chimneys.entries()) {
 				spawnEmitter(this.scene, smoke, {
 					...chimney,
 					name: `smoke ${index}`,
@@ -405,7 +434,7 @@ export class Simulation {
 				swordTip,
 				cell: worldToAxial(0, -5.4),
 				yaw: 0,
-				world: this.world,
+				terrain: this.terrain,
 				items: this.items,
 				scripts: this.scripts,
 				...(options.playerSpeed !== undefined ? { speed: options.playerSpeed } : {}),
@@ -417,7 +446,7 @@ export class Simulation {
 			{
 				cell: this.perch,
 				yaw: 2.4,
-				world: this.world,
+				terrain: this.terrain,
 				random,
 				scripts: this.scripts,
 				...(options.batSpeed !== undefined ? { speed: options.batSpeed } : {}),
@@ -678,10 +707,9 @@ export class Simulation {
 	 * Build this frame's instances.
 	 *
 	 * Three lists, concatenated in pass order, so the renderer gets one buffer
-	 * and three spans. The static half of the world is a single array copy —
-	 * the terrain and the buildings never change, and rebuilding four thousand
-	 * prisms a frame to draw the same picture would be the most expensive thing
-	 * here by a wide margin.
+	 * and three spans. The buildings are a single array copy — nothing about
+	 * them moves, and rebuilding two hundred prisms a frame to draw the same
+	 * picture would be waste with nothing to show for it.
 	 */
 	build(): { data: Float32Array; ranges: InstanceRanges } {
 		const { opaque, blended, overlay } = this;
@@ -689,7 +717,22 @@ export class Simulation {
 		blended.clear();
 		overlay.clear();
 
-		opaque.pushAll(this.world.statics);
+		opaque.pushAll(this.buildings.statics);
+
+		/*
+		 * The scenery: every mesh in the scene that is neither a body nor a
+		 * thing hanging off one.
+		 *
+		 * A body has a rig and is drawn by its actor, which knows whether it is
+		 * being ghosted; a carried thing has an attach and is drawn by its item,
+		 * which knows what it is worth. Everything else stands where it is and
+		 * draws itself — the ground today, and whatever a scene file puts down
+		 * tomorrow.
+		 */
+		for (const object of this.scene.root.walk()) {
+			if (object.getComponent(Rig) || object.getComponent(Attach)) continue;
+			object.getComponent(MeshRenderer)?.emit(opaque);
+		}
 
 		const ghost = this.toggles.skeleton;
 		for (const actor of this.actors) actor.emit(opaque, blended, ghost);
@@ -732,7 +775,7 @@ export class Simulation {
 			color: ReturnType<typeof rgbFromHex>,
 			alpha: number,
 		): void => {
-			const tile = this.world.tileAt(cell.q, cell.r);
+			const tile = this.terrain.tileAt(cell.q, cell.r);
 			if (!tile) return;
 			out.pushRadial(tile.x, tile.top + lift, tile.z, radius, 0.02, color, {
 				alpha,

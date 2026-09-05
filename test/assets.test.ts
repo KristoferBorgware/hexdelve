@@ -329,6 +329,7 @@ describe('entities', () => {
 			'troll',
 			'lemure',
 			'kobold',
+			'terrain',
 			'helmet',
 			'sword',
 			'shield',

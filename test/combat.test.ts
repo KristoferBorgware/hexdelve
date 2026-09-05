@@ -293,7 +293,7 @@ describe('a blow, end to end', () => {
 		// Its wings stop holding it up, so it ends at ground level rather than
 		// at the height it hovers at. `wake` carries that, and dying drives it
 		// to nothing the same way falling asleep does.
-		const ground = sim.world.groundAt(sim.bat.x, sim.bat.z);
+		const ground = sim.terrain.groundAt(sim.bat.x, sim.bat.z);
 		expect(sim.bat.y - ground).toBeLessThan(0.05);
 	});
 

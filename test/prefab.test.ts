@@ -22,6 +22,7 @@ import {
 	AssetNode,
 	readPrefabNode,
 	Scene,
+	prefabScripts,
 	prefabTypes,
 	type ComponentContext,
 } from '@hexdelve/engine';
@@ -193,12 +194,16 @@ describe('a system prefab', () => {
 });
 
 describe('the entities that ship', () => {
-	it('gives every one of them a rig and a body to draw', async () => {
+	it('gives every one of them a body to draw, and bones where it is posed', async () => {
 		const library = openLibrary();
 		for (const entity of await library.index()) {
 			const types = prefabTypes(entity.prefab);
-			expect(types, entity.id).toContain('rig');
 			expect(types, entity.id).toContain('mesh');
+			// Bones only where something poses or hangs off them. The ground has
+			// a mesh and no rig, which is what an entity that is not a creature
+			// looks like — and the reason this is two rules rather than one.
+			const posed = types.includes('animator') || types.includes('attach');
+			if (posed) expect(types, entity.id).toContain('rig');
 		}
 	});
 
@@ -213,14 +218,17 @@ describe('the entities that ship', () => {
 		}
 	});
 
-	it('makes every animated thing something that can be hit, and no prop one', async () => {
+	it('makes every animated thing something that can be hit, and nothing else', async () => {
 		const library = openLibrary();
 		for (const entity of await library.index()) {
-			const types = prefabTypes(entity.prefab);
-			// A prop is a thing lying in the grass. Giving one hit points would
-			// put a sword in the register of characters, where everything that
-			// goes looking for something to hit would find it.
-			expect(types.includes('script'), entity.id).toBe(types.includes('animator'));
+			const named = prefabScripts(entity.prefab).map((use) => use.script);
+			// A prop is a thing lying in the grass and the ground is the grass.
+			// Giving either hit points would put it in the register of
+			// characters, where everything looking for something to hit would
+			// find it — so it is `Character` that is asked about rather than any
+			// script at all, since the ground carries one and is not a creature.
+			const animated = prefabTypes(entity.prefab).includes('animator');
+			expect(named.includes('Character'), entity.id).toBe(animated);
 		}
 	});
 

@@ -72,6 +72,15 @@ export {
 } from './game/orders.js';
 export { EMPTY_SCHEDULE, turnOrder, TURNS, type TurnOrder } from './game/turnorder.js';
 export {
+	terrainOf,
+	terrainOn,
+	tileKey,
+	TERRAIN,
+	type Footprint,
+	type TerrainQuery,
+	type Tile,
+} from './game/terrain.js';
+export {
 	huntOrders,
 	HUNTER,
 	type HuntDecision,
@@ -98,12 +107,11 @@ export {
 } from './game/effects.js';
 
 export {
-	buildWorld,
+	buildBuildings,
+	type Buildings,
+	type BuildingsOptions,
 	type Chimney,
-	type Tile,
-	type World,
-	type WorldOptions,
-} from './scene/world.js';
+} from './scene/buildings.js';
 
 /*
  * Level generation, exported for the same reason the rigs are: the editor's

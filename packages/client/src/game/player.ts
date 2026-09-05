@@ -59,7 +59,7 @@ import type { Item } from './items.js';
 import { actionSeconds, hexSpeed } from './pace.js';
 
 import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
-import type { Tile, World } from '../scene/world.js';
+import type { TerrainQuery, Tile } from './terrain.js';
 
 
 /** Terraces he can step up or down in one move. */
@@ -181,7 +181,7 @@ export function leanIn(reach: Reach): number {
 /** Where the world is placed comes from the grid, so x, y and z are not given. */
 export interface PlayerOptions {
 	/** The ground he stands on and paths across. */
-	world: World;
+	terrain: TerrainQuery;
 	/** The gear lying about, which he may stoop for and wear. */
 	items: Item[];
 	/**
@@ -229,7 +229,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	cell: Axial;
 
 	/** The ground he stands on and paths across. Read by his orders. */
-	readonly ground: World;
+	readonly ground: TerrainQuery;
 	/** The gear lying about, which he may stoop for and wear. Read by his orders. */
 	readonly items: Item[];
 	private readonly scripts: ScriptHost | null;
@@ -263,10 +263,10 @@ export class Player extends ActorBehaviour implements TurnTaker {
 
 	constructor(object: GameObject, options: PlayerOptions) {
 		super(object);
-		const tile = options.world.tileAt(options.cell.q, options.cell.r);
+		const tile = options.terrain.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the player cannot start on ${options.cell.q},${options.cell.r}`);
 		this.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
-		this.ground = options.world;
+		this.ground = options.terrain;
 		this.items = options.items;
 		this.scripts = options.scripts ?? null;
 		this.cell = { q: options.cell.q, r: options.cell.r };

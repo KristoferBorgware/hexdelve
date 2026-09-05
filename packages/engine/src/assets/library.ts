@@ -303,7 +303,16 @@ export class AssetLibrary {
 
 			case 'mesh': {
 				fields.only(...MESH_COMPONENT_KEYS);
-				const mesh = await this.mesh(resolve(at, fields.need('mesh').text()), needsRig());
+				/*
+				 * No path is an empty mesh, for an object whose prisms are worked
+				 * out at run time rather than authored — the ground is the case
+				 * that wanted it. It needs no rig either: there is nothing yet to
+				 * check bone names against.
+				 */
+				const named = fields.get('mesh');
+				const mesh = named.present
+					? await this.mesh(resolve(at, named.text()), needsRig())
+					: null;
 				return { rig, mesh, effect: null, animations: new Map(), blendTrees: new Map() };
 			}
 

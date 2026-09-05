@@ -125,8 +125,25 @@ export async function withHarness(body) {
 		return null;
 	}
 
+	/*
+	 * The behaviour, compiled the way a shipped client gets it.
+	 *
+	 * Served rather than left out, because the game IS its scripts: the ground
+	 * is one, whose turn it is is one, and what a click means is one. A page
+	 * that fetched no bundle drew a yard with no ground in it, which is not the
+	 * picture this test exists to compare.
+	 */
+	const { bundleScripts } = await import('../../tools/build-scripts.mjs');
+	const behaviour = (await bundleScripts()).code;
+
 	const server = createServer((request, response) => {
 		const url = (request.url ?? '/').split('?')[0];
+
+		if (url === '/scripts.js') {
+			response.writeHead(200, { 'content-type': 'text/javascript' });
+			response.end(behaviour);
+			return;
+		}
 
 		if (url === '/lib.js') {
 			response.writeHead(200, { 'content-type': 'text/javascript' });

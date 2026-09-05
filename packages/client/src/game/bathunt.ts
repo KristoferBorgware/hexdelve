@@ -64,7 +64,7 @@ import { huntOrders, type HuntOrders, type HuntState } from './hunt.js';
 import { BatAnimator } from './batanimator.js';
 import { actionSeconds } from './pace.js';
 import { ACTION_ENERGY, NORMAL_SPEED, type Action, type TurnTaker } from './turns.js';
-import type { Tile, World } from '../scene/world.js';
+import type { TerrainQuery, Tile } from './terrain.js';
 
 
 /**
@@ -136,7 +136,7 @@ type BatActionKind = 'move' | 'bite' | 'wake' | 'settle' | 'reel' | 'wait';
 
 export interface BatOptions {
 	/** The ground it flies over and paths across. */
-	world: World;
+	terrain: TerrainQuery;
 	/** For its starting energy, so it is not in lockstep with you from turn one. */
 	random?: Random;
 	/**
@@ -175,7 +175,7 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 	cell: Axial;
 
 	/** The ground it flies over and paths across. Read by its hunt. */
-	readonly ground: World;
+	readonly ground: TerrainQuery;
 	private readonly scripts: ScriptHost | null;
 	/**
 	 * The man, as it needs to see him: which hexagon he is on, and nothing
@@ -208,10 +208,10 @@ export class BatHunt extends ActorBehaviour implements TurnTaker {
 
 	constructor(object: GameObject, options: BatOptions) {
 		super(object);
-		const tile = options.world.tileAt(options.cell.q, options.cell.r);
+		const tile = options.terrain.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the bat cannot perch on ${options.cell.q},${options.cell.r}`);
 		this.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
-		this.ground = options.world;
+		this.ground = options.terrain;
 		this.scripts = options.scripts ?? null;
 		this.cell = { q: options.cell.q, r: options.cell.r };
 		this.speed = options.speed ?? BAT_SPEED;

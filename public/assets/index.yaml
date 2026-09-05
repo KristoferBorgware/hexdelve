@@ -20,6 +20,7 @@ entities:
   - ./entities/troll.entity.yaml
   - ./entities/lemure.entity.yaml
   - ./entities/kobold.entity.yaml
+  - ./entities/terrain.entity.yaml
   - ./entities/helmet.entity.yaml
   - ./entities/sword.entity.yaml
   - ./entities/shield.entity.yaml

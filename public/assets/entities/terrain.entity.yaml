@@ -1,0 +1,7 @@
+id: terrain
+name: Terrain
+
+object:
+  components:
+    - { type: mesh }
+    - { type: script, script: Terrain, radius: 8, baseY: 0.16, stepH: 0.19, seed: 37 }

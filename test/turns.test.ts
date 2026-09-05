@@ -488,7 +488,7 @@ describe('the yard', () => {
 
 		// The old one: the model, the wearer's pose, and the wearer's placement.
 		const before = new HexInstances(256);
-		sword.object.getComponent(MeshRenderer)!.model.emit(
+		sword.object.getComponent(MeshRenderer)!.model!.emit(
 			before,
 			sim.player.world,
 			sim.player.x,
@@ -631,8 +631,8 @@ describe('the yard', () => {
 	it('marks a hexagon as unreachable when it is', () => {
 		const sim = new Simulation({ cast, seed: 37, systems: [systems], scripts });
 		// The anvil's own cell is solid; its neighbours are not.
-		expect(orders(sim).reachable(sim.world.anvil.cell)).toBe(true);
-		const beside = axialNeighbours(sim.world.anvil.cell).some((c) => orders(sim).reachable(c));
+		expect(orders(sim).reachable(sim.buildings.anvil.cell)).toBe(true);
+		const beside = axialNeighbours(sim.buildings.anvil.cell).some((c) => orders(sim).reachable(c));
 		expect(beside).toBe(true);
 		expect(orders(sim).reachable({ q: 40, r: 40 })).toBe(false);
 	});

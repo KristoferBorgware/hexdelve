@@ -1,26 +1,21 @@
 /*
- * The yard: terrain, anvil, smithy, log house.
+ * The buildings in the yard: an anvil, a smithy and a log house.
  *
- * What comes back is everything the game needs to reason about the ground:
- *
- *   tileAt / groundAt   the hex grid and its height, for pathing and footfall
- *   passable            walkable, with the climb limit as the caller's
- *                       business — a bat clears a step a man cannot
- *   anvil               the one prop whose position other code cares about
- *   chimneys            where the two buildings vent, so something can be put
- *                       on them
- *
- * Nothing in it knows what a character is.
+ * Everything here stands ON the ground rather than being it. The terrain is a
+ * script — see `game/terrain.ts` — and this is handed one: it reads tile
+ * heights off it to sit each building on the surface, and tells it which tiles
+ * are now solid so routes go round them. A building knowing its own footprint
+ * is the point of that direction: a terrain carrying a list of what is on it
+ * would be a second place for the same rectangles to be written down.
  *
  * All of it is baked into one instance list at build time and copied into the
- * frame with a single array set. Nothing here moves, which is the point of the
- * chimneys being a list of POSITIONS rather than a plume: what comes out of one
+ * frame with a single array set. Nothing here moves, which is why the chimneys
+ * come back as a list of POSITIONS rather than as plumes: what comes out of one
  * is a particle emitter placed on it by whoever built the scene, and where a
  * building vents is the only half of that this file knows.
  */
 
 import {
-	axialKey,
 	axialToWorld,
 	jitter,
 	quat,
@@ -35,25 +30,7 @@ import { HexInstances } from '@hexdelve/engine';
 
 import { buildCabin } from './cabin.js';
 import { AXIS_X, PrismField } from './field.js';
-
-export interface Tile {
-	readonly q: number;
-	readonly r: number;
-	readonly level: number;
-	/** World Y of the top of this terrace. */
-	readonly top: number;
-	readonly x: number;
-	readonly z: number;
-}
-
-export interface WorldOptions {
-	random: Random;
-	groundRadius?: number;
-	/** Top of the lowest terrace. */
-	baseY?: number;
-	/** Height of one terrace. */
-	stepH?: number;
-}
+import type { TerrainQuery } from '../game/terrain.js';
 
 /** Where a building vents, in the world, with the facing it was placed at. */
 export interface Chimney {
@@ -63,134 +40,36 @@ export interface Chimney {
 	readonly yaw: number;
 }
 
-export interface World {
-	readonly groundRadius: number;
-	readonly baseY: number;
-	readonly stepH: number;
-	readonly tiles: ReadonlyMap<string, Tile>;
+/** What stands in the yard, once the ground is there to stand it on. */
+export interface Buildings {
+	/** Every prism of every building, in one list. */
 	readonly statics: HexInstances;
-	tileAt(q: number, r: number): Tile | null;
-	groundAt(x: number, z: number): number;
-	passable(cell: Axial, from: Axial | null, maxClimb: number): boolean;
-	isAnvil(cell: Axial): boolean;
+	/** The one prop whose position other code cares about. */
 	readonly anvil: { cell: Axial; x: number; z: number; faceY: number };
 	/** The mouth of each chimney, for whoever wants to put smoke on it. */
 	readonly chimneys: readonly Chimney[];
 }
 
-export function buildWorld(options: WorldOptions): World {
+export interface BuildingsOptions {
+	readonly random: Random;
+}
+
+/**
+ * Put the buildings up, and mark the ground they stand on.
+ *
+ * The terrain has to exist first, which is not an ordering to work around but
+ * the real dependency: a smithy sits at the height of the tile under it, and
+ * until there is a tile there is no height to sit at.
+ */
+export function buildBuildings(terrain: TerrainQuery, options: BuildingsOptions): Buildings {
 	const random = options.random;
 	const pick = <T>(list: readonly T[]): T => list[Math.floor(random() * list.length)]!;
 	const shade = (color: number, spread = 0.05): Rgb => jitter(rgbFromHex(color), random, spread);
 
-	const groundRadius = options.groundRadius ?? 8;
-	const baseY = options.baseY ?? 0.16;
-	const stepH = options.stepH ?? 0.19;
-
-	const statics = new HexInstances(6000);
-	const tiles = new Map<string, Tile>();
-	const blocked = new Set<string>();
+	const statics = new HexInstances(2048);
 	const chimneys: Chimney[] = [];
-
 	const ANVIL_CELL: Axial = { q: 0, r: 0 };
-
-	/**
-	 * The shape of the ground.
-	 *
-	 * A cone you can walk up, because neighbouring tiles never differ by more
-	 * than one terrace, and a mesa with sheer sides, because they differ by
-	 * three — so one is a hill and the other is a wall, and the same climb rule
-	 * decides both without either being special-cased anywhere else.
-	 */
-	function levelAt(x: number, z: number): number {
-		if (Math.hypot(x, z) < 2.4) return 1; // the flat working area round the anvil
-		const cone = Math.hypot(x - 7.5, z + 5.0);
-		let level = Math.max(0, Math.min(3, Math.round((7.0 - cone) / 1.75)));
-		if (Math.hypot(x + 6.5, z - 4.5) < 3.2) level = Math.max(level, 3);
-		return level;
-	}
-
-	/* --------------------------------------------------------------- terrain -- */
-
-	{
-		const field = new PrismField(statics);
-		// The plinth the whole yard stands on, so the world has an edge rather
-		// than floating tiles.
-		field.upright(0, -1.4, 0, SQRT3 * groundRadius + 1.6, 1.4, rgbFromHex(0x4a3b2c), 90);
-
-		const shades = [0x79a256, 0x84ab61, 0x90b46f, 0x9dbd7e];
-		for (let q = -groundRadius; q <= groundRadius; q++) {
-			for (let r = -groundRadius; r <= groundRadius; r++) {
-				if ((Math.abs(q) + Math.abs(r) + Math.abs(q + r)) / 2 > groundRadius) continue;
-				const { x, z } = axialToWorld(q, r);
-				const level = levelAt(x, z);
-				const top = baseY + level * stepH;
-				tiles.set(axialKey(q, r), { q, r, level, top, x, z });
-
-				field.upright(x, 0, z, 0.985, top, shade(shades[level]!, 0.05));
-				if (random() < 0.06) {
-					field.upright(
-						x + (random() - 0.5) * 0.8,
-						top,
-						z + (random() - 0.5) * 0.8,
-						0.085,
-						0.2,
-						shade(0x5c8040, 0.06),
-						random() * 60,
-					);
-				}
-			}
-		}
-	}
-
-	const tileAt = (q: number, r: number): Tile | null => tiles.get(axialKey(q, r)) ?? null;
-
-	function groundAt(x: number, z: number): number {
-		const cell = worldToAxial(x, z);
-		return tileAt(cell.q, cell.r)?.top ?? baseY;
-	}
-
-	const isAnvil = (cell: Axial): boolean => cell.q === ANVIL_CELL.q && cell.r === ANVIL_CELL.r;
-
-	/**
-	 * A tile is walkable if it exists, is not the anvil's or a building's, and
-	 * the step from where you came is climbable.
-	 *
-	 * How big a step counts as climbable is the caller's business, not the
-	 * ground's: it is the difference between a man, who must walk up a terrace,
-	 * and a bat, which beats its wings and clears two. So `maxClimb` comes in
-	 * with the question and the same terrain answers both.
-	 */
-	function passable(cell: Axial, from: Axial | null, maxClimb = 1): boolean {
-		const tile = tileAt(cell.q, cell.r);
-		if (!tile || isAnvil(cell)) return false;
-		if (blocked.has(axialKey(cell.q, cell.r))) return false;
-		if (!from) return true;
-		const previous = tileAt(from.q, from.r);
-		return !previous || Math.abs(tile.level - previous.level) <= maxClimb;
-	}
-
-	/** Mark every tile under a placed building solid, so paths go round it. */
-	function blockFootprint(
-		cx: number,
-		cz: number,
-		yaw: number,
-		halfX: number,
-		halfZ: number,
-		margin: number,
-	): void {
-		const sin = Math.sin(yaw);
-		const cos = Math.cos(yaw);
-		for (const tile of tiles.values()) {
-			const dx = tile.x - cx;
-			const dz = tile.z - cz;
-			const lx = dx * cos - dz * sin;
-			const lz = dx * sin + dz * cos;
-			if (Math.abs(lx) < halfX + margin && Math.abs(lz) < halfZ + margin) {
-				blocked.add(axialKey(tile.q, tile.r));
-			}
-		}
-	}
+	const tileAt = (q: number, r: number) => terrain.tileAt(q, r);
 
 	/* ----------------------------------------------------------------- anvil -- */
 
@@ -294,7 +173,14 @@ export function buildWorld(options: WorldOptions): World {
 		});
 
 		addChimney(root, -0.75, 0.8 + 9 * 0.5 + 0.22, forgeZ);
-		blockFootprint(SMITHY.x, SMITHY.z, SMITHY.yaw, SMITHY_HALF_X, SMITHY_HALF_Z, 0.5);
+		terrain.block({
+			x: SMITHY.x,
+			z: SMITHY.z,
+			yaw: SMITHY.yaw,
+			halfX: SMITHY_HALF_X,
+			halfZ: SMITHY_HALF_Z,
+			margin: 0.5,
+		});
 	}
 
 	/* ------------------------------------------------------------- log house -- */
@@ -320,7 +206,14 @@ export function buildWorld(options: WorldOptions): World {
 		});
 
 		addChimney(root, built.chimney.x, built.chimney.y, built.chimney.z);
-		blockFootprint(CABIN.x, CABIN.z, CABIN.yaw, CABIN_HALF_X, CABIN_HALF_Z, 0.55);
+		terrain.block({
+			x: CABIN.x,
+			z: CABIN.z,
+			yaw: CABIN.yaw,
+			halfX: CABIN_HALF_X,
+			halfZ: CABIN_HALF_Z,
+			margin: 0.55,
+		});
 	}
 
 	/* -------------------------------------------------------------- chimneys -- */
@@ -349,16 +242,16 @@ export function buildWorld(options: WorldOptions): World {
 		});
 	}
 
+
+	/*
+	 * And the anvil's own tile, which nothing may walk onto. One cell rather
+	 * than a rectangle, because that is what it is: a stump with an anvil on
+	 * it, occupying exactly the hexagon it stands in.
+	 */
+	terrain.blockCell(ANVIL_CELL.q, ANVIL_CELL.r);
+
 	return {
-		groundRadius,
-		baseY,
-		stepH,
-		tiles,
 		statics,
-		tileAt,
-		groundAt,
-		passable,
-		isAnvil,
 		anvil: { cell: ANVIL_CELL, x: anvilPos.x, z: anvilPos.z, faceY: anvilFaceY },
 		chimneys,
 	};

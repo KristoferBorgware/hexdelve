@@ -31,9 +31,9 @@ function rigFactory(context: ComponentContext): void {
 
 /** The prisms, hung on whatever rig is in scope. */
 function meshFactory(context: ComponentContext): void {
-	const { mesh } = context.assets;
-	if (!mesh) throw new Error('a mesh component has no mesh loaded for it');
-	context.object.addComponent(MeshRenderer, mesh);
+	// A record with no path is an empty mesh, for an object whose prisms a
+	// script works out — see `MeshRenderer.model`.
+	context.object.addComponent(MeshRenderer, context.assets.mesh);
 }
 
 /** The animations and the trees over them. */

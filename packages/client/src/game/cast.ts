@@ -22,11 +22,14 @@
 import { entityAnimations, findComponent, type AssetLibrary, type EntityAsset } from '@hexdelve/engine';
 
 /** The default yard: a wanderer, a bat, and the three things lying in the grass. */
+export const YARD_TERRAIN = 'terrain';
 export const YARD_PLAYER = 'wanderer2';
 export const YARD_ENEMY = 'bat';
 export const YARD_PROPS: readonly string[] = ['helmet', 'sword', 'shield'];
 
 export interface CastOptions {
+	/** The ground everything stands on. */
+	readonly terrain?: string;
 	/** The entity the player drives. Must be a character with a rig. */
 	readonly player?: string;
 	/** The one hunting him. */
@@ -44,6 +47,8 @@ export interface CastOptions {
 }
 
 export interface Cast {
+	/** The ground. Everything else in the yard stands on it. */
+	readonly terrain: EntityAsset;
 	readonly player: EntityAsset;
 	readonly enemy: EntityAsset;
 	readonly props: readonly EntityAsset[];
@@ -68,7 +73,7 @@ export async function loadCast(library: AssetLibrary, options: CastOptions = {})
 	 * one carrying an `animator` — which is the same sentence, asked of the file
 	 * rather than of a field somebody had to remember to set.
 	 */
-	const need = (id: string, wanted: 'animator' | 'attach', part: string): EntityAsset => {
+	const need = (id: string, wanted: 'animator' | 'attach' | 'mesh', part: string): EntityAsset => {
 		const entity = byId.get(id);
 		if (!entity) {
 			throw new Error(
@@ -82,6 +87,7 @@ export async function loadCast(library: AssetLibrary, options: CastOptions = {})
 	};
 
 	return {
+		terrain: need(options.terrain ?? YARD_TERRAIN, 'mesh', 'ground it can stand things on'),
 		player: need(options.player ?? YARD_PLAYER, 'animator', 'a body it can pose here'),
 		enemy: need(options.enemy ?? YARD_ENEMY, 'animator', 'a body it can pose here'),
 		props: (options.props ?? YARD_PROPS).map((id) =>
