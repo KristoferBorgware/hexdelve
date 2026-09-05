@@ -38,12 +38,12 @@ poses:
       armR: [0.25, 0, -0.42]
       forearmR: [-2.0, 0, 0]
       handR: [-1.0, -0.35, 0]
-      hipL: [-0.4658, -0.1, 0.07]
-      hipR: [-0.4488, -0.1, -0.07]
-      shinL: [0.9797, 0, 0]
-      shinR: [0.9778, 0, 0]
-      footL: [-0.5239, 0.1, 0]
-      footR: [-0.519, 0.1, 0]
+      hipL: [-0.3091, -0.1, 0.07]
+      hipR: [-0.2916, -0.1, -0.07]
+      shinL: [0.6418, 0, 0]
+      shinR: [0.6388, 0, 0]
+      footL: [-0.3427, 0.1, 0]
+      footR: [-0.3372, 0.1, 0]
 
   # Cocked, and cocked INSIDE: hips and shoulders wind to his left and the
   # sword comes across the chest behind the shield, elbow folded, edge already
@@ -66,12 +66,12 @@ poses:
       # The wrist is loaded here and unloads through contact, which is where
       # the last of the tip speed comes from.
       handR: [-0.8, 0.7, 0]
-      hipL: [-0.4044, 0.24, 0.07]
-      hipR: [-0.491, 0.24, -0.07]
-      shinL: [0.9784, 0, 0]
-      shinR: [0.9859, 0, 0]
-      footL: [-0.5239, -0.2, 0]
-      footR: [-0.5148, -0.2, 0]
+      hipL: [-0.2474, 0.24, 0.07]
+      hipR: [-0.336, 0.24, -0.07]
+      shinL: [0.6398, 0, 0]
+      shinR: [0.6517, 0, 0]
+      footL: [-0.3423, -0.2, 0]
+      footR: [-0.3356, -0.2, 0]
 
   # Contact. Hips, spine and chest have all whipped the other way — near ninety
   # degrees of shoulder between this and the key before it, which is where the
@@ -96,12 +96,12 @@ poses:
       armR: [-0.6, 0, -0.85]
       forearmR: [-0.28, 0, 0]
       handR: [-0.25, 0.2, 0]
-      hipL: [-0.531, -0.26, 0.07]
-      hipR: [-0.3744, -0.26, -0.07]
-      shinL: [0.9859, 0, 0]
-      shinR: [0.9784, 0, 0]
-      footL: [-0.5148, 0.2, 0]
-      footR: [-0.5239, 0.2, 0]
+      hipL: [-0.376, -0.26, 0.07]
+      hipR: [-0.2174, -0.26, -0.07]
+      shinL: [0.6517, 0, 0]
+      shinR: [0.6398, 0, 0]
+      footL: [-0.3356, 0.2, 0]
+      footR: [-0.3423, 0.2, 0]
 
   # Follow-through: wide and low on his right, which is where an inside-out cut
   # ends up if nothing stopped it.
@@ -133,9 +133,9 @@ poses:
       armR: [0.25, 0, -0.42]
       forearmR: [-2.0, 0, 0]
       handR: [-1.0, -0.35, 0]
-      hipL: [-0.4658, -0.1, 0.07]
-      hipR: [-0.4488, -0.1, -0.07]
-      shinL: [0.9797, 0, 0]
-      shinR: [0.9778, 0, 0]
-      footL: [-0.5239, 0.1, 0]
-      footR: [-0.519, 0.1, 0]
+      hipL: [-0.3091, -0.1, 0.07]
+      hipR: [-0.2916, -0.1, -0.07]
+      shinL: [0.6418, 0, 0]
+      shinR: [0.6388, 0, 0]
+      footL: [-0.3427, 0.1, 0]
+      footR: [-0.3372, 0.1, 0]

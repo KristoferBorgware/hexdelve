@@ -208,12 +208,12 @@ parts:
     mirror: true
     parts:
       - { bone: 'hip*', from: [0, 0, 0], to: { bone: 'shin*' }, radius: 0.038, color: skin }
-      - { bone: 'hip*', at: [0, -0.179, -0.01], size: [0.045, 0.269, 0.045], color: skin }
-      - { bone: 'hip*', at: [0.03, -0.281, 0.01], size: [0.015, 0.112, 0.012], color: bone }
-      - { bone: 'shin*', at: [0, 0, 0.01], size: [0.045, 0.069, 0.045], color: boneDark }
+      - { bone: 'hip*', at: [0, -0.167, -0.01], size: [0.045, 0.251, 0.045], color: skin }
+      - { bone: 'hip*', at: [0.03, -0.263, 0.01], size: [0.015, 0.105, 0.012], color: bone }
+      - { bone: 'shin*', at: [0, 0, 0.01], size: [0.045, 0.064, 0.045], color: boneDark }
       - { bone: 'shin*', from: [0, 0, 0], to: { bone: 'foot*' }, radius: 0.028, color: skin }
-      - { bone: 'shin*', at: [0, -0.194, 0.03], size: [0.012, 0.32, 0.01], color: bone }
-      - { bone: 'shin*', at: [0, -0.137, -0.03], size: [0.03, 0.183, 0.03], color: skinDark }
+      - { bone: 'shin*', at: [0, -0.179, 0.03], size: [0.012, 0.296, 0.01], color: bone }
+      - { bone: 'shin*', at: [0, -0.127, -0.03], size: [0.03, 0.169, 0.03], color: skinDark }
       - { bone: 'foot*', at: [0, 0, 0], size: [0.03, 0.04, 0.03], color: bone }
       - { bone: 'foot*', at: [0, -0.045, 0.05], size: [0.04, 0.09, 0.09], color: skinDark }
       - { bone: 'foot*', at: [0, -0.05, -0.03], size: [0.03, 0.08, 0.03], color: skin }

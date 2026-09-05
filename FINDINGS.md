@@ -472,16 +472,27 @@ has been hiding behind a retry.
 
 **Closed in part:** 2026-09-05, the humanoid is fixed; the hellhound is not.
 
-The humanoid's thigh goes 0.41 to 0.46 and its shin 0.35 to 0.40, so the leg is
-0.86 against a 0.80 drop from hip to ankle. The slack is what a knee bends into,
-standing and striding alike — a leg exactly as long as the drop can reach the
-grass and do nothing else. The walk's crouch falls from 0.16 to 0.04 and the
-run's from 0.22 to 0.09, and both are the stride's now rather than the rig's.
+The humanoid's thigh goes 0.41 to 0.43 and its shin 0.35 to 0.37, which makes
+the leg 0.80 — exactly the drop from the hip joint to an ankle standing with
+its sole flat, so `hipHeight` is the leg plus the hip's own offset plus a
+foot's depth and a standing man is straight-legged with his feet on the grass.
 
-`hipHeight` deliberately did NOT move. Raising it to make a straight leg stand
-was tried first and cascades: everything above the hips goes up with it, and
-every hand-authored clip's root height is then wrong. A rest pose with a soft
-knee costs nothing and moves nothing.
+The slack a stride needs comes out of the hips instead of out of the bones.
+`stridePose` places the root by solving the leading hip onto a circle of the
+leg's own radius about its ankle: nothing at mid-stance, where the planted foot
+is directly below, and the full drop at footfall, where the feet are furthest
+apart — 0.089 m at a walk and 0.149 m at a run, neither of them a number
+anybody chose. A few millimetres are held back so the knee never straightens
+completely, because the knee angle goes as the square root of the slack and a
+leg that reaches exactly its own length folds through a corner rather than a
+curve. The knee then bends from about 11 degrees at footfall to 65 through the
+swing at a walk, and 84 at a run.
+
+A leg made longer than the drop was tried first and is what makes a man walk
+bandy-legged: the surplus has nowhere to go, so it is standing knee bend, 43
+degrees of it at 0.86 m. Raising `hipHeight` to meet a long leg was tried
+before that and cascades — everything above the hips goes up with it and every
+hand-authored clip's root height is then wrong.
 
 What lengthening a bone does invalidate is any clip that keys a leg by its
 angle, because where the ankle ends up is a consequence of the bone. Seven
@@ -492,8 +503,8 @@ where the ankle IS, and that is preserved exactly.
 
 The two soles went with it. `GHOUL_SOLE` was 0.09 and `ZOMBIE_SOLE` 0.1 against
 a rig whose foot tip is 0.08 — three guesses at one number, and a foot's depth
-is the rig's. They share `HUMANOID_SOLE` now, which halved the ghoul's planted
-foot error and quartered the zombie's.
+is the rig's. They share `HUMANOID_SOLE` now, and every gait on the rig plants
+its ankle within 2 mm of it.
 
 **The hellhound is still open.** Its front leg falls 0.11 m short of the ground
 from the chest it hangs off and its hind pair reach it with nothing to spare, so

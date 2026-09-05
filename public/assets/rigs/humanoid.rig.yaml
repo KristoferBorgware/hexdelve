@@ -21,10 +21,11 @@ name: Humanoid
 metrics:
   # Hip height at rest, which is also where a camera looks when it follows.
   #
-  # The leg below is LONGER than the drop from here to the ground, and has to
-  # be: a leg exactly as long as the gap can reach the grass and do nothing
-  # else, so a stride would have nowhere to go. The slack is what a knee bends
-  # into, standing and striding alike.
+  # It is the leg, plus how far the hips sit below it, plus the depth of a
+  # foot: 0.43 + 0.37 + 0.04 + 0.08. A standing man is then straight-legged
+  # with his soles on the ground, and everything a stride needs comes out of
+  # the hips dropping — see `stride.ts`, which drops them by exactly what the
+  # leg needs to reach the end of its own step.
   hipHeight: 0.92
 
 bones:
@@ -40,11 +41,11 @@ bones:
   - { name: forearmR, parent: armR, offset: [0, -0.34, 0] }
   - { name: handR, parent: forearmR, offset: [0, -0.3, 0] }
   - { name: hipL, parent: root, offset: [0.16, -0.04, 0] }
-  - { name: shinL, parent: hipL, offset: [0, -0.46, 0] }
-  - { name: footL, parent: shinL, offset: [0, -0.40, 0] }
+  - { name: shinL, parent: hipL, offset: [0, -0.43, 0] }
+  - { name: footL, parent: shinL, offset: [0, -0.37, 0] }
   - { name: hipR, parent: root, offset: [-0.16, -0.04, 0] }
-  - { name: shinR, parent: hipR, offset: [0, -0.46, 0] }
-  - { name: footR, parent: shinR, offset: [0, -0.40, 0] }
+  - { name: shinR, parent: hipR, offset: [0, -0.43, 0] }
+  - { name: footR, parent: shinR, offset: [0, -0.37, 0] }
 
 # Where a chain ends and there is no child bone to draw towards.
 tips:

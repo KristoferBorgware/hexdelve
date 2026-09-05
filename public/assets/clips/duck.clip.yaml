@@ -29,12 +29,12 @@ poses:
       armR: [0, 0, -0.06]
       forearmL: [elbow, 0, 0]
       forearmR: [elbow, 0, 0]
-      hipL: [-0.4601, 0, 0.06]
-      hipR: [-0.4601, 0, -0.06]
-      shinL: [0.979, 0, 0]
-      shinR: [0.979, 0, 0]
-      footL: [-0.5189, 0, 0]
-      footR: [-0.5189, 0, 0]
+      hipL: [-0.3032, 0, 0.06]
+      hipR: [-0.3032, 0, -0.06]
+      shinL: [0.6407, 0, 0]
+      shinR: [0.6407, 0, 0]
+      footL: [-0.3375, 0, 0]
+      footR: [-0.3375, 0, 0]
 
   - t: 0.34
     bones:
@@ -46,12 +46,12 @@ poses:
       armR: [-0.9, 0, -0.35]
       forearmL: [-1.3, 0, 0]
       forearmR: [-1.3, 0, 0]
-      hipL: [-1.3179, 0, 0.12]
-      hipR: [-1.3179, 0, -0.12]
-      shinL: [2.1468, 0, 0]
-      shinR: [2.1468, 0, 0]
-      footL: [-0.8288, 0, 0]
-      footR: [-0.8288, 0, 0]
+      hipL: [-1.2795, 0, 0.12]
+      hipR: [-1.2795, 0, -0.12]
+      shinL: [2.064, 0, 0]
+      shinR: [2.064, 0, 0]
+      footL: [-0.7844, 0, 0]
+      footR: [-0.7844, 0, 0]
 
   # Flat on the way in, so the hold holds instead of overshooting.
   - t: 0.85
