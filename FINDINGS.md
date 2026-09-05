@@ -301,15 +301,17 @@ pitches has no single yaw to give it. So it is either a second `Model.emit`
 taking a rotation, or `emitDetached`'s composition applied per bone. Small
 either way, and worth doing before something is parented rather than after.
 
-### F-025 — A quadruped rig's legs are long enough to stand and not to walk
+### F-025 — Two rigs have legs too short for the hip height they hang from
 
 **Kind:** risk
 **Milestone:** game
 **Priority:** medium
 **Effort:** small
 **Found:** 2026-09-05, converting the hellhound's trot onto the ground solve
-**Where:** `public/assets/rigs/hellhound.rig.yaml`, `STAND` in
-`packages/client/src/game/hellhoundpose.ts`
+**Where:** `public/assets/rigs/hellhound.rig.yaml` and
+`public/assets/rigs/humanoid.rig.yaml`; `STAND` in
+`packages/client/src/game/hellhoundpose.ts` and the crouch in
+`packages/client/src/game/stride.ts`
 
 **What happens.** The hellhound's legs are 0.41 m, both pairs. Its hip joint
 sits 0.46 m up and its shoulder joint 0.57 m up, and a paw stands 0.05 m above
@@ -332,13 +334,34 @@ hit the same wall: a rig whose limbs are drawn to just touch the ground at rest
 has no stride in it, and the failure is a silent one, either a floating paw or a
 crouch nobody asked for.
 
-**What would fix it.** Either lengthen the legs — the front pair by about 0.12 m
-and the hind by 0.06 m, which changes the mesh hung on them — or lower
-`hipHeight` and the chest offsets so the rest pose is the stance. The second is
-smaller and makes the rig honest about the animal's height, and it is the one to
-prefer; the crouch in `STAND` then goes back to being a gait's own dip rather
-than a correction. Either way a rig check worth having is that every foot the
-rig names can reach the ground with a stride's worth of room left over.
+**The humanoid is worse, and was found later.** Its hips sit 0.92 m up, its leg
+is 0.41 + 0.35 = 0.76 m, and its ankle stands 0.08 m above the ground with the
+sole flat. A straight leg therefore reaches 0.84 m and the ground is 0.92 m
+away: a standing man cannot put his foot down, let alone take a step. That is
+why the stride was written in joint angles in the first place — a gait solved
+onto the ground could not have been expressed on this rig — and it is why
+`stridePose` now crouches by 0.06 m to stand and 0.22 m at a full run. He is
+drawn 0.06 m shorter than his rig's rest height as a result.
+
+A real leg is about half a standing height; this one is 0.76 m under hips at
+0.92 m, so it is short by roughly the amount that is missing.
+
+**Why it matters.** Nobody yet: the crouches read correctly and the foot IK was
+already dropping the pelvis by about as much. It matters because two rigs now
+carry a correction in their gait for a number that is wrong in their rig, and
+the correction is invisible from the rig file. It also puts a ceiling on the
+stride: the run's crouch is as deep as it is because that is what the leg needs
+to reach the ground 0.44 m in front of the hip, and a longer stride is simply
+not available.
+
+**What would fix it.** Either lengthen the legs — the hellhound's front pair by
+about 0.12 m and its hind by 0.06 m, the humanoid's by about 0.1 m — which
+changes the mesh hung on them; or lower `hipHeight` and the offsets above it so
+the rest pose is the stance. The second is smaller and makes each rig honest
+about the creature's height, and it is the one to prefer; the crouches then go
+back to being a gait's own dip rather than a correction. Either way a rig check
+worth having is that every foot the rig names can reach the ground with a
+stride's worth of room left over.
 
 ### F-026 — The game's humanoid locomotion does not run through its blend tree
 

@@ -49,7 +49,15 @@ import {
 	shamblePose,
 } from '@hexdelve/client';
 
-import { hexSpeed, NORMAL_SPEED, RUN_SPEED, WALK_SPEED } from '@hexdelve/client';
+import {
+	hexSpeed,
+	NORMAL_SPEED,
+	RUN_SPEED,
+	STRIDE_CONTACTS,
+	stridePeriod,
+	stridePose,
+	WALK_SPEED,
+} from '@hexdelve/client';
 
 import { openLibrary } from './harness/assets.js';
 
@@ -349,5 +357,90 @@ describe('the wanderer, driven from clips through his tree', () => {
 			const want = axis.max * fraction;
 			expect(calibration.speedFor(calibration.parameterFor(want)), `${fraction} of the axis`).toBeCloseTo(want, 3);
 		}
+	});
+});
+
+describe('the man’s gait, solved onto the ground', () => {
+	/*
+	 * What the ground solve is for, as three properties a gait written in joint
+	 * angles cannot promise. None of them throws when it stops holding: the
+	 * character still walks, he just skates, and whether he is skating is a
+	 * judgement somebody has to make by eye at the right moment.
+	 */
+	/** Where in the cycle the left foot is, `at` of the way through its stance. */
+	const stance = (at: number): number => 0.25 + 0.5 * at;
+
+	it('stands him on the ground rather than above it', async () => {
+		const skeleton = await library.rig('rigs/humanoid.rig.yaml');
+		const tip = skeleton.tips.find((one) => one.bone === 'footL')!.to[1];
+		const pose = stridePose(0, 0, 0, 0, {});
+		const world = solveWorld(skeleton.skeleton, pose);
+		for (const foot of ['footL', 'footR']) {
+			expect(Math.abs(world[foot]!.p[1] + tip), foot).toBeLessThan(0.005);
+		}
+	});
+
+	it('keeps the planted foot on the ground through its whole stance', async () => {
+		const skeleton = await library.rig('rigs/humanoid.rig.yaml');
+		const tip = skeleton.tips.find((one) => one.bone === 'footL')!.to[1];
+		for (const gait of [0, 1]) {
+			for (let i = 0; i <= 10; i++) {
+				const phase = stance(i / 10);
+				const world = solveWorld(skeleton.skeleton, stridePose(phase * TAU, 1, gait, 0, {}));
+				expect(
+					Math.abs(world['footL']!.p[1] + tip),
+					`gait ${gait} at ${i}/10 of the stance`,
+				).toBeLessThan(0.005);
+			}
+		}
+	});
+
+	it('travels that foot back at a steady rate rather than swinging it', async () => {
+		/*
+		 * The one a gait in joint angles gets wrong and nothing catches. A foot
+		 * planted on `groundPath` covers equal ground in equal time; a foot
+		 * whose path is whatever the angles work out to covers most of its
+		 * ground in the middle of the stance and stalls at both ends, which is
+		 * the foot sliding — and the foot IK cannot correct it, because it only
+		 * moves a foot vertically.
+		 */
+		const skeleton = await library.rig('rigs/humanoid.rig.yaml');
+		for (const gait of [0, 1]) {
+			const steps: number[] = [];
+			let previous = 0;
+			for (let i = 0; i <= 10; i++) {
+				const phase = stance(i / 10);
+				const z = solveWorld(skeleton.skeleton, stridePose(phase * TAU, 1, gait, 0, {}))['footL']!.p[2];
+				if (i > 0) steps.push(z - previous);
+				previous = z;
+			}
+			const low = Math.min(...steps);
+			const high = Math.max(...steps);
+			const spread = Math.abs((high - low) / ((high + low) / 2));
+			expect(spread, `gait ${gait}`).toBeLessThan(0.1);
+		}
+	});
+
+	it('carries him at a speed exactly proportional to the stride', async () => {
+		const skeleton = await library.rig('rigs/humanoid.rig.yaml');
+		const speedAt = (amp: number): number =>
+			measureGroundSpeed(
+				skeleton.skeleton,
+				(phase, out) => stridePose(phase * TAU, amp, 0, 0, out),
+				stridePeriod(0),
+				{ feet: skeleton.feet!, contactPhase: STRIDE_CONTACTS[0] },
+			).z;
+
+		const full = speedAt(1);
+		expect(full).toBeCloseTo(WALK_SPEED, 6);
+		for (const amp of [0.25, 0.5, 0.75]) {
+			expect(Math.abs(speedAt(amp) / (full * amp) - 1), `amp ${amp}`).toBeLessThan(0.01);
+		}
+	});
+
+	it('keeps a run about twice a walk, so the energy table still reads as a gait', () => {
+		// A creature hasted by +10 crosses a hexagon in half the time, and the
+		// only thing that can be is a run.
+		expect(RUN_SPEED / WALK_SPEED).toBeGreaterThan(1.7);
 	});
 });

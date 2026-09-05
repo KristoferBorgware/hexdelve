@@ -992,7 +992,7 @@ describe('the pose functions still agree with the rigs', () => {
 
 	it('every bone a pose function writes exists on the rig it is for', async () => {
 		const rig = await readRig('humanoid');
-		const posed = stridePose(0.7, 1, { x: 0, z: 1 }, 0, 0, {});
+		const posed = stridePose(0.7, 1, 0, 0, {});
 		for (const bone of Object.keys(posed)) expect(rig.bones, bone).toContain(bone);
 	});
 });

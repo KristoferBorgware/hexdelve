@@ -1,8 +1,8 @@
 /*
  * tools/bake-clips.mjs — turn an entity's procedural animations into clips.
  *
- *   node tools/bake-clips.mjs                 # every entity that has one
- *   node tools/bake-clips.mjs hellhound       # or just these
+ *   node tools/bake-clips.mjs                 # every job there is
+ *   node tools/bake-clips.mjs hellhound       # or the ones whose id matches
  *   node tools/bake-clips.mjs --check         # bake, report, write nothing
  *
  * A pose function is a good way to WORK OUT a cycle and a poor way to ship
@@ -15,6 +15,11 @@
  * because a baked clip nobody can edit is worse than the function it replaced.
  * See `bakeClip`, which places the keys and reports how far the result sits
  * from what it was baked from.
+ *
+ * What to bake is `bakeJobs`, beside the pose functions, rather than the
+ * entity files. An entity that names a clip no longer says what the clip came
+ * from, so reading the tree would mean a gait could be tuned once and never
+ * again — the second bake would have nothing left to read.
  *
  * `--check` is the form for a build: it bakes everything and fails if any clip
  * has drifted from its source, without touching the tree.
@@ -89,17 +94,17 @@ async function main() {
 	const pack = {};
 	for (const path of paths) pack[path] = await readFile(join(assetRoot, path), 'utf8');
 
-	const { AssetLibrary, memoryIO, bakeClip, writeClip, entityAnimations, entityRig } =
-		await import(pathToFileURL(engineDist).href);
-	const { poseFunctions } = await import(pathToFileURL(clientDist).href);
+	const { AssetLibrary, memoryIO, bakeClip, writeClip, poseFunctionAnimation } = await import(
+		pathToFileURL(engineDist).href
+	);
+	const { poseFunctions, bakeJobs } = await import(pathToFileURL(clientDist).href);
 
 	const library = new AssetLibrary(memoryIO(pack), { poseFunctions });
-	const index = await library.index();
-	const ids = wanted.length > 0 ? wanted : index.map((one) => one.id);
+	const jobs = wanted.length === 0 ? bakeJobs : bakeJobs.filter((job) => wanted.some((one) => job.id.includes(one)));
 
-	for (const id of wanted) {
-		if (!index.some((one) => one.id === id)) {
-			throw new Error(`no entity '${id}' in the manifest; it has ${index.map((o) => o.id).join(', ')}`);
+	for (const one of wanted) {
+		if (!bakeJobs.some((job) => job.id.includes(one))) {
+			throw new Error(`nothing to bake matches '${one}'; there is ${bakeJobs.map((j) => j.id).join(', ')}`);
 		}
 	}
 
@@ -108,54 +113,70 @@ async function main() {
 	const failures = [];
 	const open = [];
 
-	for (const id of ids) {
-		const entity = await library.entity(`entities/${id}.entity.yaml`);
-		const rig = entityRig(entity);
-		if (!rig) continue;
-
-		for (const [name, animation] of entityAnimations(entity)) {
-			if (animation.kind !== 'procedural') continue;
-
-			const result = bakeClip(
-				name,
-				animation.duration,
-				animation.loop ? 'loop' : 'hold',
-				animation.sample,
-				{ anchors: animation.contacts, tolerance, maxKeys },
+	for (const job of jobs) {
+		const fn = poseFunctions.get(job.procedural);
+		if (fn === undefined) {
+			throw new Error(
+				`${job.id}: no pose function called '${job.procedural}'; there is ${poseFunctions.ids.join(', ')}`,
 			);
-			const { keys, bones, worst, exhausted, wrapGap } = result.report;
-			worstOverall = Math.max(worstOverall, worst.error);
-
-			const file = `clips/${id}-${name}.clip.yaml`;
-			const note =
-				(exhausted ? '  REFINEMENT EXHAUSTED' : '') +
-				(wrapGap > WRAP_LIMIT ? `  DOES NOT CLOSE (${wrapGap.toExponential(2)})` : '');
-			console.log(
-				`${file.padEnd(38)} ${String(keys).padStart(3)} keys  ${String(bones).padStart(3)} bones  ` +
-					`worst ${worst.error.toExponential(2)} on ${worst.bone}.${worst.channel}${note}`,
-			);
-			if (worst.error > tolerance) failures.push(`${file}: ${worst.error.toExponential(2)} on ${worst.bone}.${worst.channel}`);
-			if (wrapGap > WRAP_LIMIT) {
-				open.push(`${file}: ${wrapGap.toExponential(2)} between the end of a cycle and the start of it`);
-			}
-
-			if (!check) {
-				const text = writeClip({
-					id: `${id}-${name}`,
-					name: animation.label,
-					rig: `../rigs/${rig.id}.rig.yaml`,
-					duration: animation.duration,
-					loop: animation.loop ? 'loop' : 'hold',
-					poses: result.poses,
-				});
-				await writeFile(join(assetRoot, file), text, 'utf8');
-			}
-			baked++;
 		}
+		// The rig path is written as an entity writes it, from inside `clips/`.
+		const rig = await library.rig(job.rig.replace('../', ''));
+		const args = job.args ?? {};
+		const duration =
+			job.duration ?? (typeof fn.duration === 'function' ? fn.duration(args) : fn.duration);
+		const contacts = job.contacts ?? fn.contacts ?? [];
+
+		// Built through the same reader the game uses, so what is baked is what
+		// an entity naming this function would have played.
+		const animation = poseFunctionAnimation(fn, rig, args, duration, {
+			name: job.id,
+			label: job.label,
+			sync: false,
+			contacts,
+		});
+
+		const result = bakeClip(
+			job.id,
+			duration,
+			animation.loop ? 'loop' : 'hold',
+			animation.sample,
+			{ anchors: contacts, tolerance, maxKeys },
+		);
+		const { keys, bones, worst, exhausted, wrapGap } = result.report;
+		worstOverall = Math.max(worstOverall, worst.error);
+
+		const file = `clips/${job.id}.clip.yaml`;
+		const note =
+			(exhausted ? '  REFINEMENT EXHAUSTED' : '') +
+			(wrapGap > WRAP_LIMIT ? `  DOES NOT CLOSE (${wrapGap.toExponential(2)})` : '');
+		console.log(
+			`${file.padEnd(38)} ${String(keys).padStart(3)} keys  ${String(bones).padStart(3)} bones  ` +
+				`worst ${worst.error.toExponential(2)} on ${worst.bone}.${worst.channel}${note}`,
+		);
+		if (worst.error > tolerance) {
+			failures.push(`${file}: ${worst.error.toExponential(2)} on ${worst.bone}.${worst.channel}`);
+		}
+		if (wrapGap > WRAP_LIMIT) {
+			open.push(`${file}: ${wrapGap.toExponential(2)} between the end of a cycle and the start of it`);
+		}
+
+		if (!check) {
+			const text = writeClip({
+				id: job.id,
+				name: job.label,
+				rig: job.rig,
+				duration,
+				loop: animation.loop ? 'loop' : 'hold',
+				poses: result.poses,
+			});
+			await writeFile(join(assetRoot, file), text, 'utf8');
+		}
+		baked++;
 	}
 
 	if (baked === 0) {
-		console.log('nothing to bake: no entity named has a procedural animation');
+		console.log('nothing to bake: no job matched');
 		return;
 	}
 	console.log(`\n${baked} clip(s), worst ${worstOverall.toExponential(2)} against a tolerance of ${tolerance}`);

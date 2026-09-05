@@ -48,7 +48,7 @@ import {
 	runPose,
 } from '../game/hellhoundpose.js';
 import { runPose as spiderRunPose, spitPose as spiderSpitPose, SPIDER_RUN_CONTACTS, SPIDER_RUN_PERIOD } from '../game/spiderpose.js';
-import { stridePose, stridePeriod, STRIDE_CONTACTS, type Direction } from '../game/stride.js';
+import { stridePose, stridePeriod, STRIDE_CONTACTS } from '../game/stride.js';
 import {
 	pokePose as trollPokePose,
 	sleepPose as trollSleepPose,
@@ -85,10 +85,8 @@ const stride: PoseFunction = {
 	build: ({ args, duration }) => {
 		const amp = arg(args, 'amp', 1);
 		const gait = arg(args, 'gait', 0);
-		const direction: Direction = { x: arg(args, 'x', 0), z: arg(args, 'z', 1) };
 		const moving = amp >= 0.02;
-		return (t, out) =>
-			stridePose(moving ? (t / duration) * TAU : 0, amp, direction, gait, t, out);
+		return (t, out) => stridePose(moving ? (t / duration) * TAU : 0, amp, gait, t, out);
 	},
 };
 

@@ -225,14 +225,11 @@ export {
 	stridePose,
 	stridePeriod,
 	strideVelocity,
-	strideFor,
 	STRIDE_CONTACTS,
 	WALK_PERIOD,
 	RUN_PERIOD,
 	WALK_SPEED,
 	RUN_SPEED,
-	type Direction,
-	type StrideSetting,
 } from './game/stride.js';
 
 /*
@@ -244,6 +241,7 @@ export {
  * embedder gets a working one rather than an empty one.
  */
 export { poseFunctions } from './assets/poseFunctions.js';
+export { bakeJobs, type BakeJob } from './assets/bakeJobs.js';
 
 /*
  * Reading the compiled scripts. They are not in this package's module graph —

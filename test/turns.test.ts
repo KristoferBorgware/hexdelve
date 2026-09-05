@@ -42,12 +42,14 @@ import {
 	gameTurnsPerAction,
 	hexSpeed,
 	speedFactor,
-	strideFor,
 	type PlayerOrders,
 	type TurnMember,
 } from '@hexdelve/client';
 
 import {
+	calibrateSpeed,
+	entityAnimations,
+	entityBlendTrees,
 	entityMesh,
 	entityRig,
 	HexInstances,
@@ -201,41 +203,76 @@ describe('the wall clock', () => {
 	});
 });
 
-describe('the stride solved backwards', () => {
-	it('answers a normal-speed step with a plain walk and no slip', () => {
-		const setting = strideFor(hexSpeed(NORMAL_SPEED));
-		expect(setting.amp).toBeCloseTo(1, 3);
-		expect(setting.gait).toBeCloseTo(0, 3);
-		expect(setting.speed).toBeCloseTo(WALK_SPEED, 4);
-		expect(setting.slip).toBe(0);
+describe('the rules asking the gait for a speed', () => {
+	/*
+	 * What `strideFor` used to answer by bisecting the pose function, the blend
+	 * tree's calibration answers by sweeping the tree it will actually be
+	 * played through. The question is the same one and it is the load-bearing
+	 * one: the rules give him a speed, and if his legs deliver something else
+	 * the readout is lying about the fight.
+	 */
+	let axis: { min: number; max: number };
+	let calibration: Awaited<ReturnType<typeof calibrate>>;
+
+	async function calibrate() {
+		const library = openLibrary();
+		const wanderer = await library.entity('entities/wanderer.entity.yaml');
+		const rig = entityRig(wanderer)!;
+		const tree = entityBlendTrees(wanderer).get('locomotion')!;
+		const speed = tree.parameters.find((one) => one.name === 'speed')!;
+		axis = { min: speed.min, max: speed.max };
+		return calibrateSpeed(tree.tree(), rig.skeleton, 'speed', [speed.min, speed.max], {
+			feet: rig.feet!,
+			params: { turn: 0, lean: 0, guard: 0 },
+		});
+	}
+
+	beforeAll(async () => {
+		calibration = await calibrate();
 	});
 
-	it('hits any speed between a walk and a run, and says so honestly past one', () => {
+	it('answers a normal-speed step with a plain walk', async () => {
+		const asked = hexSpeed(NORMAL_SPEED);
+		expect(asked).toBeCloseTo(WALK_SPEED, 6);
+		expect(calibration.speedFor(calibration.parameterFor(asked))).toBeCloseTo(asked, 3);
+	});
+
+	it('hits any speed between a walk and a run', () => {
 		const middle = (WALK_SPEED + RUN_SPEED) / 2;
-		const solved = strideFor(middle);
-		expect(solved.speed).toBeCloseTo(middle, 4);
-		expect(solved.gait).toBeGreaterThan(0);
-		expect(solved.gait).toBeLessThan(1);
-		expect(solved.slip).toBe(0);
-
-		// Past a full run there is no more leg, and the shortfall is reported
-		// rather than hidden.
-		const beyond = strideFor(RUN_SPEED * 1.5);
-		expect(beyond.gait).toBe(1);
-		expect(beyond.slip).toBeCloseTo(RUN_SPEED * 0.5, 4);
+		expect(calibration.speedFor(calibration.parameterFor(middle))).toBeCloseTo(middle, 3);
 	});
 
-	it('shortens the step rather than slowing the cycle below a walk', () => {
-		const slow = strideFor(WALK_SPEED / 2);
-		expect(slow.gait).toBe(0);
-		expect(slow.amp).toBeLessThan(1);
-		expect(slow.speed).toBeCloseTo(WALK_SPEED / 2, 3);
+	it('says so honestly past a full run rather than hiding the shortfall', () => {
+		// There is no more leg past the top of the axis, so asking for more
+		// pins the parameter there and the difference is the feet sliding.
+		const beyond = RUN_SPEED * 1.5;
+		expect(calibration.parameterFor(beyond)).toBeCloseTo(axis.max, 6);
+		expect(calibration.maxSpeed).toBeLessThan(beyond);
+	});
+
+	it('shortens the step rather than slowing the cycle below a walk', async () => {
+		const library = openLibrary();
+		const wanderer = await library.entity('entities/wanderer.entity.yaml');
+		const tree = entityBlendTrees(wanderer).get('locomotion')!;
+		const walk = entityAnimations(wanderer).get('walk')!;
+
+		// Below a walk the tree mixes the idle in, and the idle does not take
+		// part in the shared cycle — so the cadence stays the walk's and what
+		// shortens is the stride. That is what `sync: false` on the idle buys.
+		const built = tree.tree();
+		built.resolve({ speed: calibration.parameterFor(WALK_SPEED / 2), turn: 0, lean: 0, guard: 0 });
+		expect(built.cycle).toBeCloseTo(walk.duration, 6);
+		expect(calibration.speedFor(calibration.parameterFor(WALK_SPEED / 2))).toBeCloseTo(
+			WALK_SPEED / 2,
+			2,
+		);
 	});
 
 	it('turns a row of the energy table into a gait', () => {
 		// +10 has to cross a hexagon in half the time, and the only thing that
 		// can be is a run.
-		expect(strideFor(hexSpeed(NORMAL_SPEED + 10)).gait).toBeGreaterThan(0.9);
+		const hasted = hexSpeed(NORMAL_SPEED + 10);
+		expect(calibration.parameterFor(hasted)).toBeGreaterThan(WALK_SPEED);
 	});
 });
 
