@@ -363,7 +363,78 @@ back to being a gait's own dip rather than a correction. Either way a rig check
 worth having is that every foot the rig names can reach the ground with a
 stride's worth of room left over.
 
-### F-029 — The entity bench's console-error check fails about one full run in six
+### F-029 — Two benches find an asset's file by guessing its path from its id
+
+**Kind:** risk
+**Milestone:** unscheduled
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-05, adding a save button to the particle bench
+**Where:** `entityPath` in `packages/editor/src/views/entity/saveEntity.ts`,
+`effectPath` in `packages/editor/src/views/particles/saveEffect.ts`
+
+**What happens.** Both functions build a path out of a convention:
+`entities/<id>.entity.yaml` and `particles/<id>.particles.yaml`. Nothing checks
+that the file the manifest actually listed is at that path. The manifest is the
+thing that knows where a file is — `AssetLibrary.index()` and
+`effectIndex()` resolve every entry — and neither returns the path it resolved,
+so the editor guesses instead.
+
+Today the guess is right, because every file in the tree follows the convention.
+It stops being right the moment a file is moved into a subdirectory, named for
+something other than its id, or listed twice under different ids.
+
+**Why it matters.** A save that writes to a path nothing reads from produces a
+file that looks saved and changes nothing, and the editor cannot tell: the write
+succeeds, the library invalidates, and the reload comes back with the old
+document because the old document is still the one the manifest points at. That
+is worse than a refusal, because the change is gone and the panel says it was
+written.
+
+Nobody is hurt yet. Both conventions hold across every file in the tree, and the
+manifest is a dozen lines long.
+
+**What would fix it.** Have the library hand back the path it read each thing
+from — an `EntityAsset` and a `ParticleEffect` carrying the path they came out
+of, or an index that returns `{ path, asset }` pairs — and have both save
+functions use it. The alternative, checking the guess against
+`AssetLibrary.paths` and refusing when it is not there, turns a silent wrong
+write into a loud one but still cannot save a file that is where the manifest
+says.
+
+### F-030 — The entity bench cannot show a particle emitter
+
+**Kind:** gap
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** medium
+**Found:** 2026-09-05, adding the `particles` component
+**Where:** `build` in `packages/editor/src/bench/CharacterBench.ts`,
+`packages/editor/src/views/entity/EntityBenchView.tsx`
+
+**What happens.** An entity file may now carry
+`{ type: particles, effect: ... }` on any object in its tree — a torch, a
+censer, a creature that smoulders. The entity bench draws its subject from a
+`Model` and a skeleton view, and its gizmos from a list of placed nodes; it
+never instantiates the prefab into a live scene. So a `particles` record on an
+entity shows as a row in the tree and as nothing at all in the viewport.
+
+**Why it matters.** Nothing in the game carries one yet, so nobody is hurt
+today. It matters the first time an emitter is authored as part of a creature
+rather than placed by hand: the bench is where an entity's object tree is
+edited, and the one component whose whole content is what it looks like would be
+the one component that cannot be seen there. The particle bench shows the effect
+but not the entity carrying it, so there would be no view that shows both.
+
+**What would fix it.** Two shapes are possible. The bench could instantiate the
+prefab into a real `Scene` with the engine's registry and draw whatever
+components are on it, which is the honest fix and also the larger one — it
+would want the animator driving the scene rather than the bench's own clock.
+Or the bench could look for `particles` records specifically, build a
+`ParticleSystem` per record, and place each at the node's own transform, which
+is an afternoon and does not generalise to the next component with a picture.
+
+### F-031 — The entity bench's console-error check fails about one full run in six
 
 **Kind:** risk
 **Milestone:** unscheduled
@@ -395,6 +466,7 @@ file the run leaves behind rather than only in the assertion, so one failing
 full run says what it saw. Then decide — if it is a fetch racing the dev server
 it is F-016 and belongs there; if it is the bench itself, it is a real bug that
 has been hiding behind a retry.
+
 
 ## Closed
 

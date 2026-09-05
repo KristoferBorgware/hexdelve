@@ -4,6 +4,9 @@
 # ordering and half of what an editor wants from a list of entities is a
 # stable one. It is also the only place that has to change when something is
 # added — the entity file beside it carries all its own detail.
+#
+# Two lists, because an effect is not an entity: nothing wears one, nothing
+# walks, and the same file drives a chimney and a burst where a blow landed.
 
 entities:
   - ./entities/wanderer.entity.yaml
@@ -15,6 +18,11 @@ entities:
   - ./entities/zombie.entity.yaml
   - ./entities/spider.entity.yaml
   - ./entities/troll.entity.yaml
+  - ./entities/lemure.entity.yaml
   - ./entities/helmet.entity.yaml
   - ./entities/sword.entity.yaml
   - ./entities/shield.entity.yaml
+
+particles:
+  - ./particles/smoke.particles.yaml
+  - ./particles/blood.particles.yaml

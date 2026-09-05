@@ -111,6 +111,7 @@ export const RIG_COMPONENT_KEYS = ['type', 'rig'] as const;
 export const MESH_COMPONENT_KEYS = ['type', 'mesh'] as const;
 export const ANIMATOR_KEYS = ['type', 'animations', 'blendTrees'] as const;
 export const ATTACH_KEYS = ['type', 'bone', 'lift', 'tilt'] as const;
+export const PARTICLES_COMPONENT_KEYS = ['type', 'effect', 'playing', 'autoDestroy'] as const;
 
 /** Where a thing hangs when it is worn, and how it lies when it is put down. */
 export interface Attachment {

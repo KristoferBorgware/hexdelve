@@ -47,6 +47,7 @@ const DIREHOUND = '../rigs/direhound.rig.yaml';
 const BAT = '../rigs/bat.rig.yaml';
 const SPIDER = '../rigs/spider.rig.yaml';
 const TROLL = '../rigs/troll.rig.yaml';
+const LEMURE = '../rigs/lemure.rig.yaml';
 
 /** A cycle stated by its rate, which is how every stand below picks one. */
 const cycle = (rate: number): number => (Math.PI * 2) / rate;
@@ -109,4 +110,10 @@ export const bakeJobs: readonly BakeJob[] = [
 	{ id: 'troll-swipe', label: 'Attack swipe', rig: TROLL, procedural: 'trollSwipe' },
 	{ id: 'troll-poke', label: 'Attack poke', rig: TROLL, procedural: 'trollPoke' },
 	{ id: 'troll-rest', label: 'Rest', rig: TROLL, procedural: 'trollSleep', duration: cycle(1.2) },
+
+	// The lemure: a waddle, the stand it heaves through, and a two-handed
+	// rake, whose moment of landing the clip carries as an event.
+	{ id: 'lemure-idle', label: 'Idle', rig: LEMURE, procedural: 'lemureWaddle', args: { amp: 0 }, duration: cycle(0.5) },
+	{ id: 'lemure-walk', label: 'Walk', rig: LEMURE, procedural: 'lemureWaddle', args: { amp: 1 } },
+	{ id: 'lemure-claw', label: 'Attack claw', rig: LEMURE, procedural: 'lemureClaw', events: [{ at: 0.48, name: 'claw' }] },
 ];

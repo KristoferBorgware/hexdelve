@@ -1,0 +1,86 @@
+# The chimney smoke: a slow column that widens and goes.
+#
+# The one effect in the tree that never stops. It is placed on the log house's
+# chimney and on nothing else so far, and everything about it is tuned to be
+# read from across the yard at the isometric pitch: puffs a hand wide at the
+# mouth and half a metre wide by the time they clear the roof, at an alpha low
+# enough that the roof ridge stays visible through them.
+#
+# `space: world` is what makes it a column rather than a plume. A particle is
+# fixed where it was born, so the ones already out keep climbing on their own
+# while the chimney goes on producing underneath them.
+#
+# `prewarm` is what stops a yard that has just been built showing a bare
+# chimney for its first four seconds: the column is stepped through one full
+# particle lifetime before the first frame is drawn, so it is already there.
+#
+# The rise is speed plus a small upward gravity rather than speed alone,
+# because smoke that leaves the mouth fast and then coasts reads as steam under
+# pressure. Drag takes the launch speed off over the first second and the
+# gravity carries it the rest of the way, which is the shape a fire makes.
+
+id: smoke
+name: Chimney smoke
+
+capacity: 96
+duration: 0
+loop: true
+prewarm: true
+
+emit:
+  rate: 3.4
+  rateVariance: 1.1
+  burst: 0
+  burstVariance: 0
+  # The mouth of the chimney, flat.
+  shape: { kind: disc, radius: 0.11, outward: 0 }
+
+particle:
+  life: 3.6
+  lifeVariance: 0.9
+  speed: 0.62
+  speedVariance: 0.2
+  # Straight up, leaning a little off vertical so the column wanders.
+  pitch: pi / 2 - 0.06
+  pitchVariance: 0.24
+  yaw: 0
+  yawVariance: pi
+
+motion:
+  # Buoyancy, and a breath of wind across the yard.
+  gravity: [0.09, 0.16, -0.04]
+  drag: 0.45
+  space: world
+
+size:
+  curve:
+    - { at: 0, value: 0.15 }
+    - { at: 0.35, value: 0.34 }
+    - { at: 1, value: 0.62 }
+  variance: 0.28
+  aspect: 0.62
+
+color:
+  curve:
+    - { at: 0, value: 0xd8d4cc }
+    - { at: 0.5, value: 0xc2beb6 }
+    - { at: 1, value: 0x9d988f }
+  variance: 0.07
+
+alpha:
+  # In over the first fifth, so a puff appears at the chimney rather than
+  # switching on in mid-air, and out over the rest.
+  curve:
+    - { at: 0, value: 0 }
+    - { at: 0.2, value: 0.44 }
+    - { at: 0.6, value: 0.3 }
+    - { at: 1, value: 0 }
+  variance: 0.2
+
+spin:
+  rate: 0.34
+  rateVariance: 0.5
+  axis: [0, 1, 0]
+  tumble: false
+
+unlit: false

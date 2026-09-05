@@ -1,0 +1,215 @@
+# The lemure: hexagonal prisms hung on its own rig.
+#
+# Built the way every other body in this project is — the unit hex prism
+# under a different scale and rotation, bound to a bone — and most of it is
+# sag. A lemure is the larval form of a demon, a body still cooling into
+# shape: the head sits in the chest with no neck, the arms are short and the
+# legs shorter, and between them hangs the sac, on a bone of its own so it
+# can heave. The limbs are struts spanning their own bones by naming them,
+# with a roll of flesh at every joint, and the skin runs in drips — struts
+# hung off the pelvis, the sac, the jaw and the face, each with a drop on
+# the end.
+#
+# The flesh is slate, the colour Angband gives it, over a paler underside,
+# with the raw red showing at the mouth and in the sores, and the cracks in
+# it drawn unlit in ember, so the fire it is cooling from reads from every
+# angle. The eyes are unlit too, and not a pair: one bigger and higher than
+# the other, in a face that has not settled.
+
+id: lemure
+name: Lemure body
+rig: ../rigs/lemure.rig.yaml
+
+palette:
+  flesh: 0x777180
+  fleshDark: 0x545060
+  fleshLight: 0x948e9a
+  raw: 0x8a4b52
+  rawDark: 0x5c2f36
+  ember: 0xff7a2a
+  emberDark: 0xc8481e
+  eye: 0xffb050
+  mouth: 0x241318
+  tooth: 0xd6ccae
+  claw: 0x2c272b
+  horn: 0x3b3438
+  drip: 0x5c565f
+
+parts:
+  # The pelvis: a mass of hip with a roll of fat sagging over it, the skin
+  # running off the roll in drips, an ember crack across the small of the
+  # back, and the fold the tail comes out of.
+  - { bone: root, at: [0, -0.02, 0], size: [0.24, 0.2, 0.19], color: flesh }
+  - { bone: root, at: [0, -0.1, 0.02], size: [0.26, 0.07, 0.2], color: fleshDark }
+  - { bone: root, at: [0, -0.04, -0.17], size: [0.08, 0.008, 0.01], euler: [0, 0, 0.15], color: ember, unlit: true }
+  - { bone: root, at: [0, 0.0, -0.14], size: [0.07, 0.07, 0.06], color: fleshDark }
+  - { bone: root, from: [0.18, -0.13, 0.08], along: [0, -1, 0], length: 0.08, radius: 0.018, color: drip }
+  - { bone: root, at: [0.18, -0.215, 0.08], size: [0.024, 0.02, 0.024], color: drip }
+  - { bone: root, from: [0.08, -0.13, 0.17], along: [0, -1, 0.05], length: 0.06, radius: 0.015, color: drip }
+  - { bone: root, at: [0.083, -0.195, 0.173], size: [0.02, 0.018, 0.02], color: drip }
+  - { bone: root, from: [-0.1, -0.13, 0.16], along: [0, -1, 0], length: 0.09, radius: 0.02, color: drip }
+  - { bone: root, at: [-0.1, -0.225, 0.16], size: [0.026, 0.022, 0.026], color: drip }
+  - { bone: root, from: [-0.2, -0.13, 0.02], along: [-0.05, -1, 0], length: 0.05, radius: 0.014, color: drip }
+  - { bone: root, at: [-0.2025, -0.185, 0.02], size: [0.019, 0.016, 0.019], color: drip }
+  - { bone: root, from: [0.14, -0.13, -0.12], along: [0, -1, 0], length: 0.07, radius: 0.016, color: drip }
+  - { bone: root, at: [0.14, -0.205, -0.12], size: [0.021, 0.018, 0.021], color: drip }
+
+  # The waist: a roll of flank either side with a crack in it, and the
+  # spine standing out of the back in knobs.
+  - { bone: spine, at: [0, 0.03, 0], size: [0.25, 0.18, 0.2], color: flesh }
+  - { bone: spine, at: [0, -0.05, -0.19], size: [0.025, 0.03, 0.02], color: fleshDark }
+  - { bone: spine, at: [0, 0.02, -0.195], size: [0.025, 0.03, 0.02], color: fleshDark }
+  - { bone: spine, at: [0, 0.09, -0.19], size: [0.025, 0.03, 0.02], color: fleshDark }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: spine, at: [0.2, 0.0, 0.0], size: [0.06, 0.12, 0.14], color: fleshDark }
+      - { bone: spine, at: [0.245, 0.02, 0.05], size: [0.006, 0.08, 0.01], euler: [0.3, 0, 0], color: ember, unlit: true }
+
+  # The sac: the belly, hung off its own bone so it can heave, with a paler
+  # underside, a fold under it, a pit where a navel would be, the cracks
+  # zigzagging across it in ember, blisters, and drips off the bottom.
+  - { bone: belly, at: [0, -0.08, 0.05], size: [0.23, 0.28, 0.18], color: flesh }
+  - { bone: belly, at: [0, -0.18, 0.06], size: [0.19, 0.06, 0.15], color: fleshLight }
+  - { bone: belly, at: [0, -0.2, 0.0], size: [0.2, 0.03, 0.15], color: fleshDark }
+  - { bone: belly, at: [0, -0.06, 0.225], size: [0.02, 0.025, 0.012], color: mouth }
+  - { bone: belly, at: [0.03, 0.0, 0.228], size: [0.05, 0.007, 0.01], euler: [0, 0, 0.5], color: ember, unlit: true }
+  - { bone: belly, at: [-0.04, -0.05, 0.232], size: [0.05, 0.007, 0.01], euler: [0, 0, -0.6], color: ember, unlit: true }
+  - { bone: belly, at: [0.02, -0.11, 0.228], size: [0.045, 0.007, 0.01], euler: [0, 0, 0.4], color: ember, unlit: true }
+  - { bone: belly, at: [-0.01, -0.155, 0.222], size: [0.03, 0.006, 0.01], euler: [0, 0, -0.3], color: emberDark, unlit: true }
+  - { bone: belly, at: [0.21, -0.05, 0.1], size: [0.006, 0.06, 0.01], euler: [0.2, 0, 0], color: ember, unlit: true }
+  - { bone: belly, at: [-0.08, -0.12, 0.215], size: [0.025, 0.02, 0.015], color: raw }
+  - { bone: belly, from: [0.1, -0.2, 0.12], along: [0, -1, 0.1], length: 0.08, radius: 0.016, color: drip }
+  - { bone: belly, at: [0.1, -0.28, 0.128], size: [0.022, 0.02, 0.022], color: drip }
+  - { bone: belly, from: [-0.06, -0.21, 0.14], along: [0, -1, 0], length: 0.06, radius: 0.014, color: drip }
+  - { bone: belly, at: [-0.06, -0.27, 0.14], size: [0.019, 0.017, 0.019], color: drip }
+  - { bone: belly, from: [0.16, -0.18, 0.02], along: [0.1, -1, 0], length: 0.07, radius: 0.015, color: drip }
+  - { bone: belly, at: [0.167, -0.25, 0.02], size: [0.02, 0.018, 0.02], color: drip }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: belly, at: [0.12, -0.02, 0.19], size: [0.025, 0.02, 0.02], color: fleshLight }
+      - { bone: belly, at: [0.18, -0.13, 0.1], size: [0.02, 0.015, 0.02], color: fleshLight }
+
+  # The chest: the upper mass, wider than it is tall, with a hump of
+  # shoulder either side and a hunch behind the head, a crease down the
+  # front, cracks across it, boils, the knobs of the spine up the back and
+  # a sore on it.
+  - { bone: chest, at: [0, 0.04, -0.01], size: [0.3, 0.26, 0.24], color: flesh }
+  - { bone: chest, at: [0, 0.16, -0.1], size: [0.16, 0.1, 0.12], color: fleshDark }
+  - { bone: chest, at: [0, 0.02, 0.24], size: [0.01, 0.16, 0.012], color: fleshDark }
+  - { bone: chest, at: [0.05, 0.08, 0.245], size: [0.09, 0.007, 0.01], euler: [0, 0, 0.2], color: ember, unlit: true }
+  - { bone: chest, at: [-0.07, 0.0, 0.245], size: [0.06, 0.007, 0.01], euler: [0, 0, -0.3], color: ember, unlit: true }
+  - { bone: chest, at: [0.08, -0.06, 0.22], size: [0.025, 0.02, 0.02], color: raw }
+  - { bone: chest, at: [0, 0.0, -0.245], size: [0.025, 0.03, 0.02], color: fleshDark }
+  - { bone: chest, at: [0, 0.08, -0.24], size: [0.025, 0.03, 0.02], color: fleshDark }
+  - { bone: chest, at: [-0.1, 0.05, -0.23], size: [0.05, 0.04, 0.012], color: raw }
+  - { bone: chest, at: [-0.1, 0.05, -0.236], size: [0.02, 0.015, 0.01], color: rawDark }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: chest, at: [0.2, 0.12, -0.02], size: [0.13, 0.12, 0.13], color: flesh }
+      - { bone: chest, at: [0.2, 0.19, -0.03], size: [0.08, 0.03, 0.08], color: fleshDark }
+      - { bone: chest, at: [0.14, 0.02, 0.2], size: [0.03, 0.025, 0.025], color: fleshLight }
+      - { bone: chest, at: [0.26, 0.1, 0.08], size: [0.006, 0.05, 0.01], euler: [0.4, 0, 0], color: emberDark, unlit: true }
+
+  # The head, set straight into the chest: a heavy brow over two eyes that
+  # do not match, one bigger and higher than the other, each in a dark pit;
+  # a flat lump of nose with two slits; cheeks sagging off the jawline; the
+  # upper gum with its teeth hanging at odd heights; two stubs of horn; the
+  # holes where ears would be; a crack across the skull; warts; and the
+  # skin melting down the side of the face.
+  - { bone: head, at: [0, 0.06, -0.02], size: [0.19, 0.2, 0.19], color: flesh }
+  - { bone: head, at: [0, 0.12, 0.14], size: [0.17, 0.045, 0.06], euler: [0.15, 0, 0], color: fleshDark }
+  - { bone: head, at: [0.07, 0.07, 0.15], size: [0.045, 0.04, 0.02], color: mouth }
+  - { bone: head, at: [0.07, 0.07, 0.165], size: [0.024, 0.02, 0.012], color: eye, unlit: true }
+  - { bone: head, at: [-0.065, 0.055, 0.15], size: [0.035, 0.03, 0.02], color: mouth }
+  - { bone: head, at: [-0.065, 0.055, 0.163], size: [0.016, 0.014, 0.012], color: eye, unlit: true }
+  - { bone: head, at: [0, 0.03, 0.165], size: [0.04, 0.035, 0.03], color: fleshLight }
+  - { bone: head, at: [0.015, 0.02, 0.19], size: [0.008, 0.018, 0.008], color: mouth }
+  - { bone: head, at: [-0.015, 0.02, 0.19], size: [0.008, 0.018, 0.008], color: mouth }
+  - { bone: head, at: [0, -0.04, 0.14], size: [0.12, 0.03, 0.05], color: raw }
+  - { bone: head, at: [-0.06, -0.06, 0.165], size: [0.012, 0.03, 0.01], color: tooth }
+  - { bone: head, at: [-0.03, -0.065, 0.17], size: [0.01, 0.04, 0.01], color: tooth }
+  - { bone: head, at: [0.0, -0.06, 0.172], size: [0.014, 0.035, 0.01], color: tooth }
+  - { bone: head, at: [0.035, -0.062, 0.17], size: [0.01, 0.045, 0.01], color: tooth }
+  - { bone: head, at: [0.06, -0.058, 0.165], size: [0.012, 0.028, 0.01], color: tooth }
+  - { bone: head, at: [0.04, 0.16, 0.05], size: [0.05, 0.006, 0.01], euler: [0, 0.3, 0.4], color: ember, unlit: true }
+  - { bone: head, at: [0.05, 0.14, 0.1], size: [0.015, 0.015, 0.015], color: fleshLight }
+  - { bone: head, at: [-0.09, 0.1, 0.08], size: [0.012, 0.012, 0.012], color: fleshLight }
+  - { bone: head, from: [0.11, -0.02, 0.12], along: [0.1, -1, 0.1], length: 0.06, radius: 0.012, color: drip }
+  - { bone: head, at: [0.116, -0.08, 0.126], size: [0.016, 0.014, 0.016], color: drip }
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: head, at: [0.1, -0.02, 0.1], size: [0.05, 0.06, 0.06], color: fleshDark }
+      - { bone: head, from: [0.08, 0.16, 0.0], along: [0.3, 1, -0.3], length: 0.06, radius: 0.018, color: horn }
+      - { bone: head, at: [0.097, 0.217, -0.017], size: [0.012, 0.02, 0.012], color: horn }
+      - { bone: head, at: [0.19, 0.06, -0.02], size: [0.015, 0.025, 0.02], color: mouth }
+
+  # The jaw, hanging: the lower gum with its own teeth at odd heights, the
+  # floor of the mouth and the tongue lying in it, the chin sagging below,
+  # and a string of drool off the lip.
+  - { bone: jaw, at: [0, -0.03, 0.03], size: [0.13, 0.05, 0.09], color: flesh }
+  - { bone: jaw, at: [0, -0.02, 0.11], size: [0.11, 0.025, 0.03], color: raw }
+  - { bone: jaw, at: [0, -0.005, 0.04], size: [0.09, 0.015, 0.06], color: rawDark }
+  - { bone: jaw, at: [0, 0.0, 0.07], size: [0.03, 0.012, 0.05], color: raw }
+  - { bone: jaw, at: [-0.045, 0.0, 0.11], size: [0.01, 0.03, 0.01], color: tooth }
+  - { bone: jaw, at: [0.02, 0.0, 0.115], size: [0.012, 0.035, 0.01], color: tooth }
+  - { bone: jaw, at: [0.05, 0.0, 0.11], size: [0.009, 0.025, 0.01], color: tooth }
+  - { bone: jaw, at: [0, -0.07, 0.06], size: [0.06, 0.04, 0.05], color: fleshDark }
+  - { bone: jaw, from: [0.03, -0.04, 0.13], along: [0.1, -1, 0.05], length: 0.07, radius: 0.008, color: drip }
+  - { bone: jaw, at: [0.037, -0.11, 0.1335], size: [0.012, 0.01, 0.012], color: drip }
+
+  # The arms: short and thick, a roll of shoulder over the joint, the bone
+  # as a strut with a flap of skin hanging under it, the elbow, the forearm
+  # with a crack down the outside, a fold at the wrist, and a hand that is
+  # three fingers ending in claws and a claw where the thumb would be.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'arm*', at: [0, 0.0, 0], size: [0.1, 0.13, 0.1], color: flesh }
+      - { bone: 'arm*', from: [0, 0, 0], to: { bone: 'forearm*' }, radius: 0.07, color: flesh }
+      - { bone: 'arm*', at: [-0.03, -0.12, -0.05], size: [0.025, 0.1, 0.06], euler: [0.1, 0, 0], color: fleshDark }
+      - { bone: 'forearm*', at: [0, 0, 0], size: [0.065, 0.06, 0.065], color: fleshDark }
+      - { bone: 'forearm*', from: [0, 0, 0], to: { bone: 'hand*' }, radius: 0.055, color: flesh }
+      - { bone: 'forearm*', at: [0.055, -0.08, 0], size: [0.006, 0.06, 0.01], euler: [0, 0, 0.2], color: ember, unlit: true }
+      - { bone: 'forearm*', at: [0, -0.15, 0], size: [0.06, 0.03, 0.06], color: fleshDark }
+      - { bone: 'hand*', at: [0, -0.04, 0.005], size: [0.05, 0.07, 0.04], color: flesh }
+      - { bone: 'hand*', from: [-0.03, -0.07, 0.01], along: [-0.2, -1, 0.35], length: 0.09, radius: 0.012, color: flesh }
+      - { bone: 'hand*', from: [-0.047, -0.155, 0.04], along: [-0.2, -1, 0.6], length: 0.05, radius: 0.009, color: claw }
+      - { bone: 'hand*', from: [0.0, -0.07, 0.015], along: [0, -1, 0.35], length: 0.1, radius: 0.013, color: flesh }
+      - { bone: 'hand*', from: [0.0, -0.164, 0.048], along: [0, -1, 0.6], length: 0.055, radius: 0.0095, color: claw }
+      - { bone: 'hand*', from: [0.03, -0.07, 0.01], along: [0.2, -1, 0.35], length: 0.09, radius: 0.012, color: flesh }
+      - { bone: 'hand*', from: [0.047, -0.155, 0.04], along: [0.2, -1, 0.6], length: 0.05, radius: 0.009, color: claw }
+      - { bone: 'hand*', from: [0.04, -0.03, 0.02], along: [0.6, -0.6, 0.5], length: 0.05, radius: 0.01, color: claw }
+
+  # The legs: stumps, a roll of fat over each hip, the thigh as a strut
+  # with a fold behind it, the knee, the shin with a crack in it, a roll at
+  # the ankle, and a flat wide foot — a pad, a heel, three toes and their
+  # claws — for something this heavy to stand on.
+  - sides: [L, R]
+    mirror: true
+    parts:
+      - { bone: 'hip*', at: [0, -0.02, 0], size: [0.11, 0.1, 0.11], color: flesh }
+      - { bone: 'hip*', from: [0, 0, 0], to: { bone: 'shin*' }, radius: 0.085, color: flesh }
+      - { bone: 'hip*', at: [0, -0.12, -0.06], size: [0.06, 0.1, 0.03], color: fleshDark }
+      - { bone: 'shin*', at: [0, 0, 0.02], size: [0.075, 0.06, 0.075], color: fleshDark }
+      - { bone: 'shin*', from: [0, 0, 0], to: { bone: 'foot*' }, radius: 0.065, color: flesh }
+      - { bone: 'shin*', at: [0.06, -0.09, 0.02], size: [0.006, 0.05, 0.01], color: ember, unlit: true }
+      - { bone: 'shin*', at: [0, -0.17, 0], size: [0.07, 0.035, 0.07], color: fleshDark }
+      - { bone: 'foot*', at: [0, -0.03, 0.05], size: [0.09, 0.05, 0.11], color: flesh }
+      - { bone: 'foot*', at: [0, -0.03, -0.05], size: [0.06, 0.05, 0.04], color: fleshDark }
+      - { bone: 'foot*', at: [-0.05, -0.04, 0.15], size: [0.025, 0.03, 0.035], color: flesh }
+      - { bone: 'foot*', at: [0, -0.04, 0.16], size: [0.025, 0.03, 0.035], color: flesh }
+      - { bone: 'foot*', at: [0.05, -0.04, 0.15], size: [0.025, 0.03, 0.035], color: flesh }
+      - { bone: 'foot*', from: [-0.05, -0.045, 0.18], along: [-0.15, -0.3, 1], length: 0.04, radius: 0.009, color: claw }
+      - { bone: 'foot*', from: [0, -0.045, 0.19], along: [0, -0.3, 1], length: 0.045, radius: 0.009, color: claw }
+      - { bone: 'foot*', from: [0.05, -0.045, 0.18], along: [0.15, -0.3, 1], length: 0.04, radius: 0.009, color: claw }
+
+  # The tail: a stub, a fold at its root, an ember spot on it and a blunt
+  # end.
+  - { bone: tail, at: [0, 0.01, -0.04], size: [0.05, 0.05, 0.04], color: flesh }
+  - { bone: tail, from: [0, 0, 0], to: [0, -0.06, -0.2], radius: 0.045, color: flesh }
+  - { bone: tail, at: [0, 0.03, -0.1], size: [0.02, 0.006, 0.02], color: ember, unlit: true }
+  - { bone: tail, at: [0, -0.065, -0.21], size: [0.03, 0.04, 0.03], color: fleshDark }

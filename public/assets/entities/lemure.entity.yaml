@@ -1,0 +1,31 @@
+# The lemure.
+#
+# A minor demon, the larval form of a greater one, at the depth Angband
+# keeps it: a squat mass of slate flesh still cooling into a shape, on legs
+# too short for it. Its own rig, because a body that is mostly belly with a
+# head set straight into the chest fits neither the humanoid's stack nor
+# anything on four legs — and nothing downstream had to change for that,
+# which is the point the rig files make and this one inherits.
+#
+# Its cycles are clips baked off the pose functions in `@hexdelve/authoring`,
+# where `bakeJobs` says what each came from; the strike carries the moment
+# its claws land as an event.
+
+id: lemure
+name: Lemure
+
+object:
+  components:
+    - { type: rig, rig: ../rigs/lemure.rig.yaml }
+    - { type: mesh, mesh: ../meshes/lemure.mesh.yaml }
+    - type: animator
+      animations:
+        idle: { clip: ../clips/lemure-idle.clip.yaml, contacts: [0.25, 0.75] }
+        walk: { clip: ../clips/lemure-walk.clip.yaml, sync: true, contacts: [0.25, 0.75] }
+        claw: ../clips/lemure-claw.clip.yaml
+      blendTrees:
+        locomotion: ../trees/waddle.tree.yaml
+    # What it is in a fight. The numbers are the character's, not the rig's,
+    # so tuning a creature is editing this file rather than a script. The
+    # lift is the middle of the sac: what a blade has to reach.
+    - { type: script, script: Character, hp: 18, faction: foe, power: 4, lift: 0.7 }

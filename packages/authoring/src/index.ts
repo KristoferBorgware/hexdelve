@@ -99,3 +99,12 @@ export {
 	TROLL_CHAIN,
 	TROLL_SOLE,
 } from './trollpose.js';
+export {
+	waddlePose as lemureWaddlePose,
+	clawPose as lemureClawPose,
+	CLAW_HIT,
+	LEMURE_CHAIN,
+	LEMURE_SOLE,
+	WADDLE_CONTACTS,
+	WADDLE_PERIOD,
+} from './lemurepose.js';

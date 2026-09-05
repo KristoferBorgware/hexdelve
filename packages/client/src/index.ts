@@ -89,8 +89,21 @@ export {
 	type CastOptions,
 } from './game/cast.js';
 export { Item } from './game/items.js';
+export {
+	loadEffects,
+	spawnEmitter,
+	BLOOD_EFFECT,
+	SMOKE_EFFECT,
+	type EmitterPlacement,
+} from './game/effects.js';
 
-export { buildWorld, type World, type Tile, type WorldOptions } from './scene/world.js';
+export {
+	buildWorld,
+	type Chimney,
+	type Tile,
+	type World,
+	type WorldOptions,
+} from './scene/world.js';
 
 /*
  * Level generation, exported for the same reason the rigs are: the editor's
