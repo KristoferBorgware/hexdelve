@@ -18,5 +18,6 @@ object:
         leanRight: ../clips/lean-right.clip.yaml
       blendTrees:
         locomotion: ../trees/locomotion.tree.yaml
+    - { type: footIK, sole: 0.12, reach: 0.18 }
     - { type: script, script: PlayerInput }
     - { type: script, script: Character, hp: 20, faction: player, power: 5 }

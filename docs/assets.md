@@ -123,14 +123,20 @@ has never heard of, and a format that had to be taught each one would be a
 format the client could not add to. A `ComponentRegistry` maps the type to
 whoever claimed it, and an unknown type fails by name and lists what there was.
 
-Five are the engine's own. `rig`, `mesh`, `animator` and `attach` are facts
-about drawing and posing, which is what an engine is for, and they are also the
-only records that name files — so the library resolves and fetches those paths
-while it reads the entity, and hands each factory what its own record loaded
-to. `script` is the engine's too: `Script` and `ScriptHost` live there, so
-there is nothing for a game to decide about what building one means.
+Six are the engine's own. `rig`, `mesh`, `animator`, `attach` and `footIK` are
+facts about drawing and posing, which is what an engine is for; the first four
+are also the only records that name files, so the library resolves and fetches
+those paths while it reads the entity and hands each factory what its own record
+loaded to. `script` is the engine's too: `Script` and `ScriptHost` live there,
+so there is nothing for a game to decide about what building one means.
 `packages/client/src/game/components.ts` is where the game adds its own, `item`,
 on top of those.
+
+`footIK` plants a rig's feet on ground that is not flat, and nothing in it is
+about a particular creature: which bones are feet is the rig's own answer, and
+the chain above each is read off the skeleton. What the ground IS is a function
+somebody sets — the engine has never heard of a terrace — so it is flat until a
+world is wired in, which is right for a bench.
 
 ### Order is what the file order means
 
@@ -715,10 +721,15 @@ A creature is two things on one object. One decides — what a click means, or
 whether it has heard you — and the other knows how long the resulting action
 takes, what it looks like, and where the blade or the teeth end up.
 
-| decides (a script) | does (a component) |
-|---|---|
-| `PlayerInput` | `Player` |
-| `Hunter` | `BatHunt` |
+| decides (a script) | does (a component) | looks like it (components) |
+|---|---|---|
+| `PlayerInput` | `Player` | `HumanoidAnimator`, `FootIK` |
+| `Hunter` | `BatHunt` | — |
+
+The third column is the same split again, one level down. `Player` says he is
+cutting and how far through it he is; `HumanoidAnimator` turns eight numbers
+like that into a pose, and `FootIK` puts the result on the terraces. A body can
+therefore be drawn with nothing driving it at all, which is what a bench does.
 
 The decision is the script, because the rules of moving about are what somebody
 edits, and a script can be reloaded while the yard is running. The body is a
