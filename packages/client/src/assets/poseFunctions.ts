@@ -153,10 +153,18 @@ const houndBite: PoseFunction = {
 	build: ({ duration }) => (t, out) => bitePose(t / duration, out),
 };
 
-/** Down on the ground, head up and watching. */
+/**
+ * Down on the ground, head up and watching.
+ *
+ * The cycle is the slowest rhythm in the pose rather than the breath, because
+ * a cycle is played by wrapping a playhead at the duration it declares and a
+ * rhythm that does not divide into that duration arrives back somewhere other
+ * than where it started. The head and the tail move at half the breathing
+ * rate, so a cycle is two breaths.
+ */
 const houndRest: PoseFunction = {
 	id: 'houndRest',
-	duration: TAU / 1.4,
+	duration: TAU / 0.7,
 	build: () => (t, out) => restPose(t, out),
 };
 

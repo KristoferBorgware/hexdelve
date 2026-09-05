@@ -27,6 +27,9 @@ import {
 	boneIndex,
 	createPose,
 	denseToSparse,
+	calibrateSpeed,
+	entityAnimations,
+	entityBlendTrees,
 	measureGroundSpeed,
 	poseClip,
 	sampleBound,
@@ -39,6 +42,11 @@ import {
 	HOUND_RUN_CONTACTS,
 	HOUND_STRIDE_PERIOD,
 	houndRunPose,
+	SCRAMBLE_PERIOD,
+	scramblePose,
+	SHAMBLE_CONTACTS,
+	SHAMBLE_PERIOD,
+	shamblePose,
 } from '@hexdelve/client';
 
 import { openLibrary } from './harness/assets.js';
@@ -187,4 +195,112 @@ describe('the hellhound’s baked clips', () => {
 		expect(played).toBeGreaterThan(1);
 		expect(played).toBeCloseTo(source, 4);
 	});
+});
+
+describe('the ghoul, driven from clips', () => {
+	it('has no pose function left in its animator', async () => {
+		const ghoul = await library.entity('entities/ghoul.entity.yaml');
+		for (const [name, animation] of entityAnimations(ghoul)) {
+			expect(animation.kind, name).toBe('clip');
+		}
+	});
+
+	it('walks and runs at the speeds the functions it was baked from did', async () => {
+		const skeleton = await library.rig('rigs/humanoid.rig.yaml');
+		const ghoul = await library.entity('entities/ghoul.entity.yaml');
+		const options = { feet: skeleton.feet!, contactPhase: SHAMBLE_CONTACTS[0] };
+
+		const walk = entityAnimations(ghoul).get('walk')!;
+		const run = entityAnimations(ghoul).get('run')!;
+
+		const shamble = measureGroundSpeed(
+			skeleton.skeleton,
+			(phase, out) => shamblePose(phase * TAU, 1, 0, out),
+			SHAMBLE_PERIOD,
+			options,
+		).z;
+		const scramble = measureGroundSpeed(
+			skeleton.skeleton,
+			(phase, out) => scramblePose(phase * TAU, 1, 0, out),
+			SCRAMBLE_PERIOD,
+			options,
+		).z;
+
+		expect(walk.speed()!.z).toBeCloseTo(shamble, 3);
+		expect(run.speed()!.z).toBeCloseTo(scramble, 3);
+	});
+
+	it('carries a tree whose axis still measures its own clips', async () => {
+		const ghoul = await library.entity('entities/ghoul.entity.yaml');
+		const tree = entityBlendTrees(ghoul).get('locomotion')!;
+		const speed = tree.parameters.find((one) => one.name === 'speed')!;
+		// `speedOf` reads the animation whatever kind it is, so the threshold is
+		// the clip's own feet now rather than the function's.
+		expect(speed.max).toBeCloseTo(entityAnimations(ghoul).get('run')!.speed()!.z, 9);
+		expect(speed.initial).toBeCloseTo(entityAnimations(ghoul).get('walk')!.speed()!.z, 9);
+	});
+
+	it('delivers what the calibrated axis asks for', async () => {
+		const skeleton = await library.rig('rigs/humanoid.rig.yaml');
+		const ghoul = await library.entity('entities/ghoul.entity.yaml');
+		const tree = entityBlendTrees(ghoul).get('locomotion')!;
+		const axis = tree.parameters.find((one) => one.name === 'speed')!;
+
+		/*
+		 * No contact phase here, unlike a measurement of one animation: a tree
+		 * offsets every synced leaf by its own contact already, so the pose it
+		 * hands back is in the tree's phase and its first footfall is at zero.
+		 */
+		const calibration = calibrateSpeed(tree.tree(), skeleton.skeleton, 'speed', [axis.min, axis.max], {
+			feet: skeleton.feet!,
+			steps: 16,
+		});
+
+		expect(calibration.maxSpeed).toBeCloseTo(axis.max, 3);
+		// Monotone, or asking for a speed has more than one honest answer.
+		for (let i = 1; i < calibration.samples.length; i++) {
+			expect(calibration.samples[i]!.speed).toBeGreaterThanOrEqual(calibration.samples[i - 1]!.speed);
+		}
+		for (const asked of [axis.max * 0.25, axis.max * 0.5, axis.max * 0.75]) {
+			expect(calibration.speedFor(calibration.parameterFor(asked))).toBeCloseTo(asked, 2);
+		}
+	});
+});
+
+describe('a baked clip closes on itself', () => {
+	/*
+	 * A clip loops whether or not what it was baked from did, so a source built
+	 * on rhythms that do not divide into its own duration plays a jump once a
+	 * cycle. The clips in the tree are checked here rather than only at the
+	 * bake, because a hand-edit can open a gap that was closed.
+	 */
+	const looping = [
+		'clips/ghoul-idle.clip.yaml',
+		'clips/ghoul-walk.clip.yaml',
+		'clips/ghoul-run.clip.yaml',
+		'clips/hellhound-idle.clip.yaml',
+		'clips/hellhound-run.clip.yaml',
+		'clips/hellhound-rest.clip.yaml',
+	];
+
+	for (const path of looping) {
+		it(`${path} arrives back where it started`, async () => {
+			const skeleton = await library.rig(
+				path.includes('hellhound') ? 'rigs/hellhound.rig.yaml' : 'rigs/humanoid.rig.yaml',
+			);
+			const clip = await player(path, skeleton);
+			const start = clip.sample(0, {});
+			const opening = JSON.parse(JSON.stringify(start));
+			const closing = clip.sample(clip.duration, {});
+			for (const bone in opening) {
+				for (const channel of ['rot', 'pos'] as const) {
+					const a = opening[bone][channel] ?? [0, 0, 0];
+					const b = closing[bone]?.[channel] ?? [0, 0, 0];
+					for (let c = 0; c < 3; c++) {
+						expect(Math.abs(a[c] - b[c]), `${bone}.${channel}[${c}]`).toBeLessThan(0.01);
+					}
+				}
+			}
+		});
+	}
 });

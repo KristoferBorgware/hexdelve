@@ -46,6 +46,13 @@ const clientDist = join(root, 'packages', 'client', 'dist', 'index.js');
  */
 const TOLERANCE = 0.002;
 
+/**
+ * How far a looping source may be from closing on itself before it is called
+ * out. A clip loops whether or not what it was baked from did, so a gap here
+ * is played as a jump every cycle.
+ */
+const WRAP_LIMIT = 0.01;
+
 /** A flag's number, or what the tool uses when nobody says. */
 const numberFlag = (argv, name, fallback) => {
 	const hit = argv.find((one) => one.startsWith(`--${name}=`));
@@ -67,7 +74,7 @@ async function main() {
 	const check = argv.includes('--check');
 	const wanted = argv.filter((one) => !one.startsWith('--'));
 	const tolerance = numberFlag(argv, 'tolerance', TOLERANCE);
-	const maxKeys = numberFlag(argv, 'max-keys', 64);
+	const maxKeys = numberFlag(argv, 'max-keys', 128);
 
 	for (const dist of [engineDist, clientDist]) {
 		if (!existsSync(dist)) {
@@ -99,6 +106,7 @@ async function main() {
 	let baked = 0;
 	let worstOverall = 0;
 	const failures = [];
+	const open = [];
 
 	for (const id of ids) {
 		const entity = await library.entity(`entities/${id}.entity.yaml`);
@@ -115,16 +123,21 @@ async function main() {
 				animation.sample,
 				{ anchors: animation.contacts, tolerance, maxKeys },
 			);
-			const { keys, bones, worst, exhausted } = result.report;
+			const { keys, bones, worst, exhausted, wrapGap } = result.report;
 			worstOverall = Math.max(worstOverall, worst.error);
 
 			const file = `clips/${id}-${name}.clip.yaml`;
-			const note = exhausted ? '  REFINEMENT EXHAUSTED' : '';
+			const note =
+				(exhausted ? '  REFINEMENT EXHAUSTED' : '') +
+				(wrapGap > WRAP_LIMIT ? `  DOES NOT CLOSE (${wrapGap.toExponential(2)})` : '');
 			console.log(
 				`${file.padEnd(38)} ${String(keys).padStart(3)} keys  ${String(bones).padStart(3)} bones  ` +
 					`worst ${worst.error.toExponential(2)} on ${worst.bone}.${worst.channel}${note}`,
 			);
 			if (worst.error > tolerance) failures.push(`${file}: ${worst.error.toExponential(2)} on ${worst.bone}.${worst.channel}`);
+			if (wrapGap > WRAP_LIMIT) {
+				open.push(`${file}: ${wrapGap.toExponential(2)} between the end of a cycle and the start of it`);
+			}
 
 			if (!check) {
 				const text = writeClip({
@@ -146,6 +159,12 @@ async function main() {
 		return;
 	}
 	console.log(`\n${baked} clip(s), worst ${worstOverall.toExponential(2)} against a tolerance of ${tolerance}`);
+	if (open.length > 0) {
+		console.error(`\n${open.length} source(s) do not close on themselves, so the clip jumps once a cycle:`);
+		for (const line of open) console.error(`  ${line}`);
+		console.error('  A rhythm in the pose runs at a rate that does not divide into the duration.');
+		process.exitCode = 1;
+	}
 	if (failures.length > 0) {
 		console.error(`\n${failures.length} clip(s) drifted from what they were baked from:`);
 		for (const line of failures) console.error(`  ${line}`);

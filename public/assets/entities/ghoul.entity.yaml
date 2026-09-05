@@ -10,9 +10,9 @@ object:
     - { type: mesh, mesh: ../meshes/ghoul.mesh.yaml }
     - type: animator
       animations:
-        idle: { procedural: ghoulShamble, label: Idle, args: { amp: 0 }, duration: tau / 1.7 }
-        walk: { procedural: ghoulShamble, label: Walk, args: { amp: 1 }, sync: true }
-        run: { procedural: ghoulScramble, label: Run, args: { amp: 1 }, sync: true }
+        idle: { clip: ../clips/ghoul-idle.clip.yaml, contacts: [0.25, 0.75] }
+        walk: { clip: ../clips/ghoul-walk.clip.yaml, sync: true, contacts: [0.25, 0.75] }
+        run: { clip: ../clips/ghoul-run.clip.yaml, sync: true, contacts: [0.25, 0.75] }
         leap: ../clips/leap.clip.yaml
       blendTrees:
         locomotion: ../trees/shamble.tree.yaml

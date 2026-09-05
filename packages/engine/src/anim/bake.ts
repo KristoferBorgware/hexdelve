@@ -78,6 +78,20 @@ export interface BakeReport {
 	readonly worst: BakeError;
 	/** True when refinement stopped at `maxKeys` rather than at the tolerance. */
 	readonly exhausted: boolean;
+	/**
+	 * How far a looping source is from closing on itself: the largest gap
+	 * between its pose at the start of a cycle and its pose at the end.
+	 *
+	 * A clip loops whether or not what it was baked from did. A source built on
+	 * rhythms that do not divide into its own duration — a breath at one rate
+	 * and a stride at another — arrives back at the wrap somewhere other than
+	 * where it started, and the clip plays that gap as a jump every cycle. It
+	 * is a property of the SOURCE rather than of the bake, so no number of keys
+	 * removes it, and it is reported rather than corrected: what the fix is
+	 * depends on which rhythm is wrong, and that is not a decision to make in a
+	 * tool. Zero for a clip that does not loop.
+	 */
+	readonly wrapGap: number;
 }
 
 export interface Baked {
@@ -230,6 +244,21 @@ export function bakeClip(
 	const source = readSource(sample, duration, grid);
 	const tracks = movingBones(source, rest);
 
+	// What the source does at the wrap, before any of it is written down.
+	let wrapGap = 0;
+	if (looping) {
+		const closing: SparsePose = {};
+		sample(duration, closing);
+		const opening = source.at.get(0)!;
+		for (const bone in opening) {
+			for (const channel of CHANNELS) {
+				const a = valueOf(opening, bone, channel);
+				const b = closing[bone]?.[channel] ?? ZERO;
+				for (let c = 0; c < 3; c++) wrapGap = Math.max(wrapGap, Math.abs((a[c] ?? 0) - (b[c] ?? 0)));
+			}
+		}
+	}
+
 	const anchors = new Set<number>([0]);
 	for (const anchor of options.anchors ?? []) {
 		// Onto the grid, so the key sits on a phase that was sampled.
@@ -281,6 +310,7 @@ export function bakeClip(
 			bones: tracks.size,
 			worst: worstError(finished, source, tracks, duration),
 			exhausted,
+			wrapGap,
 		},
 	};
 }

@@ -386,6 +386,64 @@ they have a beginning and an end and are not what a tree is for. The work is
 mostly in deciding what `buildPose` keeps.
 
 
+### F-027 — Ten looping animations do not close on themselves
+
+**Kind:** bug
+**Milestone:** game
+**Priority:** medium
+**Effort:** medium
+**Found:** 2026-09-05, baking the ghoul's gaits into clips and checking what the bake reported
+**Where:** the `time`-driven terms in `packages/client/src/game/batpose.ts`,
+`direhoundpose.ts`, `zombiepose.ts`, `spiderpose.ts` and `trollpose.ts`; the
+durations their entity files declare; `wrapGap` in
+`packages/engine/src/anim/bake.ts`
+
+**What happens.** A cycle is played by wrapping a playhead at the duration it
+declares — `leafTime` in `blendtree.ts` does exactly that for every leaf, synced
+or not. So a pose built on a rhythm whose rate does not divide into that
+duration arrives back at the wrap somewhere other than where it started, and
+plays the gap as a jump once a cycle.
+
+Measured as the largest difference between a pose at the start of its declared
+cycle and the same pose at the end:
+
+> **[measured]** zombie walk **0.327 rad**; direhound idle **0.252**; troll idle
+> **0.247**; zombie idle **0.232**; direhound rest **0.224**; troll rest
+> **0.096**; troll walk **0.049**; spider idle **0.050**; bat perch **0.029**;
+> bat hover **0.017**. As a bone travelling, the worst is the troll's walk at
+> **0.085 m** and the zombie's idle at **0.047 m**.
+
+The cause is the same in every case: a stand breathes at one rate, sways at
+another and twitches at a third, and the duration the entity file declares is
+one breath. The ghoul's `sway` ran at 0.5 rad/s against a cycle of 1.7, so it
+came round three quarters of the way through. A gait has the same problem in a
+second form — the zombie's and the troll's walks carry a breath on a clock of
+their own, so no duration closes them at all, because the stride and the breath
+would have to come round together.
+
+**Why it matters.** It is visible now, in the bench, on any of these as a leaf
+of a blend tree: the creature jerks once a cycle. Nobody has reported it, which
+probably says more about how long anyone watches a stand than about how
+noticeable it is. It matters more the moment these are baked into clips, because
+a clip cannot do anything but loop — the jump stops being a property of how the
+tree drives the pose and becomes a property of the asset.
+
+**What would fix it.** Two rules, both already applied to the ghoul in
+`ghoulpose.ts` and to the hellhound in `hellhoundpose.ts`, which is why neither
+appears above.
+
+Every `time`-driven term is faded out by the stride, so a moving gait is a
+function of its phase and nothing else and closes at any duration. And every
+rhythm left in the stand runs at a multiple of one fundamental, with the
+declared duration being that fundamental's own cycle — phase offsets rather
+than incommensurate rates are what keep it from looking mechanical. Where a
+stand wants a rhythm slower than its breath, the cycle lengthens to suit: the
+ghoul's went from one breath to two, and its baked idle is longer and has more
+keys because of it.
+
+`bakeClip` reports the gap as `wrapGap` and `tools/bake-clips.mjs --check`
+fails on it, so whoever takes this can see each one shrink to zero.
+
 ## Closed
 
 ### F-001 — The hellhound's trot carries it backwards

@@ -310,7 +310,9 @@ describe('entities', () => {
 		// Its gait and its strike are its own: none of the wanderer's clips,
 		// and a tree over its own two states.
 		expect([...entityAnimations(ghoul).keys()]).toEqual(['idle', 'walk', 'run', 'leap']);
-		expect(entityAnimations(ghoul).get('walk')!.clip).toBeNull();
+		const walk = entityAnimations(ghoul).get('walk')!.clip;
+		expect(walk).not.toBeNull();
+		expect(walk!.name).not.toBe(entityAnimations(wanderer).get('walk')!.clip?.name);
 		expect(entityAnimations(ghoul).get('leap')!.clip).not.toBeNull();
 		expect([...entityBlendTrees(ghoul).keys()]).toEqual(['locomotion']);
 		expect(entityBlendTrees(ghoul).get('locomotion')!.id).toBe('shamble');

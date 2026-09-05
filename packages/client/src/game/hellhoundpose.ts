@@ -228,19 +228,19 @@ export function runPose(theta: number, amp: number, time = 0, out: SparsePose = 
 	 * working back — an animal that bobs its head at every step is lame — and
 	 * at the standstill it comes up and casts about instead.
 	 */
-	const cast = Math.sin(time * 0.6) * still;
+	const cast = Math.sin(time * 0.85) * still;
 	setSparse(out, 'neck', [-0.12 * amp - 0.1 * still, 0.06 * cast, 0]);
 	setSparse(out, 'head', [
 		-0.06 * amp + 0.03 * amp * Math.sin(2 * theta) - 0.05 * still,
 		0.18 * cast,
-		0.02 * still * Math.sin(time * 0.5),
+		0.02 * still * Math.sin(time * 0.85 - 1.1),
 	]);
 	setSparse(out, 'jaw', [0.05 * amp + still * (0.02 + 0.02 * breath), 0, 0]);
 
 	// Ears pin back at speed and twitch at the stand; the tail trails and
 	// whips a little, one segment lagging the other.
-	setSparse(out, 'earL', [-0.15 * amp, 0, 0.1 + 0.03 * still * Math.sin(time * 2.3)]);
-	setSparse(out, 'earR', [-0.15 * amp, 0, -0.1 - 0.03 * still * Math.sin(time * 2.1)]);
+	setSparse(out, 'earL', [-0.15 * amp, 0, 0.1 + 0.03 * still * Math.sin(time * 2.55)]);
+	setSparse(out, 'earR', [-0.15 * amp, 0, -0.1 - 0.03 * still * Math.sin(time * 3.4 + 0.7)]);
 	setSparse(out, 'tailA', [
 		0.15 + 0.1 * amp,
 		0.12 * amp * Math.sin(theta - 0.4) + 0.06 * cast,
@@ -248,7 +248,7 @@ export function runPose(theta: number, amp: number, time = 0, out: SparsePose = 
 	]);
 	setSparse(out, 'tailB', [
 		0.1 + 0.08 * amp,
-		0.18 * amp * Math.sin(theta - 1.1) + 0.09 * Math.sin(time * 0.8 - 0.6) * still,
+		0.18 * amp * Math.sin(theta - 1.1) + 0.09 * Math.sin(time * 0.85 - 0.6) * still,
 		0,
 	]);
 
@@ -445,7 +445,7 @@ export function restPose(time: number, out: SparsePose = {}): SparsePose {
 	setSparse(out, 'spineMid', [-0.05, 0, 0]);
 	setSparse(out, 'chest', [0.03 + 0.015 * breath, 0, 0]);
 	setSparse(out, 'neck', [-0.2, 0, 0]);
-	setSparse(out, 'head', [-0.1 + 0.03 * Math.sin(time * 0.5), 0, 0]);
+	setSparse(out, 'head', [-0.1 + 0.03 * Math.sin(time * 0.7), 0, 0]);
 	setSparse(out, 'jaw', [0.05, 0, 0]);
 	setSparse(out, 'earL', [0.05, 0, 0.12]);
 	setSparse(out, 'earR', [0.05, 0, -0.12]);
@@ -476,7 +476,7 @@ export function restPose(time: number, out: SparsePose = {}): SparsePose {
 
 	// The tail lies still, just settling once rather than looping — a wag
 	// belongs to a dog that likes what it sees.
-	setSparse(out, 'tailA', [0.3, 0.04 * Math.sin(time * 0.5), 0]);
-	setSparse(out, 'tailB', [0.25, 0.05 * Math.sin(time * 0.5 - 0.4), 0]);
+	setSparse(out, 'tailA', [0.3, 0.04 * Math.sin(time * 0.7), 0]);
+	setSparse(out, 'tailB', [0.25, 0.05 * Math.sin(time * 0.7 - 0.4), 0]);
 	return out;
 }
