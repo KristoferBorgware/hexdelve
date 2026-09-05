@@ -172,7 +172,7 @@ and the **ignore** menus (quality ignoring, *Chapter 14* 14.10).
 ### Birth options (`birth_*`)
 
 Chosen at character creation and fixed thereafter — listed with their
-defaults in *Chapter 19* 19.8.
+defaults and their effect in code in *Character Creation* 3.10.
 
 ### Cheat options
 
