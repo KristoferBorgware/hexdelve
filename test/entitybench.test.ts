@@ -181,6 +181,36 @@ describe('the entity bench', () => {
 		expect(await page.getByRole('treeitem').count(), 'the branch shut').toBe(1);
 	});
 
+	/*
+	 * F-022. The entity bench compiled scripts on its own, the yard's hot
+	 * reload compiled them again, and nothing said whether the two agreed —
+	 * two calls to esbuild a moment apart, from the same directory, that could
+	 * disagree with each other. Names matching is not the proof: two
+	 * independent compiles usually agree, right up until the moment they do
+	 * not. The proof is that the SECOND one never happens.
+	 *
+	 * The entity bench has already compiled once, in `beforeAll`. Switching to
+	 * the yard mounts a fresh `Viewport`, which asks the shared cache the same
+	 * question. Watched over the network rather than asserted on a value:
+	 * `scriptStore.list()` is the one request every compile starts with, so a
+	 * second compile means a second request, and sharing means none.
+	 */
+	it('shares its compile with the yard rather than starting a second one', async () => {
+		if (!page) return;
+
+		let listRequests = 0;
+		const onRequest = (request: { url(): string }) => {
+			if (/\/scripts\/\?t=/.test(request.url())) listRequests++;
+		};
+		page.on('request', onRequest);
+
+		await page.getByRole('button', { name: 'Yard', exact: true }).click();
+		await page.waitForTimeout(1500);
+
+		page.off('request', onRequest);
+		expect(listRequests, 'the yard reused the entity bench\'s compile').toBe(0);
+	});
+
 	it('came up without an error on the console', async () => {
 		if (!page) return;
 		// Collected from the moment the page loaded, so this covers the boot as

@@ -327,35 +327,6 @@ return a rigless subject that draws a mesh and nothing else. The second is
 smaller and covers the case; the first stops there being two answers to what
 putting a thing on a stand means.
 
-### F-022 — The editor compiles the same scripts three times over
-
-**Kind:** cleanup
-**Milestone:** unscheduled
-**Priority:** low
-**Effort:** medium
-**Found:** 2026-09-05, reading a script's parameters for the entity bench
-**Where:** `useScriptClasses` in `packages/editor/src/scripts/classes.ts`,
-`watchScripts` in `packages/editor/src/scripts/reload.ts`,
-`packages/editor/src/components/Scripts.tsx`
-
-**What happens.** Three places bundle `packages/client/scripts` through
-esbuild-wasm from the same sources: the yard's hot reload, the scripts view, and
-now the entity bench, which needs the compiled classes to ask what each one
-declares. Each holds its own provider and none knows the others exist.
-
-**Why it matters.** It is a second or two per view rather than anything anyone
-would call slow, and it is paid again on every remount. What will bite is not
-the time but the disagreement: two providers compiled a moment apart from a
-directory somebody is editing hold different classes, so the parameter list the
-bench draws controls from can be a compile behind the script the yard is
-running, with nothing on screen saying so.
-
-**What would fix it.** One compiled provider for the editor, the way there is
-one asset library and one script store — compiled on demand, invalidated when
-the store is written to, and handed to whoever asks. The views then share a
-result rather than a source directory. The work is mostly in deciding what
-invalidates it, which is why this is not small.
-
 ## Closed
 
 ### F-007 — A script with a syntax error stops the editor from booting
@@ -925,3 +896,39 @@ pattern panel now, so the question is whether one is wanted — if it is, this i
 most of it already written; if it is not, the file should go. It was left in
 place rather than deleted during the reorganisation because deciding that is not
 a filing decision.
+
+### F-022 — The editor compiles the same scripts three times over
+
+**Kind:** cleanup
+**Milestone:** unscheduled
+**Priority:** low
+**Effort:** medium
+**Found:** 2026-09-05, reading a script's parameters for the entity bench
+**Where:** `useScriptClasses` in `packages/editor/src/scripts/classes.ts`,
+`watchScripts` in `packages/editor/src/scripts/reload.ts`,
+`packages/editor/src/components/Scripts.tsx`
+**Closed:** 2026-09-05, fixed — `packages/editor/src/scripts/compiled.ts` is
+now the one compile: lazy on first ask, and recompiled only on a write, a
+delete, or a file changed elsewhere, via the same Vite dev-server hook the
+yard's watcher used to run itself. The yard's `watchScripts` and the entity
+bench's hook both read it rather than compiling their own copy; the scripts
+view still compiles its own unsaved buffers, which is a different question
+this module was never meant to answer.
+
+**What happens.** Three places bundle `packages/client/scripts` through
+esbuild-wasm from the same sources: the yard's hot reload, the scripts view, and
+now the entity bench, which needs the compiled classes to ask what each one
+declares. Each holds its own provider and none knows the others exist.
+
+**Why it matters.** It is a second or two per view rather than anything anyone
+would call slow, and it is paid again on every remount. What will bite is not
+the time but the disagreement: two providers compiled a moment apart from a
+directory somebody is editing hold different classes, so the parameter list the
+bench draws controls from can be a compile behind the script the yard is
+running, with nothing on screen saying so.
+
+**What would fix it.** One compiled provider for the editor, the way there is
+one asset library and one script store — compiled on demand, invalidated when
+the store is written to, and handed to whoever asks. The views then share a
+result rather than a source directory. The work is mostly in deciding what
+invalidates it, which is why this is not small.

@@ -61,7 +61,7 @@ import { benchRigs } from '../../bench/rigs.js';
 import { BenchViewport } from '../../components/BenchViewport.js';
 import { EntityInspector } from './EntityInspector.js';
 import { EntityTree } from './EntityTree.js';
-import { useScriptClasses } from '../../scripts/classes.js';
+import { useCompiledScripts } from '../../scripts/compiled.js';
 import { saveEntityPrefab } from './saveEntity.js';
 
 export interface EntityBenchViewProps {
@@ -78,7 +78,7 @@ export function EntityBenchView({ backend, running }: EntityBenchViewProps) {
 	const [saving, setSaving] = useState(false);
 	const [note, setNote] = useState<{ kind: 'ok' | 'bad'; text: string } | null>(null);
 
-	const scripts = useScriptClasses();
+	const scripts = useCompiledScripts();
 
 	/** Only characters have a rig to stand on the bench. */
 	const rigs = useMemo(() => benchRigs(assets.entities), [assets.entities]);

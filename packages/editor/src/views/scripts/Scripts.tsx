@@ -68,6 +68,7 @@ import type { BackendPreference } from '@hexdelve/engine';
 import type { ScriptProvider } from '@hexdelve/engine';
 
 import { compileScripts, type ScriptDiagnostic } from '../../scripts/compiler.js';
+import { removeScript, writeScript } from '../../scripts/compiled.js';
 import { scriptNameProblem, scriptStem, scriptStore } from '../../scripts/store.js';
 import { loadScriptTypes, type ScriptTypesState } from '../../monaco/types.js';
 import { SCRIPT_ROOT } from '../../monaco/uris.js';
@@ -277,8 +278,10 @@ export function Scripts({ backend, running }: ScriptsProps) {
 		if (selected === null || !writable) return;
 		const content = buffers.get(selected) ?? '';
 		setBusy(true);
-		scriptStore
-			.write(selected, content)
+		// Through `writeScript` rather than `scriptStore.write` directly: this
+		// is a write to disk, and the shared compile everyone else reads has
+		// to hear about it too.
+		writeScript(selected, content)
 			.then(async () => {
 				setSaved((previous) => new Map(previous).set(selected, content));
 				setMessage({ kind: 'success', text: `Saved ${selected}` });
@@ -299,8 +302,7 @@ export function Scripts({ backend, running }: ScriptsProps) {
 	const create = useCallback((name: string) => {
 		const content = template(name);
 		setBusy(true);
-		scriptStore
-			.write(name, content)
+		writeScript(name, content)
 			.then(() => {
 				setSaved((previous) => new Map(previous).set(name, content));
 				setBuffers((previous) => new Map(previous).set(name, content));
@@ -316,8 +318,7 @@ export function Scripts({ backend, running }: ScriptsProps) {
 		if (selected === null || !writable) return;
 		const name = selected;
 		setBusy(true);
-		scriptStore
-			.remove(name)
+		removeScript(name)
 			.then(() => {
 				const left = new Map(buffers);
 				left.delete(name);
