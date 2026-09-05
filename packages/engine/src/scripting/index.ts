@@ -30,10 +30,13 @@ export {
 } from './component.js';
 export { noScripts, staticScripts } from './providers.js';
 export {
+	scriptModuleGlobal,
 	scriptSdkShim,
 	scriptsFromBundle,
 	SCRIPT_SDK_GLOBAL,
 	SCRIPT_SDK_MODULE,
+	type ScriptModules,
+	type ScriptSdk,
 } from './bundle.js';
 export {
 	defineEvent,

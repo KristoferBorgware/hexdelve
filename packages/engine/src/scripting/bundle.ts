@@ -21,14 +21,20 @@
  * about what TypeScript a script may contain — esbuild compiles them in both
  * the tool and the editor, and this evaluates what it produced.
  *
- * ## The SDK global
+ * ## The SDK globals
  *
- * A bundle imports `@hexdelve/engine`, and that import is rewritten by
- * whoever compiled it to read from a global this module sets. Bundling the real
- * package into the scripts would give them their OWN copy of `Script`, and
- * `value.prototype instanceof Script` — the check below, and the only way the
- * host knows it has a script at all — would then be false for every class in
- * the bundle.
+ * A bundle imports the packages a script is allowed to see, and each of those
+ * imports is rewritten by whoever compiled it to read from a global this module
+ * sets. Bundling the real packages into the scripts would give them their OWN
+ * copy of `Script`, and `value.prototype instanceof Script` — the check below,
+ * and the only way the host knows it has a script at all — would then be false
+ * for every class in the bundle.
+ *
+ * There is more than one because a script is where the game's behaviour lives,
+ * and behaviour acts through the game's library: a hexagon, a tile, a turn
+ * order, a stride. None of that is the engine's — an engine that knew what an
+ * Angband energy table was would be the wrong shape — so the client is offered
+ * beside it rather than emptied into it.
  *
  * ## `new Function`, not `import()`
  *
@@ -41,33 +47,49 @@ import { Script } from '../scene/components/Script.js';
 import type { ComponentType } from '../scene/components/parameters.js';
 import type { ScriptProvider } from './ScriptHost.js';
 
-/** The specifier a script imports, and the global its import is rewritten to. */
+/** The specifier a script imports for the engine, and the global it becomes. */
 export const SCRIPT_SDK_MODULE = '@hexdelve/engine';
 export const SCRIPT_SDK_GLOBAL = '__HEXDELVE_ENGINE__';
 
 /**
- * What a compiled script may import: the engine, all of it.
+ * The globals a bundle's imports are rewritten to, by specifier.
+ *
+ * Derived rather than listed, so a fourth module is a name in one place. The
+ * engine keeps the global it has always had, because that string appears in
+ * compiled bundles and in a test that reads one.
+ */
+export function scriptModuleGlobal(specifier: string): string {
+	if (specifier === SCRIPT_SDK_MODULE) return SCRIPT_SDK_GLOBAL;
+	return `__HEXDELVE_${specifier.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}__`;
+}
+
+/**
+ * One module's runtime names, as a namespace object.
  *
  * There was a curated list here once — four names, on the argument that a
  * script should see a sanctioned surface and nothing else. That argument is
  * gone, and it is worth saying why rather than leaving the absence to be
- * puzzled over.
- *
- * A script IS an engine component. It reaches game objects, components and
- * events, and every one of those is the engine's. Handing it a keyhole view
- * bought nothing it did not already have and cost the one thing that matters
- * while this is young: a script author's autocomplete telling the truth. What
- * is offered here is exactly what the declarations say, so a name that
- * typechecks runs.
- *
- * The namespace is passed IN rather than imported. This module is part of the
- * engine, so importing the engine's own entry point from here would be a cycle
- * — and the caller has it to hand anyway.
+ * puzzled over. A script IS a component: it reaches game objects, components
+ * and events, and a keyhole view bought nothing it did not already have while
+ * costing the one thing that matters here — a script author's autocomplete
+ * telling the truth. What is offered is exactly what the declarations say, so
+ * a name that typechecks runs.
  */
 export type ScriptSdk = Readonly<Record<string, unknown>>;
 
 /**
- * The module text a compiler should serve in place of `@hexdelve/engine`.
+ * Every module a script may import, by the specifier it writes.
+ *
+ * The namespaces are passed IN rather than imported. This module is part of
+ * the engine, so importing the engine's own entry point from here would be a
+ * cycle, and it has never heard of the others at all — which is the point:
+ * what a script may reach is the caller's decision, made once where the
+ * compiler and the runtime are set up together.
+ */
+export type ScriptModules = Readonly<Record<string, ScriptSdk>>;
+
+/**
+ * The module text a compiler should serve in place of one specifier.
  *
  * One `export const` per runtime name, read off the namespace rather than
  * written down, so a name added to the engine is a name scripts can use
@@ -75,11 +97,22 @@ export type ScriptSdk = Readonly<Record<string, unknown>>;
  * they do not exist at runtime — and that is correct: `verbatimModuleSyntax`
  * makes a script write `import type` for them, and the compiler erases those.
  */
-export function scriptSdkShim(sdk: ScriptSdk): string {
+export function scriptSdkShim(sdk: ScriptSdk, specifier: string = SCRIPT_SDK_MODULE): string {
 	const lines = Object.keys(sdk)
 		.filter((name) => /^[A-Za-z_$][\w$]*$/.test(name) && name !== 'default')
 		.map((name) => `export const ${name} = sdk[${JSON.stringify(name)}];`);
-	return `const sdk = globalThis[${JSON.stringify(SCRIPT_SDK_GLOBAL)}];\n${lines.join('\n')}\n`;
+	const global = JSON.stringify(scriptModuleGlobal(specifier));
+	/*
+	 * The refusal is worth the two lines. A bundle whose global was never set
+	 * fails on the first name it reads out of it — `undefined is not an object`
+	 * somewhere inside compiled code — which says nothing about the module that
+	 * was not offered. This says it.
+	 */
+	const refuse =
+		`if (!sdk) throw new Error(${JSON.stringify(
+			`a script imported '${specifier}', which this host did not offer it`,
+		)});`;
+	return `const sdk = globalThis[${global}];\n${refuse}\n${lines.join('\n')}\n`;
 }
 
 /**
@@ -89,8 +122,8 @@ export function scriptSdkShim(sdk: ScriptSdk): string {
  * should keep it — see the editor's compiler for why a failed compile must
  * leave the running game alone.
  */
-export function scriptsFromBundle(code: string, sdk: ScriptSdk): ScriptProvider {
-	const exported = evaluate(code, sdk);
+export function scriptsFromBundle(code: string, modules: ScriptSdk | ScriptModules): ScriptProvider {
+	const exported = evaluate(code, asModules(modules));
 
 	const table = new Map<string, ComponentType<Script>>();
 	for (const [name, value] of Object.entries(exported)) {
@@ -106,8 +139,24 @@ export function scriptsFromBundle(code: string, sdk: ScriptSdk): ScriptProvider 
 	};
 }
 
-function evaluate(code: string, sdk: ScriptSdk): Record<string, unknown> {
-	(globalThis as Record<string, unknown>)[SCRIPT_SDK_GLOBAL] = sdk;
+/**
+ * One namespace, read as the engine alone.
+ *
+ * A caller with only the engine to offer — this package's own tests, a tool
+ * that runs a bundle to read the parameters off its classes — passes that
+ * namespace directly, and a caller offering a script the whole game passes a
+ * map. The engine is in every map, so the key it is under is what tells the
+ * two apart: a namespace has runtime names in it and no module specifiers.
+ */
+function asModules(modules: ScriptSdk | ScriptModules): ScriptModules {
+	if (SCRIPT_SDK_MODULE in modules) return modules as ScriptModules;
+	return { [SCRIPT_SDK_MODULE]: modules as ScriptSdk };
+}
+
+function evaluate(code: string, modules: ScriptModules): Record<string, unknown> {
+	for (const [specifier, sdk] of Object.entries(modules)) {
+		(globalThis as Record<string, unknown>)[scriptModuleGlobal(specifier)] = sdk;
+	}
 	const module = { exports: {} as Record<string, unknown> };
 	const refuse = (name: string): never => {
 		throw new Error(`a script cannot require('${name}')`);

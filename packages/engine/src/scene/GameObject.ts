@@ -194,6 +194,23 @@ export class GameObject {
 		return null;
 	}
 
+	/**
+	 * The first component whose class carries this name.
+	 *
+	 * For the one case a constructor cannot answer: a SCRIPT. Scripts are
+	 * compiled apart from every application's module graph, so nothing in an
+	 * application can import one to look it up by class — the name is the only
+	 * handle there is, and it is the same name the prefab wrote. A caller that
+	 * knows what the script does casts the result to an interface it declares
+	 * itself; a caller that has the class uses `getComponent`, which is checked.
+	 */
+	getComponentNamed(name: string): Component | null {
+		for (const component of this.componentList) {
+			if (component.typeName === name) return component;
+		}
+		return null;
+	}
+
 	/** Every component of this type, in the order they were attached. */
 	getComponents<T extends Component>(ctor: abstract new (...args: never[]) => T): T[] {
 		return this.componentList.filter((one): one is T => one instanceof ctor);

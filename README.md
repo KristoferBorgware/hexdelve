@@ -165,8 +165,11 @@ engine's, and a boundary between them was a boundary protecting nobody.
 What must never follow it in: the compiler and the hot reload. Those are
 authoring tools, they live in the editor, and a runtime that shipped a
 multi-megabyte WebAssembly toolchain to everyone playing the game would have
-stopped being one. A script author imports `@hexdelve/engine` and gets what the
-declarations say — nothing curated, nothing hidden.
+stopped being one. A script author imports `@hexdelve/engine`, `@hexdelve/client`
+and `@hexdelve/shared`, and gets what the declarations say — nothing curated,
+nothing hidden. The client is in that list because behaviour acts through the
+game's library: what a click means is a script, and it needs a hexagon, a route
+and a turn order to mean anything.
 
 **`@hexdelve/client`** is the game, and the package this is all ultimately for.
 Hand it a canvas, get a running world. Its whole dependency list is the engine

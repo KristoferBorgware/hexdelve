@@ -111,6 +111,10 @@ const SCRIPT_TYPES = 'script-types.json';
 const TYPE_PACKAGES: readonly { name: string; dir: string }[] = [
 	{ name: '@hexdelve/shared', dir: resolve(root, 'packages', 'shared') },
 	{ name: '@hexdelve/engine', dir: resolve(root, 'packages', 'engine') },
+	// The three a script may import — see `scriptSdkShim`. The editor's language
+	// service offers exactly what the compiler will resolve, so a script that
+	// completes is a script that builds.
+	{ name: '@hexdelve/client', dir: resolve(root, 'packages', 'client') },
 	{ name: '@webgpu/types', dir: resolve(root, 'node_modules', '@webgpu', 'types') },
 ];
 

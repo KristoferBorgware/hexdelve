@@ -51,13 +51,7 @@ import {
 	type Skeleton,
 	type SparsePose,
 } from '@hexdelve/engine';
-import {
-	axialDistance,
-	axialNeighbours,
-	findPath,
-	HEX_SPACING,
-	type Axial,
-} from '@hexdelve/shared';
+import { HEX_SPACING, type Axial } from '@hexdelve/shared';
 
 import type { ScriptHost } from '@hexdelve/engine';
 
@@ -70,6 +64,7 @@ import {
 	type Opponent,
 } from './actor.js';
 import { Swing } from './events.js';
+import { playerOrders, type PlayerOrders } from './orders.js';
 
 import type { Item } from './items.js';
 import { actionSeconds, hexSpeed } from './pace.js';
@@ -237,14 +232,6 @@ export interface PlayerOptions {
 	swordTip: readonly [number, number, number];
 }
 
-/** An order standing until it is finished or replaced. */
-interface Order {
-	readonly goal: Axial;
-	/** True when the goal is the enemy and the point of going there is to hit it. */
-	readonly attack: boolean;
-}
-
-/** The action in flight, and everything needed to draw it. */
 interface InFlight {
 	readonly kind: PlayerActionKind;
 	readonly seconds: number;
@@ -268,13 +255,12 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	/** The hexagon he is on. Authoritative — x and z are drawn from it. */
 	cell: Axial;
 
-	/** Hexagons still to walk, nearest first. Never includes the one he is on. */
-	path: Axial[] = [];
-
-	private readonly ground: World;
+	/** The ground he stands on and paths across. Read by his orders. */
+	readonly ground: World;
 	/** Where his hips rest, which is how far there is to fall. */
 	private readonly hipHeight: number;
-	private readonly items: Item[];
+	/** The gear lying about, which he may stoop for and wear. Read by his orders. */
+	readonly items: Item[];
 	private readonly scripts: ScriptHost | null;
 	/**
 	 * The other creature, for what he may not walk through and what he aims at.
@@ -283,8 +269,6 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	 * built first. Null on a bench.
 	 */
 	opponent: Opponent | null = null;
-	private order: Order | null = null;
-	private holdOnce = false;
 	private flight: InFlight | null = null;
 
 	/**
@@ -410,192 +394,40 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	}
 
 	/**
-	 * Whether the clock should be turning.
+	 * What he has been asked to do.
 	 *
-	 * This one getter is what makes the world turn-based rather than merely
-	 * hex-based. Nothing anywhere gains energy while it is false, so the bat
-	 * mid-hunt is frozen with its wings out until he decides to do something —
-	 * and it is a *question about his orders*, not a pause flag, so there is no
-	 * state to get out of step with what he is actually doing.
+	 * A script on his own object — see `orders.ts` for why the interface is
+	 * declared here and the class is not. Looked up each time rather than kept:
+	 * a hot reload replaces the instance, and a reference taken once would name
+	 * the version it replaced.
 	 */
-	get hasOrders(): boolean {
-		return this.order !== null || this.holdOnce || this.itemUnderfoot() !== null;
-	}
-
-	/**
-	 * Where he is headed, for the readout and the route markers.
-	 *
-	 * A chase reports where the quarry *is*, not the hexagon it was on when you
-	 * clicked it — the marker is what he is going for, and by the time he gets
-	 * there the bat will have moved twice.
-	 */
-	get goal(): Axial | null {
-		if (!this.order) return null;
-		return this.order.attack ? (this.opponent?.cell ?? NOWHERE) : this.order.goal;
-	}
-
-	get targetingEnemy(): boolean {
-		return this.order?.attack ?? false;
-	}
-
-	/* -------------------------------------------------------------- the grid -- */
-
-	/** May he stand on `cell`, having come from `from`? */
-	private readonly walkable = (cell: Axial, from: Axial | null): boolean => {
-		const enemy = (this.opponent?.cell ?? NOWHERE);
-		if (cell.q === enemy.q && cell.r === enemy.r) return false;
-		return this.ground.passable(cell, from, MAX_CLIMB);
-	};
-
-	/** Whether a hexagon can be walked to at all, for the hover marker. */
-	reachable(cell: Axial): boolean {
-		if (this.walkable(cell, null)) return findPath(this.cell, cell, { passable: this.walkable }) !== null;
-		return this.approach(cell) !== null;
-	}
-
-	/**
-	 * The best hexagon to stand on to deal with something on `cell`.
-	 *
-	 * Used for the two cases where the click is not a place to walk: the anvil,
-	 * which is solid, and the bat, which is occupied. Both come out the same
-	 * way — the nearest neighbour he can stand on — which is lab 06's answer to
-	 * clicking the anvil, reused rather than re-derived.
-	 */
-	private approach(cell: Axial): Axial | null {
-		let best: Axial | null = null;
-		let bestScore = Infinity;
-		for (const n of axialNeighbours(cell)) {
-			if (!this.walkable(n, null)) continue;
-			const score = axialDistance(this.cell, n);
-			if (score < bestScore) {
-				bestScore = score;
-				best = n;
-			}
-		}
-		return best;
-	}
-
-	private itemUnderfoot(): Item | null {
-		for (const item of this.items) {
-			if (item.worn) continue;
-			if (item.cell.q === this.cell.q && item.cell.r === this.cell.r) return item;
-		}
-		return null;
-	}
-
-	/** Lay a route to a goal. False if there is no way to it at all. */
-	private plan(order: Order): boolean {
-		const stand = this.walkable(order.goal, null) && !order.attack
-			? order.goal
-			: this.approach(order.goal);
-		if (!stand) return false;
-		if (stand.q === this.cell.q && stand.r === this.cell.r) {
-			this.path = [];
-			return true;
-		}
-		const route = findPath(this.cell, stand, { passable: this.walkable });
-		if (!route) return false;
-		this.path = route.slice(1);
-		return true;
-	}
-
-	/* ------------------------------------------------------------- the orders -- */
-
-	/**
-	 * A click on a hexagon.
-	 *
-	 * One entry point for every meaning a click has, because on a grid they are
-	 * the same request with different endings: walk to that hexagon, walk to
-	 * the thing lying on it and stoop, walk up to the bat and cut it. What
-	 * decides which is what is standing there, not which mouse button.
-	 *
-	 * Returns false if there is no route, so the marker can say so rather than
-	 * having him set off and stop.
-	 */
-	orderTo(cell: Axial): boolean {
-		const enemy = (this.opponent?.cell ?? NOWHERE);
-		const attack = cell.q === enemy.q && cell.r === enemy.r;
-
-		// Clicking where he already stands is how you wait a turn with a mouse.
-		if (!attack && cell.q === this.cell.q && cell.r === this.cell.r) {
-			this.hold();
-			return true;
-		}
-
-		const order: Order = { goal: { q: cell.q, r: cell.r }, attack };
-		if (attack && axialDistance(this.cell, enemy) <= 1) {
-			this.order = order;
-			this.path = [];
-			this.holdOnce = false;
-			return true;
-		}
-		if (!this.plan(order)) return false;
-		this.order = order;
-		this.holdOnce = false;
-		return true;
-	}
-
-	/** Spend one turn doing nothing. */
-	hold(): void {
-		this.holdOnce = true;
-	}
-
-	/** Forget where he was going. */
-	cancel(): void {
-		this.order = null;
-		this.path = [];
-		this.holdOnce = false;
+	get orders(): PlayerOrders | null {
+		return playerOrders(this.object);
 	}
 
 	/* --------------------------------------------------------------- the turn -- */
 
 	/**
-	 * One turn: decide, start it, and say what it cost.
+	 * One turn: start what his orders decided on, and say what it cost.
 	 *
-	 * The order of the tests is the priority: a blow he is in position to
-	 * throw, then a thing under his feet, then the next hexagon of the route.
-	 * Nothing here animates and nothing here waits — by the time this returns,
-	 * the action is running and the schedule has been paid.
+	 * Nothing here decides anything. Which of the four this turn is belongs to
+	 * `PlayerInput`, which knows the grid, the route and what is lying about;
+	 * this knows how long each takes and what it looks like. Nothing here
+	 * animates and nothing here waits — by the time this returns, the action is
+	 * running and the schedule has been paid.
 	 */
 	beginTurn(): Action {
-		const enemy = (this.opponent?.cell ?? NOWHERE);
-
-		if (this.order?.attack && axialDistance(this.cell, enemy) <= 1) {
-			return this.startStrike(enemy);
+		const decision = this.orders?.decide() ?? { kind: 'wait' as const, message: 'waiting' };
+		switch (decision.kind) {
+			case 'strike':
+				return this.startStrike(decision.target);
+			case 'pickup':
+				return this.startPickup(decision.item);
+			case 'move':
+				return this.startStep(decision.to);
+			case 'wait':
+				return this.startWait(decision.message);
 		}
-
-		const item = this.itemUnderfoot();
-		if (item) return this.startPickup(item);
-
-		const order = this.order;
-		if (order) {
-			// The route is re-laid when it is chasing something that moves, and
-			// when the next hexagon has become someone else's since it was laid.
-			const next = this.path[0];
-			if (order.attack || !next || !this.walkable(next, this.cell)) {
-				if (!this.plan(order)) {
-					this.order = null;
-					return this.startWait('there is no way through');
-				}
-			}
-			const step = this.path[0];
-			if (step) {
-				this.path.shift();
-				if (this.path.length === 0 && !order.attack) this.order = null;
-				return this.startStep(step);
-			}
-			/*
-			 * Standing where he meant to stand with nothing left to do there.
-			 * For a walk that is arrival; for a chase it cannot happen, because
-			 * every hexagon `approach` offers is a neighbour of the quarry and
-			 * standing on one of those is caught by the strike test above.
-			 */
-			this.order = null;
-			return this.startWait('waiting');
-		}
-
-		this.holdOnce = false;
-		return this.startWait('waiting');
 	}
 
 	private begin(
@@ -611,7 +443,6 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		this.flight = { kind, seconds, clock: 0, from, to, cell, target, item, done: false };
 		this.control.state = kind;
 		this.control.message = message;
-		this.holdOnce = false;
 		return { kind, cost: ACTION_ENERGY, seconds };
 	}
 
@@ -645,7 +476,8 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		return { ...action, seconds: 0 };
 	}
 
-	private tile(): Tile {
+	/** The tile he is standing on. */
+	tile(): Tile {
 		return this.ground.tileAt(this.cell.q, this.cell.r)!;
 	}
 
@@ -953,7 +785,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 			carrying: this.items.filter((i) => i.worn).map((i) => i.name),
 			cell: this.cell,
 			terrace: tile?.level ?? null,
-			stepsLeft: this.path.length,
+			stepsLeft: this.orders?.path.length ?? 0,
 			energy: this.energy,
 			speedRating: this.speed,
 		};

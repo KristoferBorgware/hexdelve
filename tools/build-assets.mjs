@@ -126,8 +126,8 @@ async function main() {
 	 */
 	const engine = await import(pathToFileURL(engineDist).href);
 	const { scriptsFromBundle, parametersOf } = engine;
-	const { bundleScripts } = await import('./build-scripts.mjs');
-	const behaviour = scriptsFromBundle((await bundleScripts()).code, engine);
+	const { bundleScripts, sdkNamespaces } = await import('./build-scripts.mjs');
+	const behaviour = scriptsFromBundle((await bundleScripts()).code, await sdkNamespaces());
 	let uses = 0;
 	for (const { id, prefab } of [...entities, ...systems]) {
 		for (const use of prefabScripts(prefab)) {

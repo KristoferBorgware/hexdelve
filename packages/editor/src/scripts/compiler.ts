@@ -49,13 +49,28 @@
 import * as esbuild from 'esbuild-wasm';
 import wasmURL from 'esbuild-wasm/esbuild.wasm?url';
 import * as engine from '@hexdelve/engine';
+import * as client from '@hexdelve/client';
+import * as shared from '@hexdelve/shared';
 import {
 	noScripts,
-	SCRIPT_SDK_MODULE,
 	scriptSdkShim,
 	scriptsFromBundle,
+	type ScriptModules,
 	type ScriptProvider,
 } from '@hexdelve/engine';
+
+/**
+ * What a script may import here, and the same three the shipped bundle gets.
+ *
+ * The namespaces are the editor's OWN copies of the packages, which is what
+ * makes a compiled script's `instanceof` agree with the running game's: the
+ * editor and the game it is previewing are one page and one module graph.
+ */
+const SDK_MODULES: ScriptModules = {
+	'@hexdelve/engine': engine,
+	'@hexdelve/client': client,
+	'@hexdelve/shared': shared,
+};
 
 /** The one esbuild the page gets. Initialising twice is an error it throws. */
 let starting: Promise<void> | null = null;
@@ -125,7 +140,7 @@ export async function compileScripts(
 
 	let provider: ScriptProvider;
 	try {
-		provider = scriptsFromBundle(code, engine);
+		provider = scriptsFromBundle(code, SDK_MODULES);
 	} catch (error) {
 		// A bundle that compiled and would not evaluate. There is no position
 		// to report: the failure is in code esbuild wrote, not in a line
@@ -212,14 +227,17 @@ function virtualFiles(sources: ReadonlyMap<string, string>): esbuild.Plugin {
 				return { path, namespace: 'user' };
 			});
 
-			build.onResolve({ filter: new RegExp(`^${escape(SCRIPT_SDK_MODULE)}$`) }, () => ({
-				path: 'sdk',
-				namespace: 'sdk',
-			}));
-			build.onLoad({ filter: /.*/, namespace: 'sdk' }, () => ({
-				contents: scriptSdkShim(engine),
-				loader: 'js',
-			}));
+			for (const [specifier, namespace] of Object.entries(SDK_MODULES)) {
+				const bucket = `sdk:${specifier}`;
+				build.onResolve({ filter: new RegExp(`^${escape(specifier)}$`) }, () => ({
+					path: specifier,
+					namespace: bucket,
+				}));
+				build.onLoad({ filter: /.*/, namespace: bucket }, () => ({
+					contents: scriptSdkShim(namespace, specifier),
+					loader: 'js',
+				}));
+			}
 		},
 	};
 }
