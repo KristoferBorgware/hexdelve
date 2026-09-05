@@ -1,36 +1,15 @@
-# The spider.
-#
-# Its own rig, because eight legs radiating out of a body fit neither a stack
-# of limbs nor a bridge on four, and nothing downstream had to change for
-# that — which is the point the rig files make and this one inherits. Its
-# gait and its strike are pose functions, since every leg of it is solved
-# onto the ground rather than swung.
-
 id: spider
 name: Spider
-kind: character
 
-rig: ../rigs/spider.rig.yaml
-mesh: ../meshes/spider.mesh.yaml
-
-animations:
-  # The scuttle is one function at two settings: `amp` is the throttle
-  # between standing and a full run. Standing, it settles and lifts at
-  # 1.6 rad/s, and the duration is one of those.
-  idle: { procedural: spiderRun, label: Idle, args: { amp: 0 }, duration: tau / 1.6 }
-  run: { procedural: spiderRun, label: Run, args: { amp: 1 }, sync: true }
-  spit: { procedural: spiderSpit, label: Spit }
-
-blendTrees:
-  locomotion: ../trees/scuttle.tree.yaml
-
-# What it is when it is standing in the world: one object, with a body on it.
-# The body is the rig and the mesh above — an actor on a wanderer is the
-# wanderer's, by definition rather than by a path repeated inside its own file.
-# What it DOES is not here yet; that arrives as a script component.
 object:
   components:
-    - { type: actor }
-    # What it is in a fight. The numbers are the character's, not the rig's, so
-    # tuning a creature is editing this file rather than a script.
+    - { type: rig, rig: ../rigs/spider.rig.yaml }
+    - { type: mesh, mesh: ../meshes/spider.mesh.yaml }
+    - type: animator
+      animations:
+        idle: { procedural: spiderRun, label: Idle, args: { amp: 0 }, duration: tau / 1.6 }
+        run: { procedural: spiderRun, label: Run, args: { amp: 1 }, sync: true }
+        spit: { procedural: spiderSpit, label: Spit }
+      blendTrees:
+        locomotion: ../trees/scuttle.tree.yaml
     - { type: script, script: Character, hp: 14, faction: foe, power: 4, lift: 0.4 }

@@ -49,92 +49,94 @@ root instead, for a tree deep enough that the alternative is all dots.
 
 ## The entity file is the root
 
-An entity file is the only file in the set that names paths. Everything under
-it either describes one thing or, in a tree's case, is an arrangement over
-names the entity defines.
+An entity file is the only file in the set that names paths, and it names them
+from inside its components. Everything under it either describes one thing or,
+in a tree's case, is an arrangement over names the entity defines.
+
+An entity is not a shape the format knows in advance. It is an object, what is
+attached to it, and what hangs underneath it — and what the thing IS falls out
+of which components it carries.
 
 ```yaml
 id: wanderer
-kind: character
-rig: ../rigs/humanoid.rig.yaml
-mesh: ../meshes/wanderer.mesh.yaml
-animations:
-  walk: { procedural: stride, args: { amp: 1, gait: 0 }, sync: true }
-  guard: ../clips/guard.clip.yaml
-blendTrees:
-  locomotion: ../trees/locomotion.tree.yaml
+name: Wanderer
+object:
+  components:
+    - { type: rig, rig: ../rigs/humanoid.rig.yaml }
+    - { type: mesh, mesh: ../meshes/wanderer.mesh.yaml }
+    - type: animator
+      animations:
+        walk: { procedural: stride, args: { amp: 1, gait: 0 }, sync: true }
+        guard: ../clips/guard.clip.yaml
+      blendTrees:
+        locomotion: ../trees/locomotion.tree.yaml
+    - { type: script, script: Character, hp: 20, faction: player, power: 5 }
 ```
 
-**Blend trees link animations, and the entity says what an animation is.** A
-tree refers to `walk`; it does not carry a path. That way exactly one file
+**Blend trees link animations, and the animator says what an animation is.** A
+tree refers to `walk`; it does not carry a path. That way exactly one record
 names files, and a tree is a pure arrangement over named leaves — so
-`locomotion.tree.yaml` reads on any entity that names its leaves, without
-being duplicated or parameterised. A tree carrying its own clip paths would mean two
+`locomotion.tree.yaml` reads on any entity that names its leaves, without being
+duplicated or parameterised. A tree carrying its own clip paths would mean two
 files both naming files and both able to disagree about which walk was meant.
 
-### A prop is an entity with less in it
+**One rig per object, inherited downwards.** A `rig` component puts a rig in
+scope for the object it sits on and for everything under it: a mesh checks its
+bone names against that rig, an `attach` looks its bone up in it, an `animator`
+poses it. Naming it once per object is what stops a body from being able to
+hang a bat's mesh on a man's bones.
 
-A helmet is a thing in the world with a mesh, so it is an entity. It has no
-rig, no animations and no blend trees, because the whole of wearing one is
-which transform its parts are drawn through — its own, or a bone's.
+### A prop is the same file with different parts in it
+
+A helmet is a thing in the world with a mesh, so it is an entity. Where the
+wanderer has an animator it has an `attach`, because the whole of wearing one
+is which transform its parts are drawn through — its own, or a bone's.
 
 ```yaml
 id: helmet
-kind: prop
-mesh: ../meshes/helmet.mesh.yaml
-attach: { rig: ../rigs/humanoid.rig.yaml, bone: head }
-ground: { lift: 0.2, tilt: 0 }
-```
-
-`attach` names the rig it was modelled against and the bone it hangs from;
-`ground` is how it lies when put down. The loader **refuses** `rig`,
-`animations` or `blendTrees` on a prop, and `attach` or `ground` on a
-character. "Props have no rig" stops being a convention somebody remembers and
-becomes a thing the loader says.
-
-## The object half: prefabs
-
-An entity file says what a thing is made of. Its `object:` section says what it
-is when it is standing in the world — a game object, what is attached to it,
-and what hangs underneath it.
-
-```yaml
+name: Helmet
+tags: [armour]
 object:
-  name: wanderer
   components:
-    - { type: actor }
-  children:
-    - name: grip
-      at: [0, 0, 0]
+    - { type: rig, rig: ../rigs/humanoid.rig.yaml }
+    - { type: mesh, mesh: ../meshes/helmet.mesh.yaml }
+    - { type: attach, bone: head, lift: 0.2, tilt: 0 }
+    - { type: item }
 ```
 
-Two files would be worse than one. An entity and its prefab can only ever
-disagree, and there is no such thing as a wanderer's mesh that belongs to a
-different wanderer — so the object tree lives in the file that already names
-the rig and the mesh it is made of. A file with no `object:` still spawns: it
-gets one object named after the entity with nothing on it, because "a thing
-with no components" is a real answer where an absent prefab is not.
+Its `rig` is the one it borrows bone names from; `attach` says which bone it
+hangs from and how it lies when it is put down. Nothing in the file says which
+of the two shapes it is, because nothing has to: a thing that can be posed has
+an animator and a thing that can be worn has an attach, and both statements are
+already in the components. There is no `kind`, and there is nothing for one to
+say that the parts do not.
+
+## Components
+
+A file with no `object:` still spawns: it gets one object named after the
+entity with nothing on it, because "a thing with no components" is a real
+answer where an absent object is not.
 
 **A component record is a `type` and a bag of fields.** The reader does not
-know what an `item` is and must not — `@hexdelve/engine` has never heard of a
-bat, and a format that had to be taught each component would be a format the
-client could not add to. A `ComponentRegistry` maps the type to whoever claimed
-it. `script` is claimed by the engine itself — `Script` and `ScriptHost` live
-there, so there is nothing for a game to decide about what building one means —
-and `packages/client/src/game/components.ts` is where the game adds its own,
-`actor` and `item`, on top of that. An unknown type fails by name and lists
-what there was.
+know what an `item` is and must not — a game adds components `@hexdelve/engine`
+has never heard of, and a format that had to be taught each one would be a
+format the client could not add to. A `ComponentRegistry` maps the type to
+whoever claimed it, and an unknown type fails by name and lists what there was.
 
-What a factory cannot read from the record it takes off the entity being
-spawned. `{ type: actor }` is bare because an actor on a wanderer is the
-wanderer's rig and the wanderer's mesh by definition — a file that let those be
-given separately could put a bat's body on a man's bones.
+Five are the engine's own. `rig`, `mesh`, `animator` and `attach` are facts
+about drawing and posing, which is what an engine is for, and they are also the
+only records that name files — so the library resolves and fetches those paths
+while it reads the entity, and hands each factory what its own record loaded
+to. `script` is the engine's too: `Script` and `ScriptHost` live there, so
+there is nothing for a game to decide about what building one means.
+`packages/client/src/game/components.ts` is where the game adds its own, `item`,
+on top of those.
 
 ### Order is what the file order means
 
 Objects, then their components, then their children — which is the order
 `GameObject.destroy` runs backwards. A factory can reach anything above it and
-nothing below it, so a child's component can find its parent's actor and a
+nothing below it, so a child's component can find the rig on its parent and a
 parent's cannot find its children's.
 
 ### Systems are prefabs there is one of
@@ -296,14 +298,21 @@ listing what *was*.
 
 ```ts
 import { openAssets } from '@hexdelve/client';
+import { entityBlendTrees, entityMesh } from '@hexdelve/engine';
 
 const library = openAssets();                  // assets/, relative to the page
 const wanderer = await library.entity('entities/wanderer.entity.yaml');
 
-wanderer.mesh.model();                         // the prisms
-wanderer.blendTrees.get('locomotion')!.tree(); // a tree of its own
+entityMesh(wanderer)!.model();                 // the prisms
+entityBlendTrees(wanderer).get('locomotion')!.tree();  // a tree of its own
 await library.index();                         // every entity, in order
 ```
+
+An entity is a tree of objects, so `entityRig`, `entityMesh`,
+`entityAnimations`, `entityBlendTrees` and `entityAttachment` answer for the
+first component of that kind in it — which is the whole answer for a file with
+one object in it, and every file here has one. Anything meaning a particular
+object walks the tree with `findComponent` instead.
 
 `HexdelveClient` opens one for you as `client.assets`, so an embedder that
 wants an entity need not construct a second library and get the pose functions

@@ -1,123 +1,137 @@
 /*
- * The entity file: the root that ties one asset together.
+ * The entity file: one thing, as a tree of objects with components on them.
  *
- * Everything else in this directory reads one kind of thing. This reads the
- * file that says which of them belong to each other — a rig, a body hung on
- * it, the animations that pose it, the trees that drive them — because that
- * grouping was itself scattered across code: a rig module, a model module, a
- * clip module, and an entry in the editor's bench listing all four. Adding the
- * hellhound touched five files and none of them was about a hellhound.
+ * An entity is not a shape the format knows in advance. It is an object, what
+ * is attached to it, and what hangs underneath it — and what the thing IS falls
+ * out of which components it carries:
  *
  *   id: wanderer
- *   kind: character
- *   rig: ../rigs/humanoid.rig.yaml
- *   mesh: ../meshes/wanderer.mesh.yaml
- *   animations: { walk: {...}, guard: ../clips/guard.clip.yaml }
- *   blendTrees: { locomotion: ../trees/locomotion.tree.yaml }
+ *   name: Wanderer
+ *   object:
+ *     components:
+ *       - { type: rig, rig: ../rigs/humanoid.rig.yaml }
+ *       - { type: mesh, mesh: ../meshes/wanderer.mesh.yaml }
+ *       - { type: animator, animations: {...}, blendTrees: {...} }
+ *       - { type: script, script: Character, hp: 20 }
  *
- * A PROP is the same file with less in it. A helmet is an entity — it is a
- * thing in the world with a mesh — but it has no rig, no animations and no
- * blend trees, because the whole of wearing one is which transform its parts
- * are drawn through: its own, or a bone's. What it has instead is `attach`,
- * naming the rig it was modelled against and the bone it hangs from, and
- * `ground`, the two numbers that put it down in the grass. Those are refused
- * on a character and the character's four are refused on a prop, which is the
- * schema earning its keep: "props have no rig" stops being a convention
- * somebody remembers and becomes a thing the loader says.
+ * A sword is the same file with `attach` where the animator was: a rig it
+ * borrows bone names from, a mesh, and the bone it hangs off when somebody is
+ * carrying it. Nothing says which of the two a file describes, because nothing
+ * has to — a thing that can be posed has an animator and a thing that can be
+ * worn has an attach, and both statements are already in the components.
  *
- * WHY THE BLEND TREES LINK ANIMATIONS AND NOT THE OTHER WAY ROUND. A tree
- * refers to `walk`, and the entity is what says what `walk` is. That way the
- * files that list paths are exactly one — this one — and a tree is a pure
- * arrangement over named leaves, so one locomotion tree reads on every entity
- * that names its leaves. The alternative, a tree that carries its own
- * clip paths, would have the entity and the tree both naming files and both
- * able to disagree about which walk was meant.
+ * ## The four this file reads
+ *
+ * `rig`, `mesh`, `animator` and `attach`, beside `script` in `scripting/`. A
+ * game adds its own and the engine never learns them; these are the engine's
+ * because each is a fact about drawing or posing, which is what an engine is
+ * for. Their records are also the only ones that name FILES, which is why they
+ * are read here rather than left to a factory: a path has to be resolved and
+ * fetched before anything can be spawned, and only the library can do that.
+ *
+ * ## One rig per object, inherited downwards
+ *
+ * A `rig` component puts a rig in scope for the object it sits on and for
+ * everything under it. A mesh checks its bone names against that rig, an attach
+ * looks its bone up in it, an animator poses it. Naming it once per object is
+ * what stops a body from being able to hang a bat's mesh on a man's bones.
+ *
+ * ## Why the blend trees link animations and not the other way round
+ *
+ * A tree refers to `walk`, and the animator is what says what `walk` is. That
+ * way the records that list paths are exactly the ones above, and a tree is a
+ * pure arrangement over named leaves — so one locomotion tree reads on every
+ * entity that names its leaves. The alternative, a tree carrying its own clip
+ * paths, would have the animator and the tree both naming files and both able
+ * to disagree about which walk was meant.
  */
 
-import { Node } from './document.js';
 import type { AnimationAsset } from './animation.js';
+import type { ComponentAssets } from './binding.js';
 import type { BlendTreeAsset } from './blendtree.js';
+import { Node } from './document.js';
 import type { MeshAsset } from './mesh.js';
-import { emptyPrefab, readPrefabNode, type PrefabNode } from './prefab.js';
+import { emptyPrefab, readPrefabNode, type ComponentSpec, type PrefabNode } from './prefab.js';
 import type { RigAsset, RigView } from './rig.js';
-
-export type EntityKind = 'character' | 'prop';
-
-/** Where a prop hangs when it is worn. */
-export interface Attachment {
-	/** The rig it was modelled against — the one it borrows bone names from. */
-	readonly rig: RigAsset;
-	readonly bone: string;
-}
-
-/** How a prop lies when it is put down. */
-export interface Grounding {
-	/** How far to raise it so it rests on the grass rather than in it. */
-	readonly lift: number;
-	/** Rotation about X: 0 stands it up, pi/2 lays it flat. */
-	readonly tilt: number;
-}
 
 export interface EntityAsset {
 	readonly id: string;
 	readonly name: string;
-	readonly kind: EntityKind;
-	/** A character's own rig. Null on a prop, which has none. */
-	readonly rig: RigAsset | null;
-	readonly mesh: MeshAsset;
-	readonly animations: ReadonlyMap<string, AnimationAsset>;
-	readonly blendTrees: ReadonlyMap<string, BlendTreeAsset>;
-	readonly attach: Attachment | null;
-	readonly ground: Grounding | null;
 	/** Where to look and how far back to stand, for a bench or a preview. */
 	readonly view: RigView;
 	/** Free-form labels: `armour`, `weapon`, whatever the game turns out to want. */
 	readonly tags: readonly string[];
 	/**
-	 * What this is when it is standing in the world: an object, what is
-	 * attached to it, and what hangs under it.
+	 * What this is when it is standing in the world, with every component's
+	 * files loaded — see binding.ts.
 	 *
 	 * Never null. A file that says nothing gets one object named after the
-	 * entity with nothing on it, because "a thing with no components" is a
-	 * real answer and an absent prefab is not — every entity can be spawned.
+	 * entity with nothing on it, because "a thing with no components" is a real
+	 * answer and an absent object is not: every entity can be spawned.
 	 */
 	readonly prefab: PrefabNode;
 }
 
-export const ENTITY_KEYS = [
-	'id',
-	'name',
-	'kind',
-	'notes',
-	'tags',
-	'rig',
-	'mesh',
-	'animations',
-	'blendTrees',
-	'attach',
-	'ground',
-	'view',
-	'object',
-] as const;
+export const ENTITY_KEYS = ['id', 'name', 'notes', 'tags', 'view', 'object'] as const;
 
 /** What the entity file says, before any of it has been fetched. */
 export interface EntityDocument {
 	readonly id: string;
 	readonly name: string;
-	readonly kind: EntityKind;
 	readonly tags: readonly string[];
-	/** Paths, relative to the entity file. */
-	readonly rig: string | null;
-	readonly mesh: string;
-	readonly animations: readonly AnimationRequest[];
-	readonly blendTrees: readonly { readonly name: string; readonly path: string }[];
-	readonly attach: { readonly rig: string; readonly bone: string } | null;
-	readonly ground: Grounding | null;
 	readonly view: Partial<RigView>;
 	readonly prefab: PrefabNode;
 }
 
-/** One entry of the `animations` mapping, as read. */
+export function readEntity(source: string, file: string): EntityDocument {
+	const root = Node.parse(source, file).only(...ENTITY_KEYS);
+	const id = root.need('id').text();
+	const view = root.get('view').only('focusY', 'frameDistance');
+
+	return {
+		id,
+		name: root.get('name').textOr(id),
+		tags: root
+			.get('tags')
+			.listOrEmpty()
+			.map((tag) => tag.text()),
+		view: {
+			...(view.get('focusY').present ? { focusY: view.need('focusY').number() } : {}),
+			...(view.get('frameDistance').present
+				? { frameDistance: view.need('frameDistance').number() }
+				: {}),
+		},
+		prefab: root.get('object').present ? readPrefabNode(root.need('object'), id) : emptyPrefab(id),
+	};
+}
+
+/* --------------------------------------------- the records that name files -- */
+
+export const RIG_COMPONENT_KEYS = ['type', 'rig'] as const;
+export const MESH_COMPONENT_KEYS = ['type', 'mesh'] as const;
+export const ANIMATOR_KEYS = ['type', 'animations', 'blendTrees'] as const;
+export const ATTACH_KEYS = ['type', 'bone', 'lift', 'tilt'] as const;
+
+/** Where a thing hangs when it is worn, and how it lies when it is put down. */
+export interface Attachment {
+	/** The bone it hangs from, in the rig in scope where it was declared. */
+	readonly bone: string;
+	/** How far to raise it so it rests on the grass rather than in it. */
+	readonly lift: number;
+	/** Rotation about X on the ground: 0 stands it up, pi/2 lays it flat. */
+	readonly tilt: number;
+}
+
+export function readAttachment(fields: Node): Attachment {
+	fields.only(...ATTACH_KEYS);
+	return {
+		bone: fields.need('bone').text(),
+		lift: fields.get('lift').numberOr(0),
+		tilt: fields.get('tilt').numberOr(0),
+	};
+}
+
+/** One entry of an animator's `animations` mapping, as read. */
 export type AnimationRequest = ClipRequest | ProceduralRequest;
 
 interface RequestBase {
@@ -140,78 +154,8 @@ export interface ProceduralRequest extends RequestBase {
 	readonly contacts: readonly number[] | null;
 }
 
-const ATTACH_KEYS = ['rig', 'bone'] as const;
-const GROUND_KEYS = ['lift', 'tilt'] as const;
 const CLIP_ENTRY_KEYS = ['clip', 'label', 'sync', 'contacts'] as const;
 const PROCEDURAL_ENTRY_KEYS = ['procedural', 'args', 'duration', 'contacts', 'label', 'sync'] as const;
-
-export function readEntity(source: string, file: string): EntityDocument {
-	const root = Node.parse(source, file).only(...ENTITY_KEYS);
-	const id = root.need('id').text();
-	const kind = root.get('kind').present
-		? root.need('kind').choice(['character', 'prop'] as const)
-		: 'character';
-
-	/*
-	 * The two shapes are enforced rather than merely documented. A prop with a
-	 * blend tree is not a prop, and the useful moment to say so is now, not
-	 * when something tries to pose a helmet.
-	 */
-	const prop = kind === 'prop';
-	for (const key of prop ? (['rig', 'animations', 'blendTrees'] as const) : (['attach', 'ground'] as const)) {
-		const node = root.get(key);
-		if (node.present) {
-			node.fail(
-				prop
-					? `a prop has no ${key}: wearing one is which transform its parts are drawn ` +
-							'through, so it needs `attach` and `ground` instead'
-					: `'${key}' belongs to a prop; a character wears things rather than being worn`,
-			);
-		}
-	}
-
-	const attachNode = root.get('attach');
-	if (prop && !attachNode.present) root.need('attach');
-	if (!prop && !root.get('rig').present) root.need('rig');
-
-	const groundNode = root.get('ground').only(...GROUND_KEYS);
-	const view = root.get('view').only('focusY', 'frameDistance');
-
-	return {
-		id,
-		name: root.get('name').textOr(id),
-		kind,
-		tags: root
-			.get('tags')
-			.listOrEmpty()
-			.map((tag) => tag.text()),
-		rig: prop ? null : root.need('rig').text(),
-		mesh: root.need('mesh').text(),
-		animations: readAnimations(root.get('animations')),
-		blendTrees: root
-			.get('blendTrees')
-			.entriesOrEmpty()
-			.map(([name, child]) => ({ name, path: child.text() })),
-		attach: attachNode.present
-			? {
-					rig: attachNode.only(...ATTACH_KEYS).need('rig').text(),
-					bone: attachNode.need('bone').text(),
-				}
-			: null,
-		ground: groundNode.present
-			? { lift: groundNode.get('lift').numberOr(0), tilt: groundNode.get('tilt').numberOr(0) }
-			: null,
-		view: {
-			...(view.get('focusY').present ? { focusY: view.need('focusY').number() } : {}),
-			...(view.get('frameDistance').present
-				? { frameDistance: view.need('frameDistance').number() }
-				: {}),
-		},
-		prefab: root.get('object').present
-			? readPrefabNode(root.need('object'), id)
-			: emptyPrefab(id),
-	};
-}
 
 /**
  * The animations, as requests.
@@ -221,7 +165,7 @@ export function readEntity(source: string, file: string): EntityDocument {
  * pose function with its arguments — see poseFunctions.ts for why the second
  * kind cannot be a file and should not try.
  */
-function readAnimations(node: Node): AnimationRequest[] {
+export function readAnimations(node: Node): AnimationRequest[] {
 	return node.entriesOrEmpty().map(([name, child]) => {
 		if (!child.isMap) {
 			return { kind: 'clip', name, path: child.text(), label: null, sync: null, contacts: null };
@@ -252,4 +196,66 @@ function readAnimations(node: Node): AnimationRequest[] {
 		child.only(...CLIP_ENTRY_KEYS);
 		return { ...base, kind: 'clip', path: child.need('clip').text() };
 	});
+}
+
+/* --------------------------------------------------- reading a loaded tree -- */
+
+/**
+ * The first component of this type in an object tree, parents before children.
+ *
+ * What a catalogue row or a bench asks with: "the mesh of a helmet" is a
+ * well-formed question about a file with one object in it, and this is the
+ * answer. Anything that cares WHICH object a component sits on walks the tree
+ * itself rather than asking here.
+ */
+export function findComponent(node: PrefabNode, type: string): ComponentSpec | null {
+	for (const component of node.components) {
+		if (component.type === type) return component;
+	}
+	for (const child of node.children) {
+		const found = findComponent(child, type);
+		if (found) return found;
+	}
+	return null;
+}
+
+/** The assets bound to the first component of this type, or none. */
+export function componentAssets(entity: EntityAsset, type: string): ComponentAssets | null {
+	return findComponent(entity.prefab, type)?.assets ?? null;
+}
+
+/*
+ * The five questions worth a name of their own.
+ *
+ * Each is the first one in the tree, which is the whole answer for a file with
+ * one object in it — and every file here has one. A caller that means a
+ * particular object walks the tree with `findComponent` on that object instead,
+ * and nothing below hides the difference: these say "this entity's rig" and a
+ * file with two rigs in it has more than one thing they could mean.
+ */
+
+/** The bones it is built on, or null where it has none. */
+export function entityRig(entity: EntityAsset): RigAsset | null {
+	return componentAssets(entity, 'rig')?.rig ?? null;
+}
+
+/** The prisms it is drawn as, or null where it has none. */
+export function entityMesh(entity: EntityAsset): MeshAsset | null {
+	return componentAssets(entity, 'mesh')?.mesh ?? null;
+}
+
+/** The animations it can be put in, by name. Empty where it has no animator. */
+export function entityAnimations(entity: EntityAsset): ReadonlyMap<string, AnimationAsset> {
+	return componentAssets(entity, 'animator')?.animations ?? new Map();
+}
+
+/** The trees over those animations, by name. */
+export function entityBlendTrees(entity: EntityAsset): ReadonlyMap<string, BlendTreeAsset> {
+	return componentAssets(entity, 'animator')?.blendTrees ?? new Map();
+}
+
+/** What it hangs from and how it lies, for an entity that can be worn. */
+export function entityAttachment(entity: EntityAsset): Attachment | null {
+	const attach = findComponent(entity.prefab, 'attach');
+	return attach === null ? null : readAttachment(attach.fields);
 }

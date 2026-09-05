@@ -37,6 +37,9 @@ import {
 
 import {
 	HEX_FLAG_UNLIT,
+	Attach,
+	entityMesh,
+	entityRig,
 	HexInstances,
 	instantiate,
 	Scene,
@@ -55,11 +58,10 @@ import {
 
 import { buildWorld, type World } from '../scene/world.js';
 import { Damage, Died, Missed } from './events.js';
-import { clipOf, type Cast } from './cast.js';
+import type { Cast } from './cast.js';
 import { components, type SpawnExtras } from './components.js';
 import { spawnEntity } from './spawn.js';
 import { BatHunt, LOSE_RANGE, WAKE_RANGE } from './bathunt.js';
-import { BoneFollow } from './bonefollow.js';
 import { Item } from './items.js';
 import { SECONDS_PER_GAME_TURN } from './pace.js';
 import { Player, type PlayerStats } from './player.js';
@@ -404,21 +406,15 @@ export class Simulation {
 		}
 
 		/* Where his eyeline is, off his own rig — a camera follows the hips. */
-		this.hipHeight = cast.player.rig!.metrics.hipHeight ?? 0;
+		this.hipHeight = entityRig(cast.player)?.metrics.hipHeight ?? 0;
 
 		const sword = cast.props.find((prop) => prop.id === 'sword');
-		const swordTip = sword?.mesh.anchors.tip?.at;
+		const swordTip = entityMesh(sword!)?.anchors.tip?.at;
 		if (!swordTip) throw new Error(`the yard's sword has no 'tip' anchor to measure a reach from`);
 
 		this.player = spawnEntity(cast.player, this.scene, { name: 'player', extras: this.scriptExtras() }).addComponent(
 			Player,
 			{
-				rig: cast.player.rig!,
-				clips: {
-					duck: clipOf(cast.player, 'duck'),
-					slash: clipOf(cast.player, 'slash'),
-					guard: clipOf(cast.player, 'guard'),
-				},
 				swordTip,
 				cell: worldToAxial(0, -5.4),
 				yaw: 0,
@@ -432,7 +428,6 @@ export class Simulation {
 		this.bat = spawnEntity(cast.enemy, this.scene, { name: 'bat', extras: this.scriptExtras() }).addComponent(
 			BatHunt,
 			{
-				rig: cast.enemy.rig!,
 				cell: this.perch,
 				yaw: 2.4,
 				world: this.world,
@@ -675,7 +670,7 @@ export class Simulation {
 		 * The second solve is the cost of that, and it is a handful of objects
 		 * rather than a scene graph.
 		 */
-		for (const item of this.items) item.object.getComponent(BoneFollow)?.follow();
+		for (const item of this.items) item.object.getComponent(Attach)?.follow();
 		this.scene.solve();
 
 		if (this.toggles.follow) {

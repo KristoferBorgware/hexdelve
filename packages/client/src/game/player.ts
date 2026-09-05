@@ -48,7 +48,6 @@ import {
 	type ClipEvent,
 	type DensePose,
 	type GameObject,
-	type RigAsset,
 	type Skeleton,
 	type SparsePose,
 } from '@hexdelve/engine';
@@ -234,10 +233,6 @@ export interface PlayerOptions {
 	cell: Axial;
 	/** Angband-style, offset by 110. Normal unless something hastes him. */
 	speed?: number;
-	/** The rig he is hung on, for its bones, its blend mask and its metrics. */
-	rig: RigAsset;
-	/** The three clips he plays, by the names his entity file gives them. */
-	clips: { readonly duck: Clip; readonly slash: Clip; readonly guard: Clip };
 	/** Where the blade's point sits in the hand bone's space, off the sword's mesh. */
 	swordTip: readonly [number, number, number];
 }
@@ -347,7 +342,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		super(object);
 		const tile = options.world.tileAt(options.cell.q, options.cell.r);
 		if (!tile) throw new Error(`the player cannot start on ${options.cell.q},${options.cell.r}`);
-		this.body.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
+		this.place(tile.x, tile.top, tile.z, options.yaw ?? 0);
 		this.ground = options.world;
 		this.items = options.items;
 		this.scripts = options.scripts ?? null;
@@ -355,9 +350,19 @@ export class Player extends ActorBehaviour implements TurnTaker {
 		this.speed = options.speed ?? NORMAL_SPEED;
 		this.stride = strideFor(hexSpeed(this.speed));
 
-		const rig = options.rig;
+		/*
+		 * The rig and the clips are the object's own, off the components beside
+		 * this one rather than passed in: a man's slash is the slash his entity
+		 * file gave him, and a second way of saying which is a second way of
+		 * being wrong about it.
+		 */
+		const rig = this.rig.asset;
 		this.bones = rig.bones;
-		this.clips = options.clips;
+		this.clips = {
+			duck: this.animator.clip('duck'),
+			slash: this.animator.clip('slash'),
+			guard: this.animator.clip('guard'),
+		};
 		// How far there is to slump, off his own rig rather than a number here.
 		this.hipHeight = rig.metrics.hipHeight ?? 0.9;
 
@@ -393,11 +398,11 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	}
 
 	get armed(): boolean {
-		return this.items.some((i) => i.label === 'sword' && i.worn);
+		return this.items.some((i) => i.name === 'sword' && i.worn);
 	}
 
 	private get shielded(): boolean {
-		return this.items.some((i) => i.label === 'shield' && i.worn);
+		return this.items.some((i) => i.name === 'shield' && i.worn);
 	}
 
 	get busy(): boolean {
@@ -628,7 +633,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 	}
 
 	private startPickup(item: Item): Action {
-		return this.begin('pickup', `picking up the ${item.label}`, this.tile(), this.cell, null, item);
+		return this.begin('pickup', `picking up the ${item.name}`, this.tile(), this.cell, null, item);
 	}
 
 	private startWait(message: string): Action {
@@ -945,7 +950,7 @@ export class Player extends ActorBehaviour implements TurnTaker {
 			cuts: this.swing.cuts,
 			hits: this.swing.hits,
 			missed: this.swing.missed,
-			carrying: this.items.filter((i) => i.worn).map((i) => i.label),
+			carrying: this.items.filter((i) => i.worn).map((i) => i.name),
 			cell: this.cell,
 			terrace: tile?.level ?? null,
 			stepsLeft: this.path.length,

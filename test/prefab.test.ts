@@ -179,8 +179,10 @@ describe('a system prefab', () => {
 		expect(system.prefab.name).toBe('systems');
 	});
 
-	it('refuses the asset sections a system cannot have', () => {
-		expect(() => loadSystem('id: game\nmesh: x.yaml\nobject: {}', 'game.yaml')).toThrow(/mesh/);
+	it('refuses the keys a system cannot have', () => {
+		// A system is not in a catalogue and there is nothing to look at, so the
+		// two an entity carries beside its object tree are refused here.
+		expect(() => loadSystem('id: game\ntags: [a]\nobject: {}', 'game.yaml')).toThrow(/tags/);
 	});
 
 	it('is the one the game ships', async () => {
@@ -191,22 +193,34 @@ describe('a system prefab', () => {
 });
 
 describe('the entities that ship', () => {
-	it('gives every prop an item and every character a body', async () => {
+	it('gives every one of them a rig and a body to draw', async () => {
 		const library = openLibrary();
 		for (const entity of await library.index()) {
-			const wanted = entity.kind === 'prop' ? 'item' : 'actor';
-			expect(prefabTypes(entity.prefab), entity.id).toContain(wanted);
+			const types = prefabTypes(entity.prefab);
+			expect(types, entity.id).toContain('rig');
+			expect(types, entity.id).toContain('mesh');
 		}
 	});
 
-	it('makes every character something that can be hit, and no prop one', async () => {
+	it('gives a thing that can be worn an item, and a thing that is posed neither', async () => {
+		const library = openLibrary();
+		for (const entity of await library.index()) {
+			const types = prefabTypes(entity.prefab);
+			// The two shapes, stated as what they carry rather than as a label
+			// on the file: one is worn and picked up, the other is animated.
+			expect(types.includes('item'), entity.id).toBe(types.includes('attach'));
+			expect(types.includes('attach') && types.includes('animator'), entity.id).toBe(false);
+		}
+	});
+
+	it('makes every animated thing something that can be hit, and no prop one', async () => {
 		const library = openLibrary();
 		for (const entity of await library.index()) {
 			const types = prefabTypes(entity.prefab);
 			// A prop is a thing lying in the grass. Giving one hit points would
 			// put a sword in the register of characters, where everything that
 			// goes looking for something to hit would find it.
-			expect(types.includes('script'), entity.id).toBe(entity.kind !== 'prop');
+			expect(types.includes('script'), entity.id).toBe(types.includes('animator'));
 		}
 	});
 

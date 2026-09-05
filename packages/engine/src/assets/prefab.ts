@@ -21,20 +21,27 @@
  *
  * ## What a component record is
  *
- * `{ type: item, lift: 0.2 }`, and nothing more. This reader does not know what
- * an `item` is and must not: the engine has no idea what the game's components
- * are, and a format that had to be taught each one would be a format that the
- * client could not add to. So a record is a `type` and a bag of fields, and
- * a registry hands the bag to whoever claimed the type. The refusal for an
+ * `{ type: item, label: torch }`, and nothing more. This reader does not know
+ * what an `item` is and must not: a game adds components the engine has never
+ * heard of, and a format that had to be taught each one would be a format the
+ * client could not add to. So a record is a `type` and a bag of fields, and a
+ * registry hands the bag to whoever claimed the type. The refusal for an
  * unknown type happens at instantiation, where the registry is, and names what
  * WAS registered — which is the only error message worth having.
  *
- * ## Hanging off a bone
+ * ## What an object is made of
  *
- * A sword in a hand is an object under another object, and what makes it
- * follow the hand is a COMPONENT — not a field here. Everything a thing does is
- * something attached to it, and "follows a bone" is a thing it does. Keeping it
- * out of the node is what stops the tree from having to know what a rig is.
+ * Its components, and nothing beside them. A body is a `rig`, a `mesh` and an
+ * `animator`; a sword lying in the grass is a `rig`, a `mesh` and an `attach`
+ * naming the bone it hangs from. Neither is a KIND of thing — there is no field
+ * here that says which, and the difference between them is which records they
+ * carry. That is what stops a character being a shape the format has to know
+ * about before a game can add a second one.
+ *
+ * Hanging off a bone is therefore a component too. A sword in a hand is an
+ * object under another object, and what makes it follow the hand is `attach`,
+ * not a field on the node — which is what keeps the tree from having to know
+ * what a rig is.
  *
  * ## What a prefab is not
  *
@@ -44,6 +51,7 @@
  * lets the same file be a wanderer in the yard and a wanderer on a bench.
  */
 
+import { NO_ASSETS, type ComponentAssets } from './binding.js';
 import { AssetError, Node, type Vec3 } from './document.js';
 
 /** One thing attached to an object: a type, and whatever that type reads. */
@@ -51,6 +59,13 @@ export interface ComponentSpec {
 	readonly type: string;
 	/** The record, minus `type`. Meaningless to the engine, everything to the factory. */
 	readonly fields: Node;
+	/**
+	 * What the file references in that record loaded to.
+	 *
+	 * `NO_ASSETS` as read, because reading is synchronous and fetching is not.
+	 * The library replaces it while it loads an entity — see binding.ts.
+	 */
+	readonly assets: ComponentAssets;
 }
 
 /** One object in a prefab, and everything under it. */
@@ -80,7 +95,7 @@ export function readPrefabNode(node: Node, fallbackName: string): PrefabNode {
 	const components: ComponentSpec[] = [];
 	for (const entry of node.get('components').listOrEmpty()) {
 		const type = entry.need('type').text();
-		components.push({ type, fields: entry });
+		components.push({ type, fields: entry, assets: NO_ASSETS });
 	}
 
 	const children: PrefabNode[] = [];

@@ -18,7 +18,13 @@
  * already carry exactly that, so the adapting is mostly renaming.
  */
 
-import type { BoneTip, Model, Skeleton } from '@hexdelve/engine';
+import {
+	componentAssets,
+	entityMesh,
+	type BoneTip,
+	type Model,
+	type Skeleton,
+} from '@hexdelve/engine';
 import type { AnimationAsset, BlendTreeAsset, EntityAsset } from '@hexdelve/client';
 
 import { treeAnimation, type BenchAnimation } from './animation.js';
@@ -79,13 +85,17 @@ function benchTree(tree: BlendTreeAsset, skeleton: Skeleton, walks: boolean) {
  * being able to look at one and then the other.
  */
 export function benchRig(entity: EntityAsset): BenchRig | null {
-	const rig = entity.rig;
-	if (!rig) return null; // A prop has no bones, and belongs on the other bench.
+	// A thing with nothing to pose belongs on the other bench, and an entity
+	// that can be posed is one carrying an animator.
+	const animator = componentAssets(entity, 'animator');
+	const mesh = entityMesh(entity);
+	const rig = animator?.rig;
+	if (!animator || !rig || !mesh) return null;
 
 	const walks = rig.feet !== null;
 	const animations: BenchAnimation[] = [
-		...[...entity.blendTrees.values()].map((tree) => benchTree(tree, rig.skeleton, walks)),
-		...[...entity.animations.values()].map(benchAnimation),
+		...[...animator.blendTrees.values()].map((tree) => benchTree(tree, rig.skeleton, walks)),
+		...[...animator.animations.values()].map(benchAnimation),
 	];
 
 	let built: Model | null = null;
@@ -99,7 +109,7 @@ export function benchRig(entity: EntityAsset): BenchRig | null {
 		// has its middle lower than the rig's hips.
 		focusY: entity.view.focusY,
 		frameDistance: entity.view.frameDistance,
-		model: () => (built ??= entity.mesh.model()),
+		model: () => (built ??= mesh.model()),
 		animations,
 	};
 }

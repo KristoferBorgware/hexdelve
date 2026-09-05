@@ -45,7 +45,7 @@ import {
 	type TurnMember,
 } from '@hexdelve/client';
 
-import { HexInstances } from '@hexdelve/engine';
+import { entityMesh, entityRig, HexInstances, MeshRenderer } from '@hexdelve/engine';
 
 import { loadYardCast } from './harness/assets.js';
 
@@ -239,11 +239,11 @@ describe('reach against the grid', () => {
 		const cast = await loadYardCast();
 		const sword = cast.props.find((prop) => prop.id === 'sword')!;
 		const reach = measureReach(
-			cast.player.rig!.skeleton,
+			entityRig(cast.player)!.skeleton,
 			clipOf(cast.player, 'slash'),
-			sword.mesh.anchors.tip!.at,
+			entityMesh(sword)!.anchors.tip!.at,
 		);
-		const bite = measureBiteReach(cast.enemy.rig!);
+		const bite = measureBiteReach(entityRig(cast.enemy)!);
 
 		expect(reach.distance).toBeLessThan(HEX_SPACING);
 		expect(reach.distance + leanIn(reach)).toBeCloseTo(HEX_SPACING, 9);
@@ -350,7 +350,7 @@ describe('the yard', () => {
 
 	it('picks a thing up by standing on its hexagon', () => {
 		const sim = new Simulation({ cast, seed: 37 });
-		const sword = sim.items.find((i) => i.label === 'sword')!;
+		const sword = sim.items.find((i) => i.name === 'sword')!;
 		expect(sword.worn).toBe(false);
 
 		// Where it is LYING, read before he sets off. A carried thing's cell is
@@ -383,7 +383,7 @@ describe('the yard', () => {
 	 */
 	it('draws a carried prop exactly where the old two-path arrangement did', () => {
 		const sim = new Simulation({ cast, seed: 37 });
-		const sword = sim.items.find((i) => i.label === 'sword')!;
+		const sword = sim.items.find((i) => i.name === 'sword')!;
 
 		expect(sim.pickCell({ ...sword.cell })).toBe(true);
 		run(sim, 14);
@@ -396,7 +396,7 @@ describe('the yard', () => {
 
 		// The old one: the model, the wearer's pose, and the wearer's placement.
 		const before = new HexInstances(256);
-		sword.model.emit(
+		sword.object.getComponent(MeshRenderer)!.model.emit(
 			before,
 			sim.player.world,
 			sim.player.x,
@@ -421,7 +421,7 @@ describe('the yard', () => {
 	 */
 	it('carries what it picked up, in the scene rather than only in the picture', () => {
 		const sim = new Simulation({ cast, seed: 37 });
-		const sword = sim.items.find((i) => i.label === 'sword')!;
+		const sword = sim.items.find((i) => i.name === 'sword')!;
 
 		expect(sim.pickCell({ ...sword.cell })).toBe(true);
 		run(sim, 14);

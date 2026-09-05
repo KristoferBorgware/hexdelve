@@ -50,17 +50,29 @@ export {
 } from './animation.js';
 export { loadBlendTree, type BlendTreeAsset, type TreeParameter } from './blendtree.js';
 export {
+	componentAssets,
+	entityAnimations,
+	entityAttachment,
+	entityBlendTrees,
+	entityMesh,
+	entityRig,
+	findComponent,
+	readAnimations,
+	readAttachment,
 	readEntity,
+	ANIMATOR_KEYS,
+	ATTACH_KEYS,
 	ENTITY_KEYS,
+	MESH_COMPONENT_KEYS,
+	RIG_COMPONENT_KEYS,
 	type AnimationRequest,
 	type Attachment,
 	type ClipRequest,
 	type EntityAsset,
 	type EntityDocument,
-	type EntityKind,
-	type Grounding,
 	type ProceduralRequest,
 } from './entity.js';
+export { assetsUnder, NO_ASSETS, type ComponentAssets } from './binding.js';
 export {
 	PoseFunctionRegistry,
 	type PoseFunction,

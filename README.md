@@ -390,26 +390,33 @@ code — and seven entities is where a catalogue starts being worth having and a
 compiler stops being the right place to keep one.
 
 So `public/assets/` holds it, `@hexdelve/engine` reads it, and the entity file
-is the root that ties one asset together:
+is the root that ties one asset together — as a tree of objects with components
+on them, because what a thing is is what it is made of:
 
 ```yaml
 id: wanderer
-kind: character
-rig: ../rigs/humanoid.rig.yaml
-mesh: ../meshes/wanderer.mesh.yaml
-animations:
-  walk: { procedural: stride, args: { amp: 1, gait: 0 }, sync: true }
-  guard: ../clips/guard.clip.yaml
-blendTrees:
-  locomotion: ../trees/locomotion.tree.yaml
+name: Wanderer
+object:
+  components:
+    - { type: rig, rig: ../rigs/humanoid.rig.yaml }
+    - { type: mesh, mesh: ../meshes/wanderer.mesh.yaml }
+    - type: animator
+      animations:
+        walk: { procedural: stride, args: { amp: 1, gait: 0 }, sync: true }
+        guard: ../clips/guard.clip.yaml
+      blendTrees:
+        locomotion: ../trees/locomotion.tree.yaml
+    - { type: script, script: Character, hp: 20, faction: player, power: 5 }
 ```
 
-Blend trees link *animations*, and the entity is what says an animation is. A
-tree refers to `walk` and carries no path, so exactly one file names files —
-which is why `locomotion.tree.yaml` reads on any entity that names a `walk`
-and a `run`. A prop is the same file with less in it: a helmet has a mesh, an
-`attach` bone and the two numbers that put it down in the grass, and the loader
-*refuses* a rig or an animation on one.
+Blend trees link *animations*, and the animator is what says an animation is. A
+tree refers to `walk` and carries no path, so exactly one record names files —
+which is why `locomotion.tree.yaml` reads on any entity that names a `walk` and
+a `run`. A prop is the same file with different parts in it: a helmet has a rig
+it borrows bone names from, a mesh, and an `attach` naming the bone it hangs
+from and the two numbers that put it down in the grass. Nothing says which of
+the two shapes a file is, because a thing that can be posed has an animator and
+a thing that can be worn has an attach — and both are already in the parts.
 
 Three things kept the files from being worse than the code they replace. Any
 scalar may be arithmetic (`pi / 2 + 0.05`, `cos(mount) * out`, `tau / 1.8`),

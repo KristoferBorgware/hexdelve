@@ -257,7 +257,7 @@ there is no rig to stand on the bench and shows nothing.
 hierarchy: a weapon with a socket on it, a shield with a boss that hangs off a
 bone. Editing that tree against a blank panel is the case the bench is least
 useful in, and from the outside the blankness looks like something broken rather
-than like a consequence of the entity's kind.
+than like a consequence of the entity having nothing to pose.
 
 **What would fix it.** The prop bench already draws a prop on the same stand,
 with the wearer and the attachment it declares. Either lift that subject out of
@@ -266,7 +266,81 @@ return a rigless subject that draws a mesh and nothing else. The second is
 smaller and covers the case; the first stops there being two answers to what
 putting a thing on a stand means.
 
-### F-024 — The game's humanoid locomotion does not run through its blend tree
+### F-024 — A body is drawn from its local transform, so one under a parent draws in the wrong place
+
+**Kind:** risk
+**Milestone:** scripting
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-05, moving the drawing out of `Actor` and into a `MeshRenderer` component
+**Where:** `emit` in `packages/engine/src/scene/components/MeshRenderer.ts`, `emitView` in `packages/engine/src/scene/components/Rig.ts`
+
+**What happens.** A skinned draw composes the object's placement with the bone
+and then the part, and it reads that placement off `this.object.transform` —
+the LOCAL transform, in the parent's space. Every other placement in the scene
+goes through `object.world`, which `Scene.solve` composes down the tree. The two
+agree only while the object is a child of the scene root, which every character
+in the yard is. A body spawned under any other object is drawn at its offset
+from the origin rather than at where it is standing.
+
+The detached path in the same method does not have this: a prop reads
+`object.world` and is correct at any depth, which is why a sword in a hand is
+right today.
+
+**Why it matters.** Nothing reaches it yet — the yard spawns both creatures at
+the root. It is reachable the moment anything groups characters under a parent
+object: a mounted rider, a squad under a formation node, a level that spawns its
+occupants under a room. The symptom is a body drawn somewhere else entirely
+while its hit tests and its IK, which read the pose in the object's own space,
+stay right — so it looks like a rendering bug in a rig that is behaving.
+
+**What would fix it.** Read the world transform, as the detached path does. The
+obstacle is the shape of `Model.emit`, which takes `x, y, z, yaw` rather than a
+quaternion, and a world rotation is a quaternion — a body under a parent that
+pitches has no single yaw to give it. So it is either a second `Model.emit`
+taking a rotation, or `emitDetached`'s composition applied per bone. Small
+either way, and worth doing before something is parented rather than after.
+
+### F-025 — A quadruped rig's legs are long enough to stand and not to walk
+
+**Kind:** risk
+**Milestone:** game
+**Priority:** medium
+**Effort:** small
+**Found:** 2026-09-05, converting the hellhound's trot onto the ground solve
+**Where:** `public/assets/rigs/hellhound.rig.yaml`, `STAND` in
+`packages/client/src/game/hellhoundpose.ts`
+
+**What happens.** The hellhound's legs are 0.41 m, both pairs. Its hip joint
+sits 0.46 m up and its shoulder joint 0.57 m up, and a paw stands 0.05 m above
+the ground. So a hind leg hanging straight down reaches the ground exactly, with
+nothing left to stride with, and a front leg cannot reach it at all — it falls
+0.11 m short. Solved and measured on the standing pose, the front paws hung in
+the air a tenth of a metre above the grass while the hind paws touched.
+
+The gait works round it: `STAND` crouches the trunk 0.1 m and pitches it 0.16
+rad nose-down, which is a hound's stance anyway, and both pairs then have about
+0.21 m of ground either side of the joint they hang from. That is a pose making
+up for a skeleton.
+
+**Why it matters.** Nobody yet, because nothing in the yard drives a hellhound
+and the crouch reads correctly. It matters for two reasons. The animal now
+stands 0.1 m lower than its rig's `hipHeight` says, so anything reading that
+metric — a camera framing, a mesh authored against the rest pose, an attachment
+— is working from a height the animal is never at. And the next quadruped will
+hit the same wall: a rig whose limbs are drawn to just touch the ground at rest
+has no stride in it, and the failure is a silent one, either a floating paw or a
+crouch nobody asked for.
+
+**What would fix it.** Either lengthen the legs — the front pair by about 0.12 m
+and the hind by 0.06 m, which changes the mesh hung on them — or lower
+`hipHeight` and the chest offsets so the rest pose is the stance. The second is
+smaller and makes the rig honest about the animal's height, and it is the one to
+prefer; the crouch in `STAND` then goes back to being a gait's own dip rather
+than a correction. Either way a rig check worth having is that every foot the
+rig names can reach the ground with a stride's worth of room left over.
+
+### F-026 — The game's humanoid locomotion does not run through its blend tree
 
 **Kind:** gap
 **Milestone:** game
@@ -311,44 +385,6 @@ are not locomotion — the slash, the duck, the topple — stay where they are;
 they have a beginning and an end and are not what a tree is for. The work is
 mostly in deciding what `buildPose` keeps.
 
-### F-025 — A quadruped rig's legs are long enough to stand and not to walk
-
-**Kind:** risk
-**Milestone:** game
-**Priority:** medium
-**Effort:** small
-**Found:** 2026-09-05, converting the hellhound's trot onto the ground solve
-**Where:** `public/assets/rigs/hellhound.rig.yaml`, `STAND` in
-`packages/client/src/game/hellhoundpose.ts`
-
-**What happens.** The hellhound's legs are 0.41 m, both pairs. Its hip joint
-sits 0.46 m up and its shoulder joint 0.57 m up, and a paw stands 0.05 m above
-the ground. So a hind leg hanging straight down reaches the ground exactly, with
-nothing left to stride with, and a front leg cannot reach it at all — it falls
-0.11 m short. Solved and measured on the standing pose, the front paws hung in
-the air a tenth of a metre above the grass while the hind paws touched.
-
-The gait works round it: `STAND` crouches the trunk 0.1 m and pitches it 0.16
-rad nose-down, which is a hound's stance anyway, and both pairs then have about
-0.21 m of ground either side of the joint they hang from. That is a pose making
-up for a skeleton.
-
-**Why it matters.** Nobody yet, because nothing in the yard drives a hellhound
-and the crouch reads correctly. It matters for two reasons. The animal now
-stands 0.1 m lower than its rig's `hipHeight` says, so anything reading that
-metric — a camera framing, a mesh authored against the rest pose, an attachment
-— is working from a height the animal is never at. And the next quadruped will
-hit the same wall: a rig whose limbs are drawn to just touch the ground at rest
-has no stride in it, and the failure is a silent one, either a floating paw or a
-crouch nobody asked for.
-
-**What would fix it.** Either lengthen the legs — the front pair by about 0.12 m
-and the hind by 0.06 m, which changes the mesh hung on them — or lower
-`hipHeight` and the chest offsets so the rest pose is the stance. The second is
-smaller and makes the rig honest about the animal's height, and it is the one to
-prefer; the crouch in `STAND` then goes back to being a gait's own dip rather
-than a correction. Either way a rig check worth having is that every foot the
-rig names can reach the ground with a stride's worth of room left over.
 
 ## Closed
 

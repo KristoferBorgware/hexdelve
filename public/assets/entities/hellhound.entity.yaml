@@ -1,33 +1,14 @@
-# The hellhound.
-#
-# A quadruped, so a third rig: front legs off the chest, hind legs off the
-# hips, and the spine between them a bridge rather than a stack.
-#
-# The trot's paws are solved onto the ground, so it declares a contact
-# schedule and its ground speed measures forwards. A tree over it would have
-# honest thresholds; there is none yet because nothing in the yard drives a
-# hellhound, and a tree with no driver is an arrangement nobody reads.
-
 id: hellhound
 name: Hellhound
-kind: character
 
-rig: ../rigs/hellhound.rig.yaml
-mesh: ../meshes/hellhound.mesh.yaml
-
-animations:
-  idle: { procedural: houndRun, label: Idle, args: { amp: 0 }, duration: tau / 1.7 }
-  run: { procedural: houndRun, label: Run, args: { amp: 1 }, sync: true }
-  bite: { procedural: houndBite, label: Bite }
-  rest: { procedural: houndRest, label: Rest, duration: tau / 1.4 }
-
-# What it is when it is standing in the world: one object, with a body on it.
-# The body is the rig and the mesh above — an actor on a wanderer is the
-# wanderer's, by definition rather than by a path repeated inside its own file.
-# What it DOES is not here yet; that arrives as a script component.
 object:
   components:
-    - { type: actor }
-    # What it is in a fight. The numbers are the character's, not the rig's, so
-    # tuning a creature is editing this file rather than a script.
+    - { type: rig, rig: ../rigs/hellhound.rig.yaml }
+    - { type: mesh, mesh: ../meshes/hellhound.mesh.yaml }
+    - type: animator
+      animations:
+        idle: { procedural: houndRun, label: Idle, args: { amp: 0 }, duration: tau / 1.7 }
+        run: { procedural: houndRun, label: Run, args: { amp: 1 }, sync: true }
+        bite: { procedural: houndBite, label: Bite }
+        rest: { procedural: houndRest, label: Rest, duration: tau / 1.4 }
     - { type: script, script: Character, hp: 12, faction: foe, power: 3 }

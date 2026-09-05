@@ -21,15 +21,30 @@
  */
 
 import { poseFunctionAnimation, clipAnimation, type AnimationAsset } from './animation.js';
+import { assetsUnder, type ComponentAssets } from './binding.js';
 import { loadBlendTree, type BlendTreeAsset } from './blendtree.js';
 import { buildClipAsset, readClip, type ClipAsset } from './clip.js';
 import { AssetError, Node } from './document.js';
-import { readEntity, type AnimationRequest, type EntityAsset } from './entity.js';
+import {
+	findComponent,
+	readAnimations,
+	readAttachment,
+	readEntity,
+	ANIMATOR_KEYS,
+	MESH_COMPONENT_KEYS,
+	RIG_COMPONENT_KEYS,
+	type AnimationRequest,
+	type EntityAsset,
+} from './entity.js';
 import { loadMesh, type MeshAsset } from './mesh.js';
+import type { ComponentSpec, PrefabNode } from './prefab.js';
 import { PoseFunctionRegistry } from './poseFunctions.js';
 import type { AssetIO } from './io.js';
-import { loadRig, type RigAsset } from './rig.js';
+import { loadRig, type RigAsset, type RigView } from './rig.js';
 import { loadSystem, type SystemAsset } from './system.js';
+
+/** Where a bench looks when nothing in a file names a rig to ask. */
+const NO_VIEW: RigView = { focusY: 0, frameDistance: 4 };
 
 export interface AssetLibraryOptions {
 	/** The pose functions entity files may name. Defaults to an empty one. */
@@ -196,51 +211,110 @@ export class AssetLibrary {
 
 	private async readEntity(at: string): Promise<EntityAsset> {
 		const document = readEntity(await this.text(at), at);
-
-		const attachRig = document.attach === null ? null : await this.rig(resolve(at, document.attach.rig));
-		const ownRig = document.rig === null ? null : await this.rig(resolve(at, document.rig));
-
-		// A prop's bone names belong to the rig it is worn on; a character's to
-		// its own. Either way the mesh needs one before it can be checked.
-		const meshRig = ownRig ?? attachRig;
-		if (meshRig === null) throw new AssetError(at, 'rig', 'nothing says which rig this mesh belongs to');
-		const mesh = await this.mesh(resolve(at, document.mesh), meshRig);
-
-		if (document.attach !== null && !attachRig!.bones.includes(document.attach.bone)) {
-			throw new AssetError(
-				at,
-				'attach.bone',
-				`no bone called '${document.attach.bone}' in rig '${attachRig!.id}'`,
-			);
-		}
-
-		const animations = new Map<string, AnimationAsset>();
-		if (ownRig !== null) {
-			for (const request of document.animations) {
-				animations.set(request.name, await this.animation(at, request, ownRig));
-			}
-		}
-
-		const blendTrees = new Map<string, BlendTreeAsset>();
-		for (const { name, path } of document.blendTrees) {
-			const treePath = resolve(at, path);
-			blendTrees.set(name, loadBlendTree(await this.text(treePath), treePath, ownRig!, animations));
-		}
+		const prefab = await this.bind(document.prefab, at, null);
+		const rig = findComponent(prefab, 'rig')?.assets.rig ?? null;
 
 		return {
 			id: document.id,
 			name: document.name,
-			kind: document.kind,
-			rig: ownRig,
-			mesh,
-			animations,
-			blendTrees,
-			attach: document.attach === null ? null : { rig: attachRig!, bone: document.attach.bone },
-			ground: document.ground,
-			view: { ...(ownRig ?? attachRig!).view, ...document.view },
+			view: { ...(rig?.view ?? NO_VIEW), ...document.view },
 			tags: document.tags,
-			prefab: document.prefab,
+			prefab,
 		};
+	}
+
+	/**
+	 * One object and its subtree, with every component's files fetched.
+	 *
+	 * The rig goes first and travels downwards, because the rest need it: a mesh
+	 * is checked against the bones its parts hang on, a clip against the bones
+	 * it keys, an attach against the bone it names. `inherited` is what an object
+	 * gets when it declares no rig of its own, which is how a sword under a hand
+	 * is read against the hand's rig without repeating the path.
+	 */
+	private async bind(node: PrefabNode, at: string, inherited: RigAsset | null): Promise<PrefabNode> {
+		const declared = node.components.filter((one) => one.type === 'rig');
+		if (declared.length > 1) {
+			declared[1]!.fields.fail(`'${node.name}' already has a rig, and an object has one`);
+		}
+
+		let rig = inherited;
+		if (declared[0]) {
+			declared[0].fields.only(...RIG_COMPONENT_KEYS);
+			rig = await this.rig(resolve(at, declared[0].fields.need('rig').text()));
+		}
+
+		const components: ComponentSpec[] = [];
+		for (const component of node.components) {
+			components.push({ ...component, assets: await this.bindComponent(component, at, rig) });
+		}
+
+		const children: PrefabNode[] = [];
+		for (const child of node.children) children.push(await this.bind(child, at, rig));
+
+		return { ...node, components, children };
+	}
+
+	/** One component record's files, by what its type is known to name. */
+	private async bindComponent(
+		component: ComponentSpec,
+		at: string,
+		rig: RigAsset | null,
+	): Promise<ComponentAssets> {
+		const { fields } = component;
+
+		/*
+		 * Three of the four need one, and say so where the record is. A mesh or
+		 * a bone with nothing above it to name a rig is not a record missing a
+		 * default; it is a file that cannot be read, and the line it is written
+		 * on is what the reader can usefully point at.
+		 */
+		const needsRig = (): RigAsset =>
+			rig ??
+			fields.fail(
+				`a '${component.type}' needs a rig, and nothing on this object or above it names one`,
+			);
+
+		switch (component.type) {
+			case 'rig':
+				return assetsUnder(rig);
+
+			case 'mesh': {
+				fields.only(...MESH_COMPONENT_KEYS);
+				const mesh = await this.mesh(resolve(at, fields.need('mesh').text()), needsRig());
+				return { rig, mesh, animations: new Map(), blendTrees: new Map() };
+			}
+
+			case 'animator': {
+				fields.only(...ANIMATOR_KEYS);
+				const own = needsRig();
+
+				const animations = new Map<string, AnimationAsset>();
+				for (const request of readAnimations(fields.get('animations'))) {
+					animations.set(request.name, await this.animation(at, request, own));
+				}
+
+				const blendTrees = new Map<string, BlendTreeAsset>();
+				for (const [name, child] of fields.get('blendTrees').entriesOrEmpty()) {
+					const path = resolve(at, child.text());
+					blendTrees.set(name, loadBlendTree(await this.text(path), path, own, animations));
+				}
+
+				return { rig, mesh: null, animations, blendTrees };
+			}
+
+			case 'attach': {
+				const { bone } = readAttachment(fields);
+				const own = needsRig();
+				if (!own.bones.includes(bone)) {
+					fields.need('bone').fail(`no bone called '${bone}' in rig '${own.id}'`);
+				}
+				return assetsUnder(rig);
+			}
+
+			default:
+				return assetsUnder(rig);
+		}
 	}
 
 	private async animation(

@@ -23,7 +23,7 @@
  * diff against a hand-written file.
  */
 
-import type { EntityDocument, AnimationRequest } from './entity.js';
+import type { EntityDocument } from './entity.js';
 import type { ComponentSpec, PrefabNode } from './prefab.js';
 
 /** A value this writer can put in a file. */
@@ -222,29 +222,6 @@ export function writePrefabNode(node: PrefabNode): Emittable {
 	};
 }
 
-/** One `animations` entry, in whichever of the three shapes it was read as. */
-function writeAnimation(request: AnimationRequest): Emittable {
-	const options = {
-		...(request.label === null ? {} : { label: request.label }),
-		...(request.sync === null ? {} : { sync: request.sync }),
-		...(request.contacts === null ? {} : { contacts: [...request.contacts] }),
-	};
-
-	if (request.kind === 'procedural') {
-		return {
-			procedural: request.procedural,
-			...(Object.keys(request.args).length === 0 ? {} : { args: { ...request.args } }),
-			...(request.duration === null ? {} : { duration: request.duration }),
-			...options,
-		};
-	}
-
-	// A clip with nothing said about it is the path and nothing else, which is
-	// how most of them are written and what the reader accepts bare.
-	if (Object.keys(options).length === 0) return request.path;
-	return { clip: request.path, ...options };
-}
-
 /**
  * A whole entity file.
  *
@@ -258,22 +235,10 @@ function writeAnimation(request: AnimationRequest): Emittable {
  * was read from, and an edited tree has no such thing to carry.
  */
 export function writeEntity(document: EntityDocument, prefab?: Emittable): string {
-	const animations = Object.fromEntries(
-		document.animations.map((one) => [one.name, writeAnimation(one)]),
-	);
-	const blendTrees = Object.fromEntries(document.blendTrees.map((one) => [one.name, one.path]));
-
 	return emitYaml({
 		id: document.id,
 		name: document.name,
-		kind: document.kind,
 		...(document.tags.length === 0 ? {} : { tags: [...document.tags] }),
-		...(document.rig === null ? {} : { rig: document.rig }),
-		mesh: document.mesh,
-		...(document.animations.length === 0 ? {} : { animations }),
-		...(document.blendTrees.length === 0 ? {} : { blendTrees }),
-		...(document.attach === null ? {} : { attach: { ...document.attach } }),
-		...(document.ground === null ? {} : { ground: { ...document.ground } }),
 		...(Object.keys(document.view).length === 0 ? {} : { view: { ...document.view } }),
 		object: prefab ?? writePrefabNode(document.prefab),
 	});

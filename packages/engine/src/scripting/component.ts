@@ -13,6 +13,7 @@
  * convention somebody has to remember to repeat.
  */
 
+import { registerSceneComponents } from '../scene/components/factories.js';
 import type { Scene } from '../scene/Scene.js';
 import { ComponentRegistry, type ComponentContext } from '../assets/instantiate.js';
 import type { ScriptHost } from './ScriptHost.js';
@@ -63,14 +64,18 @@ export function scriptComponentFactory(context: ComponentContext): void {
 }
 
 /**
- * A registry with the one component type the engine itself understands.
+ * A registry with the component types the engine itself understands.
  *
- * A fresh instance every call, never a shared one: `ComponentRegistry.register`
- * throws on a type registered twice, which is exactly what would happen the
- * second time anything imported a shared registry and tried to add its own
- * vocabulary to it. A game calls this once and builds its own registry on top —
- * see `packages/client/src/game/components.ts`.
+ * `script` here, and the four in `scene/components/factories.ts` that are facts
+ * about drawing and posing. A fresh instance every call, never a shared one:
+ * `ComponentRegistry.register` throws on a type registered twice, which is
+ * exactly what would happen the second time anything imported a shared registry
+ * and tried to add its own vocabulary to it. A game calls this once and builds
+ * its own registry on top — see `packages/client/src/game/components.ts`.
  */
 export function engineComponents(): ComponentRegistry {
-	return new ComponentRegistry().register('script', scriptComponentFactory);
+	return registerSceneComponents(new ComponentRegistry()).register(
+		'script',
+		scriptComponentFactory,
+	);
 }

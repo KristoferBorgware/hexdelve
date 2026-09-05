@@ -19,9 +19,10 @@
  * script attached to one is written the same way as a script attached to a
  * character, and the editor shows it the same way.
  *
- * There is no `rig`, no `mesh` and no `animations` here — a system has nothing
- * to draw. A file that tries is refused rather than quietly ignored, since an
- * asset section on a system is somebody expecting it to appear.
+ * It differs from an entity in what it does NOT get: no `tags` and no `view`,
+ * since a system is not in a catalogue and there is nothing to look at. A file
+ * carrying one is refused rather than quietly ignored, since a key on a system
+ * is somebody expecting it to do something.
  */
 
 import { Node } from './document.js';

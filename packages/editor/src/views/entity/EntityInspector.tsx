@@ -284,8 +284,8 @@ function ComponentCard({
 
 				{/*
 				 * A component the engine cannot introspect shows what the file
-				 * carries and nothing invented: `actor` and `item` are the
-				 * game's, and this has never heard of either.
+				 * carries and nothing invented: `item` is the game's, and this
+				 * has never heard of it.
 				 */}
 				{parameters === null &&
 					Object.entries(component.fields).map(([key, value]) => (

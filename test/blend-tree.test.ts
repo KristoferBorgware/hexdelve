@@ -34,6 +34,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import {
 	BlendTree,
 	calibrateSpeed,
+	entityAnimations,
+	entityBlendTrees,
+	entityRig,
 	measureGroundSpeed,
 	type EntityAsset,
 	type Parameters,
@@ -74,20 +77,20 @@ let RUN_PERIOD: number;
 
 beforeAll(async () => {
 	wanderer = await openLibrary().entity('entities/wanderer.entity.yaml');
-	const rig = wanderer.rig!;
+	const rig = entityRig(wanderer)!;
 
 	BONES = rig.bones;
 	SKELETON = rig.skeleton;
 	UPPER_BODY = { ...rig.masks.upperBody };
 
-	const walk = wanderer.animations.get('walk')!;
-	const run = wanderer.animations.get('run')!;
+	const walk = entityAnimations(wanderer).get('walk')!;
+	const run = entityAnimations(wanderer).get('run')!;
 	WALK_PERIOD = walk.duration;
 	RUN_PERIOD = run.duration;
 	WALK_SPEED = walk.speed()!.z;
 	RUN_SPEED = run.speed()!.z;
 
-	tree = wanderer.blendTrees.get('locomotion')!.tree();
+	tree = entityBlendTrees(wanderer).get('locomotion')!.tree();
 });
 
 const BASE: Parameters = { speed: 0, turn: 0, lean: 0, guard: 0 };
@@ -119,7 +122,7 @@ function speedOf(params: Parameters): number {
 
 /** One gait's measured speed and its own cycle, off the loaded entity. */
 function gait(name: 'walk' | 'run'): { speed: number; period: number } {
-	const animation = wanderer.animations.get(name)!;
+	const animation = entityAnimations(wanderer).get(name)!;
 	return { speed: animation.speed()!.z, period: animation.duration };
 }
 
