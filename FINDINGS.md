@@ -363,6 +363,8 @@ back to being a gait's own dip rather than a correction. Either way a rig check
 worth having is that every foot the rig names can reach the ground with a
 stride's worth of room left over.
 
+## Closed
+
 ### F-026 — The game's humanoid locomotion does not run through its blend tree
 
 **Kind:** gap
@@ -408,8 +410,14 @@ are not locomotion — the slash, the duck, the topple — stay where they are;
 they have a beginning and an end and are not what a tree is for. The work is
 mostly in deciding what `buildPose` keeps.
 
-
-## Closed
+**Closed:** 2026-09-05, fixed — `HumanoidAnimator` asks the entity's
+`locomotion` tree for the pose underneath instead of calling `stridePose`, and
+`Player` hands it a speed in metres a second rather than a stride, a cadence and
+a playhead. `strideFor`'s bisection is the tree's calibration now, swept once
+when he is built. The tree's own lean and guard are driven at zero and stay
+that way: three masks in the animator say more about a man with a sword than
+one mask in the file, and two answers to one question is how they come to
+disagree.
 
 ### F-028 — The bat is drawn by its pose functions, not by the clips its entity names
 

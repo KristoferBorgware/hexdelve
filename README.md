@@ -243,9 +243,8 @@ an animation, play it, scrub it, slow it down, ghost the body to see the rig
 through it, mark a bone and read where the pose put it. What it is built around
 is the smallest thing every animation in this project has in common — a
 duration, and a function from a time to a pose. A keyframed clip is one of
-those; so is the procedural stride, which has no keys at all; and so is a blend
-tree, which is a function of its parameters. Gaining trees did not change the
-transport, only what is underneath it.
+those, and so is a blend tree, which is a function of its parameters. Gaining
+trees did not change the transport, only what is underneath it.
 
 ### Blend trees
 
@@ -258,9 +257,10 @@ made of, because nothing in it knows what a renderer is. Three operations:
 | `additive` | a subtree laid **on top of** another. A sum, because every value here is already a delta from rest, so the same lean composes with every gait instead of being authored once per gait |
 | `layer` | a subtree blended in through a per-bone **mask** — how this game carries a shield while walking: the arms hold a stance and the hips go on with the stride |
 
-A leaf is not a clip. It is anything that can answer "the pose at *t*", which
-here means a keyframed clip **or** a pose function — half the animation in this
-project is a function of an angle and has no keys at all.
+A leaf is anything that can answer "the pose at *t*". In practice that is
+always a clip, because every cycle in the game is one — but the tree never
+learns that, which is what let the gaits move from functions to files without
+it noticing.
 
 The interesting part is not the weighting, it is **phase synchronisation**. Two
 cycles of different lengths, run on their own clocks and mixed, put a
@@ -405,7 +405,7 @@ object:
     - { type: mesh, mesh: ../meshes/wanderer.mesh.yaml }
     - type: animator
       animations:
-        walk: { procedural: stride, args: { amp: 1, gait: 0 }, sync: true }
+        walk: { clip: ../clips/wanderer-walk.clip.yaml, sync: true, contacts: [0.25, 0.75] }
         guard: ../clips/guard.clip.yaml
       blendTrees:
         locomotion: ../trees/locomotion.tree.yaml
@@ -426,15 +426,29 @@ scalar may be arithmetic (`pi / 2 + 0.05`, `cos(mount) * out`, `tau / 1.8`),
 because a cheek plate is not tilted by 1.6207963267948965 radians. A mesh keeps
 the `for (const side of ['L', 'R'])` loop as a sided group, so sixty readable
 parts do not become a hundred and twenty unreadable ones. And a blend
-threshold may be `{ speedOf: walk }`, which measures the walk's own feet
-exactly as `strideVelocity` did — a tree that stated 1.53 would be wrong the
-first time anyone re-tuned the stride.
+threshold may be `{ speedOf: walk }`, which measures the walk's own feet — a
+tree that stated 1.53 would be wrong the first time anyone re-tuned the stride.
 
-Half the animation stays code, and that is the right answer rather than a gap:
-the stride is a function of one phase angle and a heading, so it covers the
-whole circle of directions where a blend space over clips covers four. An
-animation may therefore name a registered *pose function* and hand it
-arguments — the file carries the tuning, the code carries the curve.
+### The cycles are baked, not computed
+
+Every animation in the tree is a clip, and about thirty of them were *derived*
+rather than typed. A gait is easiest to work out as a function — a foot path
+along the ground with the leg solved back from it, a wing beat as four bones
+lagging each other round a cycle — and that is a good way to derive a cycle and
+a poor way to ship one: a function cannot be opened and nudged, and the
+parameters that make it general are the ones a blend tree already expresses
+better.
+
+So `@hexdelve/authoring` holds the functions, `bakeClip` samples one into keys,
+and `tools/bake-clips.mjs` writes the file. Keys go where the curve needs them:
+the contacts a gait declares are anchors, and elsewhere a key goes in only where
+the interpolation between the keys already placed disagrees with the source —
+measured through the same Hermite the runtime plays it through. What comes out
+is the same pose-major shape as the hand-written clips, small enough to edit,
+and `--check` re-bakes without writing and fails on a clip that has drifted.
+
+The client ships none of it. Nothing it loads resolves a function, and nothing
+it builds contains one.
 
 The reader is about four hundred lines in `@hexdelve/shared` with no
 dependencies, for the same reason there is a quaternion in that package rather
@@ -499,15 +513,14 @@ startup and the benches take their subjects from the same place. Adding a
 creature used to touch five files and an export block. It is now a file in
 `public/assets/entities` and a line in `index.yaml`.
 
-Three things stayed in code, each a deliberate line. The **pose functions** —
-the stride is a function of one phase angle and a heading, which covers the
-whole circle of directions where a blend space over clips covers four; the
-entity files name them and hand them their tuning. What those functions were
-**tuned against** — `stridePose` says `hipL` outright and was solved for a leg
-of a given length, so it carries that number rather than being handed a rig,
-and the copy is pinned to the rig file by a test. And the **calibration**, since
+Two things stayed in code, each a deliberate line. The **calibration**, since
 correcting a speed axis needs the built tree swept and a file can only state
-the request.
+the request. And the **pose functions** the cycles were derived from — which
+have since left the client altogether for `@hexdelve/authoring`, because what
+ships is the clip they were baked into and not the derivation of it. What they
+were tuned against goes with them: `stridePose` says `hipL` outright and was
+solved for a leg of a given length, so it carries that number rather than being
+handed a rig, and the copy is pinned to the rig file by a test.
 
 The guarantee moved with the code. While both statements of what a wanderer is
 existed, a test compared them part for part; they agreed, so the modules went.
@@ -762,13 +775,18 @@ half the time, and it looks twice as fast because it is.
 Which leaves the calibration running backwards from lab 09. There the pose was
 asked how fast a throttle and a gait were worth; here the speed is not his to
 choose — one action is one hexagon in a time the table fixes — so what has to
-be solved for is the walk that covers exactly that ground. `strideFor` bisects
-one monotone line: below a walk it shortens the stride, above one it blends
-towards the run, because that is what anybody does. You do not walk to the
-shops in slow motion, you take smaller steps.
+be solved for is the walk that covers exactly that ground. The tree's
+calibration answers it: one monotone line, swept once when he is built, from a
+speed in metres a second to the point on the axis that delivers it. Below a
+walk that shortens the stride while the cadence holds — the idle does not take
+part in the shared cycle, so mixing it in takes ground off the step rather than
+slowing it — and above one it blends towards the run, because that is what
+anybody does. You do not walk to the shops in slow motion, you take smaller
+steps.
 
-At normal speed it solves to `gait 0, amp 1` — a plain full-length walk, zero
-foot slip, which is the honest answer and also the reassuring one. Its point is
+At normal speed it asks for exactly the speed his walk carries him at, which is
+a plain full-length walk with no foot slip — the honest answer and also the
+reassuring one. Its point is
 what happens when the table changes: open the client with `?speed=120` and he
 must cover a hexagon in half the time, so the solver puts him into a run. A row
 of `extract_energy` is visible as a gait, and nothing tabulated the connection.
@@ -978,12 +996,14 @@ real metre per second.
 The turn clock has two limits of its own, and both are the honest kind — the
 code reports them rather than hiding them.
 
-A hasted man outruns his own legs. A full run measures 2.94 m/s, and a hexagon
-in half a normal step is 3.12 m/s, so anything above about +9 in the energy
-table asks for ground the rig has not got. `strideFor` returns the shortfall as
-`slip` instead of pretending, and the readout shows it in cm/s — so `?speed=120`
-is a real demonstration of a run with 18 cm/s of foot slide, not a clean one.
-Above +9 the honest fix is a longer stride or a third gait, not a faster cycle.
+A hasted man outruns his own legs. A full run measures 2.74 m/s and a hexagon
+in half a normal step is 2.96 m/s, so past about +9 in the energy table the ask
+is for ground the rig has not got. What is left over is reported as `slip`
+instead of pretended away, and the readout shows it in cm/s — so `?speed=120`
+is a real demonstration of a run with foot slide in it, not a clean one. Above
++9 the honest fix is a longer stride or a third gait, not a faster cycle — and
+a longer stride is exactly what the rig cannot give, since its leg does not
+reach the ground from its own hip height at all. See F-025.
 
 And melee on a grid always connects. Adjacency is the whole of reach, nothing
 moves while anything is mid-action, and there is no to-hit roll yet — so a cut
